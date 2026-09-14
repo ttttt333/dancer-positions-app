@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useRef } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { flushEditorAutoSaveBeforeLeave } from "../../lib/editorAutoSaveBridge";
 import { StageBoard } from "../../components/StageBoard";
-import { EditorPerspectiveToggle } from "../../components/EditorPerspectiveToggle";
+import {
+  EditorPerspectiveToggle,
+  EditorStageView3DToggle,
+} from "../../components/EditorPerspectiveToggle";
 import { EditorStageWorkbench, WorkbenchCuePager } from "../../components/EditorStageWorkbench";
 import { RosterTimelineStrip } from "../../components/RosterTimelineStrip";
 import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
@@ -20,6 +23,12 @@ import {
 } from "../../components/ChoreoViewerBottomBar";
 import { sortCuesByStart } from "../../core/timelineController";
 import { TransportIconUndo, TransportIconRedo } from "../../components/mobile/TransportIcons";
+import type { DancerSpot } from "../../types/choreography";
+import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "../../lib/projectDefaults";
+
+const Stage3DView = lazy(() =>
+  import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
+);
 
 export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const activeFormationId = props.activeFormationId as never;
@@ -175,6 +184,16 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     props.setEditorAudiencePerspective as (
       next: "stage" | "audience"
     ) => void;
+  const stageView = (props.stageView as "2d" | "3d" | undefined) ?? "2d";
+  const setStageView = props.setStageView as
+    | ((next: "2d" | "3d") => void)
+    | undefined;
+  const onStageViewChange = useCallback(
+    (next: "2d" | "3d") => {
+      setStageView?.(next);
+    },
+    [setStageView]
+  );
   const setStageZenFullscreen = props.setStageZenFullscreen as never;
   const setTextPanelPortalEl = props.setTextPanelPortalEl as never;
   const shareLinksOpen = props.shareLinksOpen as never;
@@ -370,14 +389,14 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     const showPager = cues.length > 0 || hasRoster;
 
     setMobileShellBridge({
-      stageView: "2d",
+      stageView,
       undoDisabled: stageUndoDisabled as boolean,
       redoDisabled: stageRedoDisabled as boolean,
       currentCueIndex: slotIdx >= 0 ? slotIdx : 0,
       totalCues: total,
       onCuePrev: handleMobileCuePrev,
       onCueNext: handleMobileCueNext,
-      onStageViewChange: () => {},
+      onStageViewChange,
       onAddCue: () => addCueFnRef.current?.(true),
       onDeleteSelectedCue: () => {
         if ((project as { viewMode?: string }).viewMode === "view") return;
@@ -451,6 +470,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     setFormationPresetPickerOpen,
     setProjectSafe,
     setSelectedCueIds,
+    stageView,
+    onStageViewChange,
   ]);
 
   return (
@@ -795,6 +816,12 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         compact
                         style={{ width: "100%", minHeight: 32 }}
                       />
+                      <EditorStageView3DToggle
+                        stageView={stageView}
+                        onChange={onStageViewChange}
+                        compact
+                        style={{ width: "100%", minHeight: 32 }}
+                      />
                       <Link
                         to="/update-log"
                         target="_blank"
@@ -829,10 +856,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 ) : (
                   <div
                     role="group"
-                    aria-label="客席側／舞台裏側の視点切り替え"
+                    aria-label="視点・表示モード"
                     style={{
                       display: choreoPublicView ? "none" : "flex",
-                      flexDirection: "row",
+                      flexDirection: "column",
+                      alignItems: "stretch",
                       gap: mobileStackEditor ? 4 : 3,
                       flexShrink: 0,
                     }}
@@ -840,6 +868,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     <EditorPerspectiveToggle
                       perspective={editorAudiencePerspective}
                       onChange={setEditorAudiencePerspective}
+                      compact={Boolean(mobileStackEditor)}
+                    />
+                    <EditorStageView3DToggle
+                      stageView={stageView}
+                      onChange={onStageViewChange}
                       compact={Boolean(mobileStackEditor)}
                     />
                   </div>
@@ -855,6 +888,73 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   flexDirection: "column",
                 }}
               >
+                {stageView === "3d" ? (
+                  <Suspense
+                    fallback={
+                      <div
+                        style={{
+                          flex: 1,
+                          minHeight: 280,
+                          display: "grid",
+                          placeItems: "center",
+                          color: "#94a3b8",
+                          fontSize: 13,
+                        }}
+                      >
+                        3Dを読み込み中…
+                      </div>
+                    }
+                  >
+                    <Stage3DView
+                      dancers={(() => {
+                        const base =
+                          (stagePreviewDancers as DancerSpot[] | null | undefined) ??
+                          (playbackDancersForStage as DancerSpot[] | null | undefined) ??
+                          (browseFormationDancers as DancerSpot[] | null | undefined) ??
+                          [];
+                        const crews = Array.isArray(project.crews)
+                          ? project.crews
+                          : [];
+                        const heightByMemberId = new Map<string, number>();
+                        for (const c of crews) {
+                          for (const m of c.members ?? []) {
+                            if (
+                              typeof m.heightCm === "number" &&
+                              Number.isFinite(m.heightCm) &&
+                              m.heightCm > 0
+                            ) {
+                              heightByMemberId.set(m.id, m.heightCm);
+                            }
+                          }
+                        }
+                        if (heightByMemberId.size === 0) return base;
+                        return base.map((d) => {
+                          if (
+                            typeof d.heightCm === "number" &&
+                            Number.isFinite(d.heightCm) &&
+                            d.heightCm > 0
+                          ) {
+                            return d;
+                          }
+                          const fromCrew =
+                            d.crewMemberId != null
+                              ? heightByMemberId.get(d.crewMemberId)
+                              : undefined;
+                          return fromCrew != null
+                            ? { ...d, heightCm: fromCrew }
+                            : d;
+                        });
+                      })()}
+                      markerDiameterPx={
+                        typeof (stageBoardProject as { dancerMarkerDiameterPx?: number })
+                          ?.dancerMarkerDiameterPx === "number"
+                          ? (stageBoardProject as { dancerMarkerDiameterPx: number })
+                              .dancerMarkerDiameterPx
+                          : DEFAULT_DANCER_MARKER_DIAMETER_PX
+                      }
+                    />
+                  </Suspense>
+                ) : (
                 <StageBoard
                     project={stageBoardProject}
                     setProject={setProjectSafe}
@@ -943,6 +1043,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       typeof selectedCueId === "string" ? selectedCueId : null
                     }
                   />
+                )}
                 {mobileStackEditor &&
                 editorMobileLandscape &&
                 !landscapeWaveCollapsed &&
@@ -977,6 +1078,12 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       <EditorPerspectiveToggle
                         perspective={editorAudiencePerspective}
                         onChange={setEditorAudiencePerspective}
+                        compact
+                        className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
+                      />
+                      <EditorStageView3DToggle
+                        stageView={stageView}
+                        onChange={onStageViewChange}
                         compact
                         className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
                       />
@@ -1061,6 +1168,13 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
                       />
                     </div>
+                    <EditorStageView3DToggle
+                      stageView={stageView}
+                      onChange={onStageViewChange}
+                      compact
+                      className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
+                      style={{ width: "70%" }}
+                    />
                     <Link
                       to="/update-log"
                       target="_blank"

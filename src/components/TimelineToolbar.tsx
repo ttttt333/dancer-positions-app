@@ -21,7 +21,7 @@ const neonGlow = (c: string) =>
 
 /* ─── Playback icon SVGs — neon colors matching NeonIconPanel ─── */
 function IconPlay() {
-  const c = "#c084fc"; // purple neon
+  const c = "#60a5fa"; // blue neon — seek/stop と揃える
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       <polygon points="5,3 20,12 5,21" fill={c} />
@@ -29,7 +29,7 @@ function IconPlay() {
   );
 }
 function IconPause() {
-  const c = "#c084fc";
+  const c = "#60a5fa";
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       <rect x="4" y="3" width="5" height="18" rx="1.5" fill={c} />
@@ -329,6 +329,10 @@ const timelineToolbarBtn: CSSProperties = {
   fontSize: tlPx(11),
   borderRadius: tlPx(5),
   lineHeight: 1.2,
+  background: "rgba(15,23,42,0.92)",
+  backgroundColor: "rgba(15,23,42,0.92)",
+  color: "#e2e8f0",
+  border: `1px solid ${shell.border}`,
 };
 
 function PracticePlaybackControls({
@@ -744,7 +748,6 @@ export function TimelineToolbar({
   showFormationChange = false,
   onOpenFormationChange,
   floatingChrome = false,
-  onAddDancer,
   onToggleRightPane,
   rightPaneOpen = false,
 }: TimelineToolbarProps) {
@@ -1452,10 +1455,12 @@ export function TimelineToolbar({
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            background: isPlaying || isCountingIn
-              ? "linear-gradient(180deg, #e8d48b, #d4af37)"
-              : timelineToolbarBtn.background,
-            color: isPlaying || isCountingIn ? "#0a0908" : undefined,
+            background: "rgba(15,23,42,0.92)",
+            backgroundColor: "rgba(15,23,42,0.92)",
+            border: isPlaying || isCountingIn
+              ? "1px solid rgba(212,175,55,0.7)"
+              : timelineToolbarBtn.border,
+            color: "#e2e8f0",
           }}
           onClick={togglePlay}
           aria-label={
@@ -1617,30 +1622,6 @@ export function TimelineToolbar({
             <IconSectionFormations />
           </button>
         ) : null}
-        {unifiedWideChrome && onAddDancer ? (
-          <button
-            type="button"
-            style={{
-              ...timelineToolbarBtn,
-              padding: `${tlPx(4)} ${tlPx(9)}`,
-              minHeight: tlPx(28),
-              flexShrink: 0,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 4,
-              fontSize: tlPx(11),
-              fontWeight: 700,
-            }}
-            disabled={viewMode === "view"}
-            title={t("editor.comp.k001")}
-            aria-label={t("editor.comp.k001")}
-            onClick={onAddDancer}
-          >
-            <span aria-hidden>+</span>
-            追加
-          </button>
-        ) : null}
         {onUndo ? (
           <button
             type="button"
@@ -1707,12 +1688,16 @@ export function TimelineToolbar({
               gap: 5,
               fontSize: tlPx(11),
               fontWeight: 700,
+              color: rightPaneOpen ? "#fef3c7" : "#e2e8f0",
               border: rightPaneOpen
                 ? "1px solid rgba(212,175,55,0.65)"
-                : timelineToolbarBtn.border,
+                : `1px solid ${shell.border}`,
               background: rightPaneOpen
-                ? "rgba(212,175,55,0.18)"
-                : timelineToolbarBtn.background,
+                ? "rgba(212,175,55,0.2)"
+                : "rgba(15,23,42,0.92)",
+              backgroundColor: rightPaneOpen
+                ? "rgba(212,175,55,0.2)"
+                : "rgba(15,23,42,0.92)",
             }}
             title={
               rightPaneOpen

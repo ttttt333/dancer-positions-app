@@ -212,8 +212,7 @@ export function WorkbenchCuePager({
               ? {
                   display: "inline-flex",
                   alignItems: "center",
-                  gap:
-                    (rosterPageActive || (cur && cur.name?.trim())) ? "4px" : "0",
+                  gap: "0",
                   padding: "2px 5px",
                   minHeight: "22px",
                   borderRadius: "6px",
@@ -224,13 +223,13 @@ export function WorkbenchCuePager({
                   fontWeight: 700,
                   cursor: "default",
                   flexShrink: 0,
-                  maxWidth: "112px",
+                  maxWidth: "72px",
                   fontVariantNumeric: "tabular-nums",
                 }
               : {
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "6px",
+                  gap: "0",
                   padding: "3px 9px",
                   borderRadius: "8px",
                   border: pageHighlight ? "1px solid #818cf8" : "1px solid #334155",
@@ -241,21 +240,11 @@ export function WorkbenchCuePager({
                   cursor: "default",
                   flexShrink: 0,
                   minHeight: "26px",
-                  maxWidth: "240px",
+                  maxWidth: "96px",
                   fontVariantNumeric: "tabular-nums",
                 }
         }
       >
-        {!isCorner && !rosterPageActive ? (
-          <span
-            style={{
-              fontSize: isRail ? "6.5px" : "9px",
-              color: pageHighlight ? "#c7d2fe" : "#64748b",
-              letterSpacing: isRail ? 0 : "0.04em",
-              lineHeight: 1.1,
-            }}
-          >{t("editor.comp.k017")}</span>
-        ) : null}
         <span
           style={
             isRail
@@ -269,26 +258,6 @@ export function WorkbenchCuePager({
         >
           {pagerFractionLabel}
         </span>
-        {rosterPageActive ? null : cur && cur.name?.trim() ? (
-          <span
-            style={{
-              fontSize: isRail ? "6.5px" : isCorner ? "9px" : "11px",
-              fontWeight: 500,
-              color: "#e2e8f0",
-              overflow: "hidden",
-              display: isRail ? "-webkit-box" : undefined,
-              WebkitLineClamp: isRail ? 2 : undefined,
-              WebkitBoxOrient: isRail ? "vertical" : undefined,
-              textOverflow: "ellipsis",
-              whiteSpace: isRail ? "normal" : "nowrap",
-              maxWidth: isRail ? "100%" : isCorner ? "72px" : "120px",
-              lineHeight: 1.08,
-              textAlign: "center",
-            }}
-          >
-            {cur.name.trim()}
-          </span>
-        ) : null}
       </div>
       <button
         type="button"

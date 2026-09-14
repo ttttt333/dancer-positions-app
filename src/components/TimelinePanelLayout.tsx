@@ -26,8 +26,8 @@ export type TimelinePanelLayoutProps = Omit<
   };
 
 /**
- * `TimelinePanel` の見た目レイヤー：音源 chrome・波形・統合ツールバー・キュー一覧。
- * ワイド PC: 波形を上、その下に一列の操作バー。
+ * `TimelinePanel` の見た目レイヤー：音源 chrome・統合ツールバー・波形・キュー一覧。
+ * ワイド PC: 再生バーを上、波形をその下。
  */
 export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
   const floatingChrome = Boolean(p.floatingChrome && p.wideWorkbench);
@@ -75,42 +75,6 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
             }}
           />
         ) : null}
-        <div
-          style={{
-            flex: p.compactTopDock ? "1 1 auto" : undefined,
-            minHeight: p.compactTopDock ? 0 : undefined,
-            overflow: p.compactTopDock ? "hidden" : undefined,
-            display: "flex",
-            flexDirection: "column",
-            order: floatingChrome ? 0 : undefined,
-          }}
-        >
-          <WaveformStrip
-            waveContainerRef={p.waveContainerRef}
-            canvasRef={p.canvasRef}
-            playheadLineOverlayRef={p.playheadLineOverlayRef}
-            compactTopDock={p.compactTopDock}
-            wideWorkbench={p.wideWorkbench}
-            duration={p.duration}
-            viewMode={p.viewMode}
-            hasPeaks={p.hasPeaks}
-            waveView={p.waveView}
-            waveCanvasCssH={p.waveCanvasCssH}
-            showWaveHeightResizeHandle={!(p.compactTopDock && p.wideWorkbench)}
-            onWaveRulerPointerDown={p.onWaveRulerPointerDown}
-            onWaveClick={p.onWaveClick}
-            onWaveDoubleClick={p.onWaveDoubleClick}
-            onWaveContextMenu={p.onWaveContextMenu}
-            onWaveCanvasPointerDown={p.onWaveCanvasPointerDown}
-            onWaveCanvasPointerMove={p.onWaveCanvasPointerMove}
-            onWaveCanvasPointerLeave={p.onWaveCanvasPointerLeave}
-            onWaveBorderResizePointerDown={p.onWaveBorderResizePointerDown}
-            onPlayheadLinePointerDown={p.onPlayheadLinePointerDown}
-            onPlayheadLinePointerMove={p.onPlayheadLinePointerMove}
-            onPlayheadLinePointerUp={p.onPlayheadLinePointerUp}
-            onPlayheadLinePointerCancel={p.onPlayheadLinePointerCancel}
-          />
-        </div>
         <TimelineToolbar
           compactTopDock={p.compactTopDock}
           brandRailCss={p.brandRailCss}
@@ -146,10 +110,44 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           showFormationChange={p.showFormationChange}
           onOpenFormationChange={p.onOpenFormationChange}
           floatingChrome={floatingChrome}
-          onAddDancer={p.onAddDancer}
           onToggleRightPane={p.onToggleRightPane}
           rightPaneOpen={p.rightPaneOpen}
         />
+        <div
+          style={{
+            flex: p.compactTopDock ? "1 1 auto" : undefined,
+            minHeight: p.compactTopDock ? 0 : undefined,
+            overflow: p.compactTopDock ? "hidden" : undefined,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <WaveformStrip
+            waveContainerRef={p.waveContainerRef}
+            canvasRef={p.canvasRef}
+            playheadLineOverlayRef={p.playheadLineOverlayRef}
+            compactTopDock={p.compactTopDock}
+            wideWorkbench={p.wideWorkbench}
+            duration={p.duration}
+            viewMode={p.viewMode}
+            hasPeaks={p.hasPeaks}
+            waveView={p.waveView}
+            waveCanvasCssH={p.waveCanvasCssH}
+            showWaveHeightResizeHandle={!(p.compactTopDock && p.wideWorkbench)}
+            onWaveRulerPointerDown={p.onWaveRulerPointerDown}
+            onWaveClick={p.onWaveClick}
+            onWaveDoubleClick={p.onWaveDoubleClick}
+            onWaveContextMenu={p.onWaveContextMenu}
+            onWaveCanvasPointerDown={p.onWaveCanvasPointerDown}
+            onWaveCanvasPointerMove={p.onWaveCanvasPointerMove}
+            onWaveCanvasPointerLeave={p.onWaveCanvasPointerLeave}
+            onWaveBorderResizePointerDown={p.onWaveBorderResizePointerDown}
+            onPlayheadLinePointerDown={p.onPlayheadLinePointerDown}
+            onPlayheadLinePointerMove={p.onPlayheadLinePointerMove}
+            onPlayheadLinePointerUp={p.onPlayheadLinePointerUp}
+            onPlayheadLinePointerCancel={p.onPlayheadLinePointerCancel}
+          />
+        </div>
         <TimelineCueList
           cuesSorted={p.cuesSorted}
           formations={p.formations}
