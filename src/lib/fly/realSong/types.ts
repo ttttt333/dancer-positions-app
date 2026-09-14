@@ -120,6 +120,21 @@ export type RealSongAnnotation = {
   notes?: string;
 };
 
+/**
+ * Evaluation view of beats[] / downbeats[] (not required on disk).
+ * See docs/fly/PHASE46-BEAT-PATTERN-GT.md
+ */
+export type BeatPatternGt = {
+  patternStartSec: number;
+  patternEndSec: number;
+  bpm: number | null;
+  intervalSec: number;
+  phaseSec: number;
+  continuation: boolean;
+  continuationUntilSec: number;
+  patternConfidence: number;
+};
+
 export type HumanAgreementReport = {
   songId: string;
   annotatorA: string;

@@ -1,0 +1,40 @@
+{
+  "specId": "4.6-g-013-reproducibility-pilot-v1",
+  "status": "WASHOUT_ACTIVE",
+  "lockedAt": "2026-09-14",
+  "washoutStartedAt": "2026-09-14",
+  "washoutMinHours": 24,
+  "washoutPreferredHours": [48, 72],
+  "sessionBToday": false,
+  "prerequisite": "4.6-F A_CONDITIONAL_GO",
+  "basisReport": "docs/fly/reports/phase-anchor-independence-audit.md",
+  "designDoc": "docs/fly/PHASE46-013-REPRODUCIBILITY-PILOT.md",
+  "centerSong": "song-013",
+  "sessionA": "frozen: phase-anchor.session-a.json",
+  "sessionB": "after washout: MEMO.session-b.md → phase-anchor.session-b.json; do not self-compare to A",
+  "completionSignal": "Session Bできた",
+  "auditGate": "4.6-H",
+  "auditFocus": [
+    "similar-time-region-not-exact-ms",
+    "section-relation",
+    "anchor-type",
+    "rationale-meaning",
+    "musical-significance",
+    "reference-point",
+    "nearest-beat-relation",
+    "explainable-divergence"
+  ],
+  "auditQuestion": "Same musical reason → same kind of origin choice? (not merely same answer)",
+  "verdicts": ["PASS", "CONDITIONAL", "HOLD"],
+  "frozenUntilAfter46H": [
+    "l3-implementation",
+    "fusion",
+    "msaf",
+    "analyzer-changes",
+    "beat-detection-logic",
+    "countgrid-logic",
+    "production-v1",
+    "ai-auto-suggest",
+    "auto-weight-optimization"
+  ]
+}

@@ -1,1119 +1,1207 @@
 {
-  "note": "pilot_schema_only",
-  "stageAAnnotated": 0,
-  "benchmarkVersion": "1.0.0",
-  "datasetVersion": "1.0.0",
-  "groundTruthVersion": "1.0.0",
-  "metricsVersion": "1.0.0",
-  "songResults": [
-    {
-      "benchmarkVersion": "1.0.0",
-      "datasetVersion": "1.0.0",
-      "groundTruthVersion": "1.0.0",
-      "metricsVersion": "1.0.0",
-      "audioHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "songId": "song-pilot-format",
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "conditions": {
-        "genre": "pilot",
-        "tempoCategory": "medium",
-        "beatDensity": "normal",
-        "structuralComplexity": "simple",
-        "vocalPresence": "vocal-heavy",
-        "flags": [
-          "version:ORIGINAL",
-          "split:DEVELOPMENT"
-        ]
+  "gate": "GO",
+  "experimentId": null,
+  "benchmarkGate": "GO",
+  "analyzerUnderTest": "librosa",
+  "realSongDatasetVersion": "4.6.1-double-consensus",
+  "computedAt": "2026-09-13T04:58:08.329Z",
+  "axisPassCounts": {
+    "period": 16,
+    "phase": 0,
+    "continuity": 0,
+    "evidence": 20,
+    "n": 20
+  },
+  "beatFindingClassCounts": {
+    "PASS": 0,
+    "WEAK": 9,
+    "GT-AMBIGUITY": 0,
+    "ANALYZER-LIMIT": 11
+  },
+  "findingClassCounts": {
+    "PASS": 17,
+    "WEAK": 36,
+    "GT-AMBIGUITY": 0,
+    "ANALYZER-LIMIT": 27
+  },
+  "freeze": [
+    "no_madmom",
+    "no_msaf",
+    "no_cyanite",
+    "no_demucs",
+    "no_fusion_weight_change",
+    "no_formation_engine_change",
+    "no_keep_current",
+    "no_ml_training",
+    "no_musical_change_to_formation_change"
+  ],
+  "contract": {
+    "beatAxes": [
+      "Period",
+      "Phase",
+      "Continuity",
+      "Evidence"
+    ],
+    "forbidden": [
+      "pointwise Beat F1",
+      "seed density as accuracy",
+      "continuation point competition",
+      "BPM-only phase pass",
+      "A/B disagreement as analyzer error",
+      "GT retargeted to analyzer",
+      "fusion during experiment B"
+    ],
+    "song013PhasePolicy": "half-beat offset is phase-start error, not dual-phase GT; consensus seed=B"
+  },
+  "song013": {
+    "title": "One More Time",
+    "gtSource": "consensus",
+    "beat": {
+      "period": {
+        "gtIntervalSec": 0.4890000000000043,
+        "hypIntervalSec": 0.4876000000000005,
+        "relativeError": 0.0028629856850794074,
+        "score": 1,
+        "verdict": "PASS",
+        "octaveHint": 1
       },
-      "metrics": {
-        "tempo": {
-          "status": "OK",
-          "humanBpm": 120,
-          "hypBpm": 120,
-          "absoluteErrorBpm": 0,
-          "relativeErrorPercent": 0,
-          "equivalenceRatio": 1,
-          "tempoClassError": false,
-          "sampleCount": 1,
-          "evidenceConfidence": "LOW"
-        },
-        "beat": {
-          "status": "OK",
-          "thresholdsMs": [
-            20,
-            40,
-            60,
-            100
-          ],
-          "byThreshold": {
-            "20": {
-              "precision": 0.890625,
-              "recall": 0.890625,
-              "f1": 0.890625,
-              "meanTimingError": 0.01999999999999958,
-              "medianTimingError": 0.019999999999999574,
-              "matched": 57,
-              "nRef": 64,
-              "nHyp": 64
-            },
-            "40": {
-              "precision": 1,
-              "recall": 1,
-              "f1": 1,
-              "meanTimingError": 0.01999999999999963,
-              "medianTimingError": 0.019999999999999574,
-              "matched": 64,
-              "nRef": 64,
-              "nHyp": 64
-            },
-            "60": {
-              "precision": 1,
-              "recall": 1,
-              "f1": 1,
-              "meanTimingError": 0.01999999999999963,
-              "medianTimingError": 0.019999999999999574,
-              "matched": 64,
-              "nRef": 64,
-              "nHyp": 64
-            },
-            "100": {
-              "precision": 1,
-              "recall": 1,
-              "f1": 1,
-              "meanTimingError": 0.01999999999999963,
-              "medianTimingError": 0.019999999999999574,
-              "matched": 64,
-              "nRef": 64,
-              "nHyp": 64
-            }
-          },
-          "sampleCount": 64,
-          "evidenceConfidence": "HIGH"
-        },
-        "downbeat": {
-          "status": "OK",
-          "thresholdsMs": [
-            20,
-            40,
-            60,
-            100
-          ],
-          "byThreshold": {
-            "20": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 16,
-              "nHyp": 0
-            },
-            "40": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 16,
-              "nHyp": 0
-            },
-            "60": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 16,
-              "nHyp": 0
-            },
-            "100": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 16,
-              "nHyp": 0
-            }
-          },
-          "sampleCount": 16,
-          "evidenceConfidence": "MEDIUM"
-        },
-        "onset": {
-          "status": "NOT_AVAILABLE",
-          "thresholdsMs": [
-            20,
-            50,
-            100
-          ],
-          "byThreshold": {
-            "20": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 0,
-              "nHyp": 0
-            },
-            "50": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 0,
-              "nHyp": 0
-            },
-            "100": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 0,
-              "nHyp": 0
-            }
-          },
-          "sampleCount": 0,
-          "evidenceConfidence": "NONE"
-        },
-        "section": {
-          "status": "OK",
-          "labelPrecision": 0.5,
-          "labelRecall": 0.3333333333333333,
-          "labelF1": 0.4,
-          "meanBoundaryError": 2,
-          "meanIoU": 0.8333333333333333,
-          "nRef": 3,
-          "nHyp": 2,
-          "sampleCount": 3,
-          "evidenceConfidence": "LOW"
-        },
-        "eightCount": {
-          "status": "EMPTY",
-          "startTimingError": null,
-          "endTimingError": null,
-          "countBoundaryError": null,
-          "phraseAlignmentScore": 0,
-          "offByOneCountRate": null,
-          "sampleCount": 8,
-          "evidenceConfidence": "LOW"
-        },
-        "event": {
-          "status": "OK",
-          "byType": [
-            {
-              "status": "OK",
-              "thresholdsMs": [
-                20,
-                50,
-                100
-              ],
-              "byThreshold": {
-                "20": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "meanTimingError": null,
-                  "medianTimingError": null,
-                  "matched": 0,
-                  "nRef": 1,
-                  "nHyp": 0
-                },
-                "50": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "meanTimingError": null,
-                  "medianTimingError": null,
-                  "matched": 0,
-                  "nRef": 1,
-                  "nHyp": 0
-                },
-                "100": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "meanTimingError": null,
-                  "medianTimingError": null,
-                  "matched": 0,
-                  "nRef": 1,
-                  "nHyp": 0
-                }
-              },
-              "sampleCount": 1,
-              "evidenceConfidence": "LOW",
-              "eventType": "SECTION_CHANGE"
-            }
-          ],
-          "sampleCount": 1,
-          "evidenceConfidence": "LOW"
+      "phase": {
+        "medianAbsErrorSec": 0.16610000000020264,
+        "halfBeatRatio": 0.6793456032728065,
+        "score": 0.2177999999995947,
+        "verdict": "FAIL"
+      },
+      "continuity": {
+        "lockFraction": 0.7175572519083969,
+        "evaluatedBins": 655,
+        "score": 0.7175572519083969,
+        "verdict": "WEAK"
+      },
+      "evidence": {
+        "gtSeedCount": 655,
+        "hypCountInWindow": 655,
+        "hypIntervalCv": 0.03901283876990663,
+        "score": 1,
+        "verdict": "PASS"
+      },
+      "aggregate": 0.7338393129769979,
+      "notes": [
+        "phase near half-beat (ratio=0.68); treat as phase error not dual-phase GT",
+        "seedDensity ignored for accuracy (gtSeeds=655, hypInWindow=655)"
+      ]
+    },
+    "findings": [
+      {
+        "songId": "song-013",
+        "title": "One More Time",
+        "analyzerId": "librosa",
+        "dimension": "BEAT",
+        "findingClass": "WEAK",
+        "score": 0.7338393129769979,
+        "evidence": "period=PASS(rel=0.003); phase=FAIL(medMs=166); continuity=WEAK(lock=0.72); evidence=PASS; phase near half-beat (ratio=0.68); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=655, hypInWindow=655)",
+        "axes": {
+          "period": "PASS",
+          "phase": "FAIL",
+          "continuity": "WEAK",
+          "evidence": "PASS"
         }
       },
-      "aggregateScore": 0.7999999999999999,
-      "confidence": "HIGH",
-      "provenance": [
+      {
+        "songId": "song-013",
+        "title": "One More Time",
+        "analyzerId": "librosa",
+        "dimension": "DOWNBEAT",
+        "findingClass": "ANALYZER-LIMIT",
+        "score": 0.6967134146343334,
+        "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=189); continuity=FAIL(lock=0.62); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=164, hypInWindow=163)",
+        "axes": {
+          "period": "PASS",
+          "phase": "FAIL",
+          "continuity": "FAIL",
+          "evidence": "PASS"
+        }
+      },
+      {
+        "songId": "song-013",
+        "title": "One More Time",
+        "analyzerId": "librosa",
+        "dimension": "BPM",
+        "findingClass": "PASS",
+        "score": 1,
+        "evidence": "rel%=0.4 equiv=1"
+      },
+      {
+        "songId": "song-013",
+        "title": "One More Time",
+        "analyzerId": "librosa",
+        "dimension": "SECTION",
+        "findingClass": "WEAK",
+        "score": 0.18749999999999997,
+        "evidence": "labelF1=0.187 (informational)"
+      }
+    ],
+    "songClass": "WEAK"
+  },
+  "songs": [
+    {
+      "songId": "song-001",
+      "title": "アイドル",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 166.92,
+        "hyp": 161.499,
+        "relPct": 3.2476635514018652,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "WEAK",
+        "periodRelErr": 0.03481894150417135,
+        "phaseVerdict": "WEAK",
+        "phaseMedMs": 81,
+        "halfBeatRatio": 0.4495821727019907,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.6985645933014354,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 573,
+        "gtSeeds": 20,
+        "aggregate": 0.831416334026377
+      },
+      "sectionLabelF1": 0.4000000000000001,
+      "findings": [
         {
-          "metric": "tempo",
-          "sources": [
-            {
-              "analyzer": "ground_truth",
-              "value": 120
-            },
-            {
-              "analyzer": "essentia",
-              "value": 120
-            }
-          ]
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.831416334026377,
+          "evidence": "period=WEAK(rel=0.035); phase=WEAK(medMs=81); continuity=WEAK(lock=0.70); evidence=PASS; phase near half-beat (ratio=0.45); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=573)"
         },
         {
-          "metric": "beat",
-          "sources": [
-            {
-              "analyzer": "ground_truth",
-              "value": 0
-            },
-            {
-              "analyzer": "essentia",
-              "value": 0.02
-            }
-          ]
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5652866242038217,
+          "evidence": "period=PASS(rel=0.003); phase=FAIL(medMs=307); continuity=FAIL(lock=0.26); evidence=PASS; phase near half-downbeat (ratio=0.43); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=143)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=3.2 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.4000000000000001,
+          "evidence": "labelF1=0.400 (informational)"
         }
       ]
     },
     {
-      "benchmarkVersion": "1.0.0",
-      "datasetVersion": "1.0.0",
-      "groundTruthVersion": "1.0.0",
-      "metricsVersion": "1.0.0",
-      "audioHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "songId": "song-pilot-format",
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "conditions": {
-        "genre": "pilot",
-        "tempoCategory": "medium",
-        "beatDensity": "normal",
-        "structuralComplexity": "simple",
-        "vocalPresence": "vocal-heavy",
-        "flags": [
-          "version:ORIGINAL",
-          "split:DEVELOPMENT"
-        ]
+      "songId": "song-002",
+      "title": "ダンスホール",
+      "gtSource": "consensus",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 110.319,
+        "hyp": 107.666,
+        "relPct": 2.4048441338300797,
+        "equiv": 1,
+        "classError": false
       },
-      "metrics": {
-        "tempo": {
-          "status": "OK",
-          "humanBpm": 120,
-          "hypBpm": 120,
-          "absoluteErrorBpm": 0,
-          "relativeErrorPercent": 0,
-          "equivalenceRatio": 1,
-          "tempoClassError": false,
-          "sampleCount": 1,
-          "evidenceConfidence": "LOW"
-        },
-        "beat": {
-          "status": "OK",
-          "thresholdsMs": [
-            20,
-            40,
-            60,
-            100
-          ],
-          "byThreshold": {
-            "20": {
-              "precision": 1,
-              "recall": 1,
-              "f1": 1,
-              "meanTimingError": 0,
-              "medianTimingError": 0,
-              "matched": 64,
-              "nRef": 64,
-              "nHyp": 64
-            },
-            "40": {
-              "precision": 1,
-              "recall": 1,
-              "f1": 1,
-              "meanTimingError": 0,
-              "medianTimingError": 0,
-              "matched": 64,
-              "nRef": 64,
-              "nHyp": 64
-            },
-            "60": {
-              "precision": 1,
-              "recall": 1,
-              "f1": 1,
-              "meanTimingError": 0,
-              "medianTimingError": 0,
-              "matched": 64,
-              "nRef": 64,
-              "nHyp": 64
-            },
-            "100": {
-              "precision": 1,
-              "recall": 1,
-              "f1": 1,
-              "meanTimingError": 0,
-              "medianTimingError": 0,
-              "matched": 64,
-              "nRef": 64,
-              "nHyp": 64
-            }
-          },
-          "sampleCount": 64,
-          "evidenceConfidence": "HIGH"
-        },
-        "downbeat": {
-          "status": "OK",
-          "thresholdsMs": [
-            20,
-            40,
-            60,
-            100
-          ],
-          "byThreshold": {
-            "20": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 16,
-              "nHyp": 0
-            },
-            "40": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 16,
-              "nHyp": 0
-            },
-            "60": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 16,
-              "nHyp": 0
-            },
-            "100": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 16,
-              "nHyp": 0
-            }
-          },
-          "sampleCount": 16,
-          "evidenceConfidence": "MEDIUM"
-        },
-        "onset": {
-          "status": "NOT_AVAILABLE",
-          "thresholdsMs": [
-            20,
-            50,
-            100
-          ],
-          "byThreshold": {
-            "20": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 0,
-              "nHyp": 0
-            },
-            "50": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 0,
-              "nHyp": 0
-            },
-            "100": {
-              "precision": 0,
-              "recall": 0,
-              "f1": 0,
-              "meanTimingError": null,
-              "medianTimingError": null,
-              "matched": 0,
-              "nRef": 0,
-              "nHyp": 0
-            }
-          },
-          "sampleCount": 0,
-          "evidenceConfidence": "NONE"
-        },
-        "section": {
-          "status": "OK",
-          "labelPrecision": 1,
-          "labelRecall": 1,
-          "labelF1": 1,
-          "meanBoundaryError": 0,
-          "meanIoU": 1,
-          "nRef": 3,
-          "nHyp": 3,
-          "sampleCount": 3,
-          "evidenceConfidence": "LOW"
-        },
-        "eightCount": {
-          "status": "EMPTY",
-          "startTimingError": null,
-          "endTimingError": null,
-          "countBoundaryError": null,
-          "phraseAlignmentScore": 0,
-          "offByOneCountRate": null,
-          "sampleCount": 8,
-          "evidenceConfidence": "LOW"
-        },
-        "event": {
-          "status": "OK",
-          "byType": [
-            {
-              "status": "OK",
-              "thresholdsMs": [
-                20,
-                50,
-                100
-              ],
-              "byThreshold": {
-                "20": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "meanTimingError": null,
-                  "medianTimingError": null,
-                  "matched": 0,
-                  "nRef": 1,
-                  "nHyp": 0
-                },
-                "50": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "meanTimingError": null,
-                  "medianTimingError": null,
-                  "matched": 0,
-                  "nRef": 1,
-                  "nHyp": 0
-                },
-                "100": {
-                  "precision": 0,
-                  "recall": 0,
-                  "f1": 0,
-                  "meanTimingError": null,
-                  "medianTimingError": null,
-                  "matched": 0,
-                  "nRef": 1,
-                  "nHyp": 0
-                }
-              },
-              "sampleCount": 1,
-              "evidenceConfidence": "LOW",
-              "eventType": "SECTION_CHANGE"
-            }
-          ],
-          "sampleCount": 1,
-          "evidenceConfidence": "LOW"
-        }
+      "beat": {
+        "periodVerdict": "WEAK",
+        "periodRelErr": 0.03568773234199688,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 116,
+        "halfBeatRatio": 0.4304832713757027,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.5094850948509485,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 315,
+        "gtSeeds": 20,
+        "aggregate": 0.6970177421142105
       },
-      "aggregateScore": 1,
-      "confidence": "HIGH",
-      "provenance": [
+      "sectionLabelF1": 0.24000000000000002,
+      "findings": [
         {
-          "metric": "tempo",
-          "sources": [
-            {
-              "analyzer": "ground_truth",
-              "value": 120
-            },
-            {
-              "analyzer": "librosa",
-              "value": 120
-            }
-          ]
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6970177421142105,
+          "evidence": "period=WEAK(rel=0.036); phase=FAIL(medMs=116); continuity=FAIL(lock=0.51); evidence=PASS; phase near half-beat (ratio=0.43); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=315)"
         },
         {
-          "metric": "beat",
-          "sources": [
-            {
-              "analyzer": "ground_truth",
-              "value": 0
-            },
-            {
-              "analyzer": "librosa",
-              "value": 0
-            }
-          ]
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5851648351648352,
+          "evidence": "period=PASS(rel=0.004); phase=FAIL(medMs=325); continuity=FAIL(lock=0.34); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=79)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=2.4 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.24000000000000002,
+          "evidence": "labelF1=0.240 (informational)"
         }
       ]
-    }
-  ],
-  "agreement": [
-    {
-      "analyzerA": "librosa",
-      "analyzerB": "essentia",
-      "songId": "song-pilot-format",
-      "tempoAgreement": 1,
-      "beatAgreement": 1,
-      "sectionAgreement": 0.4,
-      "note": "agreement_is_not_accuracy"
-    }
-  ],
-  "profiles": [
-    {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "all",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "beatDensity:normal",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-003",
+      "title": "唱",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 130.829,
+        "hyp": 129.199,
+        "relPct": 1.2459011381268643,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.013973799126632132,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 120,
+        "halfBeatRatio": 0.5224890829693236,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.5703883495145631,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 406,
+        "gtSeeds": 20,
+        "aggregate": 0.7202720873786532
+      },
+      "sectionLabelF1": 0.32,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7202720873786532,
+          "evidence": "period=PASS(rel=0.014); phase=FAIL(medMs=120); continuity=FAIL(lock=0.57); evidence=PASS; phase near half-beat (ratio=0.52); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=406)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6585004854368967,
+          "evidence": "period=PASS(rel=0.008); phase=FAIL(medMs=181); continuity=FAIL(lock=0.45); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=101)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=1.2 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.32,
+          "evidence": "labelF1=0.320 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "complexity:simple",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-004",
+      "title": "ポリリズム",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 130.69,
+        "hyp": 129.199,
+        "relPct": 1.1408677021960254,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.0034334763948513053,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 116,
+        "halfBeatRatio": 0.49957081544947834,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.5811320754716981,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 513,
+        "gtSeeds": 20,
+        "aggregate": 0.7245830188680602
+      },
+      "sectionLabelF1": 0.16,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7245830188680602,
+          "evidence": "period=PASS(rel=0.003); phase=FAIL(medMs=116); continuity=FAIL(lock=0.58); evidence=PASS; phase near half-beat (ratio=0.50); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=513)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6287878787878788,
+          "evidence": "period=PASS(rel=0.005); phase=FAIL(medMs=323); continuity=FAIL(lock=0.52); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=128)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=1.1 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.16,
+          "evidence": "labelF1=0.160 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "genre:pilot",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-005",
+      "title": "Super Shy",
+      "gtSource": "consensus",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 150.5,
+        "hyp": 151.999,
+        "relPct": 0.9960132890365416,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.00554156171286475,
+        "phaseVerdict": "WEAK",
+        "phaseMedMs": 96,
+        "halfBeatRatio": 0.4856423173800796,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.6881443298969072,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 383,
+        "gtSeeds": 32,
+        "aggregate": 0.8045360824743396
+      },
+      "sectionLabelF1": 0.20000000000000004,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.8045360824743396,
+          "evidence": "period=PASS(rel=0.006); phase=WEAK(medMs=96); continuity=WEAK(lock=0.69); evidence=PASS; phase near half-beat (ratio=0.49); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=32, hypInWindow=383)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5651041666666667,
+          "evidence": "period=PASS(rel=0.004); phase=FAIL(medMs=507); continuity=FAIL(lock=0.26); evidence=PASS; phase near half-downbeat (ratio=0.63); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=95)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=1.0 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.20000000000000004,
+          "evidence": "labelF1=0.200 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "tempo:medium",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-006",
+      "title": "MIC Drop",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 85,
+        "hyp": 172.266,
+        "relPct": 102.66588235294117,
+        "equiv": 2,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.508050847457626,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 174,
+        "halfBeatRatio": 0.4925141242937877,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.7591463414634146,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 636,
+        "gtSeeds": 24,
+        "aggregate": 0.7401115853658534
+      },
+      "sectionLabelF1": 0.3846153846153846,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.7401115853658534,
+          "evidence": "period=PASS(rel=0.508); phase=FAIL(medMs=174); continuity=WEAK(lock=0.76); evidence=PASS; octaveHint=0.5 (period scored after correction); phase near half-beat (ratio=0.49); treat as phase error not dual-phase GT"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.7408536585365854,
+          "evidence": "period=PASS(rel=0.499); phase=FAIL(medMs=1223); continuity=PASS(lock=0.96); evidence=PASS; octaveHint=0.5 (period scored after correction); phase near half-downbeat (ratio=0.87); treat as phase error not dual-phase GT"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=102.7 equiv=2"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.3846153846153846,
+          "evidence": "labelF1=0.385 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "vocal:vocal-heavy",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-007",
+      "title": "How You Like That",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 130,
+        "hyp": 129.199,
+        "relPct": 0.6161538461538367,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.0073752711496689865,
+        "phaseVerdict": "WEAK",
+        "phaseMedMs": 87,
+        "halfBeatRatio": 0.37548806941408097,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.6479591836734694,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 374,
+        "gtSeeds": 19,
+        "aggregate": 0.8150106292518138
+      },
+      "sectionLabelF1": 0.5,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.8150106292518138,
+          "evidence": "period=PASS(rel=0.007); phase=WEAK(medMs=87); continuity=FAIL(lock=0.65); evidence=PASS; phase near half-beat (ratio=0.38); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=19, hypInWindow=374)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.7244897959183674,
+          "evidence": "period=PASS(rel=0.007); phase=FAIL(medMs=737); continuity=PASS(lock=0.90); evidence=PASS; phase near half-downbeat (ratio=0.80); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=94)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.6 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.5,
+          "evidence": "labelF1=0.500 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "all",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-008",
+      "title": "God's Menu",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 156,
+        "hyp": 78.303,
+        "relPct": 49.80576923076923,
+        "equiv": 0.5,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.9981747066492768,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 105,
+        "halfBeatRatio": 0.5475880052152188,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.4,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 232,
+        "gtSeeds": 23,
+        "aggregate": 0.684999999999991
+      },
+      "sectionLabelF1": 0.22222222222222224,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.684999999999991,
+          "evidence": "period=PASS(rel=0.998); phase=FAIL(medMs=105); continuity=FAIL(lock=0.40); evidence=PASS; octaveHint=2 (period scored after correction); phase near half-beat (ratio=0.55); treat as phase error not dual-phase GT"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5312909836065253,
+          "evidence": "period=PASS(rel=1.015); phase=FAIL(medMs=258); continuity=FAIL(lock=0.09); evidence=PASS; octaveHint=2 (period scored after correction); seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=58)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=49.8 equiv=0.5"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.22222222222222224,
+          "evidence": "labelF1=0.222 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "beatDensity:normal",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-009",
+      "title": "Get Ur Freak On",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 90.58,
+        "hyp": 117.454,
+        "relPct": 29.668801059836603,
+        "equiv": null,
+        "classError": true
+      },
+      "beat": {
+        "periodVerdict": "FAIL",
+        "periodRelErr": 0.24213649851631508,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 180,
+        "halfBeatRatio": 0.5332344213651871,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.5227272727272727,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 345,
+        "gtSeeds": 20,
+        "aggregate": 0.5097635689236266
+      },
+      "sectionLabelF1": 0.3,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5097635689236266,
+          "evidence": "period=FAIL(rel=0.242); phase=FAIL(medMs=180); continuity=FAIL(lock=0.52); evidence=PASS; phase near half-beat (ratio=0.53); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=345)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.3752255941990059,
+          "evidence": "period=FAIL(rel=0.245); phase=FAIL(medMs=726); continuity=FAIL(lock=0.18); evidence=PASS; phase near half-downbeat (ratio=0.54); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=86)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "rel%=29.7 equiv=none"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.3,
+          "evidence": "labelF1=0.300 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "complexity:simple",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-010",
+      "title": "Still D.R.E.",
+      "gtSource": "consensus",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 93.511,
+        "hyp": 92.285,
+        "relPct": 1.3110757023237898,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.009472049689443741,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 173,
+        "halfBeatRatio": 0.5361801242236381,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.4988066825775656,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 416,
+        "gtSeeds": 24,
+        "aggregate": 0.6758766706443857
+      },
+      "sectionLabelF1": 0.3225806451612903,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6758766706443857,
+          "evidence": "period=PASS(rel=0.009); phase=FAIL(medMs=173); continuity=FAIL(lock=0.50); evidence=PASS; phase near half-beat (ratio=0.54); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=416)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.7454333333333343,
+          "evidence": "period=PASS(rel=0.003); phase=FAIL(medMs=251); continuity=PASS(lock=0.93); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=104)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=1.3 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.3225806451612903,
+          "evidence": "labelF1=0.323 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "genre:pilot",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-011",
+      "title": "HUMBLE.",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 150,
+        "hyp": 151.999,
+        "relPct": 1.3326666666666633,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.02518518518519446,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 108,
+        "halfBeatRatio": 0.5333333333330769,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.6981566820276498,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 430,
+        "gtSeeds": 20,
+        "aggregate": 0.7580391705069384
+      },
+      "sectionLabelF1": 0.43478260869565216,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.7580391705069384,
+          "evidence": "period=PASS(rel=0.025); phase=FAIL(medMs=108); continuity=WEAK(lock=0.70); evidence=PASS; phase near half-beat (ratio=0.53); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=430)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6545454545454545,
+          "evidence": "period=PASS(rel=0.003); phase=FAIL(medMs=425); continuity=FAIL(lock=0.62); evidence=PASS; phase near half-downbeat (ratio=0.53); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=108)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=1.3 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.43478260869565216,
+          "evidence": "labelF1=0.435 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "tempo:medium",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-012",
+      "title": "SICKO MODE",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 140,
+        "hyp": 151.999,
+        "relPct": 8.570714285714283,
+        "equiv": null,
+        "classError": true
+      },
+      "beat": {
+        "periodVerdict": "WEAK",
+        "periodRelErr": 0.0712941176470578,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 106,
+        "halfBeatRatio": 0.5002352941177354,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.7140921409214093,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 805,
+        "gtSeeds": 24,
+        "aggregate": 0.6906083293479918
+      },
+      "sectionLabelF1": 0.25,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.6906083293479918,
+          "evidence": "period=WEAK(rel=0.071); phase=FAIL(medMs=106); continuity=WEAK(lock=0.71); evidence=PASS; phase near half-beat (ratio=0.50); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=805)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.4681102160849002,
+          "evidence": "period=FAIL(rel=0.105); phase=FAIL(medMs=418); continuity=FAIL(lock=0.27); evidence=PASS; phase near half-downbeat (ratio=0.48); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=202)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "rel%=8.6 equiv=none"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.25,
+          "evidence": "labelF1=0.250 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "vocal:vocal-heavy",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-013",
+      "title": "One More Time",
+      "gtSource": "consensus",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 122.5,
+        "hyp": 123.047,
+        "relPct": 0.4465306122448955,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.0028629856850794074,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 166,
+        "halfBeatRatio": 0.6793456032728065,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.7175572519083969,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 655,
+        "gtSeeds": 655,
+        "aggregate": 0.7338393129769979
+      },
+      "sectionLabelF1": 0.18749999999999997,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.7338393129769979,
+          "evidence": "period=PASS(rel=0.003); phase=FAIL(medMs=166); continuity=WEAK(lock=0.72); evidence=PASS; phase near half-beat (ratio=0.68); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=655, hypInWindow=655)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6967134146343334,
+          "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=189); continuity=FAIL(lock=0.62); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=164, hypInWindow=163)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.4 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.18749999999999997,
+          "evidence": "labelF1=0.187 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "all",
-      "metric": "labelF1",
-      "score": 0.4,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-014",
+      "title": "Omen",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 138,
+        "hyp": 143.555,
+        "relPct": 4.0253623188405845,
+        "equiv": null,
+        "classError": true
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.027906976744170597,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 126,
+        "halfBeatRatio": 0.5883720930231573,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.725609756097561,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 484,
+        "gtSeeds": 24,
+        "aggregate": 0.7556524390244008
+      },
+      "sectionLabelF1": 0.2580645161290323,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.7556524390244008,
+          "evidence": "period=PASS(rel=0.028); phase=FAIL(medMs=126); continuity=WEAK(lock=0.73); evidence=PASS; phase near half-beat (ratio=0.59); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=484)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.556910569105691,
+          "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=509); continuity=FAIL(lock=0.23); evidence=PASS; phase near half-downbeat (ratio=0.59); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=121)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "rel%=4.0 equiv=none"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.2580645161290323,
+          "evidence": "labelF1=0.258 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "beatDensity:normal",
-      "metric": "labelF1",
-      "score": 0.4,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-015",
+      "title": "Bangarang",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 110,
+        "hyp": 112.347,
+        "relPct": 2.1336363636363584,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.018198529411758254,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 129,
+        "halfBeatRatio": 0.4746323529427229,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.5491183879093199,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 387,
+        "gtSeeds": 24,
+        "aggregate": 0.7102295969771198
+      },
+      "sectionLabelF1": 0.3333333333333333,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7102295969771198,
+          "evidence": "period=PASS(rel=0.018); phase=FAIL(medMs=129); continuity=FAIL(lock=0.55); evidence=PASS; phase near half-beat (ratio=0.47); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=387)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5631313131313131,
+          "evidence": "period=PASS(rel=0.000); phase=FAIL(medMs=728); continuity=FAIL(lock=0.25); evidence=PASS; phase near half-downbeat (ratio=0.67); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=96)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=2.1 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.3333333333333333,
+          "evidence": "labelF1=0.333 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "complexity:simple",
-      "metric": "labelF1",
-      "score": 0.4,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-016",
+      "title": "24K Magic",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 107,
+        "hyp": 107.666,
+        "relPct": 0.6224299065420531,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.01362831858407053,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 140,
+        "halfBeatRatio": 0.4953982300887955,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.4664804469273743,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 356,
+        "gtSeeds": 24,
+        "aggregate": 0.6841451117318015
+      },
+      "sectionLabelF1": 0.2962962962962963,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6841451117318015,
+          "evidence": "period=PASS(rel=0.014); phase=FAIL(medMs=140); continuity=FAIL(lock=0.47); evidence=PASS; phase near half-beat (ratio=0.50); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=356)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5666666666666667,
+          "evidence": "period=PASS(rel=0.001); phase=FAIL(medMs=851); continuity=FAIL(lock=0.27); evidence=PASS; phase near half-downbeat (ratio=0.76); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=89)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.6 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.2962962962962963,
+          "evidence": "labelF1=0.296 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "genre:pilot",
-      "metric": "labelF1",
-      "score": 0.4,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-017",
+      "title": "Billie Jean",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 118,
+        "hyp": 117.454,
+        "relPct": 0.46271186440678513,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.0005876591577228374,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 152,
+        "halfBeatRatio": 0.595886385896253,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.5954861111111112,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 557,
+        "gtSeeds": 19,
+        "aggregate": 0.7103215277777686
+      },
+      "sectionLabelF1": 0.17647058823529413,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7103215277777686,
+          "evidence": "period=PASS(rel=0.001); phase=FAIL(medMs=152); continuity=FAIL(lock=0.60); evidence=PASS; phase near half-beat (ratio=0.60); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=19, hypInWindow=557)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.551056338028169,
+          "evidence": "period=PASS(rel=0.013); phase=FAIL(medMs=512); continuity=FAIL(lock=0.20); evidence=PASS; phase near half-downbeat (ratio=0.49); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=140)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.5 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.17647058823529413,
+          "evidence": "labelF1=0.176 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "tempo:medium",
-      "metric": "labelF1",
-      "score": 0.4,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-018",
+      "title": "Thinkin Bout You",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 130,
+        "hyp": 129.199,
+        "relPct": 0.6161538461538367,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.0008620689655152348,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 104,
+        "halfBeatRatio": 0.44784482758594546,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.5769230769230769,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 417,
+        "gtSeeds": 32,
+        "aggregate": 0.7297807692307997
+      },
+      "sectionLabelF1": 0.2857142857142857,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7297807692307997,
+          "evidence": "period=PASS(rel=0.001); phase=FAIL(medMs=104); continuity=FAIL(lock=0.58); evidence=PASS; phase near half-beat (ratio=0.45); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=32, hypInWindow=417)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.7476190476190476,
+          "evidence": "period=PASS(rel=0.007); phase=FAIL(medMs=483); continuity=PASS(lock=0.99); evidence=PASS; phase near half-downbeat (ratio=0.52); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=104)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.6 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.2857142857142857,
+          "evidence": "labelF1=0.286 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "vocal:vocal-heavy",
-      "metric": "labelF1",
-      "score": 0.4,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-019",
+      "title": "カタオモイ",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 97,
+        "hyp": 95.703,
+        "relPct": 1.3371134020618525,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.00175159235669513,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 114,
+        "halfBeatRatio": 0.36146496815289497,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.486646884272997,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 319,
+        "gtSeeds": 20,
+        "aggregate": 0.7024117210682448
+      },
+      "sectionLabelF1": 0.34782608695652173,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7024117210682448,
+          "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=114); continuity=FAIL(lock=0.49); evidence=PASS; phase near half-beat (ratio=0.36); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=319)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6166023255813927,
+          "evidence": "period=PASS(rel=0.010); phase=FAIL(medMs=210); continuity=FAIL(lock=0.34); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=80)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=1.3 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.34782608695652173,
+          "evidence": "labelF1=0.348 (informational)"
+        }
+      ]
     },
     {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "all",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "beatDensity:normal",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "complexity:simple",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "genre:pilot",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "tempo:medium",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "essentia",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "vocal:vocal-heavy",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "all",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "beatDensity:normal",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "complexity:simple",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "genre:pilot",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "tempo:medium",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "beat",
-      "condition": "vocal:vocal-heavy",
-      "metric": "f1@40ms",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "all",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "beatDensity:normal",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "complexity:simple",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "genre:pilot",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "tempo:medium",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "eightCount",
-      "condition": "vocal:vocal-heavy",
-      "metric": "phraseAlignment",
-      "score": 0,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "all",
-      "metric": "labelF1",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "beatDensity:normal",
-      "metric": "labelF1",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "complexity:simple",
-      "metric": "labelF1",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "genre:pilot",
-      "metric": "labelF1",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "tempo:medium",
-      "metric": "labelF1",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "section",
-      "condition": "vocal:vocal-heavy",
-      "metric": "labelF1",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "all",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "beatDensity:normal",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "complexity:simple",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "genre:pilot",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "tempo:medium",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
-    },
-    {
-      "analyzerId": "librosa",
-      "analyzerVersion": "pilot",
-      "signalType": "tempo",
-      "condition": "vocal:vocal-heavy",
-      "metric": "classCorrect",
-      "score": 1,
-      "sampleCount": 1,
-      "evidenceConfidence": "LOW",
-      "status": "OK"
+      "songId": "song-020",
+      "title": "Cornfield Chase",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 96,
+        "hyp": 95.703,
+        "relPct": 0.30937499999999696,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.0001594896331635562,
+        "phaseVerdict": "WEAK",
+        "phaseMedMs": 94,
+        "halfBeatRatio": 0.29888357256780057,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.4639175257731959,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 127,
+        "gtSeeds": 21,
+        "aggregate": 0.7541043814432876
+      },
+      "sectionLabelF1": 0.375,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.7541043814432876,
+          "evidence": "period=PASS(rel=0.000); phase=WEAK(medMs=94); continuity=FAIL(lock=0.46); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=127)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.3039830508474587,
+          "evidence": "period=FAIL(rel=0.328); phase=FAIL(medMs=400); continuity=FAIL(lock=0.06); evidence=PASS; phase near half-downbeat (ratio=0.42); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=16, hypInWindow=32)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.3 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0.375,
+          "evidence": "labelF1=0.375 (informational)"
+        }
+      ]
     }
   ]
 }

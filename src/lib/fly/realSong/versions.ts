@@ -1,9 +1,9 @@
 /** Phase 4.6 version stamps */
-export const FLY_REAL_SONG_DATASET_VERSION = "4.6.0-stage-a";
-export const FLY_ANNOTATION_CONTRACT_VERSION = "1.0.0";
+export const FLY_REAL_SONG_DATASET_VERSION = "4.6.1-double-consensus";
+export const FLY_ANNOTATION_CONTRACT_VERSION = "1.1.0";
 export const FLY_WEAKNESS_VERSION = "1.0.0";
 export const FLY_MUSICAL_CHANGE_VERSION = "1.0.0";
-export const FLY_REAL_SONG_PROVENANCE_VERSION = "1.0.0";
+export const FLY_REAL_SONG_PROVENANCE_VERSION = "1.1.0";
 
 export const PHASE46_FREEZE = [
   "no_madmom",

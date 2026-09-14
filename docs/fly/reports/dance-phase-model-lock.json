@@ -1,0 +1,26 @@
+{
+  "specId": "4.6-d-dance-phase-model-v1",
+  "status": "DEFINITION_LOCKED",
+  "implementation": "NOT_STARTED",
+  "lockedAt": "2026-09-13",
+  "prerequisite": "4.6-c-phase-reference-v1",
+  "coreClaim": "Music Beat ≠ Dance Phase",
+  "layers": ["MusicTime", "MusicalBeatReference", "DancePhase"],
+  "phaseKinds": ["MUSIC_BEAT_PHASE", "DANCE_PHASE", "DANCE_ACTION_PHASE"],
+  "centralConcept": "PhaseAnchor",
+  "forbiddenNow": [
+    "fusion-average-phase",
+    "analyzer-agreement-as-truth",
+    "replace-librosa",
+    "msaf-for-phase",
+    "formation-wiring",
+    "retarget-consensus-beat-gt"
+  ],
+  "nextImplementGate": "dance-phase-origin-audit on Golden-20 (probes A–G) after human GO",
+  "evidenceFrom46C": {
+    "bothOffAgree": "18/20",
+    "meanAnalyzerDeltaMs": 25,
+    "meanPhaseAbsMsVsGt": 123,
+    "hypB": "STRONG"
+  }
+}

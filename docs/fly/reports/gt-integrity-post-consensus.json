@@ -1,0 +1,208 @@
+{
+  "integrityVersion": "4.6.1-post-consensus",
+  "datasetVersion": "4.6.1-double-consensus",
+  "computedAt": "2026-09-13T03:50:56.576130+00:00",
+  "hardIssueSongs": 0,
+  "benchmarkGate": "CONDITIONAL-GO-pending-human",
+  "note": "Consensus finalized for doubles; Benchmark still awaits explicit human GO. Beat eval = Period/Phase/Continuity/Evidence only.",
+  "doubleConsensus": {
+    "song-013": "phase_error_not_halfbeat_dual; seed=B",
+    "song-005": "labels=A form; beat seed=A",
+    "song-002": "agree; beat seed=A pattern",
+    "song-010": "tolerate; labels adjudicated"
+  },
+  "songs": [
+    {
+      "id": "001",
+      "sid": "song-001",
+      "title": "アイドル",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "002",
+      "sid": "song-002",
+      "title": "ダンスホール",
+      "A": "OK",
+      "A_issues": [],
+      "B": "OK",
+      "C": "OK",
+      "B_issues": [],
+      "C_issues": [],
+      "C_reason": "AGREE band: shared period/phase/section IoU. Seed density A20 vs B40 is NOT disa"
+    },
+    {
+      "id": "003",
+      "sid": "song-003",
+      "title": "唱",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "004",
+      "sid": "song-004",
+      "title": "ポリリズム",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "005",
+      "sid": "song-005",
+      "title": "Super Shy",
+      "A": "OK",
+      "A_issues": [],
+      "B": "OK",
+      "C": "OK",
+      "B_issues": [],
+      "C_issues": [],
+      "C_reason": "SECTION labels adjudicated to A form (not majority). Beat Pattern: keep A repres"
+    },
+    {
+      "id": "006",
+      "sid": "song-006",
+      "title": "MIC Drop",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "007",
+      "sid": "song-007",
+      "title": "How You Like That",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "008",
+      "sid": "song-008",
+      "title": "God's Menu",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "009",
+      "sid": "song-009",
+      "title": "Get Ur Freak On",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "010",
+      "sid": "song-010",
+      "title": "Still D.R.E.",
+      "A": "OK",
+      "A_issues": [],
+      "B": "OK",
+      "C": "OK",
+      "B_issues": [],
+      "C_issues": [],
+      "C_reason": "TOLERATE band: Beat period/phase AGREE; Section/MC within tolerate. Consensus us"
+    },
+    {
+      "id": "011",
+      "sid": "song-011",
+      "title": "HUMBLE.",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "012",
+      "sid": "song-012",
+      "title": "SICKO MODE",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "013",
+      "sid": "song-013",
+      "title": "One More Time",
+      "A": "OK",
+      "A_issues": [],
+      "B": "OK",
+      "C": "OK",
+      "B_issues": [],
+      "C_issues": [],
+      "C_reason": "PHASE_ADJUDICATION: Same BPM 122.5 but first-seed offset ~207ms is NOT adopted a"
+    },
+    {
+      "id": "014",
+      "sid": "song-014",
+      "title": "Omen",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "015",
+      "sid": "song-015",
+      "title": "Bangarang",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "016",
+      "sid": "song-016",
+      "title": "24K Magic",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "017",
+      "sid": "song-017",
+      "title": "Billie Jean",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "018",
+      "sid": "song-018",
+      "title": "Thinkin Bout You",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "019",
+      "sid": "song-019",
+      "title": "カタオモイ",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    },
+    {
+      "id": "020",
+      "sid": "song-020",
+      "title": "Cornfield Chase",
+      "A": "OK",
+      "A_issues": [],
+      "B": "n/a",
+      "C": "n/a (single-A)"
+    }
+  ]
+}

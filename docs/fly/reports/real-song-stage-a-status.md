@@ -1,40 +1,33 @@
 # FLY Real-Song Stage A Status
 
-- real_song_dataset_version: `4.6.0-stage-a`
-- registered songs: **20**
-- annotated songs: **0**
-- status: **UNANNOTATED — awaiting human GT**
+- status: **WASHOUT ACTIVE — Session B not today**
+- prior: 4.6-F **A CONDITIONAL-GO** · 4.6-G design locked
 
-## FREEZE
+## Now (binding)
 
-- no_madmom
-- no_msaf
-- no_cyanite
-- no_demucs
-- no_fusion_weight_change
-- no_formation_engine_change
-- no_keep_current
-- no_ml_training
-- no_musical_change_to_formation_change
+1. **Do not run Session B today**
+2. Washout **≥24h** (prefer **48–72h**)
+3. After washout only:
+   - fill `MEMO.session-b.md`
+   - do **not** open A results / timestamps / GT / existing JSON
+   - fresh judgment on 013
+   - save `phase-anchor.session-b.json`
+   - **do not** self-compare A vs B
+   - send only: **「Session Bできた」**
 
-## Coverage
+## 4.6-H will judge (not exact timestamp match)
 
-- genres: ballad, complex, edm, funk, hip-hop, instrumental, j-pop, k-pop, live, mashup, pop, r&b, remix, soul, trap
-- tempos: FAST, MEDIUM, SLOW
-- densities: HIGH, LOW, MEDIUM
-- complexities: COMPLEX, MEDIUM, SIMPLE
-- double-annotate: song-002, song-005, song-010, song-013
-- splits: DEV 12 / VAL 4 / HOLD 4
+Same musical reason → same kind of origin?
 
-## LOW SAMPLE SIZE
+- time region · section relation · type · rationale meaning  
+- musical significance · referencePoint · nearest-beat relation  
+- if A/B diverge: is the split explainable?
 
-Do **not** claim analyzer accuracy until human GT exists for Stage A.
-Pilot schema reports below are **format checks only**.
+→ **PASS / CONDITIONAL / HOLD**  
+Until then: L3 · Fusion · MSAF · Analyzer **fully frozen**
 
-## Next human steps
+## Paths
 
-1. Place authorized audio locally (see `fixtures/fly/real-song/audio/README.md`)
-2. Replace `PENDING_*` with sha256
-3. Annotate human-first (no analyzer locking)
-4. Double-annotate: song-002, song-005, song-010, song-013
-5. Re-run `npm run fly:real-song-reports`
+- Design: `docs/fly/PHASE46-013-REPRODUCIBILITY-PILOT.md`
+- A frozen: `~/ChoreoCoreDatasets/fly-real-song/phase-anchors/song-013/phase-anchor.session-a.json`
+- B blank: `MEMO.session-b.md` · `phase-anchor.session-b.PENDING.json`

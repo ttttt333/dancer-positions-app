@@ -13,7 +13,7 @@ Every real song must record:
 | `annotators[]` | Who labeled |
 | `status` | UNANNOTATED → ANNOTATED → REVIEWED → ADJUDICATED |
 | `datasetSplit` | DEVELOPMENT / VALIDATION / HOLDOUT |
-| `realSongDatasetVersion` | e.g. 4.6.0-stage-a |
+| `realSongDatasetVersion` | e.g. 4.6.1-double-consensus |
 
 Hypothesis files (analyzer outputs) store:
 

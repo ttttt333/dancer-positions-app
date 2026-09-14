@@ -1,0 +1,10 @@
+# Offline Experiment B only (not required for production API).
+# Install into backend/analyzer/.venv:
+#   pip install -r requirements-madmom-experiment.txt --no-build-isolation
+#
+# Pins chosen for madmom 0.16.1 on Python 3.9 (Apple Silicon).
+Cython>=0.29
+setuptools>=65,<70
+numpy==1.26.4
+madmom==0.16.1
+mido>=1.2.8

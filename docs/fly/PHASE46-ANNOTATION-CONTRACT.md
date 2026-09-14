@@ -1,6 +1,6 @@
 # FLY Phase 4.6 — Annotation Contract
 
-**annotation_contract_version:** `1.0.0`
+**annotation_contract_version:** `1.1.0` (additive Beat Pattern semantics)
 
 ## Human-first
 
@@ -11,14 +11,14 @@
 ## Required fields (per annotator file)
 
 - `bpm` (number | null + confidence)
-- `beats: number[]` (seconds)
-- `downbeats: number[]`
+- `beats: number[]` — **representative Beat Pattern seed** (not full-song enumeration). See [`PHASE46-BEAT-PATTERN-GT.md`](./PHASE46-BEAT-PATTERN-GT.md)
+- `downbeats: number[]` — **representative Downbeat Pattern seed** (window may differ from beats)
 - `countGrid` (8-count — see types)
-- `sections[]`
+- `sections[]` — **full song**
 
 ## Optional
 
-- `musicalChanges[]` — music change points only
+- `musicalChanges[]` — music change points only (**full song** scope)
 
 ## Forbidden in 4.6
 

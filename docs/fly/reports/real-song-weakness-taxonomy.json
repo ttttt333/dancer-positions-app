@@ -1,0 +1,1762 @@
+{
+  "auditVersion": "1.0.0",
+  "auditName": "PHASE 4.6 Weakness Taxonomy Audit",
+  "computedAt": "2026-09-13T04:33:56.851363+00:00",
+  "sourceBenchmark": "docs/fly/reports/real-song-benchmark-result.json",
+  "datasetVersion": "4.6.1-double-consensus",
+  "analyzer": "librosa",
+  "essentia": "NOT_AVAILABLE",
+  "freeze": [
+    "no_madmom",
+    "no_msaf",
+    "no_cyanite",
+    "no_demucs",
+    "no_fusion_weight_change",
+    "no_formation_engine_change",
+    "no_keep_current",
+    "no_ml_training",
+    "no_musical_change_to_formation_change"
+  ],
+  "policy": {
+    "no_madmom_until_taxonomy_reviewed": true,
+    "no_msaf_until_taxonomy_reviewed": true,
+    "no_fusion_until_second_analyzer": true,
+    "use_current_20_as_failure_laboratory": true,
+    "do_not_expand_dataset_now": true
+  },
+  "beatFindingClassCounts": {
+    "PASS": 0,
+    "WEAK": 9,
+    "GT-AMBIGUITY": 0,
+    "ANALYZER-LIMIT": 11
+  },
+  "failureTypeDefinitions": {
+    "PHASE_HALFBEAT_STABLE": {
+      "symptom": "Period correct (or near); phase locked near half-beat; continuity mostly stable",
+      "probableCause": "beat_tracker_phase_ambiguity",
+      "analyzerCapability": "librosa.beat.beat_track insufficient for absolute phase lock",
+      "candidateFix": "stronger beat tracker with phase/onset model (e.g. madmom DBN) — evaluate later; NOT Fusion first"
+    },
+    "PHASE_HALFBEAT_UNSTABLE": {
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT"
+    },
+    "PERIOD_BREAK": {
+      "symptom": "GT interval vs hyp interval fails; often with syncopation / dense offbeats",
+      "probableCause": "tempo_period_confusion_under_syncopation",
+      "analyzerCapability": "librosa period estimation fails on complex/syncopated pulse",
+      "candidateFix": "multi-hypothesis tempo/beat (ensemble) — madmom helps; Fusion only after single-analyzer evidence"
+    },
+    "PHASE_DRIFT": {
+      "symptom": "Period OK; phase moderate error; continuity fails (offset not stable)",
+      "probableCause": "beat_grid_drift",
+      "analyzerCapability": "librosa loses lock over long/soft-pulse material",
+      "candidateFix": "beat tracker with stronger continuity prior; optional onset reinforcement"
+    },
+    "BPM_OCTAVE": {
+      "symptom": "BPM equivalence 0.5x or 2x (or large relative BPM error) while dance pulse may differ",
+      "probableCause": "tempo_octave_error",
+      "analyzerCapability": "librosa tempo octave ambiguity",
+      "candidateFix": "tempo octave disambiguation / multi-analyzer vote — still measurement before Fusion weights"
+    },
+    "DOWNBEAT_UNSTABLE": {
+      "symptom": "Beat period may pass; bar-start phase/continuity fails",
+      "probableCause": "downbeat_proxy_every_4th_beat",
+      "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+      "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+    },
+    "SECTION_STUB": {
+      "symptom": "Section labelF1 low; hyp sections are energy stubs",
+      "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+      "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+      "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+    },
+    "MC_NOT_SEPARATED": {
+      "symptom": "Musical-change not isolated as primary Beat failure mode in this GO",
+      "probableCause": "mc_eval_secondary_this_run",
+      "analyzerCapability": "events scored but not driving Beat findingClass",
+      "candidateFix": "defer MC taxonomy until Beat phase/period failures addressed; then onset/energy/change detectors"
+    }
+  },
+  "clusters": {
+    "byFailureType": {
+      "PHASE_HALFBEAT_STABLE": [
+        "song-001",
+        "song-005",
+        "song-006",
+        "song-011",
+        "song-012",
+        "song-013",
+        "song-014"
+      ],
+      "PHASE_HALFBEAT_UNSTABLE": [
+        "song-002",
+        "song-003",
+        "song-004",
+        "song-007",
+        "song-008",
+        "song-010",
+        "song-015",
+        "song-016",
+        "song-017",
+        "song-018",
+        "song-019"
+      ],
+      "PERIOD_BREAK": [
+        "song-009"
+      ],
+      "PHASE_DRIFT": [
+        "song-020"
+      ]
+    },
+    "byFindingClass": {
+      "WEAK": [
+        "song-001",
+        "song-005",
+        "song-006",
+        "song-007",
+        "song-011",
+        "song-012",
+        "song-013",
+        "song-014",
+        "song-020"
+      ],
+      "ANALYZER-LIMIT": [
+        "song-002",
+        "song-003",
+        "song-004",
+        "song-008",
+        "song-009",
+        "song-010",
+        "song-015",
+        "song-016",
+        "song-017",
+        "song-018",
+        "song-019"
+      ]
+    },
+    "analyzerLimitByType": {
+      "PHASE_HALFBEAT_UNSTABLE": 10,
+      "PERIOD_BREAK": 1
+    },
+    "weakByType": {
+      "PHASE_HALFBEAT_STABLE": 7,
+      "PHASE_HALFBEAT_UNSTABLE": 1,
+      "PHASE_DRIFT": 1
+    }
+  },
+  "librosaCannotSolveAlone": [
+    {
+      "problem": "Absolute phase lock (esp. half-beat ambiguity)",
+      "songs": [
+        "song-001",
+        "song-002",
+        "song-003",
+        "song-004",
+        "song-005",
+        "song-006",
+        "song-007",
+        "song-008",
+        "song-010",
+        "song-011",
+        "song-012",
+        "song-013",
+        "song-014",
+        "song-015",
+        "song-016",
+        "song-017",
+        "song-018",
+        "song-019"
+      ],
+      "why_librosa_alone": "beat_track optimizes periodicity/onset strength; dance-facing phase is under-constrained",
+      "first_candidate": "madmom-class beat/downbeat tracker",
+      "not_yet": "MSAF (structure) does not fix phase"
+    },
+    {
+      "problem": "Phase + continuity jointly fail (unstable wrong grid)",
+      "songs": [
+        "song-002",
+        "song-003",
+        "song-004",
+        "song-007",
+        "song-008",
+        "song-010",
+        "song-015",
+        "song-016",
+        "song-017",
+        "song-018",
+        "song-019"
+      ],
+      "why_librosa_alone": "no strong bar/beat DBN continuity prior across style changes",
+      "first_candidate": "madmom-class tracker",
+      "not_yet": "Fusion weight tweaks without a second beat hypothesis"
+    },
+    {
+      "problem": "Syncopation / period break",
+      "songs": [
+        "song-009"
+      ],
+      "why_librosa_alone": "offbeat-heavy material confuses IOI median",
+      "first_candidate": "multi-hypothesis beat/tempo (madmom or ensemble)",
+      "not_yet": "MSAF"
+    },
+    {
+      "problem": "Tempo octave ambiguity",
+      "songs": [
+        "song-006",
+        "song-008",
+        "song-009"
+      ],
+      "why_librosa_alone": "0.5x/2x equally plausible under spectral tempo",
+      "first_candidate": "octave-aware tempo + dance-BPM prior; optional second analyzer",
+      "not_yet": "Formation / Fusion production weights"
+    },
+    {
+      "problem": "True structural segmentation",
+      "songs": [
+        "song-001",
+        "song-002",
+        "song-003",
+        "song-004",
+        "song-005",
+        "song-006",
+        "song-007",
+        "song-008",
+        "song-009",
+        "song-010",
+        "song-011",
+        "song-012",
+        "song-013",
+        "song-014",
+        "song-015",
+        "song-016",
+        "song-017",
+        "song-018",
+        "song-019",
+        "song-020"
+      ],
+      "why_librosa_alone": "this GO used energy-stub sections — cannot claim MSAF necessity from Beat failures",
+      "first_candidate": "MSAF only AFTER beat phase taxonomy addressed or on a dedicated Section GO",
+      "not_yet": "Do not add MSAF to “fix” Beat WEAK/LIMIT"
+    }
+  ],
+  "decisionMatrix": {
+    "madmom_needed": {
+      "verdict": "CANDIDATE — not approved yet",
+      "because": [
+        "18/20 songs show half-beat-ish phase pathology (stable or unstable)",
+        "song-013 cleanly isolates Period PASS + Phase FAIL under locked GT",
+        "Downbeat hyp is every-4th proxy — dedicated downbeat model likely co-travels with madmom-class stack"
+      ],
+      "gate": "Approve only after this taxonomy review; then minimal add → same GT re-benchmark"
+    },
+    "msaf_needed": {
+      "verdict": "NOT JUSTIFIED from this Beat GO",
+      "because": [
+        "Section hyp was energy stub (confidence LOW)",
+        "Primary failures are Beat phase/period, which MSAF does not address"
+      ],
+      "gate": "Separate Section-focused measurement after Beat tracker decision"
+    },
+    "both_needed": {
+      "verdict": "NO — do not add both now",
+      "because": [
+        "Would confound which failure resolved"
+      ]
+    },
+    "fusion_needed": {
+      "verdict": "NOT YET",
+      "because": [
+        "Only one Beat analyzer (librosa) with real hyp; Essentia NOT_AVAILABLE",
+        "Fusion needs ≥2 comparable hypotheses + weakness evidence"
+      ],
+      "gate": "After a second Beat analyzer exists and re-benchmark shows complementary errors"
+    }
+  },
+  "goldenCase_013": {
+    "failureType": "PHASE_HALFBEAT_STABLE",
+    "findingClass": "WEAK",
+    "lesson": "Period PASS + Phase FAIL + Continuity WEAK + Evidence PASS under Consensus phase policy → Analyzer phase error, not GT-AMBIGUITY",
+    "implication": "Any Beat upgrade must be judged on Phase (and Continuity), not BPM alone"
+  },
+  "entries": [
+    {
+      "songId": "song-001",
+      "title": "アイドル",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "j-pop"
+        ],
+        "flags": [
+          "high-energy",
+          "vocal-heavy"
+        ],
+        "complexity": "SIMPLE",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "WEAK",
+      "songClass": "WEAK",
+      "axis": "BEAT",
+      "axes": {
+        "period": "WEAK",
+        "phase": "WEAK",
+        "continuity": "WEAK",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_STABLE",
+      "symptom": "Period correct (or near); phase locked near half-beat; continuity mostly stable",
+      "evidence": {
+        "periodRelErr": 0.03481894150417135,
+        "phaseMedMs": 81,
+        "halfBeatRatio": 0.4495821727019907,
+        "lockFraction": 0.6985645933014354,
+        "gtSeeds": 20,
+        "hypInWindow": 573,
+        "aggregate": 0.831416334026377,
+        "bpm": {
+          "human": 166.92,
+          "hyp": 161.499,
+          "relPct": 3.2476635514018652,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=WEAK(rel=0.035); phase=WEAK(medMs=81); continuity=WEAK(lock=0.70); evidence=PASS; phase near half-beat (ratio=0.45); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=573)"
+      },
+      "probableCause": "beat_tracker_phase_ambiguity",
+      "analyzerCapability": "librosa.beat.beat_track insufficient for absolute phase lock",
+      "confidence": "MEDIUM",
+      "candidateFix": "stronger beat tracker with phase/onset model (e.g. madmom DBN) — evaluate later; NOT Fusion first",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.003); phase=FAIL(medMs=307); continuity=FAIL(lock=0.26); evidence=PASS; phase near half-downbeat (ratio=0.43); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=143)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.400 meanIoU=0.640 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-002",
+      "title": "ダンスホール",
+      "gtSource": "consensus",
+      "conditions": {
+        "genre": [
+          "j-pop"
+        ],
+        "flags": [
+          "groove"
+        ],
+        "complexity": "MEDIUM",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "ANALYZER-LIMIT",
+      "songClass": "ANALYZER-LIMIT",
+      "axis": "BEAT",
+      "axes": {
+        "period": "WEAK",
+        "phase": "FAIL",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_UNSTABLE",
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "evidence": {
+        "periodRelErr": 0.03568773234199688,
+        "phaseMedMs": 116,
+        "halfBeatRatio": 0.4304832713757027,
+        "lockFraction": 0.5094850948509485,
+        "gtSeeds": 20,
+        "hypInWindow": 315,
+        "aggregate": 0.6970177421142105,
+        "bpm": {
+          "human": 110.319,
+          "hyp": 107.666,
+          "relPct": 2.4048441338300797,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=WEAK(rel=0.036); phase=FAIL(medMs=116); continuity=FAIL(lock=0.51); evidence=PASS; phase near half-beat (ratio=0.43); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=315)"
+      },
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "confidence": "HIGH",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.004); phase=FAIL(medMs=325); continuity=FAIL(lock=0.34); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=79)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.240 meanIoU=0.661 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-003",
+      "title": "唱",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "j-pop"
+        ],
+        "flags": [
+          "complex-rhythm",
+          "high-energy"
+        ],
+        "complexity": "COMPLEX",
+        "tempo": "FAST"
+      },
+      "findingClass": "ANALYZER-LIMIT",
+      "songClass": "ANALYZER-LIMIT",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_UNSTABLE",
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "evidence": {
+        "periodRelErr": 0.013973799126632132,
+        "phaseMedMs": 120,
+        "halfBeatRatio": 0.5224890829693236,
+        "lockFraction": 0.5703883495145631,
+        "gtSeeds": 20,
+        "hypInWindow": 406,
+        "aggregate": 0.7202720873786532,
+        "bpm": {
+          "human": 130.829,
+          "hyp": 129.199,
+          "relPct": 1.2459011381268643,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.014); phase=FAIL(medMs=120); continuity=FAIL(lock=0.57); evidence=PASS; phase near half-beat (ratio=0.52); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=406)"
+      },
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "confidence": "HIGH",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.008); phase=FAIL(medMs=181); continuity=FAIL(lock=0.45); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=101)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.320 meanIoU=0.793 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-004",
+      "title": "ポリリズム",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "j-pop",
+          "electronic"
+        ],
+        "flags": [
+          "repetition"
+        ],
+        "complexity": "SIMPLE",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "ANALYZER-LIMIT",
+      "songClass": "ANALYZER-LIMIT",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_UNSTABLE",
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "evidence": {
+        "periodRelErr": 0.0034334763948513053,
+        "phaseMedMs": 116,
+        "halfBeatRatio": 0.49957081544947834,
+        "lockFraction": 0.5811320754716981,
+        "gtSeeds": 20,
+        "hypInWindow": 513,
+        "aggregate": 0.7245830188680602,
+        "bpm": {
+          "human": 130.69,
+          "hyp": 129.199,
+          "relPct": 1.1408677021960254,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.003); phase=FAIL(medMs=116); continuity=FAIL(lock=0.58); evidence=PASS; phase near half-beat (ratio=0.50); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=513)"
+      },
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "confidence": "HIGH",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.005); phase=FAIL(medMs=323); continuity=FAIL(lock=0.52); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=128)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.160 meanIoU=0.524 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-005",
+      "title": "Super Shy",
+      "gtSource": "consensus",
+      "conditions": {
+        "genre": [
+          "k-pop"
+        ],
+        "flags": [
+          "groove",
+          "repetition"
+        ],
+        "complexity": "SIMPLE",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "WEAK",
+      "songClass": "WEAK",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "WEAK",
+        "continuity": "WEAK",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_STABLE",
+      "symptom": "Period correct (or near); phase locked near half-beat; continuity mostly stable",
+      "evidence": {
+        "periodRelErr": 0.00554156171286475,
+        "phaseMedMs": 96,
+        "halfBeatRatio": 0.4856423173800796,
+        "lockFraction": 0.6881443298969072,
+        "gtSeeds": 32,
+        "hypInWindow": 383,
+        "aggregate": 0.8045360824743396,
+        "bpm": {
+          "human": 150.5,
+          "hyp": 151.999,
+          "relPct": 0.9960132890365416,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.006); phase=WEAK(medMs=96); continuity=WEAK(lock=0.69); evidence=PASS; phase near half-beat (ratio=0.49); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=32, hypInWindow=383)"
+      },
+      "probableCause": "beat_tracker_phase_ambiguity",
+      "analyzerCapability": "librosa.beat.beat_track insufficient for absolute phase lock",
+      "confidence": "MEDIUM",
+      "candidateFix": "stronger beat tracker with phase/onset model (e.g. madmom DBN) — evaluate later; NOT Fusion first",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.004); phase=FAIL(medMs=507); continuity=FAIL(lock=0.26); evidence=PASS; phase near half-downbeat (ratio=0.63); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=95)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.200 meanIoU=0.661 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-006",
+      "title": "MIC Drop",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "k-pop",
+          "hip-hop"
+        ],
+        "flags": [
+          "strong-beat"
+        ],
+        "complexity": "MEDIUM",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "WEAK",
+      "songClass": "WEAK",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "WEAK",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_STABLE",
+      "symptom": "Period correct (or near); phase locked near half-beat; continuity mostly stable",
+      "evidence": {
+        "periodRelErr": 0.508050847457626,
+        "phaseMedMs": 174,
+        "halfBeatRatio": 0.4925141242937877,
+        "lockFraction": 0.7591463414634146,
+        "gtSeeds": 24,
+        "hypInWindow": 636,
+        "aggregate": 0.7401115853658534,
+        "bpm": {
+          "human": 85,
+          "hyp": 172.266,
+          "relPct": 102.66588235294117,
+          "equiv": 2,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.508); phase=FAIL(medMs=174); continuity=WEAK(lock=0.76); evidence=PASS; octaveHint=0.5 (period scored after correction); phase near half-beat (ratio=0.49); treat as phase error not dual-phase GT"
+      },
+      "probableCause": "beat_tracker_phase_ambiguity",
+      "analyzerCapability": "librosa.beat.beat_track insufficient for absolute phase lock",
+      "confidence": "MEDIUM",
+      "candidateFix": "stronger beat tracker with phase/onset model (e.g. madmom DBN) — evaluate later; NOT Fusion first",
+      "secondary": [
+        {
+          "axis": "BPM",
+          "failureType": "BPM_OCTAVE",
+          "findingClass": "PASS",
+          "symptom": "BPM equivalence 0.5x or 2x (or large relative BPM error) while dance pulse may differ",
+          "evidence": "rel%=102.7 equiv=2",
+          "probableCause": "tempo_octave_error",
+          "analyzerCapability": "librosa tempo octave ambiguity",
+          "confidence": "HIGH",
+          "candidateFix": "tempo octave disambiguation / multi-analyzer vote — still measurement before Fusion weights"
+        },
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "WEAK",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.499); phase=FAIL(medMs=1223); continuity=PASS(lock=0.96); evidence=PASS; octaveHint=0.5 (period scored after correction); phase near half-downbeat (ratio=0.87); treat as phase error not dual-phase GT",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.385 meanIoU=0.606 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-007",
+      "title": "How You Like That",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "k-pop"
+        ],
+        "flags": [
+          "drop",
+          "energy-change"
+        ],
+        "complexity": "MEDIUM",
+        "tempo": "FAST"
+      },
+      "findingClass": "WEAK",
+      "songClass": "WEAK",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "WEAK",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_UNSTABLE",
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "evidence": {
+        "periodRelErr": 0.0073752711496689865,
+        "phaseMedMs": 87,
+        "halfBeatRatio": 0.37548806941408097,
+        "lockFraction": 0.6479591836734694,
+        "gtSeeds": 19,
+        "hypInWindow": 374,
+        "aggregate": 0.8150106292518138,
+        "bpm": {
+          "human": 130,
+          "hyp": 129.199,
+          "relPct": 0.6161538461538367,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.007); phase=WEAK(medMs=87); continuity=FAIL(lock=0.65); evidence=PASS; phase near half-beat (ratio=0.38); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=19, hypInWindow=374)"
+      },
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "confidence": "MEDIUM",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "WEAK",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.007); phase=FAIL(medMs=737); continuity=PASS(lock=0.90); evidence=PASS; phase near half-downbeat (ratio=0.80); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=94)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.500 meanIoU=0.570 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-008",
+      "title": "God's Menu",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "k-pop",
+          "hip-hop"
+        ],
+        "flags": [
+          "aggressive",
+          "impact"
+        ],
+        "complexity": "COMPLEX",
+        "tempo": "FAST"
+      },
+      "findingClass": "ANALYZER-LIMIT",
+      "songClass": "ANALYZER-LIMIT",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_UNSTABLE",
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "evidence": {
+        "periodRelErr": 0.9981747066492768,
+        "phaseMedMs": 105,
+        "halfBeatRatio": 0.5475880052152188,
+        "lockFraction": 0.4,
+        "gtSeeds": 23,
+        "hypInWindow": 232,
+        "aggregate": 0.684999999999991,
+        "bpm": {
+          "human": 156,
+          "hyp": 78.303,
+          "relPct": 49.80576923076923,
+          "equiv": 0.5,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.998); phase=FAIL(medMs=105); continuity=FAIL(lock=0.40); evidence=PASS; octaveHint=2 (period scored after correction); phase near half-beat (ratio=0.55); treat as phase error not dual-phase GT"
+      },
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "confidence": "HIGH",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT",
+      "secondary": [
+        {
+          "axis": "BPM",
+          "failureType": "BPM_OCTAVE",
+          "findingClass": "PASS",
+          "symptom": "BPM equivalence 0.5x or 2x (or large relative BPM error) while dance pulse may differ",
+          "evidence": "rel%=49.8 equiv=0.5",
+          "probableCause": "tempo_octave_error",
+          "analyzerCapability": "librosa tempo octave ambiguity",
+          "confidence": "HIGH",
+          "candidateFix": "tempo octave disambiguation / multi-analyzer vote — still measurement before Fusion weights"
+        },
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=1.015); phase=FAIL(medMs=258); continuity=FAIL(lock=0.09); evidence=PASS; octaveHint=2 (period scored after correction); seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=58)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.222 meanIoU=0.633 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-009",
+      "title": "Get Ur Freak On",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "hip-hop"
+        ],
+        "flags": [
+          "syncopation"
+        ],
+        "complexity": "MEDIUM",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "ANALYZER-LIMIT",
+      "songClass": "ANALYZER-LIMIT",
+      "axis": "BEAT",
+      "axes": {
+        "period": "FAIL",
+        "phase": "FAIL",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PERIOD_BREAK",
+      "symptom": "GT interval vs hyp interval fails; often with syncopation / dense offbeats",
+      "evidence": {
+        "periodRelErr": 0.24213649851631508,
+        "phaseMedMs": 180,
+        "halfBeatRatio": 0.5332344213651871,
+        "lockFraction": 0.5227272727272727,
+        "gtSeeds": 20,
+        "hypInWindow": 345,
+        "aggregate": 0.5097635689236266,
+        "bpm": {
+          "human": 90.58,
+          "hyp": 117.454,
+          "relPct": 29.668801059836603,
+          "equiv": null,
+          "classError": true
+        },
+        "narrative": "period=FAIL(rel=0.242); phase=FAIL(medMs=180); continuity=FAIL(lock=0.52); evidence=PASS; phase near half-beat (ratio=0.53); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=345)"
+      },
+      "probableCause": "tempo_period_confusion_under_syncopation",
+      "analyzerCapability": "librosa period estimation fails on complex/syncopated pulse",
+      "confidence": "HIGH",
+      "candidateFix": "multi-hypothesis tempo/beat (ensemble) — madmom helps; Fusion only after single-analyzer evidence",
+      "secondary": [
+        {
+          "axis": "BPM",
+          "failureType": "BPM_OCTAVE",
+          "findingClass": "WEAK",
+          "symptom": "BPM equivalence 0.5x or 2x (or large relative BPM error) while dance pulse may differ",
+          "evidence": "rel%=29.7 equiv=none",
+          "probableCause": "tempo_octave_error",
+          "analyzerCapability": "librosa tempo octave ambiguity",
+          "confidence": "MEDIUM",
+          "candidateFix": "tempo octave disambiguation / multi-analyzer vote — still measurement before Fusion weights"
+        },
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=FAIL(rel=0.245); phase=FAIL(medMs=726); continuity=FAIL(lock=0.18); evidence=PASS; phase near half-downbeat (ratio=0.54); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=86)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.300 meanIoU=0.636 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-010",
+      "title": "Still D.R.E.",
+      "gtSource": "consensus",
+      "conditions": {
+        "genre": [
+          "hip-hop"
+        ],
+        "flags": [
+          "stable-groove",
+          "repetition"
+        ],
+        "complexity": "SIMPLE",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "ANALYZER-LIMIT",
+      "songClass": "ANALYZER-LIMIT",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_UNSTABLE",
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "evidence": {
+        "periodRelErr": 0.009472049689443741,
+        "phaseMedMs": 173,
+        "halfBeatRatio": 0.5361801242236381,
+        "lockFraction": 0.4988066825775656,
+        "gtSeeds": 24,
+        "hypInWindow": 416,
+        "aggregate": 0.6758766706443857,
+        "bpm": {
+          "human": 93.511,
+          "hyp": 92.285,
+          "relPct": 1.3110757023237898,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.009); phase=FAIL(medMs=173); continuity=FAIL(lock=0.50); evidence=PASS; phase near half-beat (ratio=0.54); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=416)"
+      },
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "confidence": "HIGH",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "WEAK",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.003); phase=FAIL(medMs=251); continuity=PASS(lock=0.93); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=104)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.323 meanIoU=0.588 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-011",
+      "title": "HUMBLE.",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "hip-hop"
+        ],
+        "flags": [
+          "sparse-hihat"
+        ],
+        "complexity": "MEDIUM",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "WEAK",
+      "songClass": "WEAK",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "WEAK",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_STABLE",
+      "symptom": "Period correct (or near); phase locked near half-beat; continuity mostly stable",
+      "evidence": {
+        "periodRelErr": 0.02518518518519446,
+        "phaseMedMs": 108,
+        "halfBeatRatio": 0.5333333333330769,
+        "lockFraction": 0.6981566820276498,
+        "gtSeeds": 20,
+        "hypInWindow": 430,
+        "aggregate": 0.7580391705069384,
+        "bpm": {
+          "human": 150,
+          "hyp": 151.999,
+          "relPct": 1.3326666666666633,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.025); phase=FAIL(medMs=108); continuity=WEAK(lock=0.70); evidence=PASS; phase near half-beat (ratio=0.53); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=430)"
+      },
+      "probableCause": "beat_tracker_phase_ambiguity",
+      "analyzerCapability": "librosa.beat.beat_track insufficient for absolute phase lock",
+      "confidence": "MEDIUM",
+      "candidateFix": "stronger beat tracker with phase/onset model (e.g. madmom DBN) — evaluate later; NOT Fusion first",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.003); phase=FAIL(medMs=425); continuity=FAIL(lock=0.62); evidence=PASS; phase near half-downbeat (ratio=0.53); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=108)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.435 meanIoU=0.671 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-012",
+      "title": "SICKO MODE",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "hip-hop"
+        ],
+        "flags": [
+          "structure-complex",
+          "tempo-feel"
+        ],
+        "complexity": "COMPLEX",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "WEAK",
+      "songClass": "WEAK",
+      "axis": "BEAT",
+      "axes": {
+        "period": "WEAK",
+        "phase": "FAIL",
+        "continuity": "WEAK",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_STABLE",
+      "symptom": "Period correct (or near); phase locked near half-beat; continuity mostly stable",
+      "evidence": {
+        "periodRelErr": 0.0712941176470578,
+        "phaseMedMs": 106,
+        "halfBeatRatio": 0.5002352941177354,
+        "lockFraction": 0.7140921409214093,
+        "gtSeeds": 24,
+        "hypInWindow": 805,
+        "aggregate": 0.6906083293479918,
+        "bpm": {
+          "human": 140,
+          "hyp": 151.999,
+          "relPct": 8.570714285714283,
+          "equiv": null,
+          "classError": true
+        },
+        "narrative": "period=WEAK(rel=0.071); phase=FAIL(medMs=106); continuity=WEAK(lock=0.71); evidence=PASS; phase near half-beat (ratio=0.50); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=805)"
+      },
+      "probableCause": "beat_tracker_phase_ambiguity",
+      "analyzerCapability": "librosa.beat.beat_track insufficient for absolute phase lock",
+      "confidence": "MEDIUM",
+      "candidateFix": "stronger beat tracker with phase/onset model (e.g. madmom DBN) — evaluate later; NOT Fusion first",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=FAIL(rel=0.105); phase=FAIL(medMs=418); continuity=FAIL(lock=0.27); evidence=PASS; phase near half-downbeat (ratio=0.48); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=202)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.250 meanIoU=0.661 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-013",
+      "title": "One More Time",
+      "gtSource": "consensus",
+      "conditions": {
+        "genre": [
+          "edm",
+          "house"
+        ],
+        "flags": [
+          "long-form",
+          "dance"
+        ],
+        "complexity": "MEDIUM",
+        "tempo": "MEDIUM",
+        "note": "phase-policy-locked"
+      },
+      "findingClass": "WEAK",
+      "songClass": "WEAK",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "WEAK",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_STABLE",
+      "symptom": "Period correct (or near); phase locked near half-beat; continuity mostly stable",
+      "evidence": {
+        "periodRelErr": 0.0028629856850794074,
+        "phaseMedMs": 166,
+        "halfBeatRatio": 0.6793456032728065,
+        "lockFraction": 0.7175572519083969,
+        "gtSeeds": 655,
+        "hypInWindow": 655,
+        "aggregate": 0.7338393129769979,
+        "bpm": {
+          "human": 122.5,
+          "hyp": 123.047,
+          "relPct": 0.4465306122448955,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.003); phase=FAIL(medMs=166); continuity=WEAK(lock=0.72); evidence=PASS; phase near half-beat (ratio=0.68); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=655, hypInWindow=655)"
+      },
+      "probableCause": "beat_tracker_phase_ambiguity",
+      "analyzerCapability": "librosa.beat.beat_track insufficient for absolute phase lock",
+      "confidence": "HIGH",
+      "candidateFix": "stronger beat tracker with phase/onset model (e.g. madmom DBN) — evaluate later; NOT Fusion first",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=189); continuity=FAIL(lock=0.62); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=164, hypInWindow=163)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.187 meanIoU=0.546 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-014",
+      "title": "Omen",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "electronic"
+        ],
+        "flags": [
+          "remix-risk"
+        ],
+        "complexity": "MEDIUM",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "WEAK",
+      "songClass": "WEAK",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "WEAK",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_STABLE",
+      "symptom": "Period correct (or near); phase locked near half-beat; continuity mostly stable",
+      "evidence": {
+        "periodRelErr": 0.027906976744170597,
+        "phaseMedMs": 126,
+        "halfBeatRatio": 0.5883720930231573,
+        "lockFraction": 0.725609756097561,
+        "gtSeeds": 24,
+        "hypInWindow": 484,
+        "aggregate": 0.7556524390244008,
+        "bpm": {
+          "human": 138,
+          "hyp": 143.555,
+          "relPct": 4.0253623188405845,
+          "equiv": null,
+          "classError": true
+        },
+        "narrative": "period=PASS(rel=0.028); phase=FAIL(medMs=126); continuity=WEAK(lock=0.73); evidence=PASS; phase near half-beat (ratio=0.59); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=484)"
+      },
+      "probableCause": "beat_tracker_phase_ambiguity",
+      "analyzerCapability": "librosa.beat.beat_track insufficient for absolute phase lock",
+      "confidence": "MEDIUM",
+      "candidateFix": "stronger beat tracker with phase/onset model (e.g. madmom DBN) — evaluate later; NOT Fusion first",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=509); continuity=FAIL(lock=0.23); evidence=PASS; phase near half-downbeat (ratio=0.59); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=121)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.258 meanIoU=0.565 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-015",
+      "title": "Bangarang",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "edm"
+        ],
+        "flags": [
+          "drop",
+          "bass"
+        ],
+        "complexity": "MEDIUM",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "ANALYZER-LIMIT",
+      "songClass": "ANALYZER-LIMIT",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_UNSTABLE",
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "evidence": {
+        "periodRelErr": 0.018198529411758254,
+        "phaseMedMs": 129,
+        "halfBeatRatio": 0.4746323529427229,
+        "lockFraction": 0.5491183879093199,
+        "gtSeeds": 24,
+        "hypInWindow": 387,
+        "aggregate": 0.7102295969771198,
+        "bpm": {
+          "human": 110,
+          "hyp": 112.347,
+          "relPct": 2.1336363636363584,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.018); phase=FAIL(medMs=129); continuity=FAIL(lock=0.55); evidence=PASS; phase near half-beat (ratio=0.47); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=387)"
+      },
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "confidence": "HIGH",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.000); phase=FAIL(medMs=728); continuity=FAIL(lock=0.25); evidence=PASS; phase near half-downbeat (ratio=0.67); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=96)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.333 meanIoU=0.570 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-016",
+      "title": "24K Magic",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "pop",
+          "funk"
+        ],
+        "flags": [
+          "groove"
+        ],
+        "complexity": "MEDIUM",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "ANALYZER-LIMIT",
+      "songClass": "ANALYZER-LIMIT",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_UNSTABLE",
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "evidence": {
+        "periodRelErr": 0.01362831858407053,
+        "phaseMedMs": 140,
+        "halfBeatRatio": 0.4953982300887955,
+        "lockFraction": 0.4664804469273743,
+        "gtSeeds": 24,
+        "hypInWindow": 356,
+        "aggregate": 0.6841451117318015,
+        "bpm": {
+          "human": 107,
+          "hyp": 107.666,
+          "relPct": 0.6224299065420531,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.014); phase=FAIL(medMs=140); continuity=FAIL(lock=0.47); evidence=PASS; phase near half-beat (ratio=0.50); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=356)"
+      },
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "confidence": "HIGH",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.001); phase=FAIL(medMs=851); continuity=FAIL(lock=0.27); evidence=PASS; phase near half-downbeat (ratio=0.76); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=89)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.296 meanIoU=0.637 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-017",
+      "title": "Billie Jean",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "pop"
+        ],
+        "flags": [
+          "classic-pulse"
+        ],
+        "complexity": "SIMPLE",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "ANALYZER-LIMIT",
+      "songClass": "ANALYZER-LIMIT",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_UNSTABLE",
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "evidence": {
+        "periodRelErr": 0.0005876591577228374,
+        "phaseMedMs": 152,
+        "halfBeatRatio": 0.595886385896253,
+        "lockFraction": 0.5954861111111112,
+        "gtSeeds": 19,
+        "hypInWindow": 557,
+        "aggregate": 0.7103215277777686,
+        "bpm": {
+          "human": 118,
+          "hyp": 117.454,
+          "relPct": 0.46271186440678513,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.001); phase=FAIL(medMs=152); continuity=FAIL(lock=0.60); evidence=PASS; phase near half-beat (ratio=0.60); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=19, hypInWindow=557)"
+      },
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "confidence": "HIGH",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.013); phase=FAIL(medMs=512); continuity=FAIL(lock=0.20); evidence=PASS; phase near half-downbeat (ratio=0.49); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=140)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.176 meanIoU=0.574 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-018",
+      "title": "Thinkin Bout You",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "r&b"
+        ],
+        "flags": [
+          "sparse",
+          "vocal"
+        ],
+        "complexity": "MEDIUM",
+        "tempo": "SLOW"
+      },
+      "findingClass": "ANALYZER-LIMIT",
+      "songClass": "ANALYZER-LIMIT",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_UNSTABLE",
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "evidence": {
+        "periodRelErr": 0.0008620689655152348,
+        "phaseMedMs": 104,
+        "halfBeatRatio": 0.44784482758594546,
+        "lockFraction": 0.5769230769230769,
+        "gtSeeds": 32,
+        "hypInWindow": 417,
+        "aggregate": 0.7297807692307997,
+        "bpm": {
+          "human": 130,
+          "hyp": 129.199,
+          "relPct": 0.6161538461538367,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.001); phase=FAIL(medMs=104); continuity=FAIL(lock=0.58); evidence=PASS; phase near half-beat (ratio=0.45); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=32, hypInWindow=417)"
+      },
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "confidence": "HIGH",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "WEAK",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.007); phase=FAIL(medMs=483); continuity=PASS(lock=0.99); evidence=PASS; phase near half-downbeat (ratio=0.52); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=104)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.286 meanIoU=0.564 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-019",
+      "title": "カタオモイ",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "j-pop"
+        ],
+        "flags": [
+          "ballad-lean"
+        ],
+        "complexity": "SIMPLE",
+        "tempo": "MEDIUM"
+      },
+      "findingClass": "ANALYZER-LIMIT",
+      "songClass": "ANALYZER-LIMIT",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_HALFBEAT_UNSTABLE",
+      "symptom": "Period often OK; phase near half-beat AND continuity lock breaks across the song",
+      "evidence": {
+        "periodRelErr": 0.00175159235669513,
+        "phaseMedMs": 114,
+        "halfBeatRatio": 0.36146496815289497,
+        "lockFraction": 0.486646884272997,
+        "gtSeeds": 20,
+        "hypInWindow": 319,
+        "aggregate": 0.7024117210682448,
+        "bpm": {
+          "human": 97,
+          "hyp": 95.703,
+          "relPct": 1.3371134020618525,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.002); phase=FAIL(medMs=114); continuity=FAIL(lock=0.49); evidence=PASS; phase near half-beat (ratio=0.36); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=319)"
+      },
+      "probableCause": "beat_tracker_phase_plus_drift",
+      "analyzerCapability": "librosa cannot hold a consistent grid relative to GT phase",
+      "confidence": "HIGH",
+      "candidateFix": "beat tracking upgrade (madmom-class) before MSAF; re-benchmark same GT",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=PASS(rel=0.010); phase=FAIL(medMs=210); continuity=FAIL(lock=0.34); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=80)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.348 meanIoU=0.584 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    },
+    {
+      "songId": "song-020",
+      "title": "Cornfield Chase",
+      "gtSource": "annotator-a",
+      "conditions": {
+        "genre": [
+          "instrumental",
+          "score"
+        ],
+        "flags": [
+          "ambient-pulse"
+        ],
+        "complexity": "SIMPLE",
+        "tempo": "SLOW"
+      },
+      "findingClass": "WEAK",
+      "songClass": "WEAK",
+      "axis": "BEAT",
+      "axes": {
+        "period": "PASS",
+        "phase": "WEAK",
+        "continuity": "FAIL",
+        "evidence": "PASS"
+      },
+      "failureType": "PHASE_DRIFT",
+      "symptom": "Period OK; phase moderate error; continuity fails (offset not stable)",
+      "evidence": {
+        "periodRelErr": 0.0001594896331635562,
+        "phaseMedMs": 94,
+        "halfBeatRatio": 0.29888357256780057,
+        "lockFraction": 0.4639175257731959,
+        "gtSeeds": 21,
+        "hypInWindow": 127,
+        "aggregate": 0.7541043814432876,
+        "bpm": {
+          "human": 96,
+          "hyp": 95.703,
+          "relPct": 0.30937499999999696,
+          "equiv": 1,
+          "classError": false
+        },
+        "narrative": "period=PASS(rel=0.000); phase=WEAK(medMs=94); continuity=FAIL(lock=0.46); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=127)"
+      },
+      "probableCause": "beat_grid_drift",
+      "analyzerCapability": "librosa loses lock over long/soft-pulse material",
+      "confidence": "MEDIUM",
+      "candidateFix": "beat tracker with stronger continuity prior; optional onset reinforcement",
+      "secondary": [
+        {
+          "axis": "DOWNBEAT",
+          "failureType": "DOWNBEAT_UNSTABLE",
+          "findingClass": "ANALYZER-LIMIT",
+          "symptom": "Beat period may pass; bar-start phase/continuity fails",
+          "evidence": "period=FAIL(rel=0.328); phase=FAIL(medMs=400); continuity=FAIL(lock=0.06); evidence=PASS; phase near half-downbeat (ratio=0.42); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=16, hypInWindow=32)",
+          "probableCause": "downbeat_proxy_every_4th_beat",
+          "analyzerCapability": "current hyp uses every-4th beat as downbeat — not a true downbeat model",
+          "confidence": "MEDIUM",
+          "candidateFix": "dedicated downbeat model (often bundled with madmom-class trackers); do not blame MSAF"
+        },
+        {
+          "axis": "SECTION",
+          "failureType": "SECTION_STUB",
+          "findingClass": "WEAK",
+          "symptom": "Section labelF1 low; hyp sections are energy stubs",
+          "evidence": "labelF1=0.375 meanIoU=0.553 (hyp sections=energy stub — not MSAF evidence)",
+          "probableCause": "section_hypothesis_is_stub_not_structure_analyzer",
+          "analyzerCapability": "batch hyp intentionally non-MSAF energy blocks — NOT evidence that MSAF is required yet",
+          "confidence": "LOW",
+          "candidateFix": "only after Beat taxonomy acted on: run real structure analyzer (MSAF candidate) under same GT"
+        }
+      ]
+    }
+  ],
+  "nextSteps": [
+    "Human review this taxonomy",
+    "If approved: minimal single analyzer add targeting PHASE_* failures (likely madmom-class Beat)",
+    "Re-benchmark same 20 / same GT / same Period-Phase-Continuity-Evidence axes",
+    "Only then reconsider MSAF / Fusion"
+  ]
+}

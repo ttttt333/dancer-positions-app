@@ -1,0 +1,1207 @@
+{
+  "gate": "EXPERIMENT_B",
+  "experimentId": "4.6-exp-madmom-beat-v1",
+  "benchmarkGate": "EXPERIMENT_B_COMPLETE",
+  "analyzerUnderTest": "madmom",
+  "realSongDatasetVersion": "4.6.1-double-consensus",
+  "computedAt": "2026-09-13T04:58:09.431Z",
+  "axisPassCounts": {
+    "period": 19,
+    "phase": 0,
+    "continuity": 2,
+    "evidence": 18,
+    "n": 20
+  },
+  "beatFindingClassCounts": {
+    "PASS": 0,
+    "WEAK": 8,
+    "GT-AMBIGUITY": 0,
+    "ANALYZER-LIMIT": 12
+  },
+  "findingClassCounts": {
+    "PASS": 18,
+    "WEAK": 39,
+    "GT-AMBIGUITY": 0,
+    "ANALYZER-LIMIT": 23
+  },
+  "freeze": [
+    "no_madmom",
+    "no_msaf",
+    "no_cyanite",
+    "no_demucs",
+    "no_fusion_weight_change",
+    "no_formation_engine_change",
+    "no_keep_current",
+    "no_ml_training",
+    "no_musical_change_to_formation_change"
+  ],
+  "contract": {
+    "beatAxes": [
+      "Period",
+      "Phase",
+      "Continuity",
+      "Evidence"
+    ],
+    "forbidden": [
+      "pointwise Beat F1",
+      "seed density as accuracy",
+      "continuation point competition",
+      "BPM-only phase pass",
+      "A/B disagreement as analyzer error",
+      "GT retargeted to analyzer",
+      "fusion during experiment B"
+    ],
+    "song013PhasePolicy": "half-beat offset is phase-start error, not dual-phase GT; consensus seed=B"
+  },
+  "song013": {
+    "title": "One More Time",
+    "gtSource": "consensus",
+    "beat": {
+      "period": {
+        "gtIntervalSec": 0.4890000000000043,
+        "hypIntervalSec": 0.48999999999999844,
+        "relativeError": 0.0020449897750390755,
+        "score": 1,
+        "verdict": "PASS",
+        "octaveHint": 1
+      },
+      "phase": {
+        "medianAbsErrorSec": 0.12099999999887245,
+        "halfBeatRatio": 0.49488752555775617,
+        "score": 0.3080000000022551,
+        "verdict": "FAIL"
+      },
+      "continuity": {
+        "lockFraction": 0.5618320610687023,
+        "evaluatedBins": 655,
+        "score": 0.5618320610687023,
+        "verdict": "FAIL"
+      },
+      "evidence": {
+        "gtSeedCount": 655,
+        "hypCountInWindow": 657,
+        "hypIntervalCv": 0.02423029166072726,
+        "score": 1,
+        "verdict": "PASS"
+      },
+      "aggregate": 0.7174580152677393,
+      "notes": [
+        "phase near half-beat (ratio=0.49); treat as phase error not dual-phase GT",
+        "seedDensity ignored for accuracy (gtSeeds=655, hypInWindow=657)"
+      ]
+    },
+    "findings": [
+      {
+        "songId": "song-013",
+        "title": "One More Time",
+        "analyzerId": "madmom",
+        "dimension": "BEAT",
+        "findingClass": "ANALYZER-LIMIT",
+        "score": 0.7174580152677393,
+        "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=121); continuity=FAIL(lock=0.56); evidence=PASS; phase near half-beat (ratio=0.49); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=655, hypInWindow=657)",
+        "axes": {
+          "period": "PASS",
+          "phase": "FAIL",
+          "continuity": "FAIL",
+          "evidence": "PASS"
+        }
+      },
+      {
+        "songId": "song-013",
+        "title": "One More Time",
+        "analyzerId": "madmom",
+        "dimension": "DOWNBEAT",
+        "findingClass": "WEAK",
+        "score": 0.7518048780490008,
+        "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=247); continuity=PASS(lock=0.95); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=164, hypInWindow=163)",
+        "axes": {
+          "period": "PASS",
+          "phase": "FAIL",
+          "continuity": "PASS",
+          "evidence": "PASS"
+        }
+      },
+      {
+        "songId": "song-013",
+        "title": "One More Time",
+        "analyzerId": "madmom",
+        "dimension": "BPM",
+        "findingClass": "PASS",
+        "score": 1,
+        "evidence": "rel%=0.0 equiv=1"
+      },
+      {
+        "songId": "song-013",
+        "title": "One More Time",
+        "analyzerId": "madmom",
+        "dimension": "SECTION",
+        "findingClass": "WEAK",
+        "score": 0,
+        "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+      }
+    ],
+    "songClass": "ANALYZER-LIMIT"
+  },
+  "songs": [
+    {
+      "songId": "song-001",
+      "title": "アイドル",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 166.92,
+        "hyp": 166.667,
+        "relPct": 0.15156961418642817,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.002785515320332718,
+        "phaseVerdict": "WEAK",
+        "phaseMedMs": 88,
+        "halfBeatRatio": 0.4902506963788355,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.7878787878787878,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 619,
+        "gtSeeds": 20,
+        "aggregate": 0.8469696969696949
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.8469696969696949,
+          "evidence": "period=PASS(rel=0.003); phase=WEAK(medMs=88); continuity=WEAK(lock=0.79); evidence=PASS; phase near half-beat (ratio=0.49); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=619)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5667866242038544,
+          "evidence": "period=PASS(rel=0.010); phase=FAIL(medMs=272); continuity=FAIL(lock=0.26); evidence=PASS; phase near half-downbeat (ratio=0.38); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=143)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.2 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-002",
+      "title": "ダンスホール",
+      "gtSource": "consensus",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 110.319,
+        "hyp": 109.091,
+        "relPct": 1.1131355432881085,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.022304832713722463,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 130,
+        "halfBeatRatio": 0.48327137546466936,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.4959349593495935,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 362,
+        "gtSeeds": 20,
+        "aggregate": 0.6964837398374003
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6964837398374003,
+          "evidence": "period=PASS(rel=0.022); phase=FAIL(medMs=130); continuity=FAIL(lock=0.50); evidence=PASS; phase near half-beat (ratio=0.48); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=362)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6156703296702642,
+          "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=203); continuity=FAIL(lock=0.32); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=88)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=1.1 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-003",
+      "title": "唱",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 130.829,
+        "hyp": 133.333,
+        "relPct": 1.9139487422513284,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.017467248908260107,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 114,
+        "halfBeatRatio": 0.4978165938864292,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.6213592233009708,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 414,
+        "gtSeeds": 20,
+        "aggregate": 0.7358398058252466
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7358398058252466,
+          "evidence": "period=PASS(rel=0.017); phase=FAIL(medMs=114); continuity=FAIL(lock=0.62); evidence=PASS; phase near half-beat (ratio=0.50); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=414)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.558252427184466,
+          "evidence": "period=PASS(rel=0.003); phase=FAIL(medMs=470); continuity=FAIL(lock=0.23); evidence=PASS; phase near half-downbeat (ratio=0.51); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=103)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=1.9 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-004",
+      "title": "ポリリズム",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 130.69,
+        "hyp": 127.66,
+        "relPct": 2.3184635396740387,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.008583690987119686,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 119,
+        "halfBeatRatio": 0.5107296137332935,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.6056603773584905,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 526,
+        "gtSeeds": 20,
+        "aggregate": 0.7294150943396938
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7294150943396938,
+          "evidence": "period=PASS(rel=0.009); phase=FAIL(medMs=119); continuity=FAIL(lock=0.61); evidence=PASS; phase near half-beat (ratio=0.51); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=526)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.8679924242424067,
+          "evidence": "period=PASS(rel=0.004); phase=WEAK(medMs=97); continuity=PASS(lock=0.95); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=130)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=2.3 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-005",
+      "title": "Super Shy",
+      "gtSource": "consensus",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 150.5,
+        "hyp": 150,
+        "relPct": 0.33222591362126247,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.007556675062972574,
+        "phaseVerdict": "WEAK",
+        "phaseMedMs": 96,
+        "halfBeatRatio": 0.48362720403025367,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.7061855670103093,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 385,
+        "gtSeeds": 32,
+        "aggregate": 0.8098797250858994
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.8098797250858994,
+          "evidence": "period=PASS(rel=0.008); phase=WEAK(medMs=96); continuity=WEAK(lock=0.71); evidence=PASS; phase near half-beat (ratio=0.48); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=32, hypInWindow=385)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5625,
+          "evidence": "period=PASS(rel=0.005); phase=FAIL(medMs=540); continuity=FAIL(lock=0.25); evidence=PASS; phase near half-downbeat (ratio=0.67); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=95)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.3 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-006",
+      "title": "MIC Drop",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 85,
+        "hyp": 171.429,
+        "relPct": 101.68117647058823,
+        "equiv": 2,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.5056497175141111,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 160,
+        "halfBeatRatio": 0.4519774011310589,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.8323170731707317,
+        "evidenceVerdict": "WEAK",
+        "hypInWindow": 583,
+        "gtSeeds": 24,
+        "aggregate": 0.6905792682924856
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.6905792682924856,
+          "evidence": "period=PASS(rel=0.506); phase=FAIL(medMs=160); continuity=WEAK(lock=0.83); evidence=WEAK; octaveHint=0.5 (period scored after correction); phase near half-beat (ratio=0.45); treat as phase error not dual-phase GT"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.6541707317072918,
+          "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=213); continuity=WEAK(lock=0.79); evidence=WEAK; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=104)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=101.7 equiv=2"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-007",
+      "title": "How You Like That",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 130,
+        "hyp": 130.435,
+        "relPct": 0.33461538461538637,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.00216919739696192,
+        "phaseVerdict": "WEAK",
+        "phaseMedMs": 57,
+        "halfBeatRatio": 0.24728850325349705,
+        "continuityVerdict": "PASS",
+        "lockFraction": 0.8673469387755102,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 391,
+        "gtSeeds": 19,
+        "aggregate": 0.9314200680273544
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.9314200680273544,
+          "evidence": "period=PASS(rel=0.002); phase=WEAK(medMs=57); continuity=PASS(lock=0.87); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=19, hypInWindow=391)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.7609438775510008,
+          "evidence": "period=PASS(rel=0.003); phase=FAIL(medMs=223); continuity=PASS(lock=0.94); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=93)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.3 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-008",
+      "title": "God's Menu",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 156,
+        "hyp": 157.895,
+        "relPct": 1.2147435897435963,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.009126466753585551,
+        "phaseVerdict": "WEAK",
+        "phaseMedMs": 81,
+        "halfBeatRatio": 0.42242503259446607,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.7505154639175258,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 489,
+        "gtSeeds": 23,
+        "aggregate": 0.8522121993127381
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.8522121993127381,
+          "evidence": "period=PASS(rel=0.009); phase=WEAK(medMs=81); continuity=WEAK(lock=0.75); evidence=PASS; phase near half-beat (ratio=0.42); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=23, hypInWindow=489)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.7526803278688123,
+          "evidence": "period=PASS(rel=0.006); phase=FAIL(medMs=118); continuity=WEAK(lock=0.70); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=117)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=1.2 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-009",
+      "title": "Get Ur Freak On",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 90.58,
+        "hyp": 176.471,
+        "relPct": 94.82336056524619,
+        "equiv": null,
+        "classError": true
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.4955489614243322,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 167,
+        "halfBeatRatio": 0.4955489614243322,
+        "continuityVerdict": "PASS",
+        "lockFraction": 0.8977272727272727,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 528,
+        "gtSeeds": 20,
+        "aggregate": 0.7784318181818183
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.7784318181818183,
+          "evidence": "period=PASS(rel=0.496); phase=FAIL(medMs=167); continuity=PASS(lock=0.90); evidence=PASS; octaveHint=0.5 (period scored after correction); phase near half-beat (ratio=0.50); treat as phase error not dual-phase GT"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5833333333333333,
+          "evidence": "period=PASS(rel=0.501); phase=FAIL(medMs=684); continuity=FAIL(lock=0.33); evidence=PASS; octaveHint=0.5 (period scored after correction); phase near half-downbeat (ratio=0.51); treat as phase error not dual-phase GT"
+        },
+        {
+          "dimension": "BPM",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "rel%=94.8 equiv=none"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-010",
+      "title": "Still D.R.E.",
+      "gtSource": "consensus",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 93.511,
+        "hyp": 93.75,
+        "relPct": 0.2555849044497485,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.006211180124222917,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 182,
+        "halfBeatRatio": 0.5652173913044206,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.4677804295942721,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 420,
+        "gtSeeds": 24,
+        "aggregate": 0.6634451073985563
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6634451073985563,
+          "evidence": "period=PASS(rel=0.006); phase=FAIL(medMs=182); continuity=FAIL(lock=0.47); evidence=PASS; phase near half-beat (ratio=0.57); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=420)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.7380952380952381,
+          "evidence": "period=PASS(rel=0.000); phase=FAIL(medMs=288); continuity=PASS(lock=0.95); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=105)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.3 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-011",
+      "title": "HUMBLE.",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 150,
+        "hyp": 150,
+        "relPct": 0,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.012345679012341022,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 106,
+        "halfBeatRatio": 0.5234567901231488,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.7119815668202765,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 439,
+        "gtSeeds": 20,
+        "aggregate": 0.7624953917051003
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.7624953917051003,
+          "evidence": "period=PASS(rel=0.012); phase=FAIL(medMs=106); continuity=WEAK(lock=0.71); evidence=PASS; phase near half-beat (ratio=0.52); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=439)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.9077651515151155,
+          "evidence": "period=PASS(rel=0.002); phase=WEAK(medMs=81); continuity=PASS(lock=0.97); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=107)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.0 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-012",
+      "title": "SICKO MODE",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 140,
+        "hyp": 153.846,
+        "relPct": 9.890000000000002,
+        "equiv": null,
+        "classError": true
+      },
+      "beat": {
+        "periodVerdict": "FAIL",
+        "periodRelErr": 0.0823529411765023,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 105,
+        "halfBeatRatio": 0.49411764705864186,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.6639566395663956,
+        "evidenceVerdict": "WEAK",
+        "hypInWindow": 738,
+        "gtSeeds": 24,
+        "aggregate": 0.5873126893033671
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5873126893033671,
+          "evidence": "period=FAIL(rel=0.082); phase=FAIL(medMs=105); continuity=WEAK(lock=0.66); evidence=WEAK; phase near half-beat (ratio=0.49); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=738)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.46230373353791415,
+          "evidence": "period=FAIL(rel=0.108); phase=FAIL(medMs=369); continuity=FAIL(lock=0.26); evidence=PASS; phase near half-downbeat (ratio=0.42); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=188)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "rel%=9.9 equiv=none"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-013",
+      "title": "One More Time",
+      "gtSource": "consensus",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 122.5,
+        "hyp": 122.449,
+        "relPct": 0.04163265306122607,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.0020449897750390755,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 121,
+        "halfBeatRatio": 0.49488752555775617,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.5618320610687023,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 657,
+        "gtSeeds": 655,
+        "aggregate": 0.7174580152677393
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7174580152677393,
+          "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=121); continuity=FAIL(lock=0.56); evidence=PASS; phase near half-beat (ratio=0.49); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=655, hypInWindow=657)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.7518048780490008,
+          "evidence": "period=PASS(rel=0.002); phase=FAIL(medMs=247); continuity=PASS(lock=0.95); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=164, hypInWindow=163)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.0 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-014",
+      "title": "Omen",
+      "gtSource": "annotator-a",
+      "songClass": "WEAK",
+      "bpm": {
+        "human": 138,
+        "hyp": 139.535,
+        "relPct": 1.1123188405797078,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 128,
+        "halfBeatRatio": 0.5953488372088406,
+        "continuityVerdict": "WEAK",
+        "lockFraction": 0.6869918699186992,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 494,
+        "gtSeeds": 24,
+        "aggregate": 0.7452479674797245
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "WEAK",
+          "score": 0.7452479674797245,
+          "evidence": "period=PASS(rel=0.000); phase=FAIL(medMs=128); continuity=WEAK(lock=0.69); evidence=PASS; phase near half-beat (ratio=0.60); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=494)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5609756097560976,
+          "evidence": "period=PASS(rel=0.006); phase=FAIL(medMs=550); continuity=FAIL(lock=0.24); evidence=PASS; phase near half-downbeat (ratio=0.64); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=123)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=1.1 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-015",
+      "title": "Bangarang",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 110,
+        "hyp": 109.091,
+        "relPct": 0.826363636363642,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.011029411764676937,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 137,
+        "halfBeatRatio": 0.5036764705891263,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.48866498740554154,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 392,
+        "gtSeeds": 24,
+        "aggregate": 0.6911662468512644
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6911662468512644,
+          "evidence": "period=PASS(rel=0.011); phase=FAIL(medMs=137); continuity=FAIL(lock=0.49); evidence=PASS; phase near half-beat (ratio=0.50); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=392)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.8053737373737333,
+          "evidence": "period=PASS(rel=0.001); phase=FAIL(medMs=139); continuity=PASS(lock=0.95); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=96)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.8 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-016",
+      "title": "24K Magic",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 107,
+        "hyp": 107.143,
+        "relPct": 0.13364485981308474,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.008849557522115881,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 147,
+        "halfBeatRatio": 0.520353982302768,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.4581005586592179,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 361,
+        "gtSeeds": 24,
+        "aggregate": 0.6785251396645389
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6785251396645389,
+          "evidence": "period=PASS(rel=0.009); phase=FAIL(medMs=147); continuity=FAIL(lock=0.46); evidence=PASS; phase near half-beat (ratio=0.52); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=361)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5694444444444444,
+          "evidence": "period=PASS(rel=0.005); phase=FAIL(medMs=327); continuity=FAIL(lock=0.28); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=90)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.1 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-017",
+      "title": "Billie Jean",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 118,
+        "hyp": 117.647,
+        "relPct": 0.29915254237287664,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.0009794319294707894,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 147,
+        "halfBeatRatio": 0.5749265426052783,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.5815972222222222,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 574,
+        "gtSeeds": 19,
+        "aggregate": 0.7095243055555569
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7095243055555569,
+          "evidence": "period=PASS(rel=0.001); phase=FAIL(medMs=147); continuity=FAIL(lock=0.58); evidence=PASS; phase near half-beat (ratio=0.57); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=19, hypInWindow=574)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5475352112676056,
+          "evidence": "period=PASS(rel=0.010); phase=FAIL(medMs=528); continuity=FAIL(lock=0.19); evidence=PASS; phase near half-downbeat (ratio=0.51); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=142)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.3 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-018",
+      "title": "Thinkin Bout You",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 130,
+        "hyp": 130.435,
+        "relPct": 0.33461538461538637,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.008620689655152348,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 105,
+        "halfBeatRatio": 0.45258620689464074,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.6394230769230769,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 418,
+        "gtSeeds": 32,
+        "aggregate": 0.7448557692309911
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7448557692309911,
+          "evidence": "period=PASS(rel=0.009); phase=FAIL(medMs=105); continuity=FAIL(lock=0.64); evidence=PASS; phase near half-beat (ratio=0.45); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=32, hypInWindow=418)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "WEAK",
+          "score": 0.9403273809522277,
+          "evidence": "period=PASS(rel=0.002); phase=WEAK(medMs=68); continuity=PASS(lock=0.99); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=24, hypInWindow=104)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.3 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-019",
+      "title": "カタオモイ",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 97,
+        "hyp": 96.774,
+        "relPct": 0.23298969072164857,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.012738853503183309,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 163,
+        "halfBeatRatio": 0.5191082802546307,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.4688427299703264,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 341,
+        "gtSeeds": 20,
+        "aggregate": 0.6732106824926045
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.6732106824926045,
+          "evidence": "period=PASS(rel=0.013); phase=FAIL(medMs=163); continuity=FAIL(lock=0.47); evidence=PASS; phase near half-beat (ratio=0.52); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=341)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.5436046511627908,
+          "evidence": "period=PASS(rel=0.004); phase=FAIL(medMs=508); continuity=FAIL(lock=0.17); evidence=PASS; phase near half-downbeat (ratio=0.41); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=20, hypInWindow=81)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.2 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    },
+    {
+      "songId": "song-020",
+      "title": "Cornfield Chase",
+      "gtSource": "annotator-a",
+      "songClass": "ANALYZER-LIMIT",
+      "bpm": {
+        "human": 96,
+        "hyp": 95.238,
+        "relPct": 0.7937500000000005,
+        "equiv": 1,
+        "classError": false
+      },
+      "beat": {
+        "periodVerdict": "PASS",
+        "periodRelErr": 0.004784688995208411,
+        "phaseVerdict": "FAIL",
+        "phaseMedMs": 105,
+        "halfBeatRatio": 0.3349282296649486,
+        "continuityVerdict": "FAIL",
+        "lockFraction": 0.6134020618556701,
+        "evidenceVerdict": "PASS",
+        "hypInWindow": 193,
+        "gtSeeds": 21,
+        "aggregate": 0.7383505154639369
+      },
+      "sectionLabelF1": 0,
+      "findings": [
+        {
+          "dimension": "BEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.7383505154639369,
+          "evidence": "period=PASS(rel=0.005); phase=FAIL(medMs=105); continuity=FAIL(lock=0.61); evidence=PASS; seedDensity ignored for accuracy (gtSeeds=21, hypInWindow=193)"
+        },
+        {
+          "dimension": "DOWNBEAT",
+          "class": "ANALYZER-LIMIT",
+          "score": 0.33729872881355927,
+          "evidence": "period=FAIL(rel=0.324); phase=FAIL(medMs=487); continuity=FAIL(lock=0.19); evidence=PASS; phase near half-downbeat (ratio=0.52); treat as phase error not dual-phase GT; seedDensity ignored for accuracy (gtSeeds=16, hypInWindow=45)"
+        },
+        {
+          "dimension": "BPM",
+          "class": "PASS",
+          "score": 1,
+          "evidence": "rel%=0.8 equiv=1"
+        },
+        {
+          "dimension": "SECTION",
+          "class": "WEAK",
+          "score": 0,
+          "evidence": "section EMPTY (Experiment B: Beat/Downbeat only — not MSAF)"
+        }
+      ]
+    }
+  ]
+}

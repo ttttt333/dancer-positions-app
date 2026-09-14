@@ -1,0 +1,68 @@
+{
+  "specId": "4.6-e-phase-anchor-annotation-v1",
+  "status": "PILOT_OPEN_NO_IMPLEMENTATION",
+  "lockedAt": "2026-09-13",
+  "prerequisite": "4.6-d-dance-phase-origin-v1 CONDITIONAL-GO",
+  "experimentKind": "L3-existence-proof-not-accuracy-tuning",
+  "coreQuestion": "Does choreographic timing sense carry a time reference Beat/CountGrid cannot express?",
+  "coreClaim": "Phase Anchor must be independent human dance-timing GT; not Beat/CountGrid rename",
+  "pilotSongIds": ["song-013", "song-020", "song-009", "song-005", "song-002"],
+  "pilotIntent": {
+    "song-013": "bodily/musical criterion for Beat↔Phase offset?",
+    "song-020": "soft-pulse / continuity Anchor formation",
+    "song-009": "syncopation Anchor ≠ Beat?",
+    "song-005": "Anchor stability under denser structure",
+    "song-002": "plain case: Beat ≡ Anchor or not?"
+  },
+  "annotationOrder": [
+    "do-not-open-beat-consensus-countgrid-analyzers",
+    "listen-only",
+    "mark-body-motion-origin",
+    "record-time-type-confidence-rationale",
+    "finalize-phase-anchor.json"
+  ],
+  "song013Rule": "rationale without Beat numbers / CountGrid / analyzer results",
+  "datasetPath": "~/ChoreoCoreDatasets/fly-real-song/phase-anchors/",
+  "frozen": [
+    "golden-20",
+    "beat-gt",
+    "consensus-gt",
+    "librosa-hyps",
+    "madmom-hyps",
+    "benchmark-thresholds",
+    "fusion",
+    "msaf",
+    "formation",
+    "l3-implementation-until-independence-audit"
+  ],
+  "decision": {
+    "A_independent": "CONDITIONAL-GO → extra Pilot → GO",
+    "B_near_copy": "do not force L3; re-evaluate necessity"
+  },
+  "success": "Phase Anchor carries information ≠ Beat/CountGrid (time and/or type/rationale); 013 explainable",
+  "failure": "Phase Anchor ≈ Beat/CountGrid with rationale collapsing to beat-1 only → re-evaluate L3",
+  "notSuccessCriteria": [
+    "smaller-analyzer-phase-error",
+    "fusion-score-up",
+    "force-anchors-onto-beat-grid",
+    "invent-correct-phase-ontology-during-pilot"
+  ],
+  "nextGate": {
+    "id": "4.6-f-phase-anchor-independence-audit-v1",
+    "status": "WAITING_FOR_PILOT_JSON",
+    "spec": "docs/fly/PHASE46-PHASE-ANCHOR-INDEPENDENCE-AUDIT.md",
+    "axes": [
+      "independence-vs-beat-countgrid",
+      "reproducibility",
+      "anchor-kinds-inventory",
+      "rationale-consistency"
+    ],
+    "centerSong": "song-013",
+    "verdicts": ["A_CONDITIONAL_GO", "B_L3_REEVALUATE"],
+    "outOfScope": [
+      "analyzer-phase-accuracy",
+      "fusion",
+      "msaf"
+    ]
+  }
+}

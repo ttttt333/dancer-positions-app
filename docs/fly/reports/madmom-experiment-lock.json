@@ -1,0 +1,30 @@
+{
+  "experimentId": "4.6-exp-madmom-beat-v1",
+  "status": "EXPERIMENT_B_COMPLETE",
+  "implementation": "DONE_OFFLINE_ONLY",
+  "adoption": "NOT_RECOMMENDED_FROM_EXP_B",
+  "fusion": false,
+  "msaf": false,
+  "lockedAt": "2026-09-13",
+  "completedAt": "2026-09-13",
+  "datasetVersion": "4.6.1-double-consensus",
+  "annotationContractVersion": "1.1.0",
+  "analyzerVersion": "madmom-0.16.1-RNN+DBN-bps4-fps100",
+  "artifacts": {
+    "hyps": "~/ChoreoCoreDatasets/fly-real-song/hypotheses/song-XXX/madmom.json",
+    "madmomBenchmark": "docs/fly/reports/real-song-benchmark-madmom-result.json",
+    "compare": "docs/fly/reports/real-song-librosa-vs-madmom.json"
+  },
+  "headline": {
+    "phasePass": { "librosa": 0, "madmom": 0 },
+    "periodPass": { "librosa": 16, "madmom": 19 },
+    "continuityPass": { "librosa": 0, "madmom": 2 },
+    "phaseVerdictDeltas": { "improved": 1, "same": 18, "regressed": 1 },
+    "song013": {
+      "phase": "FAIL→FAIL",
+      "phaseMs": "166→121",
+      "continuity": "WEAK→FAIL"
+    }
+  },
+  "conclusion": "madmom alone does not fix dance Beat Phase under locked GT/4-axis contract; do not adopt; do not Fusion yet"
+}

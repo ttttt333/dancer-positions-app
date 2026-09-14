@@ -1,0 +1,37 @@
+{
+  "checkpointId": "4.6-e-pilot-waiting-v1",
+  "lockedAt": "2026-09-13",
+  "status": "SUPERSEDED_BY_4_6_F",
+  "currentGate": "4.6-E",
+  "nextGate": "4.6-F",
+  "resumeFrom": "docs/fly/PHASE46-PHASE-ANCHOR-INDEPENDENCE-AUDIT.md",
+  "pilotSongIds": [
+    "song-013",
+    "song-020",
+    "song-009",
+    "song-005",
+    "song-002"
+  ],
+  "doNotProceed": [
+    "implementation",
+    "analyzer-changes",
+    "fusion",
+    "msaf",
+    "formation",
+    "l3-wiring",
+    "accuracy-oriented-phase-scoring"
+  ],
+  "auditAxesWhenReady": [
+    "independence",
+    "reproducibility",
+    "anchor-kinds",
+    "rationale-consistency"
+  ],
+  "centerSong": "song-013",
+  "verdicts": [
+    "A_CONDITIONAL_GO",
+    "B_L3_REEVALUATE"
+  ],
+  "soleSuccessQuestion": "Was an independent observation discovered that justifies existing L3 \u2014 not Analyzer accuracy?",
+  "supersededBy": "4.6-F A_CONDITIONAL_GO"
+}

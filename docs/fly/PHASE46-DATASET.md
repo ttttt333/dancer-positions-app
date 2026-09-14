@@ -1,6 +1,6 @@
 # FLY Phase 4.6 — Dataset (Stage A)
 
-**real_song_dataset_version:** `4.6.0-stage-a`  
+**real_song_dataset_version:** `4.6.1-double-consensus`  
 **split_policy:** Development 12 / Validation 4 / Holdout 4 (conceptual; no training)
 
 ## Principle
