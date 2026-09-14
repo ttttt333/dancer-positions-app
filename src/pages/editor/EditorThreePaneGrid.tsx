@@ -992,6 +992,10 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                           ? project.stageGridLineSpacingMm
                           : null
                       }
+                      audienceEdge={
+                        (audienceEdgeOverride as "top" | "bottom" | undefined) ??
+                        (project.audienceEdge === "top" ? "top" : "bottom")
+                      }
                     />
                   </Suspense>
                 ) : (
