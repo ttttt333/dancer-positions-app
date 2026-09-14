@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
-export const PRACTICE_PLAYBACK_RATES = [0.5, 0.75, 1, 1.25] as const;
+export const PRACTICE_PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
+
 export type PracticePlaybackRate = (typeof PRACTICE_PLAYBACK_RATES)[number];
 
 const COUNT_IN_KEY = "choreocore.practice.countInEnabled";
@@ -8,10 +9,10 @@ const COUNT_IN_KEY = "choreocore.practice.countInEnabled";
 function readCountInEnabled(): boolean {
   try {
     const v = localStorage.getItem(COUNT_IN_KEY);
-    if (v == null) return true; // ダンサー向け既定 ON
+    if (v == null) return false; // PC UI からトグル削除後の既定は OFF
     return v === "1" || v === "true";
   } catch {
-    return true;
+    return false;
   }
 }
 

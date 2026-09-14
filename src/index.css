@@ -3187,8 +3187,16 @@ html[data-landscape-wave-collapsed] {
   font-weight: 700 !important;
   color: #cbd5e1 !important;
   letter-spacing: 0.02em;
-  margin-bottom: 8px !important;
+  margin-bottom: 0 !important;
   padding-left: 2px;
+}
+
+.formation-preset-picker-category-heading .formation-preset-picker-category-label {
+  margin-bottom: 0 !important;
+}
+
+.formation-preset-picker-actions-inline {
+  margin-left: auto;
 }
 
 .add-cue-preset-grid,

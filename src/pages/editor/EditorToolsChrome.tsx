@@ -1,15 +1,14 @@
+import { MobilePrimaryFloatingTools } from "../../components/editor/FloatingHeaderToolbar";
 import {
-  FloatingHeaderToolbar,
-  MobilePrimaryFloatingTools,
-} from "../../components/editor/FloatingHeaderToolbar";
-import { EditorFloatingTools } from "../../components/EditorFloatingTools";
+  EditorFloatingHomeButton,
+  EditorFloatingTools,
+} from "../../components/EditorFloatingTools";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 import { EditorNeonIconPanel } from "./EditorNeonIconPanel";
 
 /**
- * ワイド: 上部横並び Glass ツール（常時視認）。
+ * ワイド: 編集操作は上部波形ドックの一列統合バーへ集約。HOME + 右 Neon パネルのみ。
  * モバイル: 追加/隊形は常時FAB、Undo等は展開FAB。
- * 詳細 Neon は「その他」で展開。
  */
 export function EditorToolsChrome(props: EditorLayoutProps) {
   const wideEditorLayout = props.wideEditorLayout as boolean;
@@ -21,20 +20,24 @@ export function EditorToolsChrome(props: EditorLayoutProps) {
   const stageUndoDisabled = props.stageUndoDisabled as boolean;
   const stageRedoDisabled = props.stageRedoDisabled as boolean;
   const saveStageToFormationBox = props.saveStageToFormationBox as () => void;
-  const addDancerFromStageToolbar = props.addDancerFromStageToolbar as () => void;
+  const addDancerFromStageToolbar =
+    props.addDancerFromStageToolbar as () => void;
   const setFormationPresetPickerOpen = props.setFormationPresetPickerOpen as (
     open: boolean
   ) => void;
   const setFlowLibraryOpen = props.setFlowLibraryOpen as (open: boolean) => void;
   const setShareLinksOpen = props.setShareLinksOpen as (open: boolean) => void;
   const setAiSuggestOpen = props.setAiSuggestOpen as (open: boolean) => void;
-  const setAddCueDialogOpen = props.setAddCueDialogOpen as (open: boolean) => void;
+  const setAddCueDialogOpen = props.setAddCueDialogOpen as (
+    open: boolean
+  ) => void;
   const openAudioImport = props.openAudioImport as () => void;
-  const setExportDialogOpen = props.setExportDialogOpen as (open: boolean) => void;
+  const setExportDialogOpen = props.setExportDialogOpen as (
+    open: boolean
+  ) => void;
   const setRightPaneCollapsed = props.setRightPaneCollapsed as (
     v: boolean | ((prev: boolean) => boolean)
   ) => void;
-  const rightPaneCollapsed = props.rightPaneCollapsed as boolean;
 
   if (choreoPublicView) return null;
 
@@ -74,19 +77,7 @@ export function EditorToolsChrome(props: EditorLayoutProps) {
   if (wideEditorLayout) {
     return (
       <>
-        <FloatingHeaderToolbar
-          disabled={disabled}
-          onAddDancer={addDancerFromStageToolbar}
-          onOpenFormationPresets={() => setFormationPresetPickerOpen(true)}
-          onUndo={undo}
-          onRedo={redo}
-          undoDisabled={stageUndoDisabled}
-          redoDisabled={stageRedoDisabled}
-          onSave={() => setFlowLibraryOpen(true)}
-          onOpenMore={() => setRightPaneCollapsed((v) => !v)}
-          moreActive={!rightPaneCollapsed}
-          showHome
-        />
+        <EditorFloatingHomeButton />
         <EditorNeonIconPanel {...props} />
       </>
     );

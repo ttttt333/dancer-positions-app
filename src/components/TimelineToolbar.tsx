@@ -49,10 +49,10 @@ function IconZoomIn() {
   const c = "#34d399";
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
-      <circle cx="10" cy="10" r="6.5" fill="none" stroke={c} strokeWidth="2" />
-      <line x1="15.5" y1="15.5" x2="21" y2="21" stroke={c} strokeWidth="2" strokeLinecap="round" />
-      <line x1="8" y1="10" x2="12" y2="10" stroke={c} strokeWidth="2" strokeLinecap="round" />
-      <line x1="10" y1="8" x2="10" y2="12" stroke={c} strokeWidth="2" strokeLinecap="round" />
+      {/* 拡大: 小さい枠 → 大きい枠 */}
+      <rect x="3" y="3" width="8" height="8" rx="1.2" fill="none" stroke={c} strokeWidth="1.8" opacity="0.55" />
+      <rect x="9" y="9" width="12" height="12" rx="1.5" fill="none" stroke={c} strokeWidth="2" />
+      <path d="M14 15h4M16 13v4" stroke={c} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -60,9 +60,10 @@ function IconZoomOut() {
   const c = "#34d399";
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
-      <circle cx="10" cy="10" r="6.5" fill="none" stroke={c} strokeWidth="2" />
-      <line x1="15.5" y1="15.5" x2="21" y2="21" stroke={c} strokeWidth="2" strokeLinecap="round" />
-      <line x1="8" y1="10" x2="12" y2="10" stroke={c} strokeWidth="2" strokeLinecap="round" />
+      {/* 縮小: 大きい枠 → 小さい枠 */}
+      <rect x="3" y="3" width="12" height="12" rx="1.5" fill="none" stroke={c} strokeWidth="2" opacity="0.55" />
+      <rect x="11" y="11" width="10" height="10" rx="1.2" fill="none" stroke={c} strokeWidth="2" />
+      <path d="M13.5 16h5" stroke={c} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -341,8 +342,6 @@ function PracticePlaybackControls({
   onPlaybackRateChange?: (rate: number) => void;
   compact?: boolean;
 }) {
-  const countInEnabled = usePracticePlaybackStore((s) => s.countInEnabled);
-  const setCountInEnabled = usePracticePlaybackStore((s) => s.setCountInEnabled);
   const rate = normalizePracticePlaybackRate(playbackRate);
   const disabled = viewMode === "view";
 
@@ -356,34 +355,6 @@ function PracticePlaybackControls({
         maxWidth: "100%",
       }}
     >
-      <button
-        type="button"
-        disabled={disabled}
-        title={
-          countInEnabled
-            ? "カウントイン ON（再生前に 5-6-7-8）"
-            : "カウントイン OFF"
-        }
-        aria-label="カウントイン 5-6-7-8"
-        aria-pressed={countInEnabled}
-        onClick={() => setCountInEnabled(!countInEnabled)}
-        style={{
-          ...timelineToolbarBtn,
-          padding: compact ? `${tlPx(2)} ${tlPx(5)}` : `${tlPx(3)} ${tlPx(7)}`,
-          fontSize: compact ? 9 : 10,
-          fontWeight: 800,
-          letterSpacing: "-0.02em",
-          minWidth: 0,
-          color: countInEnabled ? "#0f172a" : "#cbd5e1",
-          background: countInEnabled
-            ? "linear-gradient(180deg, #38bdf8, #0ea5e9)"
-            : "rgba(15,23,42,0.9)",
-          borderColor: countInEnabled ? "#38bdf8" : shell.border,
-          opacity: disabled ? 0.45 : 1,
-        }}
-      >
-        {compact ? "8" : "5-6-7-8"}
-      </button>
       {onPlaybackRateChange ? (
         <select
           value={String(rate)}
@@ -403,7 +374,7 @@ function PracticePlaybackControls({
             fontWeight: 700,
             padding: compact ? "2px 2px" : "3px 4px",
             cursor: disabled ? "not-allowed" : "pointer",
-            maxWidth: compact ? 52 : 64,
+            maxWidth: compact ? 58 : 64,
             flexShrink: 0,
           }}
         >
@@ -729,10 +700,15 @@ export type TimelineToolbarProps = {
   showFormationChange?: boolean;
   onOpenFormationChange?: () => void;
   /**
-   * true: 再生系は PlaybackFloatingBar に委譲し、ツールバーはユーティリティのみ。
-   * ワイド浮遊 UI 用。
+   * true: ワイド統合バー（波形直下の一列に再生＋ユーティリティをまとめる）。
+   * 旧: 再生を PlaybackFloatingBar に分離していた。
    */
   floatingChrome?: boolean;
+  /** ワイド統合バー: ダンサー追加 */
+  onAddDancer?: () => void;
+  /** ワイド統合バー: 右パネル開閉 */
+  onToggleRightPane?: () => void;
+  rightPaneOpen?: boolean;
 };
 
 export function TimelineToolbar({
@@ -768,10 +744,14 @@ export function TimelineToolbar({
   showFormationChange = false,
   onOpenFormationChange,
   floatingChrome = false,
+  onAddDancer,
+  onToggleRightPane,
+  rightPaneOpen = false,
 }: TimelineToolbarProps) {
   const { t } = useI18n();
   const isCountingIn = usePracticePlaybackStore((s) => s.isCountingIn);
-  const hideInlinePlayback = floatingChrome && !editorMobileStack;
+  // ワイドは一列統合（再生を分離しない）
+  const unifiedWideChrome = floatingChrome && !editorMobileStack;
   const waveZoomDisabled = duration <= 0;
   const waveZoomLabels = {
     zoomInTitle: t("editor.layout.waveZoomIn"),
@@ -1380,7 +1360,7 @@ export function TimelineToolbar({
       className="wave-compact-time-above-wave"
       style={{
         display: "grid",
-        gridTemplateColumns: hideInlinePlayback
+        gridTemplateColumns: unifiedWideChrome
           ? "minmax(0, 1fr)"
           : `${brandRailCss} minmax(0, 1fr) ${brandRailCss}`,
         alignItems: "stretch",
@@ -1389,14 +1369,14 @@ export function TimelineToolbar({
         minWidth: 0,
         marginTop: 0,
         padding: `${tlPx(0)} ${tlPx(6)} ${tlPx(2)}`,
-        borderBottom: hideInlinePlayback
+        borderBottom: unifiedWideChrome
           ? "1px solid rgba(255,255,255,0.06)"
           : `1px solid ${shell.border}`,
         flexShrink: 0,
-        background: hideInlinePlayback ? "transparent" : shell.bgChrome,
+        background: unifiedWideChrome ? "transparent" : shell.bgChrome,
       }}
     >
-      {!hideInlinePlayback ? (
+      {!unifiedWideChrome ? (
         <BrandRailWithHome
           compact
           showHome={wideWorkbench && !editorMobileStack}
@@ -1411,6 +1391,7 @@ export function TimelineToolbar({
           gap: tlPx(6),
           flexShrink: 0,
           minWidth: 0,
+          overflowX: "auto",
         }}
       >
         {wideWorkbench && !editorMobileStack ? (
@@ -1442,8 +1423,7 @@ export function TimelineToolbar({
             }}
           />
         ) : null}
-        {!hideInlinePlayback ? (
-          <>
+        <>
         <button
           type="button"
           style={{
@@ -1466,30 +1446,16 @@ export function TimelineToolbar({
           type="button"
           style={{
             ...timelineToolbarBtn,
-            padding: `${tlPx(4)} ${tlPx(9)}`,
-            minHeight: tlPx(28),
-            flexShrink: 0,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          disabled={viewMode === "view" || duration <= 0}
-          title={t("editor.comp.k003")}
-          aria-label={t("editor.comp.k005")}
-          onClick={seekForward5Sec}
-        >
-          <IconSeekFwd />
-        </button>
-        <button
-          type="button"
-          style={{
-            ...timelineToolbarBtn,
             padding: `${tlPx(4)} ${tlPx(12)}`,
             minHeight: tlPx(28),
             flexShrink: 0,
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
+            background: isPlaying || isCountingIn
+              ? "linear-gradient(180deg, #e8d48b, #d4af37)"
+              : timelineToolbarBtn.background,
+            color: isPlaying || isCountingIn ? "#0a0908" : undefined,
           }}
           onClick={togglePlay}
           aria-label={
@@ -1527,8 +1493,37 @@ export function TimelineToolbar({
         >
           <IconStop />
         </button>
-          </>
-        ) : null}
+        <button
+          type="button"
+          style={{
+            ...timelineToolbarBtn,
+            padding: `${tlPx(4)} ${tlPx(9)}`,
+            minHeight: tlPx(28),
+            flexShrink: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          disabled={viewMode === "view" || duration <= 0}
+          title={t("editor.comp.k003")}
+          aria-label={t("editor.comp.k005")}
+          onClick={seekForward5Sec}
+        >
+          <IconSeekFwd />
+        </button>
+        </>
+        <PlaybackClockReadout
+          isPlaying={isPlaying || isCountingIn}
+          idleTimeSec={currentTime}
+          durationSec={duration}
+          monoFontSizePx={12 * TIMELINE_UI_SCALE}
+        />
+        <PracticePlaybackControls
+          viewMode={viewMode}
+          playbackRate={playbackRate}
+          onPlaybackRateChange={onPlaybackRateChange}
+          compact
+        />
         <WaveZoomToolbarButtons
           disabled={waveZoomDisabled}
           onZoomIn={onWaveZoomIn}
@@ -1622,29 +1617,37 @@ export function TimelineToolbar({
             <IconSectionFormations />
           </button>
         ) : null}
-        {!hideInlinePlayback ? (
-          <>
-            <PracticePlaybackControls
-              viewMode={viewMode}
-              playbackRate={playbackRate}
-              onPlaybackRateChange={onPlaybackRateChange}
-              compact
-            />
-            <PlaybackClockReadout
-              isPlaying={isPlaying || isCountingIn}
-              idleTimeSec={currentTime}
-              durationSec={duration}
-              monoFontSizePx={12 * TIMELINE_UI_SCALE}
-            />
-          </>
-        ) : null}
-        {!hideInlinePlayback && onUndo ? (
+        {unifiedWideChrome && onAddDancer ? (
           <button
             type="button"
             style={{
-              width: tlPx(40),
-              height: tlPx(40),
-              minWidth: tlPx(40),
+              ...timelineToolbarBtn,
+              padding: `${tlPx(4)} ${tlPx(9)}`,
+              minHeight: tlPx(28),
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 4,
+              fontSize: tlPx(11),
+              fontWeight: 700,
+            }}
+            disabled={viewMode === "view"}
+            title={t("editor.comp.k001")}
+            aria-label={t("editor.comp.k001")}
+            onClick={onAddDancer}
+          >
+            <span aria-hidden>+</span>
+            追加
+          </button>
+        ) : null}
+        {onUndo ? (
+          <button
+            type="button"
+            style={{
+              width: tlPx(36),
+              height: tlPx(36),
+              minWidth: tlPx(36),
               padding: 0,
               borderRadius: "50%",
               border: "none",
@@ -1668,9 +1671,9 @@ export function TimelineToolbar({
           <button
             type="button"
             style={{
-              width: tlPx(40),
-              height: tlPx(40),
-              minWidth: tlPx(40),
+              width: tlPx(36),
+              height: tlPx(36),
+              minWidth: tlPx(36),
               padding: 0,
               borderRadius: "50%",
               border: "none",
@@ -1690,8 +1693,62 @@ export function TimelineToolbar({
             <WaveHistoryRoundIcon kind="redo" />
           </button>
         ) : null}
+        {unifiedWideChrome && onToggleRightPane ? (
+          <button
+            type="button"
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(4)} ${tlPx(9)}`,
+              minHeight: tlPx(28),
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 5,
+              fontSize: tlPx(11),
+              fontWeight: 700,
+              border: rightPaneOpen
+                ? "1px solid rgba(212,175,55,0.65)"
+                : timelineToolbarBtn.border,
+              background: rightPaneOpen
+                ? "rgba(212,175,55,0.18)"
+                : timelineToolbarBtn.background,
+            }}
+            title={
+              rightPaneOpen
+                ? "パネルを閉じる（作業スペースを広げる）"
+                : "パネルを開く"
+            }
+            aria-label={rightPaneOpen ? "パネルを閉じる" : "パネルを開く"}
+            aria-pressed={rightPaneOpen}
+            onClick={onToggleRightPane}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+              <rect
+                x="3"
+                y="4"
+                width="18"
+                height="16"
+                rx="2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <path d="M15 4v16" stroke="currentColor" strokeWidth="1.8" />
+              <path
+                d="M10 12h7M14.5 9.5 17 12l-2.5 2.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            パネル
+          </button>
+        ) : null}
       </div>
-      {!hideInlinePlayback ? (
+      {!unifiedWideChrome ? (
         <div aria-hidden style={{ minWidth: 0 }} />
       ) : null}
     </div>

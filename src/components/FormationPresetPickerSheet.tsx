@@ -317,17 +317,20 @@ export function FormationPresetPickerSheet({
         ? `「${cueLabel}」に反映（${count} 人）`
         : `現在のフォーメーションに反映（${count} 人）`;
 
-  const actionsPanel = (
+  const actionsInline = (
     <div
       role="group"
       aria-label="立ち位置雛形の操作"
-      className={
-        portraitFullscreen
-          ? "formation-preset-picker-actions formation-preset-picker-actions--portrait-docked"
-          : "formation-preset-picker-actions"
-      }
+      className="formation-preset-picker-actions-inline"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        flexShrink: 0,
+        flexWrap: "nowrap",
+      }}
     >
-      <button type="button" onClick={closeAndCleanup} style={cancelBtnStyle}>
+      <button type="button" onClick={closeAndCleanup} style={cancelBtnCompactStyle}>
         閉じる
       </button>
       <button
@@ -335,7 +338,7 @@ export function FormationPresetPickerSheet({
         onClick={apply}
         disabled={noTarget || !selectedPresetId}
         style={{
-          ...applyBtnStyle,
+          ...applyBtnCompactStyle,
           opacity: noTarget || !selectedPresetId ? 0.45 : 1,
           cursor: noTarget || !selectedPresetId ? "not-allowed" : "pointer",
         }}
@@ -346,7 +349,6 @@ export function FormationPresetPickerSheet({
         active={favoritesOnly}
         onToggle={toggleFavoritesOnly}
         count={favoriteCount}
-        style={{ marginLeft: "auto" }}
       />
     </div>
   );
@@ -378,22 +380,53 @@ export function FormationPresetPickerSheet({
       {visiblePresetCategories.length === 0 ? (
         <div
           style={{
-            padding: "24px 12px",
-            textAlign: "center",
-            color: "#64748b",
-            fontSize: 12,
-            lineHeight: 1.5,
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
           }}
         >
-          {favoritesOnly
-            ? "お気に入りの雛形がありません。☆を押して追加できます。"
-            : "表示できる雛形がありません。"}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: 8,
+            }}
+          >
+            {actionsInline}
+          </div>
+          <div
+            style={{
+              padding: "24px 12px",
+              textAlign: "center",
+              color: "#64748b",
+              fontSize: 12,
+              lineHeight: 1.5,
+            }}
+          >
+            {favoritesOnly
+              ? "お気に入りの雛形がありません。☆を押して追加できます。"
+              : "表示できる雛形がありません。"}
+          </div>
         </div>
       ) : (
-        visiblePresetCategories.map((cat) => (
+        visiblePresetCategories.map((cat, catIndex) => (
         <div key={cat.label} className="formation-preset-picker-category">
-          <div className="add-cue-preset-category formation-preset-picker-category-label">
-            {cat.label}
+          <div
+            className="formation-preset-picker-category-heading"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              flexWrap: "wrap",
+              marginBottom: 6,
+            }}
+          >
+            <div className="add-cue-preset-category formation-preset-picker-category-label">
+              {cat.label}
+            </div>
+            {catIndex === 0 ? actionsInline : null}
           </div>
           <div
             className={
@@ -483,7 +516,6 @@ export function FormationPresetPickerSheet({
         >
           {sheetHeader}
           {presetGrid}
-          {actionsPanel}
         </div>
       </>,
       document.body
@@ -503,7 +535,6 @@ export function FormationPresetPickerSheet({
           {sheetHeader}
           {presetGrid}
         </div>
-        {actionsPanel}
       </>,
       document.body
     );
@@ -564,7 +595,6 @@ export function FormationPresetPickerSheet({
           </div>
         </div>
         {presetGrid}
-        {actionsPanel}
       </div>
     </EditorSideSheet>
   );
@@ -578,24 +608,26 @@ const presetBtnStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-const cancelBtnStyle: CSSProperties = {
-  padding: "10px 18px",
+const cancelBtnCompactStyle: CSSProperties = {
+  padding: "6px 12px",
   borderRadius: "8px",
   border: "1px solid #334155",
   background: "rgba(15,23,42,0.94)",
   color: "#cbd5e1",
-  fontSize: "13px",
+  fontSize: "12px",
   fontWeight: 600,
   cursor: "pointer",
+  whiteSpace: "nowrap",
 };
 
-const applyBtnStyle: CSSProperties = {
-  padding: "10px 20px",
+const applyBtnCompactStyle: CSSProperties = {
+  padding: "6px 14px",
   borderRadius: "8px",
   border: "1px solid #d4af37",
   background: "rgba(212,175,55,0.28)",
   color: "#fef3c7",
-  fontSize: "13px",
+  fontSize: "12px",
   fontWeight: 700,
   cursor: "pointer",
+  whiteSpace: "nowrap",
 };

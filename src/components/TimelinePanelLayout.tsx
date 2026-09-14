@@ -9,7 +9,6 @@ import { TimelineWaveMenus } from "./TimelineWaveMenus";
 import type { TimelineWaveMenusProps } from "./TimelineWaveMenus";
 import { WaveformStrip } from "./WaveformStrip";
 import type { WaveformStripProps } from "./WaveformStrip";
-import { PlaybackFloatingBar } from "./PlaybackFloatingBar";
 import { glassPanelStyle } from "../theme/editorGlass";
 
 export type TimelinePanelLayoutProps = Omit<
@@ -22,12 +21,13 @@ export type TimelinePanelLayoutProps = Omit<
   TimelineWaveMenusProps & {
     /** true のとき EditorPage 側で `<TimelineAudioChrome>` を描画済み */
     audioChromeRenderedExternally?: boolean;
-    /** ワイド浮遊 UI: 再生を pill に分離し波形面をガラス化 */
+    /** ワイド: 波形直下の一列統合バー */
     floatingChrome?: boolean;
   };
 
 /**
- * `TimelinePanel` の見た目レイヤー：音源 chrome・ツールバー・波形・キュー一覧・波形オーバーレイメニュー。
+ * `TimelinePanel` の見た目レイヤー：音源 chrome・波形・統合ツールバー・キュー一覧。
+ * ワイド PC: 波形を上、その下に一列の操作バー。
  */
 export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
   const floatingChrome = Boolean(p.floatingChrome && p.wideWorkbench);
@@ -75,6 +75,42 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
             }}
           />
         ) : null}
+        <div
+          style={{
+            flex: p.compactTopDock ? "1 1 auto" : undefined,
+            minHeight: p.compactTopDock ? 0 : undefined,
+            overflow: p.compactTopDock ? "hidden" : undefined,
+            display: "flex",
+            flexDirection: "column",
+            order: floatingChrome ? 0 : undefined,
+          }}
+        >
+          <WaveformStrip
+            waveContainerRef={p.waveContainerRef}
+            canvasRef={p.canvasRef}
+            playheadLineOverlayRef={p.playheadLineOverlayRef}
+            compactTopDock={p.compactTopDock}
+            wideWorkbench={p.wideWorkbench}
+            duration={p.duration}
+            viewMode={p.viewMode}
+            hasPeaks={p.hasPeaks}
+            waveView={p.waveView}
+            waveCanvasCssH={p.waveCanvasCssH}
+            showWaveHeightResizeHandle={!(p.compactTopDock && p.wideWorkbench)}
+            onWaveRulerPointerDown={p.onWaveRulerPointerDown}
+            onWaveClick={p.onWaveClick}
+            onWaveDoubleClick={p.onWaveDoubleClick}
+            onWaveContextMenu={p.onWaveContextMenu}
+            onWaveCanvasPointerDown={p.onWaveCanvasPointerDown}
+            onWaveCanvasPointerMove={p.onWaveCanvasPointerMove}
+            onWaveCanvasPointerLeave={p.onWaveCanvasPointerLeave}
+            onWaveBorderResizePointerDown={p.onWaveBorderResizePointerDown}
+            onPlayheadLinePointerDown={p.onPlayheadLinePointerDown}
+            onPlayheadLinePointerMove={p.onPlayheadLinePointerMove}
+            onPlayheadLinePointerUp={p.onPlayheadLinePointerUp}
+            onPlayheadLinePointerCancel={p.onPlayheadLinePointerCancel}
+          />
+        </div>
         <TimelineToolbar
           compactTopDock={p.compactTopDock}
           brandRailCss={p.brandRailCss}
@@ -110,66 +146,10 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           showFormationChange={p.showFormationChange}
           onOpenFormationChange={p.onOpenFormationChange}
           floatingChrome={floatingChrome}
+          onAddDancer={p.onAddDancer}
+          onToggleRightPane={p.onToggleRightPane}
+          rightPaneOpen={p.rightPaneOpen}
         />
-        {floatingChrome ? (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              padding: "4px 8px 6px",
-              flexShrink: 0,
-            }}
-          >
-            <PlaybackFloatingBar
-              viewMode={p.viewMode}
-              duration={p.duration}
-              isPlaying={p.isPlaying}
-              currentTime={p.currentTime}
-              togglePlay={p.togglePlay}
-              stopPlayback={p.stopPlayback}
-              seekForward5Sec={p.seekForward5Sec}
-              seekBackward5Sec={p.seekBackward5Sec}
-              playbackRate={p.playbackRate}
-              onPlaybackRateChange={p.onPlaybackRateChange}
-              inlineInDock
-            />
-          </div>
-        ) : null}
-        <div
-          style={{
-            flex: p.compactTopDock ? "1 1 auto" : undefined,
-            minHeight: p.compactTopDock ? 0 : undefined,
-            overflow: p.compactTopDock ? "hidden" : undefined,
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <WaveformStrip
-            waveContainerRef={p.waveContainerRef}
-            canvasRef={p.canvasRef}
-            playheadLineOverlayRef={p.playheadLineOverlayRef}
-            compactTopDock={p.compactTopDock}
-            wideWorkbench={p.wideWorkbench}
-            duration={p.duration}
-            viewMode={p.viewMode}
-            hasPeaks={p.hasPeaks}
-            waveView={p.waveView}
-            waveCanvasCssH={p.waveCanvasCssH}
-            showWaveHeightResizeHandle={!(p.compactTopDock && p.wideWorkbench)}
-            onWaveRulerPointerDown={p.onWaveRulerPointerDown}
-            onWaveClick={p.onWaveClick}
-            onWaveDoubleClick={p.onWaveDoubleClick}
-            onWaveContextMenu={p.onWaveContextMenu}
-            onWaveCanvasPointerDown={p.onWaveCanvasPointerDown}
-            onWaveCanvasPointerMove={p.onWaveCanvasPointerMove}
-            onWaveCanvasPointerLeave={p.onWaveCanvasPointerLeave}
-            onWaveBorderResizePointerDown={p.onWaveBorderResizePointerDown}
-            onPlayheadLinePointerDown={p.onPlayheadLinePointerDown}
-            onPlayheadLinePointerMove={p.onPlayheadLinePointerMove}
-            onPlayheadLinePointerUp={p.onPlayheadLinePointerUp}
-            onPlayheadLinePointerCancel={p.onPlayheadLinePointerCancel}
-          />
-        </div>
         <TimelineCueList
           cuesSorted={p.cuesSorted}
           formations={p.formations}

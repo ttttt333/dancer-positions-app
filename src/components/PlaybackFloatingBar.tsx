@@ -144,7 +144,7 @@ const FloatingClock = memo(function FloatingClock({
         fontSize: 12,
         fontWeight: 700,
         color: shell.text,
-        minWidth: 108,
+        minWidth: 88,
         justifyContent: "center",
       }}
       aria-live="off"
@@ -174,8 +174,6 @@ export function PlaybackFloatingBar({
   inlineInDock = false,
 }: Props) {
   const isCountingIn = usePracticePlaybackStore((s) => s.isCountingIn);
-  const countInEnabled = usePracticePlaybackStore((s) => s.countInEnabled);
-  const setCountInEnabled = usePracticePlaybackStore((s) => s.setCountInEnabled);
   const rate = normalizePracticePlaybackRate(playbackRate);
   const disabled = viewMode === "view";
   const active = isPlaying || isCountingIn;
@@ -285,34 +283,6 @@ export function PlaybackFloatingBar({
           idleTimeSec={currentTime}
           durationSec={duration}
         />
-
-        <button
-          type="button"
-          disabled={disabled}
-          title={
-            countInEnabled
-              ? "カウントイン ON（再生前に 5-6-7-8）"
-              : "カウントイン OFF"
-          }
-          aria-label="カウントイン 5-6-7-8"
-          aria-pressed={countInEnabled}
-          onClick={() => setCountInEnabled(!countInEnabled)}
-          style={{
-            ...iconBtn,
-            width: "auto",
-            padding: "0 10px",
-            fontSize: 10,
-            fontWeight: 800,
-            letterSpacing: "-0.02em",
-            color: countInEnabled ? "#0a0908" : shell.textMuted,
-            background: countInEnabled
-              ? "linear-gradient(180deg, #7dd3fc, #0ea5e9)"
-              : "rgba(255,255,255,0.04)",
-            borderColor: countInEnabled ? "#38bdf8" : shell.border,
-          }}
-        >
-          5-6-7-8
-        </button>
 
         {onPlaybackRateChange ? (
           <select

@@ -17,6 +17,6 @@ describe("normalizePracticePlaybackRate", () => {
     expect(normalizePracticePlaybackRate(1)).toBe(1);
     expect(normalizePracticePlaybackRate(0.74)).toBe(0.75);
     expect(normalizePracticePlaybackRate(1.3)).toBe(1.25);
-    expect(PRACTICE_PLAYBACK_RATES).toEqual([0.5, 0.75, 1, 1.25]);
+    expect(PRACTICE_PLAYBACK_RATES).toEqual([0.5, 0.75, 1, 1.25, 1.5, 2]);
   });
 });

@@ -163,11 +163,28 @@ function IconSave() {
   );
 }
 function IconMore() {
+  // 右パネル開閉（作業スペース）— サイドバー＋矢印
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
-      <circle cx="6" cy="12" r="1.5" fill="currentColor" />
-      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-      <circle cx="18" cy="12" r="1.5" fill="currentColor" />
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="16"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path d="M15 4v16" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M10 12h7M14.5 9.5 17 12l-2.5 2.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -216,14 +233,6 @@ export function FloatingHeaderToolbar({
         >
           <IconPlus />
         </Btn>
-        <Btn
-          title="隊形プリセット"
-          label="隊形"
-          disabled={disabled}
-          onClick={onOpenFormationPresets}
-        >
-          <IconFormation />
-        </Btn>
         <div
           aria-hidden
           style={{
@@ -257,7 +266,8 @@ export function FloatingHeaderToolbar({
           <IconSave />
         </Btn>
         <Btn
-          title={moreActive ? t("editor.comp.k034") : "その他"}
+          title={moreActive ? "パネルを閉じる（作業スペースを広げる）" : "パネルを開く"}
+          label={moreActive ? "パネル" : "パネル"}
           disabled={disabled}
           onClick={onOpenMore}
           active={moreActive}

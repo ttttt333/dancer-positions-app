@@ -2800,6 +2800,17 @@ function EditorPageContent({
       onApplySectionFormationPatterns={sectionFormationPatterns.openDialog}
       sectionFormationPatternsAvailable={sectionFormationPatterns.canOffer}
       floatingChrome={wideEditorLayout && !mobileStackEditor}
+      onAddDancer={
+        wideEditorLayout && !choreoPublicView
+          ? addDancerFromStageToolbar
+          : undefined
+      }
+      onToggleRightPane={
+        wideEditorLayout && !choreoPublicView
+          ? () => setRightPaneCollapsed((v) => !v)
+          : undefined
+      }
+      rightPaneOpen={wideEditorLayout ? !rightPaneCollapsed : false}
       playbackRate={project.playbackRate ?? 1}
       onPlaybackRateChange={(rate) => {
         setProjectSafe((p) => ({ ...p, playbackRate: rate }));
