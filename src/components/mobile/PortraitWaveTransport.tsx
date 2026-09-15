@@ -32,7 +32,6 @@ import {
 import { formatMmSs, waveRulerTicks } from "../../lib/timeFormat";
 import {
   hitPlayheadStripForScrub,
-  PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX,
   waveExtentXToTime,
   waveTimeToPercent,
   getWaveViewForDraw,
@@ -55,17 +54,17 @@ const ZOOM_BUTTON_STEP = 1.1;
 /** 「波形を大きく拡大」ボタン: + ボタンを 15 回押した倍率へ一気にズーム */
 const BIG_ZOOM_BUTTON_PRESSES = 15;
 const BIG_ZOOM_TARGET = ZOOM_BUTTON_STEP ** BIG_ZOOM_BUTTON_PRESSES;
-const DOUBLE_TAP_MS = 350;
+const DOUBLE_TAP_MS = 450;
 const LONG_PRESS_MS = 520;
 const PORTRAIT_WAVE_CSS_H = 96;
 const DEFAULT_WAVE_HEIGHT_PX = PORTRAIT_WAVE_CSS_H;
 /** この距離未満の指の動きはタップ扱い（シーク） */
-const TAP_MAX_MOVE_PX = 16;
+const TAP_MAX_MOVE_PX = 8;
 /**
  * この距離を超えたらキュー枠ドラッグを開始（長押しメニューはキャンセル）。
  * ピンチズームは無効化し、拡大縮小は +/- ボタンのみ。
  */
-const CUE_DRAG_ARM_PX = 12;
+const CUE_DRAG_ARM_PX = 6;
 
 interface Props {
   audioUrl: string | null;
@@ -648,6 +647,10 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     (clientX: number) => {
       const canvas = canvasRef.current;
       if (!canvas || duration <= 0 || waveDrawView.span <= 0) return false;
+      /**
+       * 再生ヘッドの排他ヒットは狭めに。キュー枠端と重なるとき枠操作を優先させる。
+       * （描画ヒット帯 44px より狭い）
+       */
       return hitPlayheadStripForScrub(
         clientX,
         canvas,
@@ -655,7 +658,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         waveDrawView.span,
         playheadSecForUi,
         duration,
-        PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX
+        22
       );
     },
     [duration, waveDrawView.start, waveDrawView.span, playheadSecForUi]
@@ -790,10 +793,8 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       dragArmedRef.current = false;
 
       if (treatAsTap && wasDragArmed) {
-        // CUE_DRAG_ARM_PX(12px) < TAP_MAX_MOVE_PX(16px) の間の指のブレで
-        // 一旦キュー枠ドラッグ判定（PC 共通ハンドラ側）が先走って armed になっていた場合、
-        // タップ／ダブルタップ扱いに戻す前に必ず破棄する。
-        // 破棄しないと、次の操作でキュー枠の拡大・移動ができなくなることがあった。
+        // CUE_DRAG_ARM_PX を超えて武装したが TAP_MAX_MOVE_PX 以内なら
+        // タップ扱いに戻す前にキュー枠ドラッグを破棄する。
         abortTimelineWavePointerGestures();
       }
 

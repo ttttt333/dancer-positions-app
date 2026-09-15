@@ -78,6 +78,8 @@ export type StageMainFloorInteractionLayerProps = {
     e: ReactPointerEvent<HTMLDivElement>
   ) => void;
   onDeleteSelectedDancers?: () => void;
+  /** 選択解除（ゴミ箱隣の ×。空タップでの移動を避ける） */
+  onClearSelection?: () => void;
   tapStageToEditLayout: boolean;
   onTapEditOverlayPointerDown: (
     e: ReactPointerEvent<HTMLDivElement>
@@ -115,6 +117,7 @@ export function StageMainFloorInteractionLayer({
   onMarkerResizePointerDown,
   onNameBelowFontResizePointerDown,
   onDeleteSelectedDancers,
+  onClearSelection,
   resolveNameBelowFontPx,
   tapStageToEditLayout,
   onTapEditOverlayPointerDown,
@@ -125,6 +128,12 @@ export function StageMainFloorInteractionLayer({
 }: StageMainFloorInteractionLayerProps) {
   const showDeleteHandles =
     Boolean(onDeleteSelectedDancers) &&
+    !playbackOrPreview &&
+    viewMode !== "view" &&
+    stageInteractionsEnabled;
+  const showClearSelection =
+    Boolean(onClearSelection) &&
+    selectedDancerIds.length >= 1 &&
     !playbackOrPreview &&
     viewMode !== "view" &&
     stageInteractionsEnabled;
@@ -185,6 +194,9 @@ export function StageMainFloorInteractionLayer({
               : undefined
           }
           onDeleteClick={showDeleteHandles ? onDeleteSelectedDancers : undefined}
+          onClearSelectionClick={
+            showClearSelection ? onClearSelection : undefined
+          }
         />
       ) : null}
       {selectionBox &&
@@ -320,6 +332,13 @@ export function StageMainFloorInteractionLayer({
             e.stopPropagation();
             onDeleteSelectedDancers?.();
           }}
+          onClearSelection={
+            showClearSelection
+              ? () => {
+                  onClearSelection?.();
+                }
+              : undefined
+          }
         />
       ) : null}
       {tapStageToEditLayout ? (

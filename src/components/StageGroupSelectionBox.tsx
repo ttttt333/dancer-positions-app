@@ -10,6 +10,7 @@ import {
   stageAuxHandleHitStyle,
   stageAuxHandleVisualStyle,
 } from "../lib/stageSelectionAuxHandleStyles";
+import { STAGE_INTERACTIVE_ATTR } from "../lib/stageBoardGestureAbort";
 
 /** 白い角ハンドルの見た目サイズ */
 const GROUP_BOX_HANDLE_VISUAL_PX = 18;
@@ -43,6 +44,8 @@ export type StageGroupSelectionBoxProps = {
   ) => void;
   /** 赤ボタン：選択メンバーを削除 */
   onDeleteClick?: () => void;
+  /** 選択解除（移動せずキャンセル） */
+  onClearSelectionClick?: () => void;
 };
 
 /** 複数選択の点線枠と 8 方向リサイズハンドル */
@@ -54,6 +57,7 @@ export function StageGroupSelectionBox({
   onNameBelowFontPointerDown,
   onMarkerResizePointerDown,
   onDeleteClick,
+  onClearSelectionClick,
 }: StageGroupSelectionBoxProps) {
   const r = handleInsetPx;
   return (
@@ -183,10 +187,54 @@ export function StageGroupSelectionBox({
           />
         </div>
       ) : null}
+      {onClearSelectionClick ? (
+        <button
+          type="button"
+          data-selection-cancel-handle
+          {...{ [STAGE_INTERACTIVE_ATTR]: "" }}
+          aria-label="選択を解除"
+          title="選択解除"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClearSelectionClick();
+          }}
+          style={{
+            position: "absolute",
+            left: 0,
+            bottom: 0,
+            transform: `${stageAuxHandleCornerTransform("sw")} translate(-42px, 0)`,
+            zIndex: 8,
+            ...stageAuxHandleHitStyle("pointer"),
+            borderRadius: "50%",
+            background: "rgba(30, 41, 59, 0.95)",
+            border: "1.5px solid #fff",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.45)",
+            color: "#fff",
+            touchAction: "manipulation",
+          }}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M18 6L6 18" />
+            <path d="M6 6l12 12" />
+          </svg>
+        </button>
+      ) : null}
       {onDeleteClick ? (
         <button
           type="button"
           data-dancer-delete-handle
+          {...{ [STAGE_INTERACTIVE_ATTR]: "" }}
           aria-label="選択した立ち位置を削除"
           title="削除"
           onPointerDown={(e) => e.stopPropagation()}

@@ -1638,6 +1638,21 @@ export function StageBoardBody({
     ],
   );
 
+  /** ゴミ箱隣の ×：選択だけ解除（空ステージタップでの間接移動を避ける） */
+  const handleClearSelection = useCallback(() => {
+    dragRef.current = null;
+    groupDragRef.current = null;
+    marqueeSessionRef.current = null;
+    setMarquee(null);
+    setDragGhostById(null);
+    setBulkHideDancerGlyphs(false);
+    setTrashUiVisible(false);
+    trashRevealActiveRef.current = false;
+    setAlignGuides({ x: null, y: null });
+    setGroupRotateGuideDeltaDeg(null);
+    clearSelectedDancers();
+  }, [clearSelectedDancers, setBulkHideDancerGlyphs, setGroupRotateGuideDeltaDeg]);
+
   const handleDeleteSelectedDancers = useCallback(() => {
     if (
       viewMode === "view" ||
@@ -2577,6 +2592,7 @@ export function StageBoardBody({
       if (target.closest("[data-dancer-context-toolbar]")) return;
       if (target.closest("[data-name-below-font-handle]")) return;
       if (target.closest("[data-dancer-delete-handle]")) return;
+      if (target.closest("[data-selection-cancel-handle]")) return;
       if (target.closest("[data-group-rotate-handle]")) return;
       if (target.closest("[data-marker-resize-handle]")) return;
       if (target.closest("[data-marker-rotate-handle]")) return;
@@ -5288,6 +5304,7 @@ export function StageBoardBody({
         onMarkerResizePointerDown: handlePointerDownMarkerResize,
         onNameBelowFontResizePointerDown: handlePointerDownNameBelowFontResize,
         onDeleteSelectedDancers: handleDeleteSelectedDancers,
+        onClearSelection: handleClearSelection,
         tapStageToEditLayout,
         onTapEditOverlayPointerDown: handleTapOverlayPointerDown,
         depthGroupMarks,
@@ -5643,6 +5660,7 @@ export function StageBoardBody({
       floorTextInlineRect,
       globalFloorMarkup,
       handleDeleteSelectedDancers,
+      handleClearSelection,
       handleFloorTextInlineRequestClose,
       onUpdateGlobalFloorMarkup,
       quickEditDancerForDialog,

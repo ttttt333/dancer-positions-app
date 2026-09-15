@@ -179,6 +179,20 @@ export function pickCueIdAtWave(
 const CUE_EDGE_INNER_GRAB_PX = 10;
 /** 枠外側の端ドラッグ判定幅（px）— PC で枠の外を掴んで拡大縮小 */
 export const CUE_EDGE_OUTER_GRAB_PX = 18;
+/** スマホ: 指で掴みやすいよう端ヒットを拡大 */
+const CUE_EDGE_INNER_GRAB_PORTRAIT_PX = 22;
+const CUE_EDGE_OUTER_GRAB_PORTRAIT_PX = 34;
+
+export type CueEdgeGrabPx = { inner: number; outer: number };
+
+export function resolveCueEdgeGrabPx(portraitActive: boolean): CueEdgeGrabPx {
+  return portraitActive
+    ? {
+        inner: CUE_EDGE_INNER_GRAB_PORTRAIT_PX,
+        outer: CUE_EDGE_OUTER_GRAB_PORTRAIT_PX,
+      }
+    : { inner: CUE_EDGE_INNER_GRAB_PX, outer: CUE_EDGE_OUTER_GRAB_PX };
+}
 
 function cueWaveVerticalBandPx(canvasHeight: number): {
   mid: number;
@@ -210,25 +224,27 @@ export type CueDragEdgeMode = "move" | "start" | "end";
 function pickCueDragModeForCueAtX(
   x: number,
   left: number,
-  right: number
+  right: number,
+  grab: CueEdgeGrabPx
 ): CueDragEdgeMode {
   const cueWidth = right - left;
-  if (cueWidth <= CUE_EDGE_INNER_GRAB_PX * 2 + 1) {
+  if (cueWidth <= grab.inner * 2 + 1) {
     return "move";
   }
-  const inStartZone =
-    x >= left - CUE_EDGE_OUTER_GRAB_PX && x <= left + CUE_EDGE_INNER_GRAB_PX;
-  const inEndZone =
-    x >= right - CUE_EDGE_INNER_GRAB_PX && x <= right + CUE_EDGE_OUTER_GRAB_PX;
+  const inStartZone = x >= left - grab.outer && x <= left + grab.inner;
+  const inEndZone = x >= right - grab.inner && x <= right + grab.outer;
   if (inStartZone) return "start";
   if (inEndZone) return "end";
   return "move";
 }
 
-function cueWaveExpandedHitX(x: number, left: number, right: number): boolean {
-  return (
-    x >= left - CUE_EDGE_OUTER_GRAB_PX && x <= right + CUE_EDGE_OUTER_GRAB_PX
-  );
+function cueWaveExpandedHitX(
+  x: number,
+  left: number,
+  right: number,
+  grab: CueEdgeGrabPx
+): boolean {
+  return x >= left - grab.outer && x <= right + grab.outer;
 }
 
 /** 端ドラッグは境界線までの距離、移動は帯中心への距離 */
@@ -271,10 +287,12 @@ export function pickCueDragKindAtWave(
   cueList: Cue[],
   viewStart: number,
   viewSpan: number,
-  dragPreview: { cueId: string; tStart: number; tEnd: number } | null
+  dragPreview: { cueId: string; tStart: number; tEnd: number } | null,
+  edgeGrab?: CueEdgeGrabPx
 ): { cueId: string; mode: CueDragEdgeMode } | null {
   if (viewSpan <= 0 || cueList.length === 0) return null;
 
+  const grab = edgeGrab ?? resolveCueEdgeGrabPx(false);
   const r = canvas.getBoundingClientRect();
   const x = clientX - r.left;
   const y = clientY - r.top;
@@ -314,9 +332,9 @@ export function pickCueDragKindAtWave(
       right = bandMid + 1.5;
     }
     if (right - left < 1) continue;
-    if (!cueWaveExpandedHitX(x, left, right)) continue;
+    if (!cueWaveExpandedHitX(x, left, right, grab)) continue;
 
-    const mode = pickCueDragModeForCueAtX(x, left, right);
+    const mode = pickCueDragModeForCueAtX(x, left, right, grab);
     const dist = cueDragKindPickDistance(x, y, mid, left, right, mode);
     if (!best || shouldPreferCueDragHit(dist, mode, best)) {
       best = { cueId: cue.id, mode, dist };

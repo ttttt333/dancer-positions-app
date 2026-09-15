@@ -14,28 +14,28 @@ import { isReleaseCampaignActive } from "../../lib/releaseCampaign";
 import { LandingHeroVisual } from "./landing/LandingHeroVisual";
 
 const FLOW_STEP_KEYS = [
-  "music",
-  "structure",
-  "formation",
-  "transition",
-  "feasibility",
-  "refine",
+  "roster",
+  "stage",
+  "templates",
+  "ai",
+  "adopt",
+  "move",
+  "share",
 ] as const;
 
-const STRUCTURE_CUES = [
-  { t: "00:00", label: "INTRO" },
-  { t: "00:12", label: "VERSE" },
-  { t: "00:32", label: "PRE-CHORUS" },
-  { t: "00:48", label: "CHORUS" },
-  { t: "01:18", label: "BREAK" },
-  { t: "01:32", label: "CHORUS" },
-  { t: "01:58", label: "OUTRO" },
-] as const;
-
-const CANDIDATES = [
-  { id: "A", layout: "sym", traits: ["sym1", "sym2", "sym3"] },
-  { id: "B", layout: "depth", traits: ["depth1", "depth2", "depth3"] },
-  { id: "C", layout: "wide", traits: ["wide1", "wide2", "wide3"] },
+const FEATURE_KEYS = [
+  "rosterSort",
+  "centerDist",
+  "templates300",
+  "cueNotes",
+  "photoImport",
+  "viewLink",
+  "highlight",
+  "export",
+  "library",
+  "view3d",
+  "i18n",
+  "collab",
 ] as const;
 
 const AUDIENCE_KEYS = ["solo", "crews", "comp", "studios", "pro"] as const;
@@ -45,11 +45,11 @@ const COMPARE_ROWS: {
   status: "available" | "assisted" | "designed";
 }[] = [
   { key: "start", status: "available" },
-  { key: "struct", status: "assisted" },
+  { key: "speed", status: "available" },
   { key: "form", status: "available" },
-  { key: "trans", status: "available" },
-  { key: "stage", status: "available" },
-  { key: "space", status: "designed" },
+  { key: "share", status: "available" },
+  { key: "collab", status: "available" },
+  { key: "ai", status: "assisted" },
   { key: "ctrl", status: "available" },
 ];
 
@@ -101,14 +101,16 @@ export function GuestLanding() {
       <section className="lv2-hero" aria-label={t("landing.heroAria")}>
         <div className="home-container lv2-hero-inner">
           <div className="lv2-hero-copy">
-            <p className="lv2-eyebrow">{t("landing.v2.eyebrow")}</p>
+            <p className="lv2-brand-mark home-display" aria-label="CHOREO CORE">
+              <span className="lv2-brand-mark__choreo">CHOREO</span>
+              <span className="lv2-brand-mark__core"> CORE</span>
+            </p>
             <h1 className="home-display lv2-hero-title">
               {t("landing.v2.heroTitle1")}
               <br />
               <span>{t("landing.v2.heroTitle2")}</span>
             </h1>
             <p className="lv2-hero-sub">{t("landing.v2.heroSub")}</p>
-            <p className="lv2-hero-jp">{t("landing.v2.heroTag")}</p>
             <p className="lv2-pill-row">{t("landing.v2.audience")}</p>
             <div className="lv2-cta-row">
               <Link to="/register" className="home-btn home-btn--primary lv2-btn-lg">
@@ -120,10 +122,6 @@ export function GuestLanding() {
             </div>
             <p className="lv2-cta-note">
               {campaign ? t("landing.campaign.note") : t("landing.v2.ctaNote")}
-            </p>
-            <p className="lv2-brand-line">
-              {t("landing.v2.brandLine")}{" "}
-              <strong>{t("landing.v2.brandLineStrong")}</strong>
             </p>
           </div>
           <LandingHeroVisual />
@@ -182,28 +180,12 @@ export function GuestLanding() {
             <em>{t("landing.v2.problem.contrastEm")}</em>
             {t("landing.v2.problem.contrastAfter")}
           </p>
-          <div className="lv2-compare-flow">
-            <div className="lv2-flow-col">
-              <h3>{t("landing.v2.problem.tradTitle")}</h3>
-              <ol>
-                <li>{t("landing.v2.problem.trad1")}</li>
-                <li>{t("landing.v2.problem.trad2")}</li>
-                <li>{t("landing.v2.problem.trad3")}</li>
-                <li>{t("landing.v2.problem.trad4")}</li>
-                <li>{t("landing.v2.problem.trad5")}</li>
-              </ol>
-            </div>
-            <div className="lv2-flow-col is-accent">
-              <h3>{t("landing.v2.problem.ccTitle")}</h3>
-              <ol>
-                <li>{t("landing.v2.problem.cc1")}</li>
-                <li>{t("landing.v2.problem.cc2")}</li>
-                <li>{t("landing.v2.problem.cc3")}</li>
-                <li>{t("landing.v2.problem.cc4")}</li>
-                <li>{t("landing.v2.problem.cc5")}</li>
-              </ol>
-            </div>
-          </div>
+          <ul className="lv2-pitch-points">
+            <li>{t("landing.v2.problem.point1")}</li>
+            <li>{t("landing.v2.problem.point2")}</li>
+            <li>{t("landing.v2.problem.point3")}</li>
+            <li>{t("landing.v2.problem.point4")}</li>
+          </ul>
         </div>
       </section>
 
@@ -219,8 +201,8 @@ export function GuestLanding() {
             <br />
             {t("landing.v2.way.title2")}
           </h2>
-          <p className="lv2-pillars">{t("landing.v2.way.pillars")}</p>
-          <div className="lv2-steps">
+          <p className="lv2-lead">{t("landing.v2.way.lead")}</p>
+          <div className="lv2-steps lv2-steps--seven">
             {FLOW_STEP_KEYS.map((key, i) => (
               <article key={key} className="lv2-step">
                 <span className="lv2-step__n">{String(i + 1).padStart(2, "0")}</span>
@@ -232,215 +214,30 @@ export function GuestLanding() {
         </div>
       </section>
 
-      <section className="lv2-section" aria-labelledby="lv2-structure-title">
-        <div className="home-container lv2-split">
-          <div>
-            <p className="lv2-eyebrow">{t("landing.v2.structure.eyebrow")}</p>
-            <h2 id="lv2-structure-title" className="home-display lv2-h2">
-              {t("landing.v2.structure.title1")}
-              <br />
-              {t("landing.v2.structure.title2")}
-            </h2>
-            <p className="lv2-lead">{t("landing.v2.structure.body")}</p>
-            <p className="lv2-status">{t("landing.v2.structure.status")}</p>
-          </div>
-          <div className="lv2-structure-panel" aria-hidden>
-            <ul className="lv2-structure-list">
-              {STRUCTURE_CUES.map((c) => (
-                <li key={`${c.t}-${c.label}`}>
-                  <time>{c.t}</time>
-                  <span>{c.label}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="lv2-state-track">
-              <div>
-                <strong>FORMATION A</strong>
-                <i />
-              </div>
-              <div className="is-trans">
-                <strong>TRANSITION</strong>
-                <i />
-              </div>
-              <div>
-                <strong>FORMATION B</strong>
-                <i />
-              </div>
-              <div className="is-trans">
-                <strong>TRANSITION</strong>
-                <i />
-              </div>
-              <div>
-                <strong>FORMATION C</strong>
-                <i />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="lv2-section lv2-section--alt" aria-labelledby="lv2-trans-title">
-        <div className="home-container lv2-split">
-          <div className="lv2-arrival" aria-hidden>
-            <div className="lv2-arrival__beat">
-              <span>{t("landing.v2.trans.beat")}</span>
-              <div className="lv2-arrival__line" />
-              <strong>{t("landing.v2.trans.sectionChange")}</strong>
-            </div>
-            <div className="lv2-arrival__path">
-              <span>{t("landing.v2.trans.move")}</span>
-              <span>→</span>
-              <span className="is-on">{t("landing.v2.trans.transition")}</span>
-              <span>→</span>
-              <span>{t("landing.v2.trans.arrival")}</span>
-              <span>→</span>
-              <span className="is-hit">{t("landing.v2.trans.hit")}</span>
-            </div>
-            <p className="lv2-arrival__note">{t("landing.v2.trans.note")}</p>
-          </div>
-          <div>
-            <p className="lv2-eyebrow">{t("landing.v2.trans.eyebrow")}</p>
-            <h2 id="lv2-trans-title" className="home-display lv2-h2">
-              {t("landing.v2.trans.title1")}
-              <br />
-              {t("landing.v2.trans.title2")}
-            </h2>
-            <p className="lv2-lead">{t("landing.v2.trans.body")}</p>
-            <p className="lv2-status">{t("landing.v2.trans.status")}</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="lv2-section" aria-labelledby="lv2-ai-title">
+      <section
+        id="features"
+        className="lv2-section"
+        aria-labelledby="lv2-features-title"
+      >
         <div className="home-container">
-          <p className="lv2-eyebrow">{t("landing.v2.ai.eyebrow")}</p>
-          <h2 id="lv2-ai-title" className="home-display lv2-h2">
-            {t("landing.v2.ai.title1")}
+          <p className="lv2-eyebrow">{t("landing.v2.features.eyebrow")}</p>
+          <h2 id="lv2-features-title" className="home-display lv2-h2">
+            {t("landing.v2.features.title1")}
             <br />
-            {t("landing.v2.ai.title2")}
+            {t("landing.v2.features.title2")}
           </h2>
-          <p className="lv2-lead">{t("landing.v2.ai.body")}</p>
-          <div className="lv2-ai-flow">
-            <span>{t("landing.v2.ai.flow1")}</span>
-            <span>→</span>
-            <span>{t("landing.v2.ai.flow2")}</span>
-            <span>→</span>
-            <span>{t("landing.v2.ai.flow3")}</span>
-          </div>
-          <div className="lv2-candidates">
-            {CANDIDATES.map((c) => (
-              <article key={c.id} className="lv2-candidate">
-                <header>
-                  <h3>{t("landing.v2.ai.candidate", { id: c.id })}</h3>
-                  <ul>
-                    {c.traits.map((tr) => (
-                      <li key={tr}>{t(`landing.v2.ai.trait.${tr}`)}</li>
-                    ))}
-                  </ul>
-                </header>
-                <div className={`lv2-candidate__stage is-${c.layout}`} aria-hidden>
-                  {Array.from({ length: 6 }, (_, i) => (
-                    <i key={i} />
-                  ))}
-                </div>
-              </article>
+          <p className="lv2-lead">{t("landing.v2.features.lead")}</p>
+          <ul className="lv2-feature-grid">
+            {FEATURE_KEYS.map((key) => (
+              <li key={key} className="lv2-feature-item">
+                {t(`landing.v2.features.${key}`)}
+              </li>
             ))}
-          </div>
-          <p className="lv2-status">{t("landing.v2.ai.status")}</p>
+          </ul>
         </div>
       </section>
 
-      <section className="lv2-section lv2-section--alt" aria-labelledby="lv2-control-title">
-        <div className="home-container">
-          <p className="lv2-eyebrow">{t("landing.v2.control.eyebrow")}</p>
-          <h2 id="lv2-control-title" className="home-display lv2-h2">
-            {t("landing.v2.control.title1")}
-            <br />
-            {t("landing.v2.control.title2")}
-          </h2>
-          <p className="lv2-lead">{t("landing.v2.control.body")}</p>
-          <div className="lv2-control-rail" aria-hidden>
-            {(
-              [
-                "landing.v2.control.rail1",
-                "landing.v2.control.rail2",
-                "landing.v2.control.rail3",
-                "landing.v2.control.rail4",
-                "landing.v2.control.rail5",
-                "landing.v2.control.rail6",
-              ] as const
-            ).map((key) => (
-              <span key={key}>{t(key)}</span>
-            ))}
-          </div>
-          <p className="lv2-status">{t("landing.v2.control.status")}</p>
-        </div>
-      </section>
-
-      <section className="lv2-section" aria-labelledby="lv2-feas-title">
-        <div className="home-container">
-          <p className="lv2-eyebrow">{t("landing.v2.feas.eyebrow")}</p>
-          <h2 id="lv2-feas-title" className="home-display lv2-h2">
-            {t("landing.v2.feas.title1")}
-            <br />
-            {t("landing.v2.feas.title2")}
-          </h2>
-          <p className="lv2-contrast">{t("landing.v2.feas.contrast")}</p>
-          <p className="lv2-lead">{t("landing.v2.feas.body")}</p>
-          <div className="lv2-feas-grid">
-            <div className="lv2-feas-card is-bad">
-              <h3>{t("landing.v2.feas.badTitle")}</h3>
-              <ul>
-                <li>{t("landing.v2.feas.bad1")}</li>
-                <li>{t("landing.v2.feas.bad2")}</li>
-                <li>{t("landing.v2.feas.bad3")}</li>
-              </ul>
-            </div>
-            <div className="lv2-feas-card is-check">
-              <h3>{t("landing.v2.feas.checkTitle")}</h3>
-              <p>{t("landing.v2.feas.checkBody")}</p>
-            </div>
-            <div className="lv2-feas-card is-good">
-              <h3>{t("landing.v2.feas.goodTitle")}</h3>
-              <ul>
-                <li>{t("landing.v2.feas.good1")}</li>
-                <li>{t("landing.v2.feas.good2")}</li>
-                <li>{t("landing.v2.feas.good3")}</li>
-              </ul>
-            </div>
-          </div>
-          <p className="lv2-status">{t("landing.v2.feas.status")}</p>
-        </div>
-      </section>
-
-      <section className="lv2-section lv2-section--alt" aria-labelledby="lv2-prec-title">
-        <div className="home-container lv2-split">
-          <div>
-            <p className="lv2-eyebrow">{t("landing.v2.prec.eyebrow")}</p>
-            <h2 id="lv2-prec-title" className="home-display lv2-h2">
-              {t("landing.v2.prec.title1")}
-              <br />
-              {t("landing.v2.prec.title2")}
-            </h2>
-            <p className="lv2-lead">{t("landing.v2.prec.body")}</p>
-            <p className="lv2-status">{t("landing.v2.prec.status")}</p>
-          </div>
-          <div className="lv2-precision" aria-hidden>
-            <div className="lv2-precision__grid">
-              {Array.from({ length: 9 }, (_, i) => (
-                <span key={i} className={i === 4 ? "is-focus" : undefined} />
-              ))}
-            </div>
-            <div className="lv2-precision__meta">
-              <span>{t("landing.v2.prec.meta1")}</span>
-              <span>{t("landing.v2.prec.meta2")}</span>
-              <span>{t("landing.v2.prec.meta3")}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="lv2-section" aria-labelledby="lv2-studio-title">
+      <section className="lv2-section lv2-section--alt" aria-labelledby="lv2-studio-title">
         <div className="home-container">
           <p className="lv2-eyebrow">{t("landing.v2.studio.eyebrow")}</p>
           <h2 id="lv2-studio-title" className="home-display lv2-h2">

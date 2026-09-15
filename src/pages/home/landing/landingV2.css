@@ -155,12 +155,30 @@
   }
 }
 
-.lv2-hero-title {
-  margin: 0 0 16px;
-  font-size: clamp(2.2rem, 8vw, 4.2rem);
-  line-height: 0.98;
-  letter-spacing: -0.03em;
+.lv2-brand-mark {
+  margin: 0 0 14px;
+  font-size: clamp(1.85rem, 7.2vw, 3.35rem);
   font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.lv2-brand-mark__choreo {
+  color: #faf7f0;
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.16);
+}
+
+.lv2-brand-mark__core {
+  color: var(--lv2-gold-bright);
+  text-shadow: 0 0 16px rgba(232, 197, 71, 0.35);
+}
+
+.lv2-hero-title {
+  margin: 0 0 14px;
+  font-size: clamp(1.55rem, 5.5vw, 2.65rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-weight: 750;
 }
 
 .lv2-hero-title span {
@@ -168,17 +186,68 @@
 }
 
 .lv2-hero-sub {
-  margin: 0 0 10px;
-  max-width: 34rem;
+  margin: 0 0 16px;
+  max-width: 36rem;
   color: var(--lv2-muted);
-  font-size: 1.08rem;
-  line-height: 1.6;
+  font-size: 1.05rem;
+  line-height: 1.65;
 }
 
-.lv2-hero-jp {
-  margin: 0 0 18px;
-  color: rgba(232, 197, 71, 0.85);
+.lv2-pitch-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  max-width: 42rem;
+}
+
+.lv2-pitch-points li {
+  position: relative;
+  padding: 12px 14px 12px 34px;
+  border: 1px solid var(--lv2-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--lv2-text);
   font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.lv2-pitch-points li::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 1.15em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lv2-gold);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.45);
+}
+
+.lv2-feature-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+}
+
+.lv2-feature-item {
+  padding: 14px 16px;
+  border: 1px solid var(--lv2-line);
+  border-radius: 12px;
+  background: var(--lv2-panel);
+  color: var(--lv2-text);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+@media (min-width: 720px) {
+  .lv2-feature-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .lv2-hero-visual {
@@ -435,6 +504,22 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.lv2-steps--seven {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .lv2-steps--seven {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1024px) {
+  .lv2-steps--seven {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .lv2-step {

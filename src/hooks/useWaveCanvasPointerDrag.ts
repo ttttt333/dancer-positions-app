@@ -23,6 +23,7 @@ import {
   hitPlayheadStripForScrub,
   PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX,
   pickCueDragKindAtWave,
+  resolveCueEdgeGrabPx,
   resolvePlayheadSecForWaveInteraction,
   resolveWaveViewForPointerHit,
   waveExtentXToTime,
@@ -540,9 +541,9 @@ export function useWaveCanvasPointerDrag({
       });
 
       const { viewStart, viewSpan } = viewForPointer();
+      const portraitActive = useTimelineWaveBridgeStore.getState().portraitActive;
       const zoomedPc =
-        (viewPortionRef.current ?? viewPortion) < 1 - 1e-9 &&
-        !useTimelineWaveBridgeStore.getState().portraitActive;
+        (viewPortionRef.current ?? viewPortion) < 1 - 1e-9 && !portraitActive;
       const dragKind = pickCueDragKindAtWave(
         e.clientX,
         e.clientY,
@@ -550,7 +551,8 @@ export function useWaveCanvasPointerDrag({
         cuesSorted,
         viewStart,
         viewSpan,
-        cueDragPreviewRangeRef.current
+        cueDragPreviewRangeRef.current,
+        resolveCueEdgeGrabPx(portraitActive)
       );
       const cueId = dragKind?.cueId ?? null;
       if (cueId) {
@@ -648,7 +650,10 @@ export function useWaveCanvasPointerDrag({
           if (!drag.armed) {
             const dx = ev.clientX - drag.originX;
             const dy = ev.clientY - drag.originY;
-            if (Math.hypot(dx, dy) < WAVE_DRAG_ARM_PX) return;
+            const armPx = useTimelineWaveBridgeStore.getState().portraitActive
+              ? 4
+              : WAVE_DRAG_ARM_PX;
+            if (Math.hypot(dx, dy) < armPx) return;
             drag.armed = true;
             try {
               c.setPointerCapture(ev.pointerId);
@@ -748,7 +753,10 @@ export function useWaveCanvasPointerDrag({
             return;
           }
           const dragPx = Math.hypot(ev.clientX - drag.originX, ev.clientY - drag.originY);
-          if (dragPx < WAVE_DRAG_ARM_PX) {
+          const commitArmPx = useTimelineWaveBridgeStore.getState().portraitActive
+            ? 4
+            : WAVE_DRAG_ARM_PX;
+          if (dragPx < commitArmPx) {
             redraw();
             return;
           }
