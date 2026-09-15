@@ -822,35 +822,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         compact
                         style={{ width: "100%", minHeight: 32 }}
                       />
-                      <Link
-                        to="/update-log"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={t("updateLog.openTitle")}
-                        aria-label={t("updateLog.openAria")}
-                        style={{
-                          ...btnSecondary,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          minHeight: 32,
-                          boxSizing: "border-box",
-                          padding: "4px 6px",
-                          fontSize: 9,
-                          fontWeight: 750,
-                          lineHeight: 1,
-                          letterSpacing: "0.04em",
-                          borderRadius: 8,
-                          whiteSpace: "nowrap",
-                          textAlign: "center",
-                          textDecoration: "none",
-                          borderColor: "rgba(96, 165, 250, 0.55)",
-                          color: "#dbeafe",
-                          background: "rgba(30, 58, 138, 0.55)",
-                        }}
-                      >
-                        UPDATE LOG
-                      </Link>
                     </div>
                   </div>
                 ) : (
@@ -1102,15 +1073,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     <div className="editor-stage-landscape-stack">
                       <button
                         type="button"
-                        className="editor-stage-landscape-btn editor-stage-landscape-btn--change"
-                        onClick={() => setFormationPresetPickerOpen(true)}
-                        title="立ち位置の雛形を選ぶ"
-                        aria-label="立ち位置の雛形を選ぶ"
-                      >
-                        Change
-                      </button>
-                      <button
-                        type="button"
                         className="editor-stage-landscape-btn editor-stage-landscape-btn--wave-collapse"
                         onClick={() => onLandscapeWaveCollapse?.()}
                         aria-label="波形をたたむ"
@@ -1118,6 +1080,15 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       >
                         <span aria-hidden>▼</span>
                         <span>たたむ</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="editor-stage-landscape-btn editor-stage-landscape-btn--change"
+                        onClick={() => setFormationPresetPickerOpen(true)}
+                        title="立ち位置の雛形を選ぶ"
+                        aria-label="立ち位置の雛形を選ぶ"
+                      >
+                        Change
                       </button>
                       <EditorPerspectiveToggle
                         perspective={editorAudiencePerspective}

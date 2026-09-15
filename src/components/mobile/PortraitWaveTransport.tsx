@@ -37,6 +37,7 @@ import {
   waveTimeToPercent,
   getWaveViewForDraw,
   resolveWaveDrawView,
+  resolveWavePlayheadFollowViewStart,
 } from "../../lib/timelineWaveGeometry";
 import { PLAYHEAD_SCRUB_ARM_PX } from "../../lib/waveLongPress";
 import {
@@ -274,7 +275,11 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   useEffect(() => {
     if (!isPlaying || zoom <= 1 || duration <= 0) return;
     if (scrubActiveRef.current || playheadDragRef.current) return;
-    const { start } = getWaveViewForDraw(duration, viewPortion, playheadSecForUi);
+    const start = resolveWavePlayheadFollowViewStart(
+      playheadSecForUi,
+      duration,
+      viewPortion
+    );
     setViewStart((vs) => {
       const next = clampViewStart(start, viewDuration, duration);
       return Math.abs(vs - next) < 0.001 ? vs : next;

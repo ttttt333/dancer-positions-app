@@ -650,13 +650,14 @@ export function waveTimeToPercent(
   return waveTimeToExtentX(tSec, viewStart, viewSpan, 100);
 }
 
-/** 再生位置オーバーレイ: 0%/100% でも縦線がコンテナ端まで届く */
+/** 再生位置オーバーレイ: 縦線を `pct` に合わせる（幅広ヒット領域は translate で中央揃え） */
 export function playheadOverlayPositionStyles(pct: number): {
   left: string;
   transform: string;
 } {
   const p = Math.max(0, Math.min(100, pct));
-  if (p <= 0) return { left: "0", transform: "none" };
+  // 右端だけコンテナ内に収める。左端・途中は -50% で線を pct に一致させる
+  // （旧 CSS の margin-left:-22px と併用すると常に左へずれてはみ出していた）
   if (p >= 100) return { left: "100%", transform: "translateX(-100%)" };
   return { left: `${p}%`, transform: "translateX(-50%)" };
 }

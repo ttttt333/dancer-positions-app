@@ -208,13 +208,19 @@
   background: rgba(0, 0, 0, 0.25);
   border-top: 0.5px solid rgba(255, 255, 255, 0.06);
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
-  /** 縦画面: 開始地点（0:00・先頭キュー枠）が画面左端に張り付いて見えづらいので少し右から始める */
-  padding-left: calc(12px + 5mm);
+  /**
+   * 再生ヘッド（幅44px・中央揃え）が先頭 0:00 でも画面左に切れないよう余白を確保。
+   * 再生開始直後から赤いバーの動きが見える。
+   */
+  padding-left: max(28px, calc(12px + 5mm), env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
 }
 
 /** 横画面下部（波形のみ）は LandscapeBottomWaveBar 側で開始位置の余白を確保済みなので二重にしない */
 .transportLandscapeCompact .waveFrame {
   padding-left: 0;
+  padding-right: 0;
 }
 
 /** 目盛り＋波形＋再生ヘッドのみ（再生ボタン行にはみ出さない） */
@@ -305,8 +311,8 @@
   left: 0;
   height: calc(var(--portrait-ruler-h) + var(--portrait-wave-h, 96px));
   width: 44px;
-  margin-left: -22px;
-  transform: none;
+  margin-left: 0;
+  transform: translateX(-50%);
   background: transparent;
   pointer-events: auto;
   cursor: col-resize;

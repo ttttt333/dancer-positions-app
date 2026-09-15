@@ -7,11 +7,9 @@ import {
 import { PLACEHOLDER_TIMELINE_CAP_SEC } from "./cueInterval";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { usePracticePlaybackStore } from "../store/practicePlaybackStore";
-import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
 import {
   cancelPlaybackCountIn,
   isPlaybackCountInActive,
-  runPlaybackCountIn,
 } from "./playbackCountIn";
 
 /**
@@ -20,7 +18,7 @@ import {
  * - 通常シーク（波形クリック・±秒など）: `seekPlaybackClampedAndSyncStore`
  * - キュー作成／複製直後（実尺 0 でもプレースホルダ上限で clamp）: `syncPlaybackHeadAfterCueEdit`
  * - 停止・トリム先頭: `stopPlaybackAtTrimStart` / `pauseAndSeekPlaybackToSec`
- * - 再生トグル: `togglePlaybackRespectingTrimStart`（カウントイン対応）
+ * - 再生トグル: `togglePlaybackRespectingTrimStart`
  *
  * キュー境界・ヘッド秒の純関数は `core/timelineController`（`playbackTrim`）へ集約。
  */
@@ -222,12 +220,11 @@ export function stopPlaybackAtTrimStart(trimStartSec: number): void {
 
 /**
  * 再生/一時停止のトグル。一時停止から再生に入るとき、ヘッドがトリム開始より左なら先にシークする。
- * カウントイン ON 時は 4 拍ビープのあと音源再生を開始する。
  */
 export function togglePlaybackRespectingTrimStart(trimStartSec: number): void {
   if (!playbackEngine.getMediaSourceUrl()) return;
 
-  // カウントイン中に再度押したら中断して停止状態へ
+  // 旧カウントイン中に再度押したら中断して停止状態へ
   if (isPlaybackCountInActive() || usePracticePlaybackStore.getState().isCountingIn) {
     cancelPlaybackCountIn();
     usePracticePlaybackStore.getState().setIsCountingIn(false);
@@ -245,28 +242,6 @@ export function togglePlaybackRespectingTrimStart(trimStartSec: number): void {
     ) {
       playbackEngine.seek(trimStartSec);
       usePlaybackUiStore.getState().setCurrentTimeSec(Math.max(0, trimStartSec));
-    }
-
-    const practice = usePracticePlaybackStore.getState();
-    if (practice.countInEnabled) {
-      const bpm =
-        useMusicSectionOverlayStore.getState().analysis?.bpm &&
-        useMusicSectionOverlayStore.getState().analysis!.bpm! > 0
-          ? useMusicSectionOverlayStore.getState().analysis!.bpm!
-          : 120;
-      practice.setIsCountingIn(true);
-      // フォーメーション RAF は動かさない（音源再生前）
-      usePlaybackUiStore.getState().setIsPlaying(false);
-      void runPlaybackCountIn({ bpm, beats: 4 }).then((result) => {
-        usePracticePlaybackStore.getState().setIsCountingIn(false);
-        if (result !== "completed") return;
-        if (!playbackEngine.getMediaSourceUrl()) return;
-        usePlaybackUiStore.getState().setIsPlaying(true);
-        void playbackEngine.play().catch(() => {
-          usePlaybackUiStore.getState().setIsPlaying(false);
-        });
-      });
-      return;
     }
 
     usePlaybackUiStore.getState().setIsPlaying(true);

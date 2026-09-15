@@ -2,8 +2,12 @@
   flex-shrink: 0;
   background: #0b1120;
   border-top: 1px solid #1e293b;
-  /* 波形の開始位置を左端から約 1cm + 5mm 内側へ */
-  padding-left: calc(1cm + 5mm);
+  /**
+   * 全幅ドックのため、再生ヘッド先頭が左端で切れないよう余白を確保。
+   * （旧 1cm+5mm だと不足し、先頭のバーが左にはみ出して見えづらかった）
+   */
+  padding-left: max(32px, calc(16px + 5mm), env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
   box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
   box-sizing: border-box;

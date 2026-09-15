@@ -6,16 +6,6 @@ export type PracticePlaybackRate = (typeof PRACTICE_PLAYBACK_RATES)[number];
 
 const COUNT_IN_KEY = "choreocore.practice.countInEnabled";
 
-function readCountInEnabled(): boolean {
-  try {
-    const v = localStorage.getItem(COUNT_IN_KEY);
-    if (v == null) return false; // PC UI からトグル削除後の既定は OFF
-    return v === "1" || v === "true";
-  } catch {
-    return false;
-  }
-}
-
 type PracticePlaybackState = {
   countInEnabled: boolean;
   /** カウントイン再生中（音源はまだ再生していない） */
@@ -25,15 +15,16 @@ type PracticePlaybackState = {
 };
 
 export const usePracticePlaybackStore = create<PracticePlaybackState>((set) => ({
-  countInEnabled: typeof window !== "undefined" ? readCountInEnabled() : true,
+  countInEnabled: false,
   isCountingIn: false,
-  setCountInEnabled: (v) => {
+  setCountInEnabled: (_v) => {
     try {
-      localStorage.setItem(COUNT_IN_KEY, v ? "1" : "0");
+      localStorage.setItem(COUNT_IN_KEY, "0");
     } catch {
       /* ignore */
     }
-    set({ countInEnabled: Boolean(v) });
+    // 4カウント（ピッピッ）ビープは廃止
+    set({ countInEnabled: false });
   },
   setIsCountingIn: (v) => set({ isCountingIn: Boolean(v) }),
 }));
