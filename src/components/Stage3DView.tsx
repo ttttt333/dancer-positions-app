@@ -26,6 +26,38 @@ const MARK_Y = 0.02;
 const EDGE_LABEL_OUTSET = 0.55;
 const EDGE_BAND_DEPTH = 0.38;
 
+/**
+ * ステージ床＋外周ラベルがビューポートをできるだけ埋めるようカメラを配置する。
+ * （俯瞰寄り・やや手前から）
+ */
+function frameCameraToStage(
+  camera: THREE.PerspectiveCamera,
+  controls: OrbitControls
+) {
+  const pad = 1.08;
+  const halfW = (STAGE_W / 2 + EDGE_LABEL_OUTSET) * pad;
+  const halfD = (STAGE_D / 2 + EDGE_LABEL_OUTSET) * pad;
+  const radius = Math.sqrt(halfW * halfW + halfD * halfD);
+  const elev = THREE.MathUtils.degToRad(46);
+  const fovV = THREE.MathUtils.degToRad(camera.fov);
+  const aspect = Math.max(0.35, camera.aspect);
+  const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
+  // 画面をほぼ埋める距離（係数を下げると寄る＝大きく見える）
+  const distV = radius / Math.sin(fovV / 2);
+  const distH = radius / Math.sin(fovH / 2);
+  const dist = Math.min(distV, distH) * 0.78;
+  const y = Math.sin(elev) * dist;
+  const z = Math.cos(elev) * dist;
+  camera.position.set(0, y, z);
+  camera.near = 0.05;
+  camera.far = Math.max(80, dist * 8);
+  camera.updateProjectionMatrix();
+  controls.target.set(0, 0.12, 0);
+  controls.minDistance = Math.max(3.2, dist * 0.35);
+  controls.maxDistance = Math.max(24, dist * 3.2);
+  controls.update();
+}
+
 type Api = {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
@@ -441,9 +473,7 @@ export function Stage3DView({
     const h = Math.max(el.clientHeight, 240);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020617);
-    const camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
-    camera.position.set(0, 14, 11);
-    camera.lookAt(0, 0, 0);
+    const camera = new THREE.PerspectiveCamera(40, w / h, 0.05, 120);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(w, h);
@@ -451,10 +481,9 @@ export function Stage3DView({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
-    controls.minDistance = 6;
-    controls.maxDistance = 42;
     controls.maxPolarAngle = Math.PI * 0.495;
-    controls.target.set(0, 0.4, 0);
+    frameCameraToStage(camera, controls);
+    let hasFramed = w >= 40 && h >= 40;
     const dl = new THREE.DirectionalLight(0xffffff, 0.95);
     dl.position.set(3, 18, 8);
     scene.add(dl);
@@ -497,7 +526,13 @@ export function Stage3DView({
       if (rw < 10 || rh < 10) return;
       renderer.setSize(rw, rh);
       camera.aspect = rw / rh;
-      camera.updateProjectionMatrix();
+      // flex 初回レイアウトでサイズが後から決まる場合は、まだ寄っていないときだけ再フレーミング
+      if (!hasFramed && rw >= 40 && rh >= 40) {
+        frameCameraToStage(camera, controls);
+        hasFramed = true;
+      } else {
+        camera.updateProjectionMatrix();
+      }
     });
     ro.observe(el);
     return () => {
@@ -609,7 +644,7 @@ export function Stage3DView({
       style={{
         position: "relative",
         flex: 1,
-        minHeight: "280px",
+        minHeight: 0,
         width: "100%",
         height: "100%",
         display: "flex",
@@ -622,9 +657,9 @@ export function Stage3DView({
           flex: "1 1 auto",
           minHeight: 0,
           width: "100%",
-          borderRadius: "12px",
+          borderRadius: 0,
           overflow: "hidden",
-          border: "1px solid #334155",
+          border: "none",
         }}
       />
       <div

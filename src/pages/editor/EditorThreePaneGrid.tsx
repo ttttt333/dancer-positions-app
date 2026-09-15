@@ -894,7 +894,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       <div
                         style={{
                           flex: 1,
-                          minHeight: 280,
+                          minHeight: 0,
                           display: "grid",
                           placeItems: "center",
                           color: "#94a3b8",
