@@ -69,7 +69,6 @@ import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import {
   createEmptyProject,
   DEFAULT_DANCER_MARKER_DIAMETER_PX,
-  dancerMarkerDiameterAfterRosterImport,
   tryMigrateFromLocalStorage,
 } from "../lib/projectDefaults";
 import { abortTimelineWavePointerGestures } from "../lib/abortTimelineWavePointerGestures";
@@ -104,6 +103,8 @@ import {
   buildCrewFromRows,
   type RosterNameImportMode,
 } from "../lib/crewCsvImport";
+import { appendCrewAndPlaceOnStage } from "../lib/rosterPlaceOnStage";
+import { showAppToast } from "../store/appToastStore";
 import {
   ROSTER_FILE_ACCEPT,
   labelForKind,
@@ -2330,55 +2331,25 @@ function EditorPageContent({
                     window.alert(msg);
                     return;
                   }
-                  setProjectSafe((p) => {
-                    const sorted = sortCuesByStart(p.cues);
-                    const firstCue = sorted[0];
-                    const nextCues =
-                      firstCue &&
-                      firstCue.formationId !== p.activeFormationId
-                        ? p.cues.map((c) =>
-                            c.id === firstCue.id
-                              ? { ...c, formationId: p.activeFormationId }
-                              : c
-                          )
-                        : p.cues;
-                    return {
-                      ...p,
-                      crews: [...p.crews, crew],
-                      cues: nextCues,
-                      rosterStripCollapsed: false,
-                      /**
-                       * 名簿取り込み直後はタイムライン全面表示のままにし、
-                       * 波形用 TimelinePanel をアンマウントしない（ワイドでは常に上部ドック）。
-                       * 名簿一覧は「メンバーを表示」またはページャで切り替え可能。
-                       */
-                      rosterHidesTimeline: false,
-                      dancerMarkerDiameterPx:
-                        dancerMarkerDiameterAfterRosterImport(
-                          p.dancerMarkerDiameterPx
-                        ),
-                    };
-                  });
-                  /** 先頭キュー（ページ 1）を選択し、いまのステージの形と同期 */
-                  window.setTimeout(() => {
-                    jumpToPagerSlotRef.current(1);
-                  }, 0);
+                  setProjectSafe((p) =>
+                    appendCrewAndPlaceOnStage(p, crew, DEFAULT_ROSTER_CONFIRM_PRESET)
+                  );
                   setRosterImportDraft(null);
                   setRosterImportExtraNames([]);
+                  /** 先頭キューへ同期してから雛形選択へ */
+                  window.setTimeout(() => {
+                    jumpToPagerSlotRef.current(1);
+                    setFormationPresetPickerOpen(true);
+                  }, 0);
                   const attLine =
                     att.hadAttendanceColumn && att.excludedRows > 0
-                      ? `\n（出欠で不参加・空欄など ${att.excludedRows} 行をスキップ）`
+                      ? `（出欠スキップ ${att.excludedRows} 行）`
                       : "";
-                  if (d.notice) {
-                    window.alert(
-                      `${labelForKind(d.kind)} から ${crew.members.length} 名を取り込みました。${attLine}\n\n` +
-                        d.notice
-                    );
-                  } else {
-                    window.alert(
-                      `${labelForKind(d.kind)} から ${crew.members.length} 名を取り込みました。${attLine}`
-                    );
-                  }
+                  showAppToast({
+                    kind: "success",
+                    title: `${crew.members.length} 名をステージに配置しました`,
+                    description: `雛形を選んでください。${attLine}`,
+                  });
                 }}
               >
                 取り込む
@@ -2396,6 +2367,7 @@ function EditorPageContent({
       setRosterImportDraft,
       setRosterImportNameMode,
       setRosterImportExtraNames,
+      setFormationPresetPickerOpen,
       btnSecondary,
     ]
   );
