@@ -143,12 +143,14 @@
   align-items: center;
 }
 
-.lv2 .home-guest-header-actions a[href="#how-it-works"] {
+.lv2 .home-guest-header-actions a[href="#how-it-works"],
+.lv2 .home-guest-header-actions a[href="/appeal"] {
   display: none;
 }
 
 @media (min-width: 720px) {
-  .lv2 .home-guest-header-actions a[href="#how-it-works"] {
+  .lv2 .home-guest-header-actions a[href="#how-it-works"],
+  .lv2 .home-guest-header-actions a[href="/appeal"] {
     display: inline;
   }
 }

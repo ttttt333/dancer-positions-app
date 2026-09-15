@@ -78,7 +78,7 @@ export function GuestLanding() {
       <header className="home-guest-header home-landing-header">
         <div className="home-container home-guest-header-inner">
           <Link to="/" className="home-header-brand" aria-label="CHOREO CORE">
-            <ChoreoCoreLogo height={40} title="ChoreoCore" withWordmark />
+            <ChoreoCoreLogo height={36} title="ChoreoCore" withWordmark />
           </Link>
           <div className="home-guest-header-actions">
             <LanguageSwitcher variant="inline" />

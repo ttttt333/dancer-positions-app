@@ -87,10 +87,72 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .home-guest-header-actions a {
   white-space: nowrap;
+}
+
+/* モバイル: ヘッダー項目を削って重なりを防ぐ */
+@media (max-width: 719px) {
+  .home-guest-header-inner {
+    gap: 8px;
+    min-height: 56px;
+    padding-top: max(8px, env(safe-area-inset-top, 0px));
+    padding-bottom: 8px;
+  }
+
+  .home-header-brand {
+    flex: 1 1 0;
+    overflow: hidden;
+  }
+
+  .home-header-brand img {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .home-guest-header-actions {
+    gap: 4px;
+  }
+
+  /* アピール等の二次リンクはモバイルヘッダーから外す */
+  .home-guest-header-actions a[href="/appeal"] {
+    display: none;
+  }
+
+  .home-landing-login {
+    font-size: 12px;
+    padding: 6px 6px;
+  }
+
+  .home-landing-register-chip {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  /* 言語: 「言語」ラベルを隠しセレクトだけ残す */
+  .home-guest-header-actions .app-language-switcher {
+    gap: 0;
+  }
+
+  .home-guest-header-actions .app-language-switcher > span:first-child {
+    display: none;
+  }
+
+  .home-guest-header-actions .app-language-switcher select {
+    max-width: 4.8rem;
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 400px) {
+  /* 極狭: ワードマークを隠しロゴだけにする */
+  .home-header-brand .home-wordmark {
+    display: none;
+  }
 }
 
 /* ── Guest landing hero + details ── */
@@ -557,11 +619,6 @@
 
   .home-btn {
     width: 100%;
-  }
-
-  .home-landing-register-chip {
-    padding: 7px 10px;
-    font-size: 12px;
   }
 }
 
