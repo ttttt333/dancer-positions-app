@@ -51,9 +51,8 @@
 .home-header-brand {
   display: inline-flex;
   align-items: center;
-  min-width: 0;
+  flex: 0 0 auto;
   text-decoration: none;
-  flex: 1 1 auto;
 }
 
 .home-wordmark {
@@ -104,8 +103,7 @@
   }
 
   .home-header-brand {
-    flex: 1 1 0;
-    overflow: hidden;
+    flex: 0 0 auto;
   }
 
   .home-header-brand img {
@@ -114,7 +112,10 @@
   }
 
   .home-guest-header-actions {
-    gap: 4px;
+    gap: 6px;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    min-width: 0;
   }
 
   /* アピール等の二次リンクはモバイルヘッダーから外す */
@@ -132,9 +133,11 @@
     font-size: 12px;
   }
 
-  /* 言語: 「言語」ラベルを隠しセレクトだけ残す */
+  /* 言語: 「言語」ラベルを隠しセレクトを広めに */
   .home-guest-header-actions .app-language-switcher {
     gap: 0;
+    flex: 0 1 auto;
+    min-width: 0;
   }
 
   .home-guest-header-actions .app-language-switcher > span:first-child {
@@ -142,16 +145,16 @@
   }
 
   .home-guest-header-actions .app-language-switcher select {
-    max-width: 4.8rem;
-    padding: 4px 6px;
-    font-size: 11px;
+    max-width: min(9.5rem, 42vw);
+    padding: 5px 8px;
+    font-size: 12px;
   }
 }
 
 @media (max-width: 360px) {
-  /* 極狭のみワードマークを隠し、ヒーローの CHOREO CORE でブランドを担保 */
-  .home-header-brand .home-wordmark {
-    display: none;
+  .home-guest-header-actions .app-language-switcher select {
+    max-width: min(8.2rem, 40vw);
+    font-size: 11px;
   }
 }
 

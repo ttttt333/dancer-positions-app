@@ -78,7 +78,7 @@ export function GuestLanding() {
       <header className="home-guest-header home-landing-header">
         <div className="home-container home-guest-header-inner">
           <Link to="/" className="home-header-brand" aria-label="CHOREO CORE">
-            <ChoreoCoreLogo height={36} title="ChoreoCore" withWordmark />
+            <ChoreoCoreLogo height={36} title="ChoreoCore" />
           </Link>
           <div className="home-guest-header-actions">
             <LanguageSwitcher variant="inline" />
@@ -105,11 +105,16 @@ export function GuestLanding() {
               <span className="lv2-brand-mark__choreo">CHOREO</span>
               <span className="lv2-brand-mark__core"> CORE</span>
             </p>
-            <h1 className="home-display lv2-hero-title">
-              {t("landing.v2.heroTitle1")}
-              <br />
-              <span>{t("landing.v2.heroTitle2")}</span>
-            </h1>
+            <div className="lv2-hero-title-row">
+              <h1 className="home-display lv2-hero-title">
+                {t("landing.v2.heroTitle1")}
+                <br />
+                <span>{t("landing.v2.heroTitle2")}</span>
+              </h1>
+              <div className="lv2-hero-title-logo" aria-hidden="true">
+                <ChoreoCoreLogo height={120} title="" />
+              </div>
+            </div>
             <p className="lv2-hero-sub">{t("landing.v2.heroSub")}</p>
             <p className="lv2-pill-row">{t("landing.v2.audience")}</p>
             <div className="lv2-cta-row">

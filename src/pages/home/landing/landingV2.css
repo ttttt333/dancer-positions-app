@@ -173,8 +173,18 @@
   text-shadow: 0 0 16px rgba(232, 197, 71, 0.35);
 }
 
-.lv2-hero-title {
+.lv2-hero-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(10px, 3vw, 20px);
   margin: 0 0 14px;
+}
+
+.lv2-hero-title {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: clamp(1.55rem, 5.5vw, 2.65rem);
   line-height: 1.12;
   letter-spacing: -0.02em;
@@ -183,6 +193,23 @@
 
 .lv2-hero-title span {
   color: var(--lv2-gold-bright);
+}
+
+.lv2-hero-title-logo {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.lv2-hero-title-logo img {
+  width: clamp(100px, 32vw, 168px) !important;
+  height: clamp(100px, 32vw, 168px) !important;
+  border-radius: clamp(20px, 6vw, 36px) !important;
+  box-shadow:
+    0 0 0 1px rgba(232, 197, 71, 0.4),
+    0 12px 36px rgba(0, 0, 0, 0.45) !important;
 }
 
 .lv2-hero-sub {
