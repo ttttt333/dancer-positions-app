@@ -3,13 +3,13 @@
 export const LANDING_V2_JA: Record<string, string> = {
   "landing.v2.docTitle": "ChoreoCore — 現場で使える立ち位置制作",
   "landing.v2.docDesc":
-    "500人のダンススクール代表へのリサーチから磨いた、振付師向け立ち位置制作ツール。時短・共有・同時制作・雛形・AI提案まで。",
+    "生徒数500人のダンススクール代表が開発した、振付師向け立ち位置制作ツール。時短・共有・同時制作・雛形・AI提案まで。",
   "landing.v2.navHow": "使い方",
   "landing.v2.eyebrow": "FIELD-TESTED CHOREOGRAPHY TOOL",
   "landing.v2.heroTitle1": "舞台制作を、",
   "landing.v2.heroTitle2": "格段に速く。",
   "landing.v2.heroSub":
-    "500人のダンススクール代表が現場で使える機能を徹底リサーチし、磨き上げた使いやすさと最強の時短。共有も同時制作も、その場で。",
+    "生徒数500人のダンススクール代表が開発。現場で使える機能を磨き上げた使いやすさと最強の時短。共有も同時制作も、その場で。",
   "landing.v2.heroTag": "振付師は、その分クリエイティブに集中できる。",
   "landing.v2.audience": "振付家・クルー・大会チーム・スタジオ向け",
   "landing.v2.ctaStart": "無料で始める",
@@ -23,7 +23,7 @@ export const LANDING_V2_JA: Record<string, string> = {
   "landing.v2.problem.title1": "現場の声から生まれた、",
   "landing.v2.problem.title2": "使える立ち位置制作。",
   "landing.v2.problem.body":
-    "500人のダンススクール代表へのヒアリングをもとに、現場で本当に必要な機能だけを徹底的に磨き上げました。使いやすさと時短を軸に、クリエイティブを支える提案や雛形、共有まで一気通貫です。",
+    "生徒数500人のダンススクール代表が、現場で本当に必要な機能だけを徹底的に磨き上げて開発しました。使いやすさと時短を軸に、クリエイティブを支える提案や雛形、共有まで一気通貫です。",
   "landing.v2.problem.contrastBefore": "舞台制作の効率を上げて、",
   "landing.v2.problem.contrastEm": "振付師は創造に集中",
   "landing.v2.problem.contrastAfter": "できます。",
@@ -204,7 +204,7 @@ export const LANDING_V2_JA: Record<string, string> = {
   "landing.v2.why.row.start.c": "名簿・舞台・音源から開始",
   "landing.v2.why.row.speed": "時短",
   "landing.v2.why.row.speed.t": "手作業中心",
-  "landing.v2.why.row.speed.c": "現場リサーチ由来の時短機能",
+  "landing.v2.why.row.speed.c": "スクール代表が磨いた時短機能",
   "landing.v2.why.row.form": "立ち位置",
   "landing.v2.why.row.form.t": "手作業のみ",
   "landing.v2.why.row.form.c": "約300種の雛形",
@@ -294,13 +294,13 @@ export const LANDING_V2_JA: Record<string, string> = {
 export const LANDING_V2_EN: Record<string, string> = {
   "landing.v2.docTitle": "ChoreoCore — Stage formations that save time",
   "landing.v2.docDesc":
-    "A choreography tool refined with research from 500 dance-school leaders — ease of use, time-saving workflows, sharing, collaboration, templates, and optional AI.",
+    "A choreography tool built by a dance-school leader of a 500-student school — ease of use, time-saving workflows, sharing, collaboration, templates, and optional AI.",
   "landing.v2.navHow": "How it works",
   "landing.v2.eyebrow": "FIELD-TESTED CHOREOGRAPHY TOOL",
   "landing.v2.heroTitle1": "MAKE STAGE WORK",
   "landing.v2.heroTitle2": "DRAMATICALLY FASTER.",
   "landing.v2.heroSub":
-    "Built from deep research with 500 dance-school leaders — polished for real studios. Extreme time-saving, easy student sharing, and live co-editing with other choreographers.",
+    "Built by a representative of a 500-student dance school — polished for real studios. Extreme time-saving, easy student sharing, and live co-editing with other choreographers.",
   "landing.v2.heroTag": "Spend less time placing. More time creating.",
   "landing.v2.audience": "Built for choreographers, crews, competitions & studios",
   "landing.v2.ctaStart": "Start free",
@@ -314,7 +314,7 @@ export const LANDING_V2_EN: Record<string, string> = {
   "landing.v2.problem.title1": "BUILT FROM THE FIELD,",
   "landing.v2.problem.title2": "NOT FROM GUESSWORK.",
   "landing.v2.problem.body":
-    "We interviewed hundreds of dance-school leaders and refined only what actually works on the floor — usability and speed first, with templates, optional AI, sharing, and co-editing in one flow.",
+    "Built by a dance-school leader of a 500-student school — refined for what actually works on the floor. Usability and speed first, with templates, optional AI, sharing, and co-editing in one flow.",
   "landing.v2.problem.contrastBefore": "Level up production efficiency so ",
   "landing.v2.problem.contrastEm": "choreographers can focus on craft",
   "landing.v2.problem.contrastAfter": ".",
@@ -501,7 +501,7 @@ export const LANDING_V2_EN: Record<string, string> = {
   "landing.v2.why.row.start.c": "Roster, stage size & audio",
   "landing.v2.why.row.speed": "Speed",
   "landing.v2.why.row.speed.t": "Mostly manual",
-  "landing.v2.why.row.speed.c": "Time-savers from field research",
+  "landing.v2.why.row.speed.c": "Time-savers from a working school",
   "landing.v2.why.row.form": "Formations",
   "landing.v2.why.row.form.t": "Manual only",
   "landing.v2.why.row.form.c": "~300 templates",
