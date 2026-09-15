@@ -27,34 +27,45 @@ const EDGE_LABEL_OUTSET = 0.55;
 const EDGE_BAND_DEPTH = 0.38;
 
 /**
- * ステージ床＋外周ラベルがビューポートをできるだけ埋めるようカメラを配置する。
- * （俯瞰寄り・やや手前から）
+ * 3D ボタン押下時の定位置カメラ。
+ * 客席側から俯瞰し、床＋ラベルが画面を埋め、構図をやや上寄せにする。
  */
 function frameCameraToStage(
   camera: THREE.PerspectiveCamera,
-  controls: OrbitControls
+  controls: OrbitControls,
+  audienceEdge: AudienceEdge = "bottom"
 ) {
-  const pad = 1.08;
+  const pad = 1.02;
   const halfW = (STAGE_W / 2 + EDGE_LABEL_OUTSET) * pad;
-  const halfD = (STAGE_D / 2 + EDGE_LABEL_OUTSET) * pad;
+  const halfD = (STAGE_D / 2 + EDGE_LABEL_OUTSET + 0.35) * pad;
   const radius = Math.sqrt(halfW * halfW + halfD * halfD);
-  const elev = THREE.MathUtils.degToRad(46);
+  // 画像の定位置に近い俯角（客席手前・舞台裏奥）
+  const elev = THREE.MathUtils.degToRad(38);
+  camera.fov = 36;
   const fovV = THREE.MathUtils.degToRad(camera.fov);
   const aspect = Math.max(0.35, camera.aspect);
   const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
-  // 画面をほぼ埋める距離（係数を下げると寄る＝大きく見える）
   const distV = radius / Math.sin(fovV / 2);
   const distH = radius / Math.sin(fovH / 2);
-  const dist = Math.min(distV, distH) * 0.78;
+  // やや寄って余白を減らす
+  const dist = Math.min(distV, distH) * 0.62;
   const y = Math.sin(elev) * dist;
-  const z = Math.cos(elev) * dist;
+  const zAbs = Math.cos(elev) * dist;
+  // bottom＝客席が +z、カメラも +z 側から見る
+  const fromAudience = audienceEdge !== "top";
+  const z = fromAudience ? zAbs : -zAbs;
+  /**
+   * 注視点を客席寄り＋少し上げる → 画面上のステージが上へ詰まる
+   * （上部の空きを減らし、客席ラベルは下端付近に残る）
+   */
+  const targetZ = fromAudience ? STAGE_D * 0.12 : -STAGE_D * 0.12;
   camera.position.set(0, y, z);
   camera.near = 0.05;
   camera.far = Math.max(80, dist * 8);
   camera.updateProjectionMatrix();
-  controls.target.set(0, 0.12, 0);
-  controls.minDistance = Math.max(3.2, dist * 0.35);
-  controls.maxDistance = Math.max(24, dist * 3.2);
+  controls.target.set(0, 0.55, targetZ);
+  controls.minDistance = Math.max(3.0, dist * 0.32);
+  controls.maxDistance = Math.max(22, dist * 3.0);
   controls.update();
 }
 
@@ -482,7 +493,7 @@ export function Stage3DView({
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.maxPolarAngle = Math.PI * 0.495;
-    frameCameraToStage(camera, controls);
+    frameCameraToStage(camera, controls, audienceEdge);
     let hasFramed = w >= 40 && h >= 40;
     const dl = new THREE.DirectionalLight(0xffffff, 0.95);
     dl.position.set(3, 18, 8);
@@ -528,7 +539,7 @@ export function Stage3DView({
       camera.aspect = rw / rh;
       // flex 初回レイアウトでサイズが後から決まる場合は、まだ寄っていないときだけ再フレーミング
       if (!hasFramed && rw >= 40 && rh >= 40) {
-        frameCameraToStage(camera, controls);
+        frameCameraToStage(camera, controls, audienceEdge);
         hasFramed = true;
       } else {
         camera.updateProjectionMatrix();
@@ -556,7 +567,16 @@ export function Stage3DView({
       el.removeChild(renderer.domElement);
       apiRef.current = null;
     };
+    // audienceEdge はマウント時の定位置フレーミングに使う（切替時は下の effect で再配置）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 客席／舞台裏の向きが変わったら、定位置カメラを客席側から付け直す
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || !sceneReady) return;
+    frameCameraToStage(api.camera, api.controls, audienceEdge);
+  }, [audienceEdge, sceneReady]);
 
   useEffect(() => {
     const api = apiRef.current;

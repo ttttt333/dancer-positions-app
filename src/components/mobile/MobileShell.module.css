@@ -27,6 +27,16 @@
   position: relative;
 }
 
+/** 縦画面: ステージホストを横切替と同じ「常時マウント」構造に揃える */
+.portraitMainColumn {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
 /* ── ステージエリア (縦) ── */
 .stageAreaPortrait {
   flex: 1;

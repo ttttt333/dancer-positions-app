@@ -199,8 +199,17 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           }
         : { 'data-shell-portrait': '' })}
     >
-      {isLandscape ? (
-        <div className={styles.landscapeMainRow}>
+      {/**
+       * EditorPage は向き切替でも同じホスト上に残す。
+       * 以前は縦/横で別ブランチに置いていたため EditorPage が再マウントされ、
+       * ライブラリから開いた曲の再生状態が古い音源に巻き戻っていた。
+       */}
+      <div
+        className={
+          isLandscape ? styles.landscapeMainRow : styles.portraitMainColumn
+        }
+      >
+        {isLandscape ? (
           <LandscapeSidePanel
             audioUrl={props.audioUrl}
             isPlaying={props.isPlaying}
@@ -224,21 +233,16 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
             undoDisabled={undoDisabled}
             redoDisabled={redoDisabled}
           />
-          <div
-            key="mobile-stage-host"
-            className={styles.stageAreaLandscape}
-          >
-            {props.children}
-          </div>
-        </div>
-      ) : (
+        ) : null}
         <div
           key="mobile-stage-host"
-          className={styles.stageAreaPortrait}
+          className={
+            isLandscape ? styles.stageAreaLandscape : styles.stageAreaPortrait
+          }
         >
           {props.children}
         </div>
-      )}
+      </div>
 
       {isLandscape && landscapeWaveExpanded ? (
         <LandscapeBottomWaveBar

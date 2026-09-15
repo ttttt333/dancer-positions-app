@@ -487,7 +487,7 @@ body {
   gap: 10px;
 }
 
-  .choreo-member-picker-scroll {
+.choreo-member-picker-scroll {
   max-height: min(50vh, 22rem);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;

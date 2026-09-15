@@ -6,7 +6,7 @@ import {
   startTransition,
   type CSSProperties,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import {
   FLOW_LIBRARY_CHANGE_EVENT,
@@ -24,7 +24,12 @@ import {
   saveFlowFromProjectAsync,
 } from "../lib/flowLibrary";
 import { deleteFlowLibraryAudio, putFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
-import { projectApi } from "../api/client";
+import {
+  isDemoSessionToken,
+  projectApi,
+  type ProjectListItem,
+} from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import { copyTextToClipboard, projectShareLinks } from "../lib/shareProjectLinks";
 import { yieldToMain, deferAfterUserGesture } from "../lib/yieldToMain";
@@ -163,10 +168,14 @@ export function FlowLibraryDialog({
   syncProjectToCloud,
 }: Props) {
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const { me } = useAuth();
   const [items, setItems] = useState<FlowLibraryItem[]>([]);
+  const [cloudProjects, setCloudProjects] = useState<ProjectListItem[]>([]);
   const [name, setName] = useState("");
   /** 軽量キュー配列に秒を載せるか。バンドルでは cuesFull に常にフル秒が入る */
   const [busy, setBusy] = useState(false);
+  const [cloudLoading, setCloudLoading] = useState(false);
   const [feedback, setFeedback] = useState<{
     kind: "info" | "error";
     text: string;
@@ -176,9 +185,26 @@ export function FlowLibraryDialog({
     setItems(listFlowLibraryItems());
   }, []);
 
+  const refreshCloud = useCallback(async () => {
+    if (!me || isDemoSessionToken()) {
+      setCloudProjects([]);
+      return;
+    }
+    setCloudLoading(true);
+    try {
+      const list = await projectApi.list();
+      setCloudProjects(list);
+    } catch {
+      setCloudProjects([]);
+    } finally {
+      setCloudLoading(false);
+    }
+  }, [me]);
+
   useEffect(() => {
     if (!open) return;
     void ensureFlowLibraryReady().then(() => refresh());
+    void refreshCloud();
     setFeedback(null);
     if (!name) {
       const base = project.pieceTitle?.trim() || "フロー";
@@ -195,7 +221,15 @@ export function FlowLibraryDialog({
       window.removeEventListener("storage", onStorage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, refreshCloud]);
+
+  const openCloudProject = useCallback(
+    (id: number) => {
+      onClose();
+      navigate(`/editor/${id}`);
+    },
+    [navigate, onClose]
+  );
 
   const cuesCount = project.cues.length;
   const formCount = project.formations.length;
@@ -261,7 +295,10 @@ export function FlowLibraryDialog({
             ? `「${r.item.name}」をクラウドと端末に保存しました（${formatFlowItemMetaLine(r.item)}）。`
             : `「${r.item.name}」を保存しました（${formatFlowItemMetaLine(r.item)}）。`,
         });
-        startTransition(() => refresh());
+        startTransition(() => {
+          refresh();
+          void refreshCloud();
+        });
       } catch (e) {
         if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
         setFeedback({
@@ -276,6 +313,7 @@ export function FlowLibraryDialog({
     name,
     project,
     refresh,
+    refreshCloud,
     getWavePeaks,
     getAudioBlobForFlowLibrary,
     audioDurationSec,
@@ -328,7 +366,10 @@ export function FlowLibraryDialog({
               ? `「${r.item.name}」をクラウドと端末に上書き保存しました。`
               : `「${r.item.name}」を上書きしました。`,
           });
-          startTransition(() => refresh());
+          startTransition(() => {
+            refresh();
+            void refreshCloud();
+          });
         } catch (e) {
           if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
           setFeedback({
@@ -340,7 +381,16 @@ export function FlowLibraryDialog({
         }
       });
     },
-    [project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec, serverId, syncProjectToCloud]
+    [
+      project,
+      refresh,
+      refreshCloud,
+      getWavePeaks,
+      getAudioBlobForFlowLibrary,
+      audioDurationSec,
+      serverId,
+      syncProjectToCloud,
+    ]
   );
 
   const doDelete = useCallback(
@@ -674,7 +724,7 @@ export function FlowLibraryDialog({
           }}
         >
           <h4 style={{ ...sectionTitle, margin: 0 }}>
-            保存済みフロー（{fmtCount(items.length)} 件）
+            {t("home.myLibrary")}（{fmtCount(items.length)} 件）
           </h4>
           <div
             style={{
@@ -870,6 +920,100 @@ export function FlowLibraryDialog({
                 );
               })
             )}
+
+            {me && !isDemoSessionToken() ? (
+              <>
+                <h4 style={{ ...sectionTitle, margin: "12px 0 0" }}>
+                  {t("home.cloudLibrary")}
+                  {cloudLoading
+                    ? "…"
+                    : `（${fmtCount(cloudProjects.length)} 件）`}
+                </h4>
+                {cloudLoading && cloudProjects.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "12px",
+                      color: "#64748b",
+                      fontSize: "12px",
+                    }}
+                  >
+                    読み込み中…
+                  </div>
+                ) : cloudProjects.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "12px",
+                      color: "#64748b",
+                      fontSize: "12px",
+                      border: "1px dashed #1f2937",
+                      borderRadius: "8px",
+                    }}
+                  >
+                    クラウドに保存された作品はありません
+                  </div>
+                ) : (
+                  cloudProjects.map((p) => (
+                    <div
+                      key={`cloud-${p.id}`}
+                      style={{
+                        border: "1px solid #1f2937",
+                        borderRadius: "8px",
+                        padding: "10px 12px",
+                        background: "#020617",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            color: "#f8fafc",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                          title={p.name}
+                        >
+                          {p.name}
+                        </div>
+                        <div
+                          style={{
+                            ...flowItemMetaLine,
+                            marginTop: "4px",
+                          }}
+                        >
+                          キュー {fmtCount(p.cueCount)} ／ 人数{" "}
+                          {fmtCount(p.dancerCount)} ／ 更新{" "}
+                          {fmtDateCompact(Date.parse(p.updated_at) || 0)}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openCloudProject(p.id)}
+                        disabled={busy}
+                        style={{
+                          ...btnSecondary,
+                          borderColor: "#0ea5e9",
+                          color: "#bae6fd",
+                          fontWeight: 600,
+                          width: "100%",
+                          padding: "8px 12px",
+                          fontSize: "13px",
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        開く
+                      </button>
+                    </div>
+                  ))
+                )}
+              </>
+            ) : null}
           </div>
         </section>
         </div>
