@@ -16,6 +16,7 @@ import {
   STAGE_EDIT_ZOOM,
   useStageBoardPinchViewportStore,
 } from "../store/stageBoardPinchViewportStore";
+import { useStageBoardInteractionStore } from "../store/stage/stageBoardInteractionStore";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
@@ -204,7 +205,8 @@ export function useStageBoardPinchViewport(
       if (
         pointersRef.current.size === 1 &&
         viewRef.current.zoom > 1.001 &&
-        !isInteractiveStageTarget(e.target)
+        !isInteractiveStageTarget(e.target) &&
+        useStageBoardInteractionStore.getState().selectedDancerIds.length === 0
       ) {
         panDragRef.current = {
           pointerId: e.pointerId,

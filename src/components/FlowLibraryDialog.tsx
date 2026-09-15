@@ -253,8 +253,14 @@ export function FlowLibraryDialog({
       setFeedback({ kind: "error", text: "名前を入力してください。" });
       return;
     }
+    try {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    } catch {
+      /* ignore */
+    }
     deferAfterUserGesture(async () => {
       setBusy(true);
+      setFeedback({ kind: "info", text: "保存中…" });
       await yieldToMain();
       let flowEmbeddedAudioKey: string | null = null;
       try {
@@ -268,12 +274,9 @@ export function FlowLibraryDialog({
             flowEmbeddedAudioKey = k;
           }
         }
+        /** 端末ライブラリを先に確定。クラウド同期は後続（ハングしても端末保存は残す） */
         let linkId: number | null =
           serverId != null && serverId > 0 ? Math.floor(serverId) : null;
-        if (syncProjectToCloud) {
-          const cloud = await syncProjectToCloud();
-          linkId = cloud.id;
-        }
         await yieldToMain();
         const wavePeaks = getWavePeaks?.() ?? null;
         await yieldToMain();
@@ -289,10 +292,37 @@ export function FlowLibraryDialog({
           setFeedback({ kind: "error", text: r.message });
           return;
         }
+        startTransition(() => refresh());
+
+        let cloudNote = "";
+        if (syncProjectToCloud) {
+          setFeedback({ kind: "info", text: "端末に保存しました。クラウド同期中…" });
+          try {
+            const cloud = await syncProjectToCloud();
+            linkId = cloud.id;
+            if (linkId != null && linkId > 0) {
+              await overwriteFlowFromProjectAsync(r.item.id, project, {
+                includeTiming: true,
+                wavePeaks,
+                audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
+                flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
+                linkServerId: linkId,
+              });
+            }
+            cloudNote = "クラウドにも同期しました。";
+            void refreshCloud();
+          } catch (cloudErr) {
+            cloudNote =
+              cloudErr instanceof Error
+                ? `端末には保存済みです（クラウド: ${cloudErr.message}）`
+                : "端末には保存済みです（クラウド同期に失敗）。";
+          }
+        }
+
         setFeedback({
           kind: "info",
-          text: syncProjectToCloud
-            ? `「${r.item.name}」をクラウドと端末に保存しました（${formatFlowItemMetaLine(r.item)}）。`
+          text: cloudNote
+            ? `「${r.item.name}」を保存しました。${cloudNote}（${formatFlowItemMetaLine(r.item)}）`
             : `「${r.item.name}」を保存しました（${formatFlowItemMetaLine(r.item)}）。`,
         });
         startTransition(() => {
@@ -324,8 +354,14 @@ export function FlowLibraryDialog({
   const doOverwrite = useCallback(
     (id: string, label: string) => {
       if (!confirm(`「${label}」を現在のステージ内容で上書きします。よろしいですか？`)) return;
+      try {
+        (document.activeElement as HTMLElement | null)?.blur?.();
+      } catch {
+        /* ignore */
+      }
       deferAfterUserGesture(async () => {
         setBusy(true);
+        setFeedback({ kind: "info", text: "上書き保存中…" });
         await yieldToMain();
         let flowEmbeddedAudioKey: string | null = null;
         try {
@@ -341,10 +377,6 @@ export function FlowLibraryDialog({
           }
           let linkId: number | null =
             serverId != null && serverId > 0 ? Math.floor(serverId) : null;
-          if (syncProjectToCloud) {
-            const cloud = await syncProjectToCloud();
-            linkId = cloud.id;
-          }
           await yieldToMain();
           const wavePeaks = getWavePeaks?.() ?? null;
           await yieldToMain();
@@ -360,10 +392,36 @@ export function FlowLibraryDialog({
             setFeedback({ kind: "error", text: r.message });
             return;
           }
+          startTransition(() => refresh());
+
+          let cloudNote = "";
+          if (syncProjectToCloud) {
+            setFeedback({ kind: "info", text: "端末に上書きしました。クラウド同期中…" });
+            try {
+              const cloud = await syncProjectToCloud();
+              linkId = cloud.id;
+              if (linkId != null && linkId > 0) {
+                await overwriteFlowFromProjectAsync(id, project, {
+                  includeTiming: true,
+                  wavePeaks,
+                  audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
+                  flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
+                  linkServerId: linkId,
+                });
+              }
+              cloudNote = "クラウドにも同期しました。";
+            } catch (cloudErr) {
+              cloudNote =
+                cloudErr instanceof Error
+                  ? `端末には保存済みです（クラウド: ${cloudErr.message}）`
+                  : "端末には保存済みです（クラウド同期に失敗）。";
+            }
+          }
+
           setFeedback({
             kind: "info",
-            text: syncProjectToCloud
-              ? `「${r.item.name}」をクラウドと端末に上書き保存しました。`
+            text: cloudNote
+              ? `「${r.item.name}」を上書きしました。${cloudNote}`
               : `「${r.item.name}」を上書きしました。`,
           });
           startTransition(() => {
@@ -559,15 +617,21 @@ export function FlowLibraryDialog({
   if (!open) return null;
 
   const canSave = cuesCount > 0 && formCount > 0;
+  const canSaveHint = !canSave
+    ? cuesCount <= 0
+      ? "キューを1つ以上追加すると保存できます。"
+      : "フォーメーションがありません。保存できません。"
+    : null;
 
   return (
     <EditorSideSheet
       open
-      zIndex={70}
+      zIndex={540}
       width="min(640px, 54vw)"
       blockDismiss={busy}
       onClose={onClose}
       ariaLabelledBy="flow-lib-title"
+      sheetId="flow-library"
     >
       <div
         className="flow-library-panel"
@@ -694,6 +758,13 @@ export function FlowLibraryDialog({
             <button
               type="button"
               className="flow-lib-save-btn"
+              onPointerDown={() => {
+                try {
+                  (document.activeElement as HTMLElement | null)?.blur?.();
+                } catch {
+                  /* ignore */
+                }
+              }}
               onClick={doSave}
               disabled={busy || !canSave || !name.trim()}
               style={{
@@ -711,6 +782,18 @@ export function FlowLibraryDialog({
               {busy ? "保存中…" : "新規保存"}
             </button>
           </div>
+          {canSaveHint ? (
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: "11px",
+                color: "#fbbf24",
+                lineHeight: 1.4,
+              }}
+            >
+              {canSaveHint}
+            </p>
+          ) : null}
         </section>
 
         <section

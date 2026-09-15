@@ -2688,10 +2688,11 @@ html[data-landscape-wave-collapsed] {
   top: env(safe-area-inset-top, 0px) !important;
 }
 
-/* EditorSideSheet 親ラッパーの z-index をメニューシート(z:301)より高く */
+/* EditorSideSheet は body portal。メニューシート(z:520–521)より上に出す */
 [data-shell-portrait] [style*="--ed-sheet-w"],
-[data-shell-landscape] [style*="--ed-sheet-w"] {
-  z-index: 400 !important;
+[data-shell-landscape] [style*="--ed-sheet-w"],
+body > [data-editor-sheet-root] {
+  z-index: 540 !important;
 }
 
 /*
@@ -3709,7 +3710,9 @@ html[data-landscape-wave-collapsed] {
 }
 
 [data-shell-portrait]:has([aria-labelledby="flow-lib-title"]) button[aria-label="ダイアログを閉じる"],
-[data-shell-landscape]:has([aria-labelledby="flow-lib-title"]) button[aria-label="ダイアログを閉じる"] {
+[data-shell-landscape]:has([aria-labelledby="flow-lib-title"]) button[aria-label="ダイアログを閉じる"],
+body:has([data-editor-sheet-root] [aria-labelledby="flow-lib-title"]) [data-shell-portrait] button[aria-label="ダイアログを閉じる"],
+body:has([data-editor-sheet-root] [aria-labelledby="flow-lib-title"]) [data-shell-landscape] button[aria-label="ダイアログを閉じる"] {
   display: none !important;
 }
 

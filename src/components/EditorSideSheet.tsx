@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export type EditorSideSheetProps = {
   open: boolean;
@@ -17,9 +18,22 @@ export type EditorSideSheetProps = {
   children: ReactNode;
 };
 
+type ShellMirror = "portrait" | "landscape" | null;
+
+function readShellMirror(): ShellMirror {
+  if (typeof document === "undefined") return null;
+  if (document.querySelector("[data-shell-portrait]")) return "portrait";
+  if (document.querySelector("[data-shell-landscape]")) return "landscape";
+  return null;
+}
+
 /**
  * ステージを暗く覆わず、右からスライドする入力パネル。
  * 左側の透明領域クリックで閉じる（blockDismiss 時は無効）。
+ *
+ * body に portal し、MobileShell のステージ stacking context や
+ * メニューシート（z≈521）の下に潜らないようにする。
+ * モバイル時は portal ルートに data-shell-* をミラーし、既存の全画面 CSS を維持する。
  *
  * 開いた直後〜約 320ms は外側クリックで閉じない
  * （PC で開く操作の mouseup / 残クリックで即閉じするのを防ぐ）。
@@ -36,12 +50,15 @@ export function EditorSideSheet({
   children,
 }: EditorSideSheetProps) {
   const [dismissArmed, setDismissArmed] = useState(false);
+  const [shellMirror, setShellMirror] = useState<ShellMirror>(null);
 
   useEffect(() => {
     if (!open) {
       setDismissArmed(false);
+      setShellMirror(null);
       return;
     }
+    setShellMirror(readShellMirror());
     setDismissArmed(false);
     const id = window.setTimeout(() => setDismissArmed(true), 320);
     return () => window.clearTimeout(id);
@@ -50,17 +67,23 @@ export function EditorSideSheet({
   if (!open) return null;
 
   const canDismiss = dismissArmed && !blockDismiss;
+  const mobileWidth = shellMirror != null ? "100%" : width;
 
-  return (
+  const node = (
     <div
-      data-editor-sheet-root={sheetId}
+      data-editor-sheet-root={sheetId ?? ""}
+      {...(shellMirror === "portrait"
+        ? { "data-shell-portrait": "" }
+        : shellMirror === "landscape"
+          ? { "data-shell-landscape": "" }
+          : {})}
       style={
         {
           position: "fixed",
           inset: 0,
           zIndex,
           pointerEvents: "none",
-          ["--ed-sheet-w" as string]: width,
+          ["--ed-sheet-w" as string]: mobileWidth,
         } as React.CSSProperties
       }
     >
@@ -119,4 +142,6 @@ export function EditorSideSheet({
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }
