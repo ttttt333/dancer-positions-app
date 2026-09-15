@@ -12,6 +12,7 @@ import {
 } from "../../lib/commercialDisclosure";
 import { isReleaseCampaignActive } from "../../lib/releaseCampaign";
 import { LandingHeroVisual } from "./landing/LandingHeroVisual";
+import { LANDING_FEATURE_ART } from "./landing/LandingFeatureArt";
 
 const FLOW_STEP_KEYS = [
   "roster",
@@ -228,16 +229,22 @@ export function GuestLanding() {
           <p className="lv2-eyebrow">{t("landing.v2.features.eyebrow")}</p>
           <h2 id="lv2-features-title" className="home-display lv2-h2">
             {t("landing.v2.features.title1")}
-            <br />
-            {t("landing.v2.features.title2")}
           </h2>
-          <p className="lv2-lead">{t("landing.v2.features.lead")}</p>
+          <p className="lv2-lead lv2-features-lead">{t("landing.v2.features.lead")}</p>
           <ul className="lv2-feature-grid">
-            {FEATURE_KEYS.map((key) => (
-              <li key={key} className="lv2-feature-item">
-                {t(`landing.v2.features.${key}`)}
-              </li>
-            ))}
+            {FEATURE_KEYS.map((key) => {
+              const Art = LANDING_FEATURE_ART[key];
+              return (
+                <li key={key} className="lv2-feature-item">
+                  {Art ? (
+                    <div className="lv2-feature-item__art">
+                      <Art />
+                    </div>
+                  ) : null}
+                  <p className="lv2-feature-item__text">{t(`landing.v2.features.${key}`)}</p>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </section>

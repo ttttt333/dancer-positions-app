@@ -78,9 +78,8 @@ export const LANDING_V2_JA: Record<string, string> = {
 
   "landing.v2.features.eyebrow": "FEATURES",
   "landing.v2.features.title1": "おすすめの機能",
-  "landing.v2.features.title2": "現場で効く道具立て。",
-  "landing.v2.features.lead":
-    "使いやすさと時短を中心に。AIや雛形はクリエイティブを支える補助です。",
+  "landing.v2.features.title2": "",
+  "landing.v2.features.lead": "この機能があなたのクリエイティブを磨きます！",
   "landing.v2.features.rosterSort":
     "名簿に身長・学年・スキルレベルを数字で入れておくと、あとから順番に並べ替え可能",
   "landing.v2.features.centerDist":
@@ -368,10 +367,9 @@ export const LANDING_V2_EN: Record<string, string> = {
   "landing.v2.step.refine.body": "Your choreography. Your decisions.",
 
   "landing.v2.features.eyebrow": "FEATURES",
-  "landing.v2.features.title1": "RECOMMENDED FEATURES",
-  "landing.v2.features.title2": "TOOLS THAT WORK ON THE FLOOR.",
-  "landing.v2.features.lead":
-    "Usability and speed first. AI and templates support your creativity — they don’t replace it.",
+  "landing.v2.features.title1": "Recommended features",
+  "landing.v2.features.title2": "",
+  "landing.v2.features.lead": "These features sharpen your creativity!",
   "landing.v2.features.rosterSort":
     "Store height, grade, and skill as numbers in the roster — then sort into order later",
   "landing.v2.features.centerDist":
