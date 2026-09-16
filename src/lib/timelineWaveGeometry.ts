@@ -129,7 +129,9 @@ export function waveTimeAtClientXWithViewLock(
   return waveExtentXToTime(x, lock.viewStart, lock.viewSpan, r.width);
 }
 
-/** 波形キャンバス上のキュー区間帯をクリック判定（CSS ピクセル座標） */
+/** 波形キャンバス上のキュー区間帯をクリック判定（CSS ピクセル座標）
+ * 次キューまでの空白（移動区間）も前のキューの選択対象に含める。
+ */
 export function pickCueIdAtWave(
   clientX: number,
   clientY: number,
@@ -150,8 +152,22 @@ export function pickCueIdAtWave(
   const bandTop = inset;
   const bandBottom = Math.max(inset, h - inset);
   const mid = h / 2;
+  if (y < bandTop || y > bandBottom) return null;
   const viewEnd = viewStart + viewSpan;
   let best: { id: string; dist: number } | null = null;
+
+  const considerRange = (id: string, ts: number, te: number) => {
+    if (te < viewStart || ts > viewEnd) return;
+    const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
+    const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
+    const left = Math.min(x1, x2);
+    const right = Math.max(x1, x2);
+    if (x < left || x > right) return;
+    const cx = clamp(x, left, right);
+    const dist = Math.abs(x - cx) + Math.abs(y - mid) * 0.05;
+    if (!best || dist < best.dist) best = { id, dist };
+  };
+
   for (const cue of cueList) {
     const ts =
       dragPreview && dragPreview.cueId === cue.id
@@ -161,17 +177,22 @@ export function pickCueIdAtWave(
       dragPreview && dragPreview.cueId === cue.id
         ? dragPreview.tEnd
         : cue.tEndSec;
-    if (te < viewStart || ts > viewEnd) continue;
-    const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
-    const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
-    const left = Math.min(x1, x2);
-    const right = Math.max(x1, x2);
-    if (x < left || x > right) continue;
-    if (y < bandTop || y > bandBottom) continue;
-    const cx = clamp(x, left, right);
-    const dist = Math.abs(x - cx) + Math.abs(y - mid) * 0.05;
-    if (!best || dist < best.dist) best = { id: cue.id, dist };
+    considerRange(cue.id, Math.min(ts, te), Math.max(ts, te));
   }
+
+  /** 空白（移動）タップ → 直前キューを選択（枠が空白を含む） */
+  const sorted = sortCuesByStart(cueList);
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const prev = sorted[i]!;
+    const next = sorted[i + 1]!;
+    let prevEnd = prev.tEndSec;
+    let nextStart = next.tStartSec;
+    if (dragPreview && dragPreview.cueId === prev.id) prevEnd = dragPreview.tEnd;
+    if (dragPreview && dragPreview.cueId === next.id) nextStart = dragPreview.tStart;
+    if (nextStart <= prevEnd + 1e-4) continue;
+    considerRange(prev.id, prevEnd, nextStart);
+  }
+
   return best?.id ?? null;
 }
 
@@ -182,16 +203,30 @@ export const CUE_EDGE_OUTER_GRAB_PX = 18;
 /** スマホ: 指で掴みやすいよう端ヒットを拡大 */
 const CUE_EDGE_INNER_GRAB_PORTRAIT_PX = 22;
 const CUE_EDGE_OUTER_GRAB_PORTRAIT_PX = 34;
+/** 選択中キュー: さらに端を広げて枠ドラッグしやすくする */
+const CUE_EDGE_SELECTED_BONUS_DESKTOP = { inner: 10, outer: 12 };
+const CUE_EDGE_SELECTED_BONUS_PORTRAIT = { inner: 16, outer: 18 };
 
 export type CueEdgeGrabPx = { inner: number; outer: number };
 
-export function resolveCueEdgeGrabPx(portraitActive: boolean): CueEdgeGrabPx {
-  return portraitActive
+export function resolveCueEdgeGrabPx(
+  portraitActive: boolean,
+  selected = false
+): CueEdgeGrabPx {
+  const base = portraitActive
     ? {
         inner: CUE_EDGE_INNER_GRAB_PORTRAIT_PX,
         outer: CUE_EDGE_OUTER_GRAB_PORTRAIT_PX,
       }
     : { inner: CUE_EDGE_INNER_GRAB_PX, outer: CUE_EDGE_OUTER_GRAB_PX };
+  if (!selected) return base;
+  const bonus = portraitActive
+    ? CUE_EDGE_SELECTED_BONUS_PORTRAIT
+    : CUE_EDGE_SELECTED_BONUS_DESKTOP;
+  return {
+    inner: base.inner + bonus.inner,
+    outer: base.outer + bonus.outer,
+  };
 }
 
 function cueWaveVerticalBandPx(canvasHeight: number): {
@@ -288,11 +323,18 @@ export function pickCueDragKindAtWave(
   viewStart: number,
   viewSpan: number,
   dragPreview: { cueId: string; tStart: number; tEnd: number } | null,
-  edgeGrab?: CueEdgeGrabPx
+  edgeGrab?: CueEdgeGrabPx,
+  selectedCueIds?: ReadonlySet<string> | readonly string[] | null,
+  portraitActive = false
 ): { cueId: string; mode: CueDragEdgeMode } | null {
   if (viewSpan <= 0 || cueList.length === 0) return null;
 
-  const grab = edgeGrab ?? resolveCueEdgeGrabPx(false);
+  const selectedSet =
+    selectedCueIds == null
+      ? null
+      : selectedCueIds instanceof Set
+        ? selectedCueIds
+        : new Set(selectedCueIds);
   const r = canvas.getBoundingClientRect();
   const x = clientX - r.left;
   const y = clientY - r.top;
@@ -332,6 +374,11 @@ export function pickCueDragKindAtWave(
       right = bandMid + 1.5;
     }
     if (right - left < 1) continue;
+    const isSelected = selectedSet?.has(cue.id) ?? false;
+    const grab =
+      edgeGrab != null && !isSelected
+        ? edgeGrab
+        : resolveCueEdgeGrabPx(portraitActive, isSelected);
     if (!cueWaveExpandedHitX(x, left, right, grab)) continue;
 
     const mode = pickCueDragModeForCueAtX(x, left, right, grab);
@@ -540,6 +587,10 @@ const WAVE_PLAYHEAD_X_FRAC = 0.11;
  * 時間軸・スクロール位置・ズーム倍率を一つの式にまとめる。
  */
 export const WAVE_PLAYHEAD_FOLLOW_SCREEN_FRAC = 0.5;
+/**
+ * スマホ縦画面（FODI風）: 再生バーを中央よりやや左に固定し、波形を左へスライド。
+ */
+export const PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC = 0.36;
 
 /** 再生バー時刻から、赤バーを `screenFrac` に置く viewStart を求める */
 export function resolveWavePlayheadFollowViewStart(

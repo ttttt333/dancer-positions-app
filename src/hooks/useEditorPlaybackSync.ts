@@ -22,6 +22,7 @@ import {
   syncViewerDurationFromProject,
 } from "../lib/viewerPlayback";
 import type { ChoreographyProjectJson } from "../types/choreography";
+import { vibrateOnCueAdvance } from "../lib/cueAdvanceHaptic";
 
 type Params = {
   projectRef: MutableRefObject<ChoreographyProjectJson | null>;
@@ -175,8 +176,11 @@ function usePlaybackHeadRafSync(
         const active = cueActiveAtTime(p.cues, tHead);
         const nextId = active?.id ?? null;
         if (nextId && nextId !== lastFollowCueIdRef.current) {
+          const prevId = lastFollowCueIdRef.current;
           lastFollowCueIdRef.current = nextId;
           onCueFollow(nextId);
+          /** 再生中に次のキューへ入ったときだけ微振動（開始直後の初回は除く） */
+          if (prevId != null) vibrateOnCueAdvance();
         }
       }
     } else {

@@ -6,6 +6,11 @@
   min-height: calc(150px + 5mm);
 }
 
+.transportFodi {
+  padding: 0;
+  min-height: 0;
+}
+
 .transportWaveOnly {
   padding: 0;
   min-height: 0;
@@ -215,6 +220,51 @@
   padding-left: max(28px, calc(12px + 5mm), env(safe-area-inset-left, 0px));
   padding-right: max(12px, env(safe-area-inset-right, 0px));
   box-sizing: border-box;
+}
+
+/** FODI風: 再生ボタンを左、波形を右に横並び */
+.waveFrameFodi {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding-left: max(4px, env(safe-area-inset-left, 4px));
+  padding-right: max(4px, env(safe-area-inset-right, 4px));
+  background: #05070c;
+}
+
+.fodiPlayCol {
+  flex: 0 0 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 2px;
+  border-right: 0.5px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.fodiPlayBtn {
+  width: 44px !important;
+  height: 44px !important;
+  max-width: 44px !important;
+  border-radius: 12px !important;
+  flex: 0 0 auto !important;
+}
+
+.fodiTime {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.waveFrameFodi .waveTimelineBody {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /** 横画面下部（波形のみ）は LandscapeBottomWaveBar 側で開始位置の余白を確保済みなので二重にしない */

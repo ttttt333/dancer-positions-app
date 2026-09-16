@@ -13,6 +13,7 @@ import {
   waveTimeToExtentX,
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
+import { cueSelectionExtentSec } from "../lib/cueSelectionExtent";
 import { publishWaveDrawRange } from "../lib/waveDrawRangeSync";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { drawWavePeaksColumns } from "../lib/drawWavePeaksColumns";
@@ -30,7 +31,10 @@ import {
 
 /** 波形上のキュー枠（CSS 表示 px）。ビットマップ線幅は `waveBitmapPxPerCssPx` を掛ける */
 const WAVE_CUE_FRAME_BORDER_CSS_PX = 2;
-const WAVE_CUE_FRAME_BORDER_SELECTED_CSS_PX = 2.25;
+/** 選択中は FODI / Choreographic 系のように枠を太くし、端を掴みやすくする */
+const WAVE_CUE_FRAME_BORDER_SELECTED_CSS_PX = 5.5;
+/** 選択キュー左右端のグリップ幅（CSS px） */
+const WAVE_CUE_SELECTED_EDGE_GRIP_CSS_PX = 10;
 
 export type UseWaveCanvasRendererArgs = {
   canvasRef: RefObject<HTMLCanvasElement>;
@@ -243,6 +247,14 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       if (d > 0 && viewSpan > 0 && cueList.length >= 2) {
         const sortedWave = sortCuesByStart(cueList);
         const dragPrevDraw = cueDragPreviewRangeRef.current;
+        const selectedIds = selectedCueIdsRef.current;
+        const followPlaybackSelectionPreview =
+          isPlayingForWaveRef.current &&
+          (cueDragRef.current?.cueId ?? null) == null &&
+          !playheadScrubDragRef.current?.armed;
+        const playbackSelId = followPlaybackSelectionPreview
+          ? cueActiveAtTime(cueList, paintHeadSec)?.id ?? null
+          : null;
         for (let i = 0; i < sortedWave.length - 1; i++) {
           const prev = sortedWave[i]!;
           const next = sortedWave[i + 1]!;
@@ -260,11 +272,17 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
             h
           );
           if (!b) continue;
+          const gapOwnedBySelection =
+            (playbackSelId != null && prev.id === playbackSelId) ||
+            (playbackSelId == null && selectedIds.includes(prev.id));
           const configuredGapMovement =
             Boolean(next.gapApproachFromPrev) ||
             (next.dancerCustomPaths != null &&
               Object.keys(next.dancerCustomPaths).length > 0);
-          if (configuredGapMovement) {
+          if (gapOwnedBySelection) {
+            g.fillStyle = "rgba(239, 68, 68, 0.12)";
+            g.strokeStyle = "rgba(252, 165, 165, 0.55)";
+          } else if (configuredGapMovement) {
             g.fillStyle = "rgba(248, 113, 113, 0.38)";
             g.strokeStyle = "rgba(220, 38, 38, 0.88)";
           } else {
@@ -274,6 +292,23 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
           g.fillRect(b.left, b.top, b.width, b.height);
           g.lineWidth = 1;
           g.strokeRect(b.left + 0.5, b.top + 0.5, b.width - 1, b.height - 1);
+          /** 移動区間の X（選択時はよりはっきり） */
+          if (b.width >= 14 && b.height >= 14) {
+            const pad = Math.min(b.width, b.height) * 0.22;
+            g.strokeStyle = gapOwnedBySelection
+              ? "rgba(248, 250, 252, 0.55)"
+              : configuredGapMovement
+                ? "rgba(254, 202, 202, 0.65)"
+                : "rgba(248, 250, 252, 0.28)";
+            g.lineWidth = Math.max(1.2, waveBitmapPxPerCssPx);
+            g.lineCap = "round";
+            g.beginPath();
+            g.moveTo(b.left + pad, b.top + pad);
+            g.lineTo(b.left + b.width - pad, b.top + b.height - pad);
+            g.moveTo(b.left + b.width - pad, b.top + pad);
+            g.lineTo(b.left + pad, b.top + b.height - pad);
+            g.stroke();
+          }
         }
       }
       const dragCueId = cueDragRef.current?.cueId ?? null;
@@ -323,6 +358,33 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         g.lineJoin = "miter";
         g.lineCap = "butt";
         g.strokeRect(left + inset, top, width - inset * 2, boxH);
+        if (opts.isSel) {
+          /** 左右端の太いグリップ（中央にバー） */
+          const gripW = Math.max(
+            WAVE_CUE_SELECTED_EDGE_GRIP_CSS_PX * waveBitmapPxPerCssPx,
+            baseLw * 1.8
+          );
+          const gripH = Math.min(boxH * 0.55, Math.max(22 * waveBitmapPxPerCssPx, boxH * 0.36));
+          const gripTop = top + (boxH - gripH) / 2;
+          g.fillStyle = "rgba(252, 165, 165, 0.98)";
+          g.fillRect(left + inset - gripW * 0.15, gripTop, gripW, gripH);
+          g.fillRect(
+            left + width - inset - gripW + gripW * 0.15,
+            gripTop,
+            gripW,
+            gripH
+          );
+          g.strokeStyle = "rgba(254, 226, 226, 0.95)";
+          g.lineWidth = Math.max(1, waveBitmapPxPerCssPx);
+          g.beginPath();
+          g.moveTo(left + inset + gripW * 0.35, gripTop + gripH * 0.28);
+          g.lineTo(left + inset + gripW * 0.35, gripTop + gripH * 0.72);
+          g.stroke();
+          g.beginPath();
+          g.moveTo(left + width - inset - gripW * 0.35, gripTop + gripH * 0.28);
+          g.lineTo(left + width - inset - gripW * 0.35, gripTop + gripH * 0.72);
+          g.stroke();
+        }
         g.strokeStyle = goldEdge;
         g.lineWidth = baseLw * 1.55;
         g.beginPath();
@@ -359,6 +421,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         }
       };
       if (d > 0 && viewSpan > 0 && cueList.length > 0) {
+        const sortedForExtent = sortCuesByStart(cueList);
         for (const cue of cueList) {
           let ts = cue.tStartSec;
           let te = cue.tEndSec;
@@ -366,24 +429,87 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
             ts = dragPrev.tStart;
             te = dragPrev.tEnd;
           }
-          if (te < viewStart || ts > viewEnd) continue;
-          const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
-          const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
-          const left = Math.min(x1, x2);
-          const width = Math.max(3, Math.abs(x2 - x1));
           const isDrag = dragCueId === cue.id;
           const isSel = playbackActiveCueId
             ? cue.id === playbackActiveCueId
             : selectedCueIdsRef.current.includes(cue.id);
           const hover = waveHoverCueRef.current;
           const isHover = hover?.cueId === cue.id && (!dragCueId || dragCueId !== cue.id);
+
+          /** 選択中は次キューまでの空白を枠に含める（コレオグラフィック風） */
+          let frameTs = Math.min(ts, te);
+          let frameTe = Math.max(ts, te);
+          let holdEndSec = frameTe;
+          if (isSel || isDrag) {
+            const extent = cueSelectionExtentSec(cue, sortedForExtent, dragPrev);
+            frameTs = extent.startSec;
+            frameTe = extent.endSec;
+            holdEndSec = extent.holdEndSec;
+          }
+          if (frameTe < viewStart || frameTs > viewEnd) continue;
+          const x1 = waveTimeToExtentX(
+            Math.max(frameTs, viewStart),
+            viewStart,
+            viewSpan,
+            w
+          );
+          const x2 = waveTimeToExtentX(
+            Math.min(frameTe, viewEnd),
+            viewStart,
+            viewSpan,
+            w
+          );
+          const left = Math.min(x1, x2);
+          const width = Math.max(3, Math.abs(x2 - x1));
           drawWaveCueChrome(left, width, {
             isDrag,
             isSel,
             hoverStart: isHover && hover.mode === "start",
-            hoverEnd: isHover && hover.mode === "end",
+            hoverEnd:
+              isHover &&
+              hover.mode === "end" &&
+              !(isSel && frameTe > holdEndSec + 1e-3),
             isHover,
           });
+          /** 選択枠内のホールド終端（空白との境界）に縦線＋端グリップ */
+          if (
+            (isSel || isDrag) &&
+            holdEndSec > frameTs + 1e-3 &&
+            holdEndSec < frameTe - 1e-3 &&
+            holdEndSec >= viewStart &&
+            holdEndSec <= viewEnd
+          ) {
+            const xHold = waveTimeToExtentX(holdEndSec, viewStart, viewSpan, w);
+            const inset = 0.5;
+            const top = inset;
+            const boxH = h - inset * 2;
+            g.strokeStyle = isSel
+              ? "rgba(252, 165, 165, 0.95)"
+              : "rgba(250, 230, 160, 0.9)";
+            g.lineWidth =
+              (isSel
+                ? WAVE_CUE_FRAME_BORDER_SELECTED_CSS_PX
+                : WAVE_CUE_FRAME_BORDER_CSS_PX) *
+              waveBitmapPxPerCssPx *
+              1.15;
+            g.beginPath();
+            g.moveTo(xHold, top);
+            g.lineTo(xHold, top + boxH);
+            g.stroke();
+            if (isSel) {
+              const gripW = Math.max(
+                WAVE_CUE_SELECTED_EDGE_GRIP_CSS_PX * waveBitmapPxPerCssPx,
+                6 * waveBitmapPxPerCssPx
+              );
+              const gripH = Math.min(
+                boxH * 0.55,
+                Math.max(22 * waveBitmapPxPerCssPx, boxH * 0.36)
+              );
+              const gripTop = top + (boxH - gripH) / 2;
+              g.fillStyle = "rgba(252, 165, 165, 0.98)";
+              g.fillRect(xHold - gripW / 2, gripTop, gripW, gripH);
+            }
+          }
         }
       }
       const newPrev = newCueRangePreviewRef.current;

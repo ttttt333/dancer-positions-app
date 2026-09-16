@@ -81,7 +81,7 @@ export function TransportIconZoomOut(props: IconProps) {
   );
 }
 
-/** 波形を大きく（+ボタン15回相当）一気に拡大 */
+/** 選択キューを調整しやすい大きさへ一気に拡大 */
 export function TransportIconWaveZoomBig(props: IconProps) {
   return (
     <svg {...iconProps(props)}>
@@ -122,7 +122,7 @@ export function TransportIconWaveZoomBig(props: IconProps) {
   );
 }
 
-/** 波形全体が見える倍率へ縮小 */
+/** 曲全体が見える倍率へ縮小 */
 export function TransportIconWaveZoomFit(props: IconProps) {
   return (
     <svg {...iconProps(props)}>

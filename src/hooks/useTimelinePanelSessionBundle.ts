@@ -353,6 +353,7 @@ export function useTimelinePanelSessionBundle(
       emptyWaveDragRef,
       newCueRangePreviewRef,
       waveHoverCueRef,
+      selectedCueIdsRef,
       currentTimePropRef,
       isPlayingForWaveRef,
       durationRef,

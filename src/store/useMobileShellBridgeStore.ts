@@ -14,8 +14,8 @@ export type MobileShellBridgeStore = {
   currentCueIndex: number;
   totalCues: number;
   audioUrl: string | null;
-  /** キューの開始秒数一覧 (波形マーカー表示用) */
-  cueStartTimes: number[];
+  /** 選択中キューの時間範囲（波形の「調整しやすい倍率」ズーム用） */
+  selectedCueRangeSec: { startSec: number; endSec: number } | null;
   activeTab: "stages" | "timeline" | "team" | "settings";
   stageView: "2d" | "3d";
   undoDisabled: boolean;
@@ -89,6 +89,7 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   totalCues: 1,
   audioUrl: null,
   cueStartTimes: [],
+  selectedCueRangeSec: null,
   activeTab: "stages",
   stageView: "2d",
   undoDisabled: true,

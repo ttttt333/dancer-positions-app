@@ -103,6 +103,7 @@ export type UseWaveCanvasPointerDragArgs = {
   } | null>;
   newCueRangePreviewRef: RefObject<{ tStart: number; tEnd: number } | null>;
   waveHoverCueRef: RefObject<{ cueId: string; mode: CueDragEdgeMode } | null>;
+  selectedCueIdsRef: RefObject<string[]>;
   setCurrentTime: (t: number) => void;
   onSelectedCueIdsChange: Dispatch<SetStateAction<string[]>>;
   suppressNextWaveSeekRef: RefObject<boolean>;
@@ -144,6 +145,7 @@ export function useWaveCanvasPointerDrag({
   emptyWaveDragRef,
   newCueRangePreviewRef,
   waveHoverCueRef,
+  selectedCueIdsRef,
   setCurrentTime,
   onSelectedCueIdsChange,
   suppressNextWaveSeekRef,
@@ -552,7 +554,9 @@ export function useWaveCanvasPointerDrag({
         viewStart,
         viewSpan,
         cueDragPreviewRangeRef.current,
-        resolveCueEdgeGrabPx(portraitActive)
+        resolveCueEdgeGrabPx(portraitActive),
+        selectedCueIdsRef.current,
+        portraitActive
       );
       const cueId = dragKind?.cueId ?? null;
       if (cueId) {
@@ -1124,6 +1128,7 @@ export function useWaveCanvasPointerDrag({
       drawWaveformAt,
       cuesSorted,
       waveHoverCueRef,
+      selectedCueIdsRef,
       playheadScrubDragRef,
       setCurrentTime,
       suppressNextWaveSeekRef,

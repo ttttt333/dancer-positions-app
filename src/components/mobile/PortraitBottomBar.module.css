@@ -1,7 +1,7 @@
-/* PortraitBottomBar.module.css */
+/* PortraitBottomBar.module.css — FODI風 3段ボトム */
 
 .bar {
-  background: #0b1120;
+  background: #0a0e18;
   border-top: 0.5px solid #1a2540;
   flex-shrink: 0;
   display: flex;
@@ -9,56 +9,22 @@
   margin-top: auto;
 }
 
-.toolbarRow {
+.editRow {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 8px;
-  padding-bottom: max(5px, env(safe-area-inset-bottom, 5px));
-  border-top: 0.5px solid #1a2540;
+  gap: 4px;
+  padding: 4px 6px 2px;
+  padding-left: max(6px, env(safe-area-inset-left, 6px));
+  padding-right: max(6px, env(safe-area-inset-right, 6px));
   flex-shrink: 0;
-  min-height: 48px;
+  min-height: 44px;
 }
 
-.toolbarCtrlBtn {
-  width: 44px !important;
-  height: 44px !important;
-  border-radius: 11px !important;
-}
-
-.menuBtn {
-  flex: 0 0 52px;
-  height: 40px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #1e3a5f 0%, #1a2f4e 100%);
-  border: 1px solid #3b82f6;
-  color: #93c5fd;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  padding: 0;
-  transition: background 0.15s, border-color 0.15s;
-}
-.menuBtn:active {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  border-color: #60a5fa;
-}
-
-.menuBtnIcon {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.menuBtnLabel {
-  font-size: 8px;
-  font-weight: 700;
-  color: #93c5fd;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  line-height: 1;
+.editBtn {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 10px !important;
+  flex-shrink: 0;
 }
 
 .cueNav {
@@ -67,15 +33,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   padding: 0 2px;
-  height: 44px;
+  height: 40px;
 }
 
 .cueNavBtn {
-  width: 44px !important;
-  height: 44px !important;
-  border-radius: 11px !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 9px !important;
   flex-shrink: 0;
 }
 
@@ -84,32 +50,17 @@
   font-size: 12px;
   font-weight: 700;
   color: #e2e8f0;
-  padding: 0 4px;
+  padding: 0 2px;
   white-space: nowrap;
   flex-shrink: 0;
   letter-spacing: 0.02em;
 }
 
-.addCueBtn {
-  flex: 0 0 auto;
-  height: 40px;
-  padding: 0 10px;
-  border-radius: 10px;
-  border: 0.5px solid rgba(217, 119, 6, 0.45);
-  color: #d97706;
-  background: rgba(217, 119, 6, 0.1);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
 .deleteCueBtn {
   flex: 0 0 auto;
-  height: 40px;
+  height: 36px;
   padding: 0 10px;
-  border-radius: 10px;
+  border-radius: 9px;
   border: 1px solid rgba(196, 30, 58, 0.55);
   color: #fca5a5;
   background: rgba(196, 30, 58, 0.16);
@@ -130,3 +81,101 @@
   background: rgba(196, 30, 58, 0.28);
 }
 
+/** 最下段: Menu · 雛形 · ズーム群（セーフエリア直上） */
+.menuBar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  padding-left: max(6px, env(safe-area-inset-left, 6px));
+  padding-right: max(6px, env(safe-area-inset-right, 6px));
+  padding-bottom: max(2px, env(safe-area-inset-bottom, 2px));
+  border-top: 0.5px solid #1a2540;
+  flex-shrink: 0;
+  min-height: 46px;
+  background: #080c14;
+}
+
+.menuBtn {
+  flex: 0 0 48px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #1a2f4e 100%);
+  border: 1px solid #3b82f6;
+  color: #93c5fd;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0;
+  touch-action: manipulation;
+}
+
+.menuBtn:active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #60a5fa;
+}
+
+.menuBtnIcon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.menuBtnLabel {
+  font-size: 8px;
+  font-weight: 700;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.changeBtn {
+  flex: 0 0 48px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.65);
+  color: #fef3c7;
+  background: rgba(15, 23, 42, 0.92);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0;
+  touch-action: manipulation;
+}
+
+.changeBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.changeBtn:not(:disabled):active {
+  background: rgba(212, 175, 55, 0.18);
+}
+
+.changeBtnIcon {
+  font-size: 11px;
+  line-height: 1;
+  color: #e8c547;
+}
+
+.changeBtnLabel {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.zoomBtn {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 42px !important;
+  border-radius: 10px !important;
+}

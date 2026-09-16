@@ -34,11 +34,12 @@ import {
   hitPlayheadStripForScrub,
   waveExtentXToTime,
   waveTimeToPercent,
-  getWaveViewForDraw,
   resolveWaveDrawView,
   resolveWavePlayheadFollowViewStart,
+  PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC,
 } from "../../lib/timelineWaveGeometry";
 import { PLAYHEAD_SCRUB_ARM_PX } from "../../lib/waveLongPress";
+import { computeZoomToSelectedCue } from "../../lib/waveCueEditZoom";
 import {
   CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH,
   PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH,
@@ -51,9 +52,8 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 48;
 /** +/- ボタン: 1回あたり 10% ずつ拡大・縮小 */
 const ZOOM_BUTTON_STEP = 1.1;
-/** 「波形を大きく拡大」ボタン: + ボタンを 15 回押した倍率へ一気にズーム */
-const BIG_ZOOM_BUTTON_PRESSES = 15;
-const BIG_ZOOM_TARGET = ZOOM_BUTTON_STEP ** BIG_ZOOM_BUTTON_PRESSES;
+/** 選択キューがないときの「調整用」フォールバック（画面に約 10 秒分） */
+const FALLBACK_EDIT_VIEW_SPAN_SEC = 10;
 const DOUBLE_TAP_MS = 450;
 const LONG_PRESS_MS = 520;
 const PORTRAIT_WAVE_CSS_H = 96;
@@ -85,6 +85,11 @@ interface Props {
   compactLandscape?: boolean;
   /** true のとき目盛り左上の折りたたみボタンを出さない（親ドックのヘッダーで操作） */
   hideRulerCollapseButton?: boolean;
+  /**
+   * 縦画面 FODI 風: 再生ボタンを波形左に置き、上部の操作行を出さない。
+   * ズーム・±5 は親（PortraitBottomBar）から imperative handle で呼ぶ。
+   */
+  fodiChrome?: boolean;
 }
 
 export type PortraitWaveTransportHandle = {
@@ -92,9 +97,10 @@ export type PortraitWaveTransportHandle = {
   skipForward: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
-  /** + ボタン15回相当の倍率へ一気にズーム */
+  /** 選択キューが調整しやすい倍率へ一気にズーム（旧 zoomToBig） */
   zoomToBig: () => void;
-  /** 全体が見える最小倍率へ一気にズーム */
+  zoomToSelectedCue: () => void;
+  /** 曲全体が見える最小倍率へ一気にズーム */
   zoomToFit: () => void;
 };
 
@@ -139,6 +145,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   onCollapseWave,
   compactLandscape = false,
   hideRulerCollapseButton = false,
+  fodiChrome = false,
   },
   ref
 ) {
@@ -277,13 +284,22 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     const start = resolveWavePlayheadFollowViewStart(
       playheadSecForUi,
       duration,
-      viewPortion
+      viewPortion,
+      fodiChrome ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
     );
     setViewStart((vs) => {
       const next = clampViewStart(start, viewDuration, duration);
       return Math.abs(vs - next) < 0.001 ? vs : next;
     });
-  }, [playheadSecForUi, isPlaying, zoom, duration, viewPortion, viewDuration]);
+  }, [
+    playheadSecForUi,
+    isPlaying,
+    zoom,
+    duration,
+    viewPortion,
+    viewDuration,
+    fodiChrome,
+  ]);
 
   const resolvePlayheadTimeForDraw = useCallback(() => {
     if (
@@ -544,22 +560,41 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     [portraitSeekAtClientX]
   );
 
-  /** +/- ボタン: 再生バーの位置を画面中央に保ちながら拡大・縮小 */
+  /** +/- ボタン: 再生バー位置を保ちながら拡大・縮小（FODI 風はやや左固定） */
   const applyZoomCenteredOnPlayhead = useCallback(
     (nextZoom: number, anchorTimeSec: number) => {
       if (duration <= 0) return;
       const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
       const newVd = duration / z;
       const newPortion = 1 / z;
+      const frac = fodiChrome
+        ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
+        : 0.5;
       setZoom(z);
       if (isPlaying) {
-        const { start } = getWaveViewForDraw(duration, newPortion, anchorTimeSec);
+        const start = resolveWavePlayheadFollowViewStart(
+          anchorTimeSec,
+          duration,
+          newPortion,
+          frac
+        );
         setViewStart(clampViewStart(start, newVd, duration));
         return;
       }
-      setViewStart(clampViewStart(anchorTimeSec - newVd / 2, newVd, duration));
+      setViewStart(clampViewStart(anchorTimeSec - frac * newVd, newVd, duration));
     },
-    [duration, isPlaying]
+    [duration, isPlaying, fodiChrome]
+  );
+
+  const applyZoomWithViewStart = useCallback(
+    (nextZoom: number, nextViewStart: number) => {
+      if (duration <= 0) return;
+      const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
+      const newVd = duration / z;
+      setZoom(z);
+      setViewStart(clampViewStart(nextViewStart, newVd, duration));
+    },
+    [duration]
   );
 
   const clearLongPress = useCallback(() => {
@@ -871,15 +906,40 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     applyZoomCenteredOnPlayhead(zoom / ZOOM_BUTTON_STEP, playheadSecForUi);
   }, [applyZoomCenteredOnPlayhead, zoom, playheadSecForUi]);
 
-  /** 波形を大きく拡大: + ボタン15回相当の倍率へ一気にズーム */
-  const handleZoomToBig = useCallback(() => {
-    applyZoomCenteredOnPlayhead(BIG_ZOOM_TARGET, playheadSecForUi);
-  }, [applyZoomCenteredOnPlayhead, playheadSecForUi]);
+  /** 選択キュー（または再生位置付近）を、端を掴みやすい大きさまで一気に拡大 */
+  const handleZoomToSelectedCue = useCallback(() => {
+    if (duration <= 0) return;
+    const range = useMobileShellBridgeStore.getState().selectedCueRangeSec;
+    const canvasW =
+      canvasRef.current?.getBoundingClientRect().width ||
+      waveTimelineBodyRef.current?.getBoundingClientRect().width ||
+      360;
+    if (range && range.endSec > range.startSec) {
+      const next = computeZoomToSelectedCue({
+        durationSec: duration,
+        cueStartSec: range.startSec,
+        cueEndSec: range.endSec,
+        canvasCssWidthPx: canvasW,
+        minZoom: MIN_ZOOM,
+        maxZoom: MAX_ZOOM,
+      });
+      applyZoomWithViewStart(next.zoom, next.viewStartSec);
+      return;
+    }
+    const span = Math.min(duration, FALLBACK_EDIT_VIEW_SPAN_SEC);
+    const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, duration / span));
+    applyZoomCenteredOnPlayhead(z, playheadSecForUi);
+  }, [
+    applyZoomCenteredOnPlayhead,
+    applyZoomWithViewStart,
+    duration,
+    playheadSecForUi,
+  ]);
 
-  /** 波形全体表示: 一気に最小倍率へ */
+  /** 波形全体表示: 曲の先頭から全体が見える倍率へ */
   const handleZoomToFit = useCallback(() => {
-    applyZoomCenteredOnPlayhead(MIN_ZOOM, playheadSecForUi);
-  }, [applyZoomCenteredOnPlayhead, playheadSecForUi]);
+    applyZoomWithViewStart(MIN_ZOOM, 0);
+  }, [applyZoomWithViewStart]);
 
   useImperativeHandle(
     ref,
@@ -888,7 +948,8 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       skipForward: handleSkipForward,
       zoomIn: handleZoomIn,
       zoomOut: handleZoomOut,
-      zoomToBig: handleZoomToBig,
+      zoomToBig: handleZoomToSelectedCue,
+      zoomToSelectedCue: handleZoomToSelectedCue,
       zoomToFit: handleZoomToFit,
     }),
     [
@@ -896,7 +957,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       handleSkipForward,
       handleZoomIn,
       handleZoomOut,
-      handleZoomToBig,
+      handleZoomToSelectedCue,
       handleZoomToFit,
     ]
   );
@@ -917,10 +978,10 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
 
   return (
     <div
-      className={`${styles.transport} ${showTransportControls ? "" : styles.transportWaveOnly} ${onCollapseWave ? styles.transportWaveOnlyWithCollapse : ""} ${compactLandscape ? styles.transportLandscapeCompact : ""} ${className ?? ""}`.trim()}
+      className={`${styles.transport} ${fodiChrome ? styles.transportFodi : ""} ${showTransportControls && !fodiChrome ? "" : styles.transportWaveOnly} ${onCollapseWave ? styles.transportWaveOnlyWithCollapse : ""} ${compactLandscape ? styles.transportLandscapeCompact : ""} ${className ?? ""}`.trim()}
       style={{ ["--portrait-wave-h" as string]: `${waveHeightPx}px` } as React.CSSProperties}
     >
-      {showTransportControls ? (
+      {showTransportControls && !fodiChrome ? (
       <>
       <div className={styles.timeRow}>
         <span className={styles.timeText}>
@@ -972,6 +1033,24 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
           <div className={ctrlStyles.divider} aria-hidden />
             <button
               className={ctrlStyles.btn}
+              onClick={handleZoomToFit}
+              disabled={!audioUrl || zoom <= MIN_ZOOM + 0.01}
+              aria-label="波形を全体表示"
+              title="曲全体を表示"
+            >
+              <TransportIconWaveZoomFit size={18} className={ctrlStyles.icon} />
+            </button>
+            <button
+              className={ctrlStyles.btn}
+              onClick={handleZoomToSelectedCue}
+              disabled={!audioUrl || zoom >= MAX_ZOOM - 0.01}
+              aria-label="選択キューを調整しやすい大きさに拡大"
+              title="選択キューを調整しやすい大きさに拡大"
+            >
+              <TransportIconWaveZoomBig size={18} className={ctrlStyles.icon} />
+            </button>
+            <button
+              className={ctrlStyles.btn}
               onClick={handleZoomIn}
               disabled={!audioUrl || zoom >= MAX_ZOOM - 0.01}
               aria-label="波形を拡大"
@@ -988,31 +1067,12 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             >
               <TransportIconZoomOut size={18} className={ctrlStyles.icon} />
             </button>
-          <div className={ctrlStyles.divider} aria-hidden />
-            <button
-              className={ctrlStyles.btn}
-              onClick={handleZoomToBig}
-              disabled={!audioUrl || zoom >= BIG_ZOOM_TARGET - 0.01}
-              aria-label="波形を大きく拡大"
-              title="波形を大きく拡大"
-            >
-              <TransportIconWaveZoomBig size={18} className={ctrlStyles.icon} />
-            </button>
-            <button
-              className={ctrlStyles.btn}
-              onClick={handleZoomToFit}
-              disabled={!audioUrl || zoom <= MIN_ZOOM + 0.01}
-              aria-label="波形を全体表示"
-              title="波形を全体表示"
-            >
-              <TransportIconWaveZoomFit size={18} className={ctrlStyles.icon} />
-            </button>
         </div>
       </div>
       </>
       ) : null}
 
-      {!showTransportControls && showWaveOnlyMetaRow ? (
+      {!showTransportControls && !fodiChrome && showWaveOnlyMetaRow ? (
         <div className={styles.waveOnlyMetaRow}>
           <span
             className={`${styles.waveOnlyStatus}${isLoadError ? ` ${styles.waveOnlyStatusError}` : ""}`}
@@ -1035,7 +1095,27 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         </div>
       ) : null}
 
-      <div className={styles.waveFrame}>
+      <div className={`${styles.waveFrame} ${fodiChrome ? styles.waveFrameFodi : ""}`.trim()}>
+        {fodiChrome ? (
+          <div className={styles.fodiPlayCol}>
+            <button
+              type="button"
+              className={`${ctrlStyles.btn} ${ctrlStyles.btnPrimary} ${styles.fodiPlayBtn}`}
+              onClick={onPlayPause}
+              disabled={!audioUrl}
+              aria-label={isPlaying ? "一時停止" : "再生"}
+            >
+              {isPlaying ? (
+                <TransportIconPause size={22} className={ctrlStyles.iconPrimary} />
+              ) : (
+                <TransportIconPlay size={22} className={ctrlStyles.iconPrimary} />
+              )}
+            </button>
+            <span className={styles.fodiTime}>
+              {fmt(currentTime)}
+            </span>
+          </div>
+        ) : null}
         <div
           ref={waveTimelineBodyRef}
           className={styles.waveTimelineBody}

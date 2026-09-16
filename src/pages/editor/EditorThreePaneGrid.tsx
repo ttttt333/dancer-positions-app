@@ -22,6 +22,7 @@ import {
   PUBLIC_VIEWER_MARKER_DISPLAY_SCALE,
 } from "../../components/ChoreoViewerBottomBar";
 import { sortCuesByStart } from "../../core/timelineController";
+import { cueSelectionExtentSec } from "../../lib/cueSelectionExtent";
 import { TransportIconUndo, TransportIconRedo } from "../../components/mobile/TransportIcons";
 import type { DancerSpot } from "../../types/choreography";
 import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "../../lib/projectDefaults";
@@ -446,6 +447,18 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       cueStartTimes: Array.isArray(sortedCuesForEditor)
         ? (sortedCuesForEditor as Array<{ tStartSec: number }>).map((c) => c.tStartSec)
         : [],
+      selectedCueRangeSec: (() => {
+        if (typeof selectedCueId !== "string" || selectedCueId.length === 0) return null;
+        const cue = (cues as Array<{ id: string; tStartSec: number; tEndSec: number }>).find(
+          (c) => c.id === selectedCueId
+        );
+        if (!cue) return null;
+        const extent = cueSelectionExtentSec(
+          cue,
+          cues as Array<{ id: string; tStartSec: number; tEndSec: number }>
+        );
+        return { startSec: extent.startSec, endSec: extent.endSec };
+      })(),
       onSelectCueNearTime: handleMobileSelectCueNearTime,
       trimStartSec:
         typeof (project as { trimStartSec?: number })?.trimStartSec === "number"
@@ -780,26 +793,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       >
                         ホーム
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormationPresetPickerOpen(true)}
-                        title="立ち位置の雛形を選ぶ"
-                        aria-label="立ち位置の雛形を選ぶ"
-                        style={{
-                          ...btnSecondary,
-                          minHeight: 32,
-                          padding: "4px 10px",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          borderRadius: 8,
-                          borderColor: "#d4af37",
-                          color: "#fef3c7",
-                          background: "rgba(15,23,42,0.88)",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-                        }}
-                      >
-                        Change
-                      </button>
+                      {/* Change/雛形は縦画面ボトムバーへ移したのでステージ角からは出さない */}
                     </div>
                     <div
                       style={{
