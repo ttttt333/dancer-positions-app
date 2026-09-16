@@ -9,6 +9,7 @@ import {
   gapConnectorPixelBounds,
   isPlayheadSecInWaveView,
   playheadOverlayPositionStyles,
+  PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC,
   resolveWaveDrawView,
   waveTimeToExtentX,
   type CueDragEdgeMode,
@@ -596,7 +597,12 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         }
         if (portraitHeadEl && portraitCanvas) {
           portraitHeadEl.style.display = "block";
-          const pos = playheadOverlayPositionStyles(pct);
+          /**
+           * 縦画面: 再生バーは常に左寄り固定位置。
+           * （曲頭で viewStart がまだ追いつかない瞬間でもバーが横移動しない）
+           */
+          const fixedPct = PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC * 100;
+          const pos = playheadOverlayPositionStyles(fixedPct);
           portraitHeadEl.style.left = pos.left;
           portraitHeadEl.style.transform = pos.transform;
         } else if (portraitHeadEl) {

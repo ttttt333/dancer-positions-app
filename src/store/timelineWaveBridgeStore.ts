@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import { create } from "zustand";
+import { PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC } from "../lib/timelineWaveGeometry";
 
 export type TimelineWaveBridgeHandlers = {
   onWaveCanvasPointerDown: (e: React.PointerEvent<HTMLCanvasElement>) => void;
@@ -113,12 +114,25 @@ export const useTimelineWaveBridgeStore = create<TimelineWaveBridgeStore>((set, 
     api.setViewPortion(portion);
     /**
      * 縦画面: 再生中も viewStart を渡す。
-     * null にすると中央追従になり「再生バー固定・波形スライド」が崩れる。
+     * 曲頭は負の viewStart（lead-in）を許可し、再生バーを左寄り固定する。
      */
     if (z > 1.001) {
       const span = api.duration * portion;
-      const maxStart = Math.max(0, api.duration - span);
-      api.setWaveViewStartOverride(Math.max(0, Math.min(maxStart, viewStart)));
+      const lead = PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC;
+      const minStart = -lead * span;
+      const maxStart = Math.max(minStart, api.duration - lead * span);
+      api.setWaveViewStartOverride(
+        Math.max(minStart, Math.min(maxStart, viewStart))
+      );
+    } else if (get().portraitActive) {
+      /** 全体表示でも lead-in で再生バー固定 */
+      const span = api.duration;
+      const lead = PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC;
+      const minStart = -lead * span;
+      const maxStart = Math.max(minStart, api.duration - lead * span);
+      api.setWaveViewStartOverride(
+        Math.max(minStart, Math.min(maxStart, viewStart))
+      );
     } else {
       api.setWaveViewStartOverride(null);
     }

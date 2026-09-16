@@ -55,6 +55,10 @@ export function effectiveWaveViewStartOverride(
   viewStartOverride: number | null,
   opts: { viewPortion: number }
 ): number | null {
+  /** 負の viewStart = 曲頭の lead-in（縦画面で再生バー固定用）。全体表示でも維持する */
+  if (viewStartOverride != null && viewStartOverride < -1e-9) {
+    return viewStartOverride;
+  }
   if (opts.viewPortion >= 1 - 1e-9) return null;
   return viewStartOverride;
 }
@@ -588,20 +592,29 @@ const WAVE_PLAYHEAD_X_FRAC = 0.11;
  */
 export const WAVE_PLAYHEAD_FOLLOW_SCREEN_FRAC = 0.5;
 /**
- * スマホ縦画面（FODI風）: 再生バーを中央よりやや左に固定し、波形を左へスライド。
+ * スマホ縦画面（FODI風）: 再生バーを中央より左に固定し、波形をスライド。
+ * 冒頭はバー左に余白を出し、波形の開始がバー右側から見えるようにする。
  */
-export const PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC = 0.36;
+export const PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC = 0.28;
 
 /** 再生バー時刻から、赤バーを `screenFrac` に置く viewStart を求める */
 export function resolveWavePlayheadFollowViewStart(
   playheadTimeSec: number,
   durationSec: number,
   viewPortion: number,
-  screenFrac: number = WAVE_PLAYHEAD_FOLLOW_SCREEN_FRAC
+  screenFrac: number = WAVE_PLAYHEAD_FOLLOW_SCREEN_FRAC,
+  options?: { allowLeadIn?: boolean }
 ): number {
   const span = waveVisibleSpanSec(durationSec, viewPortion);
+  const raw = playheadTimeSec - screenFrac * span;
+  if (options?.allowLeadIn) {
+    /** 曲頭: viewStart を負にして再生バーを常に screenFrac に置く */
+    const minStart = -screenFrac * span;
+    const maxStart = Math.max(minStart, durationSec - screenFrac * span);
+    return clamp(raw, minStart, maxStart);
+  }
   return clamp(
-    playheadTimeSec - screenFrac * span,
+    raw,
     0,
     Math.max(0, durationSec - span)
   );
@@ -654,16 +667,20 @@ export function resolveWaveDrawView(params: {
   const zoomed = viewPortion < 1 - 1e-9;
   const span = zoomed ? waveVisibleSpanSec(durationSec, viewPortion) : durationSec;
   const pinOverride = playheadScrubArmed || cueDragArmed;
-
-  if (
-    zoomed &&
+  const leadInOverride =
     viewStartOverride !== null &&
-    Number.isFinite(viewStartOverride)
-  ) {
-    if (pinOverride || !isPlaying) {
+    Number.isFinite(viewStartOverride) &&
+    viewStartOverride < -1e-9;
+  const hasOverride =
+    viewStartOverride !== null &&
+    Number.isFinite(viewStartOverride) &&
+    (zoomed || leadInOverride);
+
+  if (hasOverride) {
+    if (pinOverride || !isPlaying || leadInOverride) {
       return {
-        start: viewStartOverride,
-        end: viewStartOverride + span,
+        start: viewStartOverride as number,
+        end: (viewStartOverride as number) + span,
         span,
       };
     }
@@ -673,11 +690,15 @@ export function resolveWaveDrawView(params: {
      */
     if (
       Number.isFinite(anchorTimeSec) &&
-      isPlayheadSecInWaveView(anchorTimeSec, viewStartOverride, span)
+      isPlayheadSecInWaveView(
+        anchorTimeSec,
+        viewStartOverride as number,
+        span
+      )
     ) {
       return {
-        start: viewStartOverride,
-        end: viewStartOverride + span,
+        start: viewStartOverride as number,
+        end: (viewStartOverride as number) + span,
         span,
       };
     }

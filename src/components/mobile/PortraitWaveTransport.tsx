@@ -109,8 +109,18 @@ function fmt(sec: number): string {
   return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 }
 
-function clampViewStart(viewStart: number, viewDuration: number, dur: number): number {
+function clampViewStart(
+  viewStart: number,
+  viewDuration: number,
+  dur: number,
+  leadInFrac?: number
+): number {
   if (dur <= 0) return 0;
+  if (leadInFrac != null && viewDuration > 0) {
+    const minStart = -leadInFrac * viewDuration;
+    const maxStart = Math.max(minStart, dur - leadInFrac * viewDuration);
+    return Math.max(minStart, Math.min(maxStart, viewStart));
+  }
   return Math.max(0, Math.min(Math.max(0, dur - viewDuration), viewStart));
 }
 
@@ -281,15 +291,23 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   }, [viewStart, zoom, syncPortraitView, duration]);
 
   useEffect(() => {
-    setViewStart((v) => clampViewStart(v, viewDuration, duration));
-  }, [zoom, duration, viewDuration]);
+    setViewStart((v) =>
+      clampViewStart(
+        v,
+        viewDuration,
+        duration,
+        fodiChrome ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
+      )
+    );
+  }, [zoom, duration, viewDuration, fodiChrome]);
 
   useEffect(() => {
     /**
      * FODI 風: 再生中・停止中どちらも再生バーを左寄りに固定する。
-     * （停止中だけ追従しないと、タップシーク後にバーが右へ寄ったままになる）
+     * 曲頭は viewStart を負にして、バー左側に余白・波形はバーより右から開始。
+     * （全体表示でも lead-in でバー位置を固定）
      */
-    if (!fodiChrome || zoom <= 1.001 || duration <= 0) return;
+    if (!fodiChrome || duration <= 0) return;
     if (
       scrubActiveRef.current ||
       playheadDragRef.current ||
@@ -301,10 +319,16 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       playheadSecForUi,
       duration,
       viewPortion,
-      PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
+      PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC,
+      { allowLeadIn: true }
     );
     setViewStart((vs) => {
-      const next = clampViewStart(start, viewDuration, duration);
+      const next = clampViewStart(
+        start,
+        viewDuration > 0 ? viewDuration : duration,
+        duration,
+        PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
+      );
       return Math.abs(vs - next) < 0.001 ? vs : next;
     });
   }, [
@@ -321,7 +345,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
    * FODI 風: 再生中は rAF で viewStart を毎フレーム更新し、再生バーを左寄り固定・波形スライド。
    */
   useEffect(() => {
-    if (!fodiChrome || !isPlaying || zoom <= 1 || duration <= 0) return;
+    if (!fodiChrome || !isPlaying || duration <= 0) return;
     let raf = 0;
     const tick = () => {
       if (
@@ -335,9 +359,15 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             eng,
             duration,
             viewPortion,
+            PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC,
+            { allowLeadIn: true }
+          );
+          const next = clampViewStart(
+            start,
+            viewDuration > 0 ? viewDuration : duration,
+            duration,
             PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
           );
-          const next = clampViewStart(start, viewDuration, duration);
           setViewStart((vs) => (Math.abs(vs - next) < 0.0004 ? vs : next));
           bridgeApi?.drawWaveformAt(eng);
         }
@@ -439,11 +469,21 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       if (clientX <= r.left + zone) {
         const depth = 1 - Math.max(0, (clientX - r.left) / zone);
         const pan = vd * (0.016 + 0.065 * depth) * panStrength;
-        next = clampViewStart(vs - pan, vd, duration);
+        next = clampViewStart(
+          vs - pan,
+          vd,
+          duration,
+          fodiChrome ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
+        );
       } else if (clientX >= r.right - zone) {
         const depth = 1 - Math.max(0, (r.right - clientX) / zone);
         const pan = vd * (0.016 + 0.065 * depth) * panStrength;
-        next = clampViewStart(vs + pan, vd, duration);
+        next = clampViewStart(
+          vs + pan,
+          vd,
+          duration,
+          fodiChrome ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
+        );
       } else {
         return;
       }
@@ -453,7 +493,13 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       syncPortraitView(next, z);
       bridgeApi?.drawWaveformAt(resolvePlayheadTimeForDraw());
     },
-    [duration, syncPortraitView, bridgeApi, resolvePlayheadTimeForDraw]
+    [
+      duration,
+      syncPortraitView,
+      bridgeApi,
+      resolvePlayheadTimeForDraw,
+      fodiChrome,
+    ]
   );
 
   const resolveEdgeScrollPanStrength = useCallback((shouldSeek: boolean) => {
@@ -605,9 +651,15 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       t,
       duration,
       newPortion,
+      PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC,
+      { allowLeadIn: true }
+    );
+    const next = clampViewStart(
+      start,
+      newVd,
+      duration,
       PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
     );
-    const next = clampViewStart(start, newVd, duration);
     viewStartRef.current = next;
     setViewStart(next);
   }, [fodiChrome, duration, isPlaying, currentTime]);
@@ -642,9 +694,15 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         newT,
         duration,
         portion,
+        PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC,
+        { allowLeadIn: true }
+      );
+      const next = clampViewStart(
+        start,
+        span,
+        duration,
         PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
       );
-      const next = clampViewStart(start, span, duration);
       viewStartRef.current = next;
       setViewStart(next);
       bridgeApi?.drawWaveformAt(newT);
@@ -736,18 +794,22 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       const frac = fodiChrome
         ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
         : 0.5;
+      const leadIn = fodiChrome ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined;
       setZoom(z);
-      if (isPlaying) {
+      if (fodiChrome || isPlaying) {
         const start = resolveWavePlayheadFollowViewStart(
           anchorTimeSec,
           duration,
           newPortion,
-          frac
+          frac,
+          fodiChrome ? { allowLeadIn: true } : undefined
         );
-        setViewStart(clampViewStart(start, newVd, duration));
+        setViewStart(clampViewStart(start, newVd, duration, leadIn));
         return;
       }
-      setViewStart(clampViewStart(anchorTimeSec - frac * newVd, newVd, duration));
+      setViewStart(
+        clampViewStart(anchorTimeSec - frac * newVd, newVd, duration, leadIn)
+      );
     },
     [duration, isPlaying, fodiChrome]
   );
@@ -758,9 +820,16 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
       const newVd = duration / z;
       setZoom(z);
-      setViewStart(clampViewStart(nextViewStart, newVd, duration));
+      setViewStart(
+        clampViewStart(
+          nextViewStart,
+          newVd,
+          duration,
+          fodiChrome ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
+        )
+      );
     },
-    [duration]
+    [duration, fodiChrome]
   );
 
   /**
@@ -1120,9 +1189,15 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
                 t,
                 duration,
                 portion,
+                PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC,
+                { allowLeadIn: true }
+              );
+              const next = clampViewStart(
+                start,
+                span,
+                duration,
                 PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
               );
-              const next = clampViewStart(start, span, duration);
               viewStartRef.current = next;
               setViewStart(next);
               bridgeApi.drawWaveformAt?.(t);
