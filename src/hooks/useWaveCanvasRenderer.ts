@@ -621,7 +621,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         if (portraitHeadEl && portraitCanvas) {
           portraitHeadEl.style.display = "block";
           /**
-           * 縦画面: 再生バーは常に左寄り固定位置。
+           * 縦 FODI / 横ドック: 再生バーは常に左寄り固定位置。
            * （曲頭で viewStart がまだ追いつかない瞬間でもバーが横移動しない）
            */
           const fixedPct = PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC * 100;

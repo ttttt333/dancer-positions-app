@@ -159,6 +159,12 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   },
   ref
 ) {
+  /**
+   * 縦 FODI / 横画面ドック共通: 再生バーを左寄り固定し、曲頭は波形を右から始める（lead-in）。
+   * 再生ボタン列などの UI は fodiChrome のみ。
+   */
+  const pinPlayhead = fodiChrome || compactLandscape;
+
   const registered = useTimelineWaveBridgeStore((s) => s.registered);
   const bridgeApi = useTimelineWaveBridgeStore((s) => s.api);
   const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
@@ -239,9 +245,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
              * FODI 風: 再生中も viewStart を使い、再生バー位置を固定して波形をスライド。
              * （null にすると中央追従の別経路になり、やや左固定が効かない）
              */
-            viewStartOverride: fodiChrome ? viewStart : isPlaying ? null : viewStart,
+            viewStartOverride: pinPlayhead ? viewStart : isPlaying ? null : viewStart,
           }),
-    [duration, viewPortion, playheadSecForUi, isPlaying, viewStart, fodiChrome]
+    [duration, viewPortion, playheadSecForUi, isPlaying, viewStart, pinPlayhead]
   );
 
   const viewEnd = waveDrawView.end;
@@ -296,10 +302,10 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         v,
         viewDuration,
         duration,
-        fodiChrome ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
+        pinPlayhead ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
       )
     );
-  }, [zoom, duration, viewDuration, fodiChrome]);
+  }, [zoom, duration, viewDuration, pinPlayhead]);
 
   useEffect(() => {
     /**
@@ -307,7 +313,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
      * 曲頭は viewStart を負にして、バー左側に余白・波形はバーより右から開始。
      * （全体表示でも lead-in でバー位置を固定）
      */
-    if (!fodiChrome || duration <= 0) return;
+    if (!pinPlayhead || duration <= 0) return;
     if (
       scrubActiveRef.current ||
       playheadDragRef.current ||
@@ -333,7 +339,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     });
   }, [
     playheadSecForUi,
-    fodiChrome,
+    pinPlayhead,
     zoom,
     duration,
     viewPortion,
@@ -345,7 +351,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
    * FODI 風: 再生中は rAF で viewStart を毎フレーム更新し、再生バーを左寄り固定・波形スライド。
    */
   useEffect(() => {
-    if (!fodiChrome || !isPlaying || duration <= 0) return;
+    if (!pinPlayhead || !isPlaying || duration <= 0) return;
     let raf = 0;
     const tick = () => {
       if (
@@ -377,7 +383,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [
-    fodiChrome,
+    pinPlayhead,
     isPlaying,
     zoom,
     duration,
@@ -473,7 +479,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
           vs - pan,
           vd,
           duration,
-          fodiChrome ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
+          pinPlayhead ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
         );
       } else if (clientX >= r.right - zone) {
         const depth = 1 - Math.max(0, (r.right - clientX) / zone);
@@ -482,7 +488,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
           vs + pan,
           vd,
           duration,
-          fodiChrome ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
+          pinPlayhead ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
         );
       } else {
         return;
@@ -498,7 +504,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       syncPortraitView,
       bridgeApi,
       resolvePlayheadTimeForDraw,
-      fodiChrome,
+      pinPlayhead,
     ]
   );
 
@@ -628,7 +634,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
 
   /** FODI: スライド可能な倍率へ（全体表示のままではバーが横移動してしまう） */
   const ensureFodiSlideZoom = useCallback(() => {
-    if (!fodiChrome || duration <= 0) return;
+    if (!pinPlayhead || duration <= 0) return;
     if (zoomRef.current > 1.08) return;
     const targetSpan = Math.min(duration, Math.max(8, duration / 12));
     const z = Math.min(MAX_ZOOM, Math.max(1.25, duration / targetSpan));
@@ -662,14 +668,14 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     );
     viewStartRef.current = next;
     setViewStart(next);
-  }, [fodiChrome, duration, isPlaying, currentTime]);
+  }, [pinPlayhead, duration, isPlaying, currentTime]);
 
   /**
    * FODI: 指の横移動分だけ時刻を動かし、再生バーは画面左寄りに固定したまま波形をスライド。
    */
   const slideWaveByDeltaX = useCallback(
     (deltaX: number) => {
-      if (!fodiChrome || duration <= 0) return;
+      if (!pinPlayhead || duration <= 0) return;
       const el = viewportRef.current;
       if (!el) return;
       const w = el.getBoundingClientRect().width;
@@ -708,7 +714,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       bridgeApi?.drawWaveformAt(newT);
     },
     [
-      fodiChrome,
+      pinPlayhead,
       duration,
       ensureFodiSlideZoom,
       isPlaying,
@@ -739,7 +745,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
       clearPendingSingleTap();
-      if (fodiChrome) {
+      if (pinPlayhead) {
         ensureFodiSlideZoom();
         startScrubSession();
         waveSlideRef.current = { lastX: e.clientX, pointerId: e.pointerId };
@@ -754,7 +760,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       portraitSeekAtClientX,
       clearPendingSingleTap,
       startScrubSession,
-      fodiChrome,
+      pinPlayhead,
       ensureFodiSlideZoom,
     ]
   );
@@ -762,7 +768,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const onRulerPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!(e.buttons & 1) || !audioUrl || duration <= 0) return;
-      if (fodiChrome && waveSlideRef.current) {
+      if (pinPlayhead && waveSlideRef.current) {
         const dx = e.clientX - waveSlideRef.current.lastX;
         waveSlideRef.current.lastX = e.clientX;
         if (dx !== 0) slideWaveByDeltaX(dx);
@@ -770,18 +776,18 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       }
       portraitSeekAtClientX(e.clientX);
     },
-    [audioUrl, duration, portraitSeekAtClientX, fodiChrome, slideWaveByDeltaX]
+    [audioUrl, duration, portraitSeekAtClientX, pinPlayhead, slideWaveByDeltaX]
   );
 
   const onRulerPointerUp = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (fodiChrome && waveSlideRef.current) {
+      if (pinPlayhead && waveSlideRef.current) {
         endWaveSlide();
         return;
       }
       portraitSeekAtClientX(e.clientX, true);
     },
-    [portraitSeekAtClientX, fodiChrome, endWaveSlide]
+    [portraitSeekAtClientX, pinPlayhead, endWaveSlide]
   );
 
   /** +/- ボタン: 再生バー位置を保ちながら拡大・縮小（FODI 風はやや左固定） */
@@ -791,18 +797,18 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
       const newVd = duration / z;
       const newPortion = 1 / z;
-      const frac = fodiChrome
+      const frac = pinPlayhead
         ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
         : 0.5;
-      const leadIn = fodiChrome ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined;
+      const leadIn = pinPlayhead ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined;
       setZoom(z);
-      if (fodiChrome || isPlaying) {
+      if (pinPlayhead || isPlaying) {
         const start = resolveWavePlayheadFollowViewStart(
           anchorTimeSec,
           duration,
           newPortion,
           frac,
-          fodiChrome ? { allowLeadIn: true } : undefined
+          pinPlayhead ? { allowLeadIn: true } : undefined
         );
         setViewStart(clampViewStart(start, newVd, duration, leadIn));
         return;
@@ -811,7 +817,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         clampViewStart(anchorTimeSec - frac * newVd, newVd, duration, leadIn)
       );
     },
-    [duration, isPlaying, fodiChrome]
+    [duration, isPlaying, pinPlayhead]
   );
 
   const applyZoomWithViewStart = useCallback(
@@ -825,11 +831,11 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
           nextViewStart,
           newVd,
           duration,
-          fodiChrome ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
+          pinPlayhead ? PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC : undefined
         )
       );
     },
-    [duration, fodiChrome]
+    [duration, pinPlayhead]
   );
 
   /**
@@ -837,14 +843,14 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
    * 再生開始時に自動で「スライド追従できる倍率」へ上げる。
    */
   useEffect(() => {
-    if (!fodiChrome || !isPlaying || duration <= 0) return;
+    if (!pinPlayhead || !isPlaying || duration <= 0) return;
     if (zoom > 1.08) return;
     const targetSpan = Math.min(duration, Math.max(8, duration / 12));
     const z = Math.min(MAX_ZOOM, Math.max(1.25, duration / targetSpan));
     applyZoomCenteredOnPlayhead(z, playheadSecForUi);
     // 再生開始の一度だけ。zoom を依存に入れると拡大ループになる
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fodiChrome, isPlaying, duration, applyZoomCenteredOnPlayhead]);
+  }, [pinPlayhead, isPlaying, duration, applyZoomCenteredOnPlayhead]);
 
   const clearLongPress = useCallback(() => {
     if (longPressTimerRef.current != null) {
@@ -867,7 +873,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     (clientX: number, clientY: number, pointerId: number) => {
       clearPendingSingleTap();
       clearLongPress();
-      if (fodiChrome) {
+      if (pinPlayhead) {
         /** 再生バー掴みも「波形スライド」— バーは画面上で動かさない */
         ensureFodiSlideZoom();
         startScrubSession();
@@ -893,7 +899,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     [
       clearPendingSingleTap,
       clearLongPress,
-      fodiChrome,
+      pinPlayhead,
       ensureFodiSlideZoom,
       startScrubSession,
       portraitSeekAtClientX,
@@ -904,7 +910,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0 || !audioUrl || duration <= 0) return;
       /** FODI: 再生バー固定。スクロールは秒数目盛りで行う */
-      if (fodiChrome) {
+      if (pinPlayhead) {
         e.preventDefault();
         e.stopPropagation();
         return;
@@ -913,7 +919,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       e.stopPropagation();
       beginPortraitPlayheadDrag(e.clientX, e.clientY, e.pointerId);
     },
-    [audioUrl, duration, beginPortraitPlayheadDrag, fodiChrome]
+    [audioUrl, duration, beginPortraitPlayheadDrag, pinPlayhead]
   );
 
   const onTimelinePlayheadPointerMove = useCallback(
@@ -966,7 +972,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const isNearPlayhead = useCallback(
     (clientX: number) => {
       /** FODI: 再生バーは固定。波形上のドラッグでは掴まず、スクロールは秒数目盛り側 */
-      if (fodiChrome) return false;
+      if (pinPlayhead) return false;
       const canvas = canvasRef.current;
       if (!canvas || duration <= 0 || waveDrawView.span <= 0) return false;
       /**
@@ -988,7 +994,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       waveDrawView.start,
       waveDrawView.span,
       playheadSecForUi,
-      fodiChrome,
+      pinPlayhead,
     ]
   );
 
@@ -1172,7 +1178,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
           lastTapRef.current = now;
           clearPendingSingleTap();
           suppressClickRef.current = true;
-          if (fodiChrome) {
+          if (pinPlayhead) {
             /**
              * 単タップ: その位置の時刻へシークし、再生バーは左寄り固定のまま波形を合わせる。
              */
@@ -1219,7 +1225,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       clearLongPress,
       clearPendingSingleTap,
       endWaveSlide,
-      fodiChrome,
+      pinPlayhead,
       ensureFodiSlideZoom,
       timeFromClientX,
       startScrubSession,
@@ -1502,7 +1508,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         ) : null}
         <div
           ref={waveTimelineBodyRef}
-          className={`${styles.waveTimelineBody} ${fodiChrome ? styles.waveTimelineBodyFodi : ""}`.trim()}
+          className={`${styles.waveTimelineBody} ${pinPlayhead ? styles.waveTimelineBodyFodi : ""}`.trim()}
           onPointerMove={onTimelinePlayheadPointerMove}
           onPointerUp={endPlayheadDrag}
           onPointerCancel={endPlayheadDrag}
@@ -1528,7 +1534,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             </button>
           ) : null}
           <div
-            className={`${styles.waveRuler} ${fodiChrome ? styles.waveRulerFodi : ""}`.trim()}
+            className={`${styles.waveRuler} ${pinPlayhead ? styles.waveRulerFodi : ""}`.trim()}
             onPointerDown={onRulerPointerDown}
             onPointerMove={onRulerPointerMove}
             onPointerUp={onRulerPointerUp}
@@ -1537,7 +1543,11 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             aria-valuemin={0}
             aria-valuemax={duration}
             aria-valuenow={currentTime}
-            aria-label="タイムライン（タップ・ドラッグで波形をスライド）"
+            aria-label={
+              pinPlayhead
+                ? "タイムライン（タップ・ドラッグで波形をスライド）"
+                : "タイムライン（タップ・ドラッグで再生位置を移動）"
+            }
           >
             {rulerTicks.map((tick) => {
             const pct = waveTimeToPercent(tick, waveDrawView.start, waveDrawView.span);
@@ -1574,15 +1584,15 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         {duration > 0 && waveDrawView.span > 0 ? (
           <div
             ref={playheadLineRef}
-            className={`${styles.playheadLine} ${fodiChrome ? styles.playheadLineFodi : ""}`.trim()}
+            className={`${styles.playheadLine} ${pinPlayhead ? styles.playheadLineFodi : ""}`.trim()}
             style={{ left: "0%" }}
             role="presentation"
-            aria-hidden={fodiChrome ? true : undefined}
-            aria-valuemin={fodiChrome ? undefined : 0}
-            aria-valuemax={fodiChrome ? undefined : duration}
-            aria-valuenow={fodiChrome ? undefined : playheadSecForUi}
+            aria-hidden={pinPlayhead ? true : undefined}
+            aria-valuemin={pinPlayhead ? undefined : 0}
+            aria-valuemax={pinPlayhead ? undefined : duration}
+            aria-valuenow={pinPlayhead ? undefined : playheadSecForUi}
             aria-label={
-              fodiChrome
+              pinPlayhead
                 ? undefined
                 : "再生位置（ドラッグで移動・再生中も操作できます）"
             }
