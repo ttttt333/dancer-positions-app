@@ -35,8 +35,10 @@ import {
 const WAVE_CUE_FRAME_BORDER_CSS_PX = 2;
 /** 選択中は FODI / Choreographic 系のように枠を太くし、端を掴みやすくする */
 const WAVE_CUE_FRAME_BORDER_SELECTED_CSS_PX = 5.5;
-/** 選択キュー左右端のグリップ幅（CSS px） */
-const WAVE_CUE_SELECTED_EDGE_GRIP_CSS_PX = 10;
+/** 選択キュー左右端のグリップ幅（CSS px）— 枠外へ飛び出す分を含む */
+const WAVE_CUE_SELECTED_EDGE_GRIP_CSS_PX = 14;
+/** 枠外への飛び出し割合（0.55 = 半分以上が枠の外） */
+const WAVE_CUE_SELECTED_EDGE_GRIP_OUTSET = 0.62;
 
 export type UseWaveCanvasRendererArgs = {
   canvasRef: RefObject<HTMLCanvasElement>;
@@ -307,6 +309,9 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
           hoverStart: boolean;
           hoverEnd: boolean;
           isHover: boolean;
+          /** ホールド本体の左右端（空白を含む選択枠と違うとき）。ここに外向きグリップを置く */
+          holdLeft?: number;
+          holdRight?: number;
         }
       ) => {
         const inset = 0.5;
@@ -336,33 +341,67 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         g.lineJoin = "miter";
         g.lineCap = "butt";
         g.strokeRect(left + inset, top, width - inset * 2, boxH);
+
+        /** FODI 風: ホールド端から横に飛び出したリサイズグリップ */
         if (opts.isSel) {
-          /** 左右端の太いグリップ（中央にバー） */
           const gripW = Math.max(
             WAVE_CUE_SELECTED_EDGE_GRIP_CSS_PX * waveBitmapPxPerCssPx,
-            baseLw * 1.8
+            baseLw * 2.2
           );
-          const gripH = Math.min(boxH * 0.55, Math.max(22 * waveBitmapPxPerCssPx, boxH * 0.36));
+          const gripH = Math.min(
+            boxH * 0.72,
+            Math.max(28 * waveBitmapPxPerCssPx, boxH * 0.48)
+          );
           const gripTop = top + (boxH - gripH) / 2;
-          g.fillStyle = "rgba(252, 165, 165, 0.98)";
-          g.fillRect(left + inset - gripW * 0.15, gripTop, gripW, gripH);
-          g.fillRect(
-            left + width - inset - gripW + gripW * 0.15,
-            gripTop,
-            gripW,
-            gripH
-          );
-          g.strokeStyle = "rgba(254, 226, 226, 0.95)";
-          g.lineWidth = Math.max(1, waveBitmapPxPerCssPx);
-          g.beginPath();
-          g.moveTo(left + inset + gripW * 0.35, gripTop + gripH * 0.28);
-          g.lineTo(left + inset + gripW * 0.35, gripTop + gripH * 0.72);
-          g.stroke();
-          g.beginPath();
-          g.moveTo(left + width - inset - gripW * 0.35, gripTop + gripH * 0.28);
-          g.lineTo(left + width - inset - gripW * 0.35, gripTop + gripH * 0.72);
-          g.stroke();
+          const outset = gripW * WAVE_CUE_SELECTED_EDGE_GRIP_OUTSET;
+          const startX = opts.holdLeft ?? left + inset;
+          const endX = opts.holdRight ?? left + width - inset;
+          const radius = Math.min(4 * waveBitmapPxPerCssPx, gripW * 0.35);
+
+          const drawOutsetGrip = (edgeX: number, side: "start" | "end") => {
+            const gx =
+              side === "start" ? edgeX - outset : edgeX - (gripW - outset);
+            g.fillStyle = "rgba(252, 165, 165, 0.98)";
+            g.strokeStyle = "rgba(254, 226, 226, 0.98)";
+            g.lineWidth = Math.max(1, waveBitmapPxPerCssPx);
+            g.beginPath();
+            // roundRect 回避（Safari 古い版）
+            const r = radius;
+            g.moveTo(gx + r, gripTop);
+            g.lineTo(gx + gripW - r, gripTop);
+            g.quadraticCurveTo(gx + gripW, gripTop, gx + gripW, gripTop + r);
+            g.lineTo(gx + gripW, gripTop + gripH - r);
+            g.quadraticCurveTo(
+              gx + gripW,
+              gripTop + gripH,
+              gx + gripW - r,
+              gripTop + gripH
+            );
+            g.lineTo(gx + r, gripTop + gripH);
+            g.quadraticCurveTo(gx, gripTop + gripH, gx, gripTop + gripH - r);
+            g.lineTo(gx, gripTop + r);
+            g.quadraticCurveTo(gx, gripTop, gx + r, gripTop);
+            g.closePath();
+            g.fill();
+            g.stroke();
+            /** 掴みやすい縦バー 2 本 */
+            g.strokeStyle = "rgba(127, 29, 29, 0.55)";
+            g.lineWidth = Math.max(1.2, waveBitmapPxPerCssPx);
+            const barGap = gripW * 0.18;
+            const bar1 = gx + gripW * 0.38;
+            const bar2 = bar1 + barGap;
+            g.beginPath();
+            g.moveTo(bar1, gripTop + gripH * 0.28);
+            g.lineTo(bar1, gripTop + gripH * 0.72);
+            g.moveTo(bar2, gripTop + gripH * 0.28);
+            g.lineTo(bar2, gripTop + gripH * 0.72);
+            g.stroke();
+          };
+
+          drawOutsetGrip(startX, "start");
+          drawOutsetGrip(endX, "end");
         }
+
         g.strokeStyle = goldEdge;
         g.lineWidth = baseLw * 1.55;
         g.beginPath();
@@ -386,15 +425,17 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
           opts.hoverStart || opts.hoverEnd ? baseLw * 1.7 : baseLw * 1.15;
         g.lineCap = "butt";
         if (opts.hoverStart) {
+          const hx = opts.holdLeft ?? left + inset;
           g.beginPath();
-          g.moveTo(left + inset, top);
-          g.lineTo(left + inset, top + boxH);
+          g.moveTo(hx, top);
+          g.lineTo(hx, top + boxH);
           g.stroke();
         }
         if (opts.hoverEnd) {
+          const hx = opts.holdRight ?? left + width - inset;
           g.beginPath();
-          g.moveTo(left + width - inset, top);
-          g.lineTo(left + width - inset, top + boxH);
+          g.moveTo(hx, top);
+          g.lineTo(hx, top + boxH);
           g.stroke();
         }
       };
@@ -439,17 +480,30 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
           );
           const left = Math.min(x1, x2);
           const width = Math.max(3, Math.abs(x2 - x1));
+          const xHoldStart = waveTimeToExtentX(
+            Math.max(Math.min(ts, te), viewStart),
+            viewStart,
+            viewSpan,
+            w
+          );
+          const xHoldEnd = waveTimeToExtentX(
+            Math.min(Math.max(ts, te), viewEnd),
+            viewStart,
+            viewSpan,
+            w
+          );
+          const holdLeft = Math.min(xHoldStart, xHoldEnd);
+          const holdRight = Math.max(xHoldStart, xHoldEnd);
           drawWaveCueChrome(left, width, {
             isDrag,
             isSel,
             hoverStart: isHover && hover.mode === "start",
-            hoverEnd:
-              isHover &&
-              hover.mode === "end" &&
-              !(isSel && frameTe > holdEndSec + 1e-3),
+            hoverEnd: isHover && hover.mode === "end",
             isHover,
+            holdLeft,
+            holdRight,
           });
-          /** 選択枠内のホールド終端（空白との境界）に縦線＋端グリップ */
+          /** 空白があるときホールド終端の区切り線のみ（グリップは hold 端の外向き） */
           if (
             (isSel || isDrag) &&
             holdEndSec > frameTs + 1e-3 &&
@@ -462,31 +516,23 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
             const top = inset;
             const boxH = h - inset * 2;
             g.strokeStyle = isSel
-              ? "rgba(252, 165, 165, 0.95)"
-              : "rgba(250, 230, 160, 0.9)";
+              ? "rgba(252, 165, 165, 0.75)"
+              : "rgba(250, 230, 160, 0.75)";
             g.lineWidth =
               (isSel
                 ? WAVE_CUE_FRAME_BORDER_SELECTED_CSS_PX
                 : WAVE_CUE_FRAME_BORDER_CSS_PX) *
               waveBitmapPxPerCssPx *
-              1.15;
+              0.85;
+            g.setLineDash([
+              3 * waveBitmapPxPerCssPx,
+              3 * waveBitmapPxPerCssPx,
+            ]);
             g.beginPath();
             g.moveTo(xHold, top);
             g.lineTo(xHold, top + boxH);
             g.stroke();
-            if (isSel) {
-              const gripW = Math.max(
-                WAVE_CUE_SELECTED_EDGE_GRIP_CSS_PX * waveBitmapPxPerCssPx,
-                6 * waveBitmapPxPerCssPx
-              );
-              const gripH = Math.min(
-                boxH * 0.55,
-                Math.max(22 * waveBitmapPxPerCssPx, boxH * 0.36)
-              );
-              const gripTop = top + (boxH - gripH) / 2;
-              g.fillStyle = "rgba(252, 165, 165, 0.98)";
-              g.fillRect(xHold - gripW / 2, gripTop, gripW, gripH);
-            }
+            g.setLineDash([]);
           }
         }
       }
