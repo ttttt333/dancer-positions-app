@@ -111,6 +111,22 @@ describe("pickCueDragKindAtWave", () => {
     const hit = pickCueDragKindAtWave(200, 40, canvas, overlap, 0, 100, null);
     expect(hit?.cueId).toBe(id);
   });
+
+  it("portrait: gap between cues is move on the previous cue (matches drawn frame)", () => {
+    const gapped: Cue[] = [
+      { id: "a", tStartSec: 10, tEndSec: 20, formationId: "f1" },
+      { id: "b", tStartSec: 40, tEndSec: 50, formationId: "f2" },
+    ];
+    const canvas = mockCanvas(1000, 80);
+    // 30s → x=300
+    expect(pickCueIdAtWave(300, 40, canvas, gapped, 0, 100, null)).toBe("a");
+    expect(
+      pickCueDragKindAtWave(300, 40, canvas, gapped, 0, 100, null, undefined, null, false)
+    ).toBeNull();
+    expect(
+      pickCueDragKindAtWave(300, 40, canvas, gapped, 0, 100, null, undefined, null, true)
+    ).toEqual({ cueId: "a", mode: "move" });
+  });
 });
 
 describe("effectiveWaveViewStartOverride", () => {

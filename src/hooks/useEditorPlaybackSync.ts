@@ -170,15 +170,20 @@ function usePlaybackHeadRafSync(
         }
       }
 
-      const tHead = usePlaybackUiStore.getState().currentTimeSec;
+      const liveHead =
+        !useViewerClock &&
+        playbackEngine.getMediaSourceUrl() &&
+        Number.isFinite(playbackEngine.getCurrentTime())
+          ? playbackEngine.getCurrentTime()
+          : usePlaybackUiStore.getState().currentTimeSec;
       const onCueFollow = onPlaybackActiveCueChangeRef?.current;
-      if (onCueFollow && p.cues.length > 0) {
-        const active = cueActiveAtTime(p.cues, tHead);
+      if (p.cues.length > 0) {
+        const active = cueActiveAtTime(p.cues, liveHead);
         const nextId = active?.id ?? null;
         if (nextId && nextId !== lastFollowCueIdRef.current) {
           const prevId = lastFollowCueIdRef.current;
           lastFollowCueIdRef.current = nextId;
-          onCueFollow(nextId);
+          onCueFollow?.(nextId);
           /** 再生中に次のキューへ入ったときだけ微振動（開始直後の初回は除く） */
           if (prevId != null) vibrateOnCueAdvance();
         }

@@ -130,9 +130,9 @@ export function useTimelineWaveCanvasActions({
 
   const onWaveClick = useCallback(
     (e: MouseEvent<HTMLCanvasElement>) => {
-      if (suppressNextWaveSeekRef.current) {
+      const blockSeek = suppressNextWaveSeekRef.current;
+      if (blockSeek) {
         suppressNextWaveSeekRef.current = false;
-        return;
       }
       const c = e.currentTarget as HTMLCanvasElement;
       if (!c || duration <= 0) return;
@@ -162,6 +162,8 @@ export function useTimelineWaveCanvasActions({
         // is playing (especially after move/resize when suppress flags miss).
         return;
       }
+      /** 直前のキュー操作後の合成 click ではシークだけ抑止（選択は上で許可） */
+      if (blockSeek) return;
       onSelectedCueIdsChange([]);
       if (!playbackEngine.getMediaSourceUrl()) return;
       if (e.altKey && peaks != null && cuesSorted.length >= 2 && viewMode !== "view") {

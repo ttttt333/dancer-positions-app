@@ -22,6 +22,7 @@ import { useTimelineWaveBridgeStore } from "../../store/timelineWaveBridgeStore"
 import { WaveformLoadOverlay } from "../WaveformLoadOverlay";
 import { useWaveformLoadProgressStore } from "../../store/waveformLoadProgressStore";
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
+import { usePlaybackUiStore } from "../../store/usePlaybackUiStore";
 import { playbackEngine } from "../../core/playbackEngine";
 import {
   beginPlaybackScrubSession,
@@ -58,13 +59,13 @@ const DOUBLE_TAP_MS = 450;
 const LONG_PRESS_MS = 520;
 const PORTRAIT_WAVE_CSS_H = 96;
 const DEFAULT_WAVE_HEIGHT_PX = PORTRAIT_WAVE_CSS_H;
-/** この距離未満の指の動きはタップ扱い（シーク） */
-const TAP_MAX_MOVE_PX = 8;
+/** この距離未満の指の動きはタップ扱い（選択／シーク） */
+const TAP_MAX_MOVE_PX = 16;
 /**
  * この距離を超えたらキュー枠ドラッグを開始（長押しメニューはキャンセル）。
- * ピンチズームは無効化し、拡大縮小は +/- ボタンのみ。
+ * 指の微ブレでドラッグ武装しないようタップ閾値より少し低くする。
  */
-const CUE_DRAG_ARM_PX = 6;
+const CUE_DRAG_ARM_PX = 12;
 
 interface Props {
   audioUrl: string | null;
@@ -1178,38 +1179,39 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
           lastTapRef.current = now;
           clearPendingSingleTap();
           suppressClickRef.current = true;
-          if (pinPlayhead) {
-            /**
-             * 単タップ: その位置の時刻へシークし、再生バーは左寄り固定のまま波形を合わせる。
-             */
-            ensureFodiSlideZoom();
-            const t = timeFromClientX(e.clientX);
-            if (t != null) {
-              startScrubSession();
-              seekDuringScrub(t);
-              finishScrubSession();
-              const z = zoomRef.current;
-              const span = duration / z;
-              const portion = Math.min(1, Math.max(0.02, 1 / z));
-              const start = resolveWavePlayheadFollowViewStart(
-                t,
-                duration,
-                portion,
-                PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC,
-                { allowLeadIn: true }
-              );
-              const next = clampViewStart(
-                start,
-                span,
-                duration,
-                PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
-              );
-              viewStartRef.current = next;
-              setViewStart(next);
-              bridgeApi.drawWaveformAt?.(t);
+          /**
+           * 単タップ: キュー枠（空白含む）なら選択、空きならシーク。
+           * pinPlayhead 時はシーク後に固定バー位置へ波形を合わせる。
+           */
+          bridgeApi.handlers.onWaveClick(synthMouseEvent("click", e));
+          if (pinPlayhead && duration > 0) {
+            let t = usePlaybackUiStore.getState().currentTimeSec;
+            if (
+              playbackEngine.getMediaSourceUrl() &&
+              Number.isFinite(playbackEngine.getCurrentTime())
+            ) {
+              t = playbackEngine.getCurrentTime();
             }
-          } else {
-            bridgeApi.handlers.onWaveClick(synthMouseEvent("click", e));
+            ensureFodiSlideZoom();
+            const z = zoomRef.current;
+            const span = duration / z;
+            const portion = Math.min(1, Math.max(0.02, 1 / z));
+            const start = resolveWavePlayheadFollowViewStart(
+              t,
+              duration,
+              portion,
+              PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC,
+              { allowLeadIn: true }
+            );
+            const next = clampViewStart(
+              start,
+              span,
+              duration,
+              PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
+            );
+            viewStartRef.current = next;
+            setViewStart(next);
+            bridgeApi.drawWaveformAt?.(t);
           }
         }
       }
@@ -1227,10 +1229,6 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       endWaveSlide,
       pinPlayhead,
       ensureFodiSlideZoom,
-      timeFromClientX,
-      startScrubSession,
-      seekDuringScrub,
-      finishScrubSession,
       duration,
     ]
   );

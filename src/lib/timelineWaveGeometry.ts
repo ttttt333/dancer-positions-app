@@ -392,6 +392,38 @@ export function pickCueDragKindAtWave(
     }
   }
 
+  /**
+   * スマホ: 描画の選択枠は空白（次キューまで）も含むため、
+   * 空白タップでも直前キューを move として拾う（端リサイズはホールド端を優先）。
+   */
+  if (portraitActive) {
+    const sorted = sortCuesByStart(cueList);
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const prev = sorted[i]!;
+      const next = sorted[i + 1]!;
+      let prevEnd = prev.tEndSec;
+      let nextStart = next.tStartSec;
+      if (dragPreview && dragPreview.cueId === prev.id) prevEnd = dragPreview.tEnd;
+      if (dragPreview && dragPreview.cueId === next.id) nextStart = dragPreview.tStart;
+      if (nextStart <= prevEnd + 1e-4) continue;
+      if (prevEnd < viewStart || nextStart > viewEnd) continue;
+      let { left, right } = cueWaveHorizontalBoundsPx(
+        prevEnd,
+        nextStart,
+        viewStart,
+        viewSpan,
+        viewEnd,
+        w
+      );
+      if (right - left < 1) continue;
+      if (x < left || x > right) continue;
+      const dist = cueDragKindPickDistance(x, y, mid, left, right, "move");
+      if (!best || dist < best.dist - 0.5) {
+        best = { cueId: prev.id, mode: "move", dist };
+      }
+    }
+  }
+
   return best ? { cueId: best.cueId, mode: best.mode } : null;
 }
 
