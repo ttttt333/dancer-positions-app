@@ -18,6 +18,7 @@ import { cueSelectionExtentSec } from "../lib/cueSelectionExtent";
 import { publishWaveDrawRange } from "../lib/waveDrawRangeSync";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { drawWavePeaksColumns } from "../lib/drawWavePeaksColumns";
+import { drawWaveGapConnectorBand, resolveWaveGapConnectorStyle } from "../lib/drawWaveGapConnector";
 import { drawEightCountGrid } from "../lib/audioAnalysis/drawEightCountGrid";
 import { drawMusicSectionBands } from "../lib/audioAnalysis/drawMusicSectionBands";
 import { WAVE_CANVAS_BITMAP_HEIGHT_SCALE } from "../lib/waveDockMetrics";
@@ -280,36 +281,12 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
             Boolean(next.gapApproachFromPrev) ||
             (next.dancerCustomPaths != null &&
               Object.keys(next.dancerCustomPaths).length > 0);
-          if (gapOwnedBySelection) {
-            g.fillStyle = "rgba(239, 68, 68, 0.12)";
-            g.strokeStyle = "rgba(252, 165, 165, 0.55)";
-          } else if (configuredGapMovement) {
-            g.fillStyle = "rgba(248, 113, 113, 0.38)";
-            g.strokeStyle = "rgba(220, 38, 38, 0.88)";
-          } else {
-            g.fillStyle = "rgba(255, 255, 255, 0.07)";
-            g.strokeStyle = "rgba(248, 250, 252, 0.22)";
-          }
-          g.fillRect(b.left, b.top, b.width, b.height);
-          g.lineWidth = 1;
-          g.strokeRect(b.left + 0.5, b.top + 0.5, b.width - 1, b.height - 1);
-          /** 移動区間の X（選択時はよりはっきり） */
-          if (b.width >= 14 && b.height >= 14) {
-            const pad = Math.min(b.width, b.height) * 0.22;
-            g.strokeStyle = gapOwnedBySelection
-              ? "rgba(248, 250, 252, 0.55)"
-              : configuredGapMovement
-                ? "rgba(254, 202, 202, 0.65)"
-                : "rgba(248, 250, 252, 0.28)";
-            g.lineWidth = Math.max(1.2, waveBitmapPxPerCssPx);
-            g.lineCap = "round";
-            g.beginPath();
-            g.moveTo(b.left + pad, b.top + pad);
-            g.lineTo(b.left + b.width - pad, b.top + b.height - pad);
-            g.moveTo(b.left + b.width - pad, b.top + pad);
-            g.lineTo(b.left + pad, b.top + b.height - pad);
-            g.stroke();
-          }
+          const gapStyle = resolveWaveGapConnectorStyle({
+            ownedBySelection: gapOwnedBySelection,
+            configuredGapMovement,
+            waveBitmapPxPerCssPx,
+          });
+          drawWaveGapConnectorBand(g, b, gapStyle);
         }
       }
       const dragCueId = cueDragRef.current?.cueId ?? null;

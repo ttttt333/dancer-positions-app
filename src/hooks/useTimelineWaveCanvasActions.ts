@@ -248,31 +248,33 @@ export function useTimelineWaveCanvasActions({
       const portraitActive = useTimelineWaveBridgeStore.getState().portraitActive;
       const gapTouchPad = portraitActive ? MOBILE_GAP_TOUCH_PADDING_PX : 0;
 
-      if (portraitActive) {
-        const gapLink = pickGapLinkAtWave(
-          e.clientX,
-          e.clientY,
-          c,
-          cuesSorted,
-          viewStart,
-          viewSpan,
-          cueDragPreviewRangeRef.current,
-          gapTouchPad
-        );
-        if (gapLink) {
-          e.preventDefault();
-          e.stopPropagation();
-          setWaveCueMenu(null);
-          setWaveCueConfirm(null);
-          onSelectedCueIdsChange([gapLink.nextCueId]);
-          setGapRouteMenu({
-            nextCueId: gapLink.nextCueId,
-            clientX: e.clientX,
-            clientY: e.clientY,
-            fullscreen: true,
-          });
-          return;
-        }
+      /**
+       * キュー間（移動）を先に判定。
+       * pickCueIdAtWave は空白も直前キューに含めるため、順序を逆にすると動線メニューが出せない。
+       */
+      const gapLink = pickGapLinkAtWave(
+        e.clientX,
+        e.clientY,
+        c,
+        cuesSorted,
+        viewStart,
+        viewSpan,
+        cueDragPreviewRangeRef.current,
+        gapTouchPad
+      );
+      if (gapLink) {
+        e.preventDefault();
+        e.stopPropagation();
+        setWaveCueMenu(null);
+        setWaveCueConfirm(null);
+        onSelectedCueIdsChange([gapLink.nextCueId]);
+        setGapRouteMenu({
+          nextCueId: gapLink.nextCueId,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          ...(portraitActive ? { fullscreen: true } : {}),
+        });
+        return;
       }
 
       const id = pickCueIdAtWave(
@@ -291,29 +293,7 @@ export function useTimelineWaveCanvasActions({
         onSelectedCueIdsChange([id]);
         setWaveCueConfirm(null);
         setWaveCueMenu({ cueId: id, clientX: e.clientX, clientY: e.clientY });
-        return;
       }
-      const gapLink = pickGapLinkAtWave(
-        e.clientX,
-        e.clientY,
-        c,
-        cuesSorted,
-        viewStart,
-        viewSpan,
-        cueDragPreviewRangeRef.current,
-        gapTouchPad
-      );
-      if (!gapLink) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setWaveCueMenu(null);
-      setWaveCueConfirm(null);
-      onSelectedCueIdsChange([gapLink.nextCueId]);
-      setGapRouteMenu({
-        nextCueId: gapLink.nextCueId,
-        clientX: e.clientX,
-        clientY: e.clientY,
-      });
     },
     [
       viewMode,
