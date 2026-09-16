@@ -238,8 +238,8 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  gap: 4px;
-  padding: 0 2px 4px;
+  gap: 2px;
+  padding: 0 2px 2px;
   border-right: 0.5px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.35);
   box-sizing: border-box;
@@ -264,21 +264,14 @@
   box-sizing: border-box;
 }
 
-.fodiPlayBtn {
-  width: 44px !important;
-  height: 44px !important;
-  max-width: 44px !important;
-  border-radius: 12px !important;
-  flex: 0 0 auto !important;
-  align-self: center;
-}
-
+.fodiPlayBtn,
 .fodiStopBtn {
   width: 44px !important;
-  height: 36px !important;
+  height: 44px !important;
+  min-height: 44px !important;
   max-width: 44px !important;
-  border-radius: 10px !important;
-  flex: 0 0 auto !important;
+  border-radius: 12px !important;
+  flex: 0 0 44px !important;
   align-self: center;
   padding: 0 !important;
 }
