@@ -3237,13 +3237,13 @@ body > [data-editor-sheet-root] {
   flex-direction: column !important;
 }
 
-/** PC: 閉じる・適用・☆をヘッダー直下の右上に常時表示（一覧だけスクロール） */
+/** PC: 閉じる・適用・☆をヘッダー直下の左寄せに常時表示（一覧だけスクロール） */
 .formation-preset-picker-actions-sticky {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
   padding: 8px 14px 10px;
   border-bottom: 1px solid rgba(212, 175, 55, 0.12);
