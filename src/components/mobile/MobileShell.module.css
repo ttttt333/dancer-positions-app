@@ -131,7 +131,7 @@
 .floatingClose {
   position: fixed;
   /* 縦画面: FODI風3段バーの上（メニューを下端へ寄せた分を反映） */
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 134px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 146px);
   left: max(16px, env(safe-area-inset-left, 16px));
   z-index: 500;
   background: rgba(17, 24, 39, 0.92);

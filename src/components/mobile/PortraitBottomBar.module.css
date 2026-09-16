@@ -81,26 +81,35 @@
   background: rgba(196, 30, 58, 0.28);
 }
 
-/** 最下段: Menu · 雛形 · ズーム群（ホームインジケータ直上まで寄せる） */
+/** 最下段: Menu · 雛形 · ズーム群（6等分・大きめ・下端ギリギリ） */
 .menuBar {
   display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 4px 0;
+  align-items: stretch;
+  gap: 4px;
+  padding: 4px 4px 0;
   padding-left: max(4px, env(safe-area-inset-left, 4px));
   padding-right: max(4px, env(safe-area-inset-right, 4px));
-  /* ホームインジケータへ最大限食い込ませ、メニューを下端ギリギリへ */
-  padding-bottom: max(0px, calc(env(safe-area-inset-bottom, 0px) - 28px));
+  /* ホームインジケータへ最大限食い込ませ、メニューを下端へ */
+  padding-bottom: max(0px, calc(env(safe-area-inset-bottom, 0px) - 32px));
   border-top: 0.5px solid #1a2540;
   flex-shrink: 0;
   min-height: 0;
   background: #080c14;
 }
 
+.menuBtn,
+.changeBtn,
+.zoomBtn {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 48px !important;
+  border-radius: 11px !important;
+  box-sizing: border-box;
+}
+
 .menuBtn {
-  flex: 0 0 46px;
-  height: 40px;
-  border-radius: 10px;
   background: linear-gradient(135deg, #1e3a5f 0%, #1a2f4e 100%);
   border: 1px solid #3b82f6;
   color: #93c5fd;
@@ -109,7 +118,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 2px;
   padding: 0;
   touch-action: manipulation;
 }
@@ -120,12 +129,12 @@
 }
 
 .menuBtnIcon {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
 }
 
 .menuBtnLabel {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   color: #93c5fd;
   text-transform: uppercase;
@@ -134,9 +143,6 @@
 }
 
 .changeBtn {
-  flex: 0 0 46px;
-  height: 40px;
-  border-radius: 10px;
   border: 1px solid rgba(212, 175, 55, 0.65);
   color: #fef3c7;
   background: rgba(15, 23, 42, 0.92);
@@ -145,7 +151,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 2px;
   padding: 0;
   touch-action: manipulation;
 }
@@ -160,23 +166,14 @@
 }
 
 .changeBtnIcon {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
   color: #e8c547;
 }
 
 .changeBtnLabel {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.04em;
   line-height: 1;
-}
-
-.zoomBtn {
-  flex: 1 1 0 !important;
-  width: auto !important;
-  min-width: 0 !important;
-  max-width: none !important;
-  height: 40px !important;
-  border-radius: 10px !important;
 }

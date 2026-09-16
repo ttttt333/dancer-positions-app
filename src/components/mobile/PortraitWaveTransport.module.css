@@ -236,12 +236,32 @@
   flex: 0 0 52px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-start;
   gap: 4px;
-  padding: 4px 2px;
+  padding: 0 2px 4px;
   border-right: 0.5px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}
+
+/** 秒数表示: 再生ボタンの上・タイムライン左端に揃える */
+.fodiTime {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  height: calc(14px + 8mm);
+  min-height: calc(14px + 8mm);
+  padding: 0 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .fodiPlayBtn {
@@ -250,21 +270,41 @@
   max-width: 44px !important;
   border-radius: 12px !important;
   flex: 0 0 auto !important;
+  align-self: center;
 }
 
-.fodiTime {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9px;
-  font-weight: 700;
-  color: #94a3b8;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  line-height: 1;
+.fodiStopBtn {
+  width: 44px !important;
+  height: 36px !important;
+  max-width: 44px !important;
+  border-radius: 10px !important;
+  flex: 0 0 auto !important;
+  align-self: center;
+  padding: 0 !important;
 }
 
 .waveFrameFodi .waveTimelineBody {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.waveTimelineBodyFodi {
+  --portrait-ruler-h: calc(14px + 8mm);
+}
+
+/** FODI: 秒数目盛りを +3mm 高くし、スライド操作しやすくする */
+.waveRulerFodi {
+  height: calc(14px + 8mm);
+  min-height: calc(14px + 8mm);
+}
+
+.waveRulerFodi .rulerTick {
+  font-size: 11px;
+}
+
+.playheadLineFodi {
+  pointer-events: none;
+  cursor: default;
 }
 
 /** 横画面下部（波形のみ）は LandscapeBottomWaveBar 側で開始位置の余白を確保済みなので二重にしない */

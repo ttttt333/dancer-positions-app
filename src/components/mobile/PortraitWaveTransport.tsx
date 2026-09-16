@@ -834,11 +834,17 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const onPlayheadPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0 || !audioUrl || duration <= 0) return;
+      /** FODI: 再生バー固定。スクロールは秒数目盛りで行う */
+      if (fodiChrome) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       beginPortraitPlayheadDrag(e.clientX, e.clientY, e.pointerId);
     },
-    [audioUrl, duration, beginPortraitPlayheadDrag]
+    [audioUrl, duration, beginPortraitPlayheadDrag, fodiChrome]
   );
 
   const onTimelinePlayheadPointerMove = useCallback(
@@ -890,15 +896,10 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
 
   const isNearPlayhead = useCallback(
     (clientX: number) => {
+      /** FODI: 再生バーは固定。波形上のドラッグでは掴まず、スクロールは秒数目盛り側 */
+      if (fodiChrome) return false;
       const canvas = canvasRef.current;
       if (!canvas || duration <= 0 || waveDrawView.span <= 0) return false;
-      if (fodiChrome && zoom > 1.001) {
-        const rect = canvas.getBoundingClientRect();
-        if (rect.width <= 0) return false;
-        const x = clientX - rect.left;
-        const target = PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC * rect.width;
-        return Math.abs(x - target) <= 22;
-      }
       /**
        * 再生ヘッドの排他ヒットは狭めに。キュー枠端と重なるとき枠操作を優先させる。
        * （描画ヒット帯 44px より狭い）
@@ -919,7 +920,6 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       waveDrawView.span,
       playheadSecForUi,
       fodiChrome,
-      zoom,
     ]
   );
 
@@ -994,21 +994,10 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         if (dist > CUE_DRAG_ARM_PX) {
           clearLongPress();
           clearPendingSingleTap();
-          if (fodiChrome) {
-            /** 横ドラッグ = 波形スライド（再生バー固定） */
-            if (!waveSlideRef.current) {
-              ensureFodiSlideZoom();
-              startScrubSession();
-              waveSlideRef.current = {
-                lastX: origin.x,
-                pointerId: e.pointerId,
-              };
-            }
-            const dx = e.clientX - waveSlideRef.current.lastX;
-            waveSlideRef.current.lastX = e.clientX;
-            if (dx !== 0) slideWaveByDeltaX(dx);
-            return;
-          }
+          /**
+           * FODI: 波形キャンバスではスクロールしない（秒数目盛り側でスライド）。
+           * ここでのドラッグはキュー枠の調整のみ。
+           */
           if (!dragArmedRef.current && pointerDownRef.current) {
             armCanvasDrag(pointerDownRef.current);
           }
@@ -1025,9 +1014,6 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       clearPendingSingleTap,
       armCanvasDrag,
       portraitSeekAtClientX,
-      fodiChrome,
-      ensureFodiSlideZoom,
-      startScrubSession,
       slideWaveByDeltaX,
     ]
   );
@@ -1411,6 +1397,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       <div className={`${styles.waveFrame} ${fodiChrome ? styles.waveFrameFodi : ""}`.trim()}>
         {fodiChrome ? (
           <div className={styles.fodiPlayCol}>
+            <span className={styles.fodiTime} aria-live="polite">
+              {fmt(currentTime)}
+            </span>
             <button
               type="button"
               className={`${ctrlStyles.btn} ${ctrlStyles.btnPrimary} ${styles.fodiPlayBtn}`}
@@ -1424,14 +1413,21 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
                 <TransportIconPlay size={22} className={ctrlStyles.iconPrimary} />
               )}
             </button>
-            <span className={styles.fodiTime}>
-              {fmt(currentTime)}
-            </span>
+            <button
+              type="button"
+              className={`${ctrlStyles.btn} ${styles.fodiStopBtn}`}
+              onClick={handleStop}
+              disabled={!audioUrl}
+              aria-label="停止して先頭へ"
+              title="停止して先頭へ"
+            >
+              <TransportIconStop size={16} className={ctrlStyles.icon} />
+            </button>
           </div>
         ) : null}
         <div
           ref={waveTimelineBodyRef}
-          className={styles.waveTimelineBody}
+          className={`${styles.waveTimelineBody} ${fodiChrome ? styles.waveTimelineBodyFodi : ""}`.trim()}
           onPointerMove={onTimelinePlayheadPointerMove}
           onPointerUp={endPlayheadDrag}
           onPointerCancel={endPlayheadDrag}
@@ -1457,7 +1453,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             </button>
           ) : null}
           <div
-            className={styles.waveRuler}
+            className={`${styles.waveRuler} ${fodiChrome ? styles.waveRulerFodi : ""}`.trim()}
             onPointerDown={onRulerPointerDown}
             onPointerMove={onRulerPointerMove}
             onPointerUp={onRulerPointerUp}
@@ -1466,7 +1462,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             aria-valuemin={0}
             aria-valuemax={duration}
             aria-valuenow={currentTime}
-            aria-label="タイムライン（タップ・ドラッグで再生位置を移動）"
+            aria-label="タイムライン（タップ・ドラッグで波形をスライド）"
           >
             {rulerTicks.map((tick) => {
             const pct = waveTimeToPercent(tick, waveDrawView.start, waveDrawView.span);
@@ -1493,11 +1489,8 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             onPointerCancel={onPointerCancel}
             onClick={onClick}
             onDoubleClick={onDoubleClick}
-            role="slider"
-            aria-valuemin={0}
-            aria-valuemax={duration}
-            aria-valuenow={currentTime}
-            aria-label="波形（タップで再生位置・ドラッグで波形スライド・ダブルタップでキュー追加・長押しでメニュー）"
+            role="img"
+            aria-label="波形（ダブルタップでキュー追加・ドラッグでキュー調整・長押しでメニュー。スクロールは上の秒数目盛り）"
           />
           {showWaveLoadOverlay ? (
             <WaveformLoadOverlay visible compact className={styles.wavePlaceholder} />
@@ -1506,13 +1499,18 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         {duration > 0 && waveDrawView.span > 0 ? (
           <div
             ref={playheadLineRef}
-            className={styles.playheadLine}
+            className={`${styles.playheadLine} ${fodiChrome ? styles.playheadLineFodi : ""}`.trim()}
             style={{ left: "0%" }}
-            role="slider"
-            aria-valuemin={0}
-            aria-valuemax={duration}
-            aria-valuenow={playheadSecForUi}
-            aria-label="再生位置（ドラッグで移動・再生中も操作できます）"
+            role="presentation"
+            aria-hidden={fodiChrome ? true : undefined}
+            aria-valuemin={fodiChrome ? undefined : 0}
+            aria-valuemax={fodiChrome ? undefined : duration}
+            aria-valuenow={fodiChrome ? undefined : playheadSecForUi}
+            aria-label={
+              fodiChrome
+                ? undefined
+                : "再生位置（ドラッグで移動・再生中も操作できます）"
+            }
             onPointerDown={onPlayheadPointerDown}
           />
         ) : null}

@@ -3161,7 +3161,7 @@ body > [data-editor-sheet-root] {
   閉じる・適用は画面左下固定（浮遊 ✕ 閉じるは MobileShell 側で非表示）
 */
 [data-shell-portrait] {
-  --portrait-bottom-bar-h: 140px;
+  --portrait-bottom-bar-h: 152px;
   --formation-picker-actions-h: 52px;
 }
 
