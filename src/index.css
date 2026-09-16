@@ -3131,7 +3131,7 @@ body > [data-editor-sheet-root] {
   閉じる・適用は画面左下固定（浮遊 ✕ 閉じるは MobileShell 側で非表示）
 */
 [data-shell-portrait] {
-  --portrait-bottom-bar-h: 160px;
+  --portrait-bottom-bar-h: 148px;
   --formation-picker-actions-h: 52px;
 }
 
@@ -3198,6 +3198,31 @@ body > [data-editor-sheet-root] {
 
 .formation-preset-picker-actions-inline {
   margin-left: auto;
+}
+
+/* PC 雛形シート: 外側スクロールを止め、ヘッダー＋操作バー固定・一覧だけスクロール */
+[data-editor-sheet="formation-preset-picker"] > div {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/** PC: 閉じる・適用・☆をヘッダー直下の右上に常時表示（一覧だけスクロール） */
+.formation-preset-picker-actions-sticky {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 14px 10px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
+  background: #07090f;
+  z-index: 8;
+}
+
+.formation-preset-picker-actions-sticky button {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
 .add-cue-preset-grid,
@@ -3426,7 +3451,7 @@ body > [data-editor-sheet-root] {
   gap: 8px !important;
 }
 
-/* 縦画面: portal した閉じる・適用を画面最下部左に固定 */
+/* 縦画面: portal した閉じる・適用・☆を画面最下部左に固定（親指が届きやすい） */
 .formation-preset-picker-actions--portrait-docked {
   position: fixed !important;
   left: max(8px, env(safe-area-inset-left, 0px)) !important;
@@ -3451,6 +3476,11 @@ body > [data-editor-sheet-root] {
   padding: 9px 16px !important;
   font-size: 14px !important;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+}
+
+[data-shell-landscape] .formation-preset-picker-actions--portrait-docked {
+  left: max(8px, env(safe-area-inset-left, 0px)) !important;
+  bottom: max(10px, env(safe-area-inset-bottom, 0px)) !important;
 }
 
 /* スマホ: キュー間長押し → 動線設定（全画面シート） */

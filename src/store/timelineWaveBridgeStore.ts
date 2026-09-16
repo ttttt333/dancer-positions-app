@@ -106,15 +106,16 @@ export const useTimelineWaveBridgeStore = create<TimelineWaveBridgeStore>((set, 
   },
   syncPortraitView: (viewStart, zoom) => {
     get().setPortraitViewport(viewStart, zoom);
-    const { api, isPlaying } = {
-      api: get().api,
-      isPlaying: get().api?.isPlaying ?? false,
-    };
+    const api = get().api;
     if (!api || api.duration <= 0) return;
     const z = Math.max(1, zoom);
     const portion = Math.min(1, Math.max(0.02, 1 / z));
     api.setViewPortion(portion);
-    if (!isPlaying && z > 1.001) {
+    /**
+     * 縦画面: 再生中も viewStart を渡す。
+     * null にすると中央追従になり「再生バー固定・波形スライド」が崩れる。
+     */
+    if (z > 1.001) {
       const span = api.duration * portion;
       const maxStart = Math.max(0, api.duration - span);
       api.setWaveViewStartOverride(Math.max(0, Math.min(maxStart, viewStart)));

@@ -317,19 +317,11 @@ export function FormationPresetPickerSheet({
         ? `「${cueLabel}」に反映（${count} 人）`
         : `現在のフォーメーションに反映（${count} 人）`;
 
-  const actionsInline = (
-    <div
-      role="group"
-      aria-label="立ち位置雛形の操作"
-      className="formation-preset-picker-actions-inline"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        flexShrink: 0,
-        flexWrap: "nowrap",
-      }}
-    >
+  /** スマホ: 左下固定 / PC: 右上 sticky（スクロールしても常時表示） */
+  const actionsDocked = portraitFullscreen || landscapeHorizontal;
+
+  const actionsControls = (
+    <>
       <button type="button" onClick={closeAndCleanup} style={cancelBtnCompactStyle}>
         閉じる
       </button>
@@ -349,9 +341,35 @@ export function FormationPresetPickerSheet({
         active={favoritesOnly}
         onToggle={toggleFavoritesOnly}
         count={favoriteCount}
+        style={
+          actionsDocked
+            ? { minHeight: 44, height: 44, boxShadow: "0 4px 18px rgba(0, 0, 0, 0.55)" }
+            : undefined
+        }
       />
-    </div>
+    </>
   );
+
+  const stickyActionsBar = !actionsDocked ? (
+    <div
+      role="group"
+      aria-label="立ち位置雛形の操作"
+      className="formation-preset-picker-actions-sticky"
+    >
+      {actionsControls}
+    </div>
+  ) : null;
+
+  const dockedActionsBar =
+    actionsDocked && typeof document !== "undefined" ? (
+      <div
+        role="group"
+        aria-label="立ち位置雛形の操作"
+        className="formation-preset-picker-actions formation-preset-picker-actions--portrait-docked"
+      >
+        {actionsControls}
+      </div>
+    ) : null;
 
   // 横画面はドック表示・波形たたみ表示のどちらも同じ大きな正方グリッドを使い、見やすさを揃える
   const useBigGrid = portraitFullscreen || landscapeHorizontal;
@@ -380,37 +398,19 @@ export function FormationPresetPickerSheet({
       {visiblePresetCategories.length === 0 ? (
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
+            padding: "24px 12px",
+            textAlign: "center",
+            color: "#64748b",
+            fontSize: 12,
+            lineHeight: 1.5,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              gap: 8,
-            }}
-          >
-            {actionsInline}
-          </div>
-          <div
-            style={{
-              padding: "24px 12px",
-              textAlign: "center",
-              color: "#64748b",
-              fontSize: 12,
-              lineHeight: 1.5,
-            }}
-          >
-            {favoritesOnly
-              ? "お気に入りの雛形がありません。☆を押して追加できます。"
-              : "表示できる雛形がありません。"}
-          </div>
+          {favoritesOnly
+            ? "お気に入りの雛形がありません。☆を押して追加できます。"
+            : "表示できる雛形がありません。"}
         </div>
       ) : (
-        visiblePresetCategories.map((cat, catIndex) => (
+        visiblePresetCategories.map((cat) => (
         <div key={cat.label} className="formation-preset-picker-category">
           <div
             className="formation-preset-picker-category-heading"
@@ -426,7 +426,6 @@ export function FormationPresetPickerSheet({
             <div className="add-cue-preset-category formation-preset-picker-category-label">
               {cat.label}
             </div>
-            {catIndex === 0 ? actionsInline : null}
           </div>
           <div
             className={
@@ -517,6 +516,7 @@ export function FormationPresetPickerSheet({
           {sheetHeader}
           {presetGrid}
         </div>
+        {dockedActionsBar}
       </>,
       document.body
     );
@@ -535,6 +535,7 @@ export function FormationPresetPickerSheet({
           {sheetHeader}
           {presetGrid}
         </div>
+        {dockedActionsBar}
       </>,
       document.body
     );
@@ -554,7 +555,9 @@ export function FormationPresetPickerSheet({
         style={{
           display: "flex",
           flexDirection: "column",
+          height: "100%",
           minHeight: "100%",
+          overflow: "hidden",
           color: "#e2e8f0",
         }}
       >
@@ -594,6 +597,7 @@ export function FormationPresetPickerSheet({
             />
           </div>
         </div>
+        {stickyActionsBar}
         {presetGrid}
       </div>
     </EditorSideSheet>

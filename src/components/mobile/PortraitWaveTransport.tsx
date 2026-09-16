@@ -223,9 +223,13 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             viewPortion,
             anchorTimeSec: playheadSecForUi,
             isPlaying,
-            viewStartOverride: isPlaying ? null : viewStart,
+            /**
+             * FODI 風: 再生中も viewStart を使い、再生バー位置を固定して波形をスライド。
+             * （null にすると中央追従の別経路になり、やや左固定が効かない）
+             */
+            viewStartOverride: fodiChrome ? viewStart : isPlaying ? null : viewStart,
           }),
-    [duration, viewPortion, playheadSecForUi, isPlaying, viewStart]
+    [duration, viewPortion, playheadSecForUi, isPlaying, viewStart, fodiChrome]
   );
 
   const viewEnd = waveDrawView.end;
@@ -299,6 +303,41 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     viewPortion,
     viewDuration,
     fodiChrome,
+  ]);
+
+  /**
+   * FODI 風: 再生中は rAF で viewStart を毎フレーム更新し、再生バーを左寄り固定・波形スライド。
+   */
+  useEffect(() => {
+    if (!fodiChrome || !isPlaying || zoom <= 1 || duration <= 0) return;
+    let raf = 0;
+    const tick = () => {
+      if (!scrubActiveRef.current && !playheadDragRef.current) {
+        const eng = playbackEngine.getCurrentTime();
+        if (Number.isFinite(eng)) {
+          const start = resolveWavePlayheadFollowViewStart(
+            eng,
+            duration,
+            viewPortion,
+            PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC
+          );
+          const next = clampViewStart(start, viewDuration, duration);
+          setViewStart((vs) => (Math.abs(vs - next) < 0.0004 ? vs : next));
+          bridgeApi?.drawWaveformAt(eng);
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [
+    fodiChrome,
+    isPlaying,
+    zoom,
+    duration,
+    viewPortion,
+    viewDuration,
+    bridgeApi,
   ]);
 
   const resolvePlayheadTimeForDraw = useCallback(() => {
@@ -596,6 +635,20 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     },
     [duration]
   );
+
+  /**
+   * FODI 風: 全体表示のまま再生すると再生バーが横移動してしまうので、
+   * 再生開始時に自動で「スライド追従できる倍率」へ上げる。
+   */
+  useEffect(() => {
+    if (!fodiChrome || !isPlaying || duration <= 0) return;
+    if (zoom > 1.08) return;
+    const targetSpan = Math.min(duration, Math.max(8, duration / 12));
+    const z = Math.min(MAX_ZOOM, Math.max(1.25, duration / targetSpan));
+    applyZoomCenteredOnPlayhead(z, playheadSecForUi);
+    // 再生開始の一度だけ。zoom を依存に入れると拡大ループになる
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fodiChrome, isPlaying, duration, applyZoomCenteredOnPlayhead]);
 
   const clearLongPress = useCallback(() => {
     if (longPressTimerRef.current != null) {

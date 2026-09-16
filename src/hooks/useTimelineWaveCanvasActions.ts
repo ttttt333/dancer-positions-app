@@ -505,6 +505,33 @@ export function useTimelineWaveCanvasActions({
       const portraitActive = useTimelineWaveBridgeStore.getState().portraitActive;
       const gapTouchPad = portraitActive ? MOBILE_GAP_TOUCH_PADDING_PX : PC_GAP_LONG_PRESS_PAD_PX;
 
+      /**
+       * 空白（移動）区間を先に判定。
+       * pickCueIdAtWave は空白も直前キューの選択に含めるため、順序を逆にすると動線メニューが出せない。
+       */
+      const gapLink = pickGapLinkAtWave(
+        clientX,
+        clientY,
+        c,
+        cuesSorted,
+        viewStart,
+        viewSpan,
+        cueDragPreviewRangeRef.current,
+        gapTouchPad
+      );
+      if (gapLink) {
+        setWaveCueMenu(null);
+        setWaveCueConfirm(null);
+        onSelectedCueIdsChange([gapLink.nextCueId]);
+        setGapRouteMenu({
+          nextCueId: gapLink.nextCueId,
+          clientX,
+          clientY,
+          ...(portraitActive ? { fullscreen: true } : {}),
+        });
+        return;
+      }
+
       const cueId = pickCueIdAtWave(
         clientX,
         clientY,
@@ -572,29 +599,7 @@ export function useTimelineWaveCanvasActions({
           clientY: portraitActive ? menuClientY : clientY,
           ...(portraitActive ? { fullscreen: true } : {}),
         });
-        return;
       }
-
-      const gapLink = pickGapLinkAtWave(
-        clientX,
-        clientY,
-        c,
-        cuesSorted,
-        viewStart,
-        viewSpan,
-        cueDragPreviewRangeRef.current,
-        gapTouchPad
-      );
-      if (!gapLink) return;
-      setWaveCueMenu(null);
-      setWaveCueConfirm(null);
-      onSelectedCueIdsChange([gapLink.nextCueId]);
-      setGapRouteMenu({
-        nextCueId: gapLink.nextCueId,
-        clientX,
-        clientY,
-        ...(portraitActive ? { fullscreen: true } : {}),
-      });
     },
     [
       viewMode,

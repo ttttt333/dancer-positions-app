@@ -667,6 +667,10 @@ export function resolveWaveDrawView(params: {
         span,
       };
     }
+    /**
+     * 再生中も override を優先（縦画面の固定再生バー＋波形スライド）。
+     * playhead が窓外なら従来どおり中央追従へフォールバック。
+     */
     if (
       Number.isFinite(anchorTimeSec) &&
       isPlayheadSecInWaveView(anchorTimeSec, viewStartOverride, span)

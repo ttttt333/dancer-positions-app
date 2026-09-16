@@ -130,8 +130,8 @@
 /* ── ダイアログ浮遊閉じるボタン（全メニュー共通: 左下・左親指位置） ── */
 .floatingClose {
   position: fixed;
-  /* 縦画面: FODI風3段バー（編集行+波形+メニュー）の上 */
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 168px);
+  /* 縦画面: FODI風3段バーの上（メニューを下端へ寄せた分を反映） */
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 142px);
   left: max(16px, env(safe-area-inset-left, 16px));
   z-index: 500;
   background: rgba(17, 24, 39, 0.92);
