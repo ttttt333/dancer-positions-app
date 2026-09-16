@@ -1536,7 +1536,7 @@ export function AddCueWithFormationDialog({
         </div>
 
         <div className="add-cue-with-formation-dialog-footer" style={footerStyle}>
-          <span style={{ marginRight: "auto", fontSize: "11px", color: "#64748b", minWidth: 0 }}>
+          <span className="add-cue-with-formation-dialog-footer-preview" style={{ marginRight: "auto", fontSize: "11px", color: "#64748b", minWidth: 0 }}>
             {dancerCountPreview > 0 ? (
               <>
                 プレビュー <strong style={{ color: "#cbd5e1" }}>{dancerCountPreview} 人</strong>
@@ -1549,6 +1549,7 @@ export function AddCueWithFormationDialog({
             )}
           </span>
           <div
+            className="add-cue-with-formation-dialog-footer-actions"
             style={{
               display: "flex",
               flexWrap: "wrap",
