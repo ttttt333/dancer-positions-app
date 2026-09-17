@@ -15,6 +15,7 @@ import {
 } from "../lib/formationPresetTiers";
 import {
   firstPresetIdInCategories,
+  splitClassicPresetCategories,
   useFormationPresetCategoryPreviews,
 } from "../hooks/useFormationPresetCategoryPreviews";
 import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
@@ -65,6 +66,7 @@ export function RosterPresetPickModal({
   /** 選択中の雛形（未確定状態） */
   const [selectedPresetId, setSelectedPresetId] = useState<LayoutPresetId | null>(null);
   const [showAllTiers, setShowAllTiers] = useState(false);
+  const [basicTab, setBasicTab] = useState(true);
   const {
     favoriteSet,
     favoriteCount,
@@ -84,11 +86,18 @@ export function RosterPresetPickModal({
   );
 
   const categoryPreviews = useFormationPresetCategoryPreviews(n, spacingOpts, showAllTiers);
-  const visibleCategories = useMemo(
-    () =>
-      filterPresetItemsByFavorites(categoryPreviews, favoriteSet, favoritesOnly),
-    [categoryPreviews, favoriteSet, favoritesOnly]
-  );
+  const visibleCategories = useMemo(() => {
+    const filtered = filterPresetItemsByFavorites(
+      categoryPreviews,
+      favoriteSet,
+      favoritesOnly
+    );
+    const { classic, catalog } = splitClassicPresetCategories(filtered);
+    if (basicTab) {
+      return classic && classic.items.length > 0 ? [classic] : [];
+    }
+    return catalog;
+  }, [categoryPreviews, favoriteSet, favoritesOnly, basicTab]);
 
   const hiddenTierCount = useMemo(
     () => countPresetsAboveTierFrom(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER),
@@ -120,6 +129,7 @@ export function RosterPresetPickModal({
     setSelectedPresetId(null);
     setShowAllTiers(false);
     setFavoritesOnly(false);
+    setBasicTab(true);
     onClose();
   }, [onPreviewPreset, onClose, setFavoritesOnly]);
 
@@ -128,6 +138,7 @@ export function RosterPresetPickModal({
       setSelectedPresetId(null);
       setShowAllTiers(false);
       setFavoritesOnly(false);
+      setBasicTab(true);
       return;
     }
     if (!selectedPresetId) return;
@@ -135,7 +146,7 @@ export function RosterPresetPickModal({
     const stillVisible = visibleCategories.some((cat) =>
       cat.items.some((item) => item.id === selectedPresetId)
     );
-    if (getPresetTier(selectedPresetId) > maxTier || !stillVisible) {
+    if ((!basicTab && getPresetTier(selectedPresetId) > maxTier) || !stillVisible) {
       const next = firstPresetIdInCategories(visibleCategories);
       setSelectedPresetId(next);
       onPreviewPreset?.(next);
@@ -147,6 +158,7 @@ export function RosterPresetPickModal({
     visibleCategories,
     onPreviewPreset,
     setFavoritesOnly,
+    basicTab,
   ]);
 
   const sortSelectValue =
@@ -318,11 +330,15 @@ export function RosterPresetPickModal({
             >
               2. 立ち位置の雛形を選ぶ
             </div>
-            <FormationPresetTierToggle
-              showAll={showAllTiers}
-              onToggle={() => setShowAllTiers((v) => !v)}
-              hiddenCount={hiddenTierCount}
-            />
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              {!basicTab ? (
+                <FormationPresetTierToggle
+                  showAll={showAllTiers}
+                  onToggle={() => setShowAllTiers((v) => !v)}
+                  hiddenCount={hiddenTierCount}
+                />
+              ) : null}
+            </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -330,7 +346,9 @@ export function RosterPresetPickModal({
               <div style={{ fontSize: 12, color: "#64748b", padding: "8px 0" }}>
                 {favoritesOnly
                   ? "お気に入りの雛形がありません。☆を押して追加できます。"
-                  : "表示できる雛形がありません。"}
+                  : basicTab
+                    ? "定番の提案がありません。"
+                    : "表示できる雛形がありません。"}
               </div>
             ) : (
               visibleCategories.map((cat) => (
@@ -430,6 +448,29 @@ export function RosterPresetPickModal({
             count={favoriteCount}
             style={{ marginLeft: "auto" }}
           />
+          <button
+            type="button"
+            onClick={() => setBasicTab((v) => !v)}
+            aria-pressed={basicTab}
+            title={
+              basicTab ? "すべての雛形カテゴリを表示" : "定番の提案だけを表示"
+            }
+            style={{
+              padding: "7px 12px",
+              borderRadius: 8,
+              border: basicTab ? "1px solid #d4af37" : "1px solid #334155",
+              background: basicTab
+                ? "rgba(212,175,55,0.22)"
+                : "rgba(15,23,42,0.94)",
+              color: basicTab ? "#fef3c7" : "#94a3b8",
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: "0.06em",
+              cursor: "pointer",
+            }}
+          >
+            BASIC
+          </button>
         </div>
       </div>
     </EditorSideSheet>

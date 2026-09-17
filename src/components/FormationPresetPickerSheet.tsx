@@ -21,11 +21,11 @@ import { useStageBoardInteractionStore } from "../store/stage/stageBoardInteract
 import {
   countPresetsAboveTierFrom,
   DEFAULT_UI_PRESET_MAX_TIER,
-  filterPresetCategories,
   getPresetTier,
 } from "../lib/formationPresetTiers";
 import {
   firstPresetIdInCategories,
+  splitClassicPresetCategories,
   useFormationPresetCategoryPreviews,
 } from "../hooks/useFormationPresetCategoryPreviews";
 import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
@@ -190,6 +190,8 @@ export function FormationPresetPickerSheet({
     null
   );
   const [showAllTiers, setShowAllTiers] = useState(false);
+  /** true = 定番の提案のみ（BASIC タブ） */
+  const [basicTab, setBasicTab] = useState(true);
   const {
     favoriteSet,
     favoriteCount,
@@ -221,15 +223,18 @@ export function FormationPresetPickerSheet({
     showAllTiers
   );
 
-  const visiblePresetCategories = useMemo(
-    () =>
-      filterPresetItemsByFavorites(
-        presetCategoryPreviews,
-        favoriteSet,
-        favoritesOnly
-      ),
-    [presetCategoryPreviews, favoriteSet, favoritesOnly]
-  );
+  const visiblePresetCategories = useMemo(() => {
+    const filtered = filterPresetItemsByFavorites(
+      presetCategoryPreviews,
+      favoriteSet,
+      favoritesOnly
+    );
+    const { classic, catalog } = splitClassicPresetCategories(filtered);
+    if (basicTab) {
+      return classic && classic.items.length > 0 ? [classic] : [];
+    }
+    return catalog;
+  }, [presetCategoryPreviews, favoriteSet, favoritesOnly, basicTab]);
 
   const hiddenTierCount = useMemo(
     () => countPresetsAboveTierFrom(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER),
@@ -262,6 +267,7 @@ export function FormationPresetPickerSheet({
     if (open && !wasOpenRef.current) {
       setShowAllTiers(false);
       setFavoritesOnly(false);
+      setBasicTab(true);
       setSelectedPresetId("classic_pyramid");
     }
     wasOpenRef.current = open;
@@ -269,6 +275,7 @@ export function FormationPresetPickerSheet({
       setSelectedPresetId(null);
       setShowAllTiers(false);
       setFavoritesOnly(false);
+      setBasicTab(true);
     }
   }, [open, setFavoritesOnly]);
 
@@ -278,7 +285,10 @@ export function FormationPresetPickerSheet({
     const stillVisible = visiblePresetCategories.some((cat) =>
       cat.items.some((item) => item.id === selectedPresetId)
     );
-    if (getPresetTier(selectedPresetId) > maxTier || !stillVisible) {
+    if (
+      (!basicTab && getPresetTier(selectedPresetId) > maxTier) ||
+      !stillVisible
+    ) {
       setSelectedPresetId(firstPresetIdInCategories(visiblePresetCategories));
     }
   }, [
@@ -286,6 +296,7 @@ export function FormationPresetPickerSheet({
     showAllTiers,
     selectedPresetId,
     visiblePresetCategories,
+    basicTab,
   ]);
 
   useEffect(() => {
@@ -370,6 +381,22 @@ export function FormationPresetPickerSheet({
             : undefined
         }
       />
+      <button
+        type="button"
+        onClick={() => setBasicTab((v) => !v)}
+        aria-pressed={basicTab}
+        title={basicTab ? "すべての雛形カテゴリを表示" : "定番の提案だけを表示"}
+        style={{
+          ...basicTabBtnStyle,
+          ...(basicTab ? basicTabBtnActiveStyle : null),
+          marginLeft: "auto",
+          ...(actionsDocked
+            ? { minHeight: 44, height: 44, boxShadow: "0 4px 18px rgba(0, 0, 0, 0.55)" }
+            : null),
+        }}
+      >
+        BASIC
+      </button>
     </>
   );
 
@@ -430,11 +457,14 @@ export function FormationPresetPickerSheet({
         >
           {favoritesOnly
             ? "お気に入りの雛形がありません。☆を押して追加できます。"
-            : "表示できる雛形がありません。"}
+            : basicTab
+              ? "定番の提案がありません。"
+              : "表示できる雛形がありません。"}
         </div>
       ) : (
         visiblePresetCategories.map((cat) => (
         <div key={cat.label} className="formation-preset-picker-category">
+          {basicTab ? null : (
           <div
             className="formation-preset-picker-category-heading"
             style={{
@@ -450,6 +480,15 @@ export function FormationPresetPickerSheet({
               {cat.label}
             </div>
           </div>
+          )}
+          {basicTab ? (
+            <div
+              className="add-cue-preset-category formation-preset-picker-category-label"
+              style={{ marginBottom: 6 }}
+            >
+              定番の提案
+            </div>
+          ) : null}
           <div
             className={
               useBigGrid ? "formation-preset-picker-grid" : "add-cue-preset-grid"
@@ -514,7 +553,12 @@ export function FormationPresetPickerSheet({
           showAll={showAllTiers}
           onToggle={() => setShowAllTiers((v) => !v)}
           hiddenCount={hiddenTierCount}
-          style={{ flexShrink: 0, marginTop: 2 }}
+          style={{
+            flexShrink: 0,
+            marginTop: 2,
+            visibility: basicTab ? "hidden" : "visible",
+            pointerEvents: basicTab ? "none" : "auto",
+          }}
         />
       </div>
     </div>
@@ -616,7 +660,12 @@ export function FormationPresetPickerSheet({
               showAll={showAllTiers}
               onToggle={() => setShowAllTiers((v) => !v)}
               hiddenCount={hiddenTierCount}
-              style={{ flexShrink: 0, marginTop: 2 }}
+              style={{
+                flexShrink: 0,
+                marginTop: 2,
+                visibility: basicTab ? "hidden" : "visible",
+                pointerEvents: basicTab ? "none" : "auto",
+              }}
             />
           </div>
         </div>
@@ -657,4 +706,23 @@ const applyBtnCompactStyle: CSSProperties = {
   fontWeight: 700,
   cursor: "pointer",
   whiteSpace: "nowrap",
+};
+
+const basicTabBtnStyle: CSSProperties = {
+  padding: "6px 12px",
+  borderRadius: "8px",
+  border: "1px solid #334155",
+  background: "rgba(15,23,42,0.94)",
+  color: "#94a3b8",
+  fontSize: "11px",
+  fontWeight: 800,
+  letterSpacing: "0.06em",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const basicTabBtnActiveStyle: CSSProperties = {
+  border: "1px solid #d4af37",
+  background: "rgba(212,175,55,0.22)",
+  color: "#fef3c7",
 };

@@ -13,6 +13,8 @@ import {
   type PresetTier,
 } from "../lib/formationPresetTiers";
 
+export const CLASSIC_PRESET_CATEGORY_LABEL = "定番の提案";
+
 export type FormationPresetPreviewItem = {
   id: LayoutPresetId;
   label: string;
@@ -23,6 +25,24 @@ export type FormationPresetCategoryPreview = {
   label: string;
   items: FormationPresetPreviewItem[];
 };
+
+export function splitClassicPresetCategories(
+  categories: FormationPresetCategoryPreview[]
+): {
+  classic: FormationPresetCategoryPreview | null;
+  catalog: FormationPresetCategoryPreview[];
+} {
+  let classic: FormationPresetCategoryPreview | null = null;
+  const catalog: FormationPresetCategoryPreview[] = [];
+  for (const cat of categories) {
+    if (cat.label === CLASSIC_PRESET_CATEGORY_LABEL) {
+      classic = cat;
+    } else {
+      catalog.push(cat);
+    }
+  }
+  return { classic, catalog };
+}
 
 export function useFormationPresetCategoryPreviews(
   count: number,
@@ -56,7 +76,10 @@ export function useFormationPresetCategoryPreviews(
       })
     );
 
-    return [{ label: "定番の提案", items: classicItems }, ...rest];
+    return [
+      { label: CLASSIC_PRESET_CATEGORY_LABEL, items: classicItems },
+      ...rest,
+    ];
   }, [maxTier, n, spacingOpts.dancerSpacingMm, spacingOpts.stageWidthMm]);
 }
 
