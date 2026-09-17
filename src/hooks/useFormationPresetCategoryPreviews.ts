@@ -6,6 +6,7 @@ import {
   PRESET_CATEGORIES,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
+import { classicSuggestionEntries } from "../lib/formationClassicSuggestions";
 import {
   DEFAULT_UI_PRESET_MAX_TIER,
   filterPresetCategories,
@@ -31,26 +32,32 @@ export function useFormationPresetCategoryPreviews(
   const maxTier: PresetTier = showAllTiers ? 3 : DEFAULT_UI_PRESET_MAX_TIER;
   const n = Math.max(1, count);
 
-  return useMemo(
-    () =>
-      filterPresetCategories(PRESET_CATEGORIES, maxTier).map((cat) => ({
+  return useMemo(() => {
+    const opts = {
+      dancerSpacingMm: spacingOpts.dancerSpacingMm ?? undefined,
+      stageWidthMm: spacingOpts.stageWidthMm ?? undefined,
+    };
+    const classicItems: FormationPresetPreviewItem[] = classicSuggestionEntries(
+      n
+    ).map((entry) => ({
+      id: entry.id as LayoutPresetId,
+      label: entry.label,
+      dancers: dancersForLayoutPreset(n, entry.id as LayoutPresetId, opts),
+    }));
+
+    const rest = filterPresetCategories(PRESET_CATEGORIES, maxTier).map(
+      (cat) => ({
         label: cat.label,
         items: cat.ids.map((id) => ({
           id,
           label: LAYOUT_PRESET_LABELS[id] ?? id,
-          dancers: dancersForLayoutPreset(n, id, {
-            dancerSpacingMm: spacingOpts.dancerSpacingMm ?? undefined,
-            stageWidthMm: spacingOpts.stageWidthMm ?? undefined,
-          }),
+          dancers: dancersForLayoutPreset(n, id, opts),
         })),
-      })),
-    [
-      maxTier,
-      n,
-      spacingOpts.dancerSpacingMm,
-      spacingOpts.stageWidthMm,
-    ]
-  );
+      })
+    );
+
+    return [{ label: "定番の提案", items: classicItems }, ...rest];
+  }, [maxTier, n, spacingOpts.dancerSpacingMm, spacingOpts.stageWidthMm]);
 }
 
 export function firstPresetIdInCategories(

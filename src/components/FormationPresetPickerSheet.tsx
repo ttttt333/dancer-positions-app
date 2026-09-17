@@ -262,10 +262,7 @@ export function FormationPresetPickerSheet({
     if (open && !wasOpenRef.current) {
       setShowAllTiers(false);
       setFavoritesOnly(false);
-      const first =
-        filterPresetCategories(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER)[0]
-          ?.ids[0] ?? null;
-      setSelectedPresetId(first);
+      setSelectedPresetId("classic_pyramid");
     }
     wasOpenRef.current = open;
     if (!open) {

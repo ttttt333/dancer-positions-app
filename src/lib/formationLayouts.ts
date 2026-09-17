@@ -24,6 +24,10 @@ import {
   COMPOSITE_LAYOUT_PRESET_OPTIONS,
   tryApplyCompositeLayoutPreset,
 } from "./formationLayoutPresetsComposite";
+import {
+  CLASSIC_LAYOUT_PRESET_OPTIONS,
+  tryApplyClassicLayoutPreset,
+} from "./formationClassicSuggestions";
 import { getPresetTier } from "./formationPresetTiers";
 import { minCostBipartiteAssignment } from "./minCostAssignment";
 import {
@@ -651,6 +655,7 @@ export const LAYOUT_PRESET_OPTIONS = [
   ...EXTRA_LAYOUT_PRESET_OPTIONS,
   ...GALLERY_LAYOUT_PRESET_OPTIONS,
   ...COMPOSITE_LAYOUT_PRESET_OPTIONS,
+  ...CLASSIC_LAYOUT_PRESET_OPTIONS,
 ] as const;
 
 export type LayoutPresetId = (typeof LAYOUT_PRESET_OPTIONS)[number]["id"];
@@ -2883,7 +2888,8 @@ export function dancersForLayoutPreset(
       if (
         !tryApplyExtraLayoutPreset(preset, n, out) &&
         !tryApplyGalleryLayoutPreset(preset, n, out) &&
-        !tryApplyCompositeLayoutPreset(preset, n, out)
+        !tryApplyCompositeLayoutPreset(preset, n, out) &&
+        !tryApplyClassicLayoutPreset(preset, n, out)
       ) {
         for (let i = 0; i < n; i++) {
           const x = n === 1 ? 50 : 12 + ((76 * i) / (n - 1 || 1));

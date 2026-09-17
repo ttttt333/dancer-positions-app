@@ -88,10 +88,8 @@ type Props = {
 };
 
 const PRESETS = LAYOUT_PRESET_OPTIONS;
-const DEFAULT_TEMPLATE_PRESET_ID =
-  filterPresetCategories(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER)[0]?.ids[0] ??
-  PRESETS[0]?.id ??
-  null;
+const DEFAULT_TEMPLATE_PRESET_ID: LayoutPresetId =
+  "classic_pyramid";
 
 function formatSec(s: number): string {
   if (!Number.isFinite(s) || s < 0) return "0:00.0";
