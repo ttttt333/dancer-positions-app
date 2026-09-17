@@ -6,7 +6,6 @@ import {
 import {
   dancersForLayoutPreset,
   transferDancerIdentitiesByNearestPosition,
-  transferDancerIdentitiesByOrder,
   type LayoutPresetId,
   type LayoutPresetOptions,
 } from "./formationLayouts";
@@ -105,14 +104,33 @@ export function translateSpotsToMatchCentroid(
 }
 
 /**
+ * 最短距離マッチ用の「前の立ち位置」。
+ * matchSource にあればその座標を使い、身元は targets 側を保つ。
+ */
+export function resolveNearestMatchSpots(
+  targets: readonly DancerSpot[],
+  matchSource?: readonly DancerSpot[] | null
+): DancerSpot[] {
+  if (!matchSource || matchSource.length === 0) return [...targets];
+  const byId = new Map(matchSource.map((d) => [d.id, d]));
+  return targets.map((d) => {
+    const src = byId.get(d.id);
+    if (!src) return d;
+    return { ...d, xPct: src.xPct, yPct: src.yPct };
+  });
+}
+
+/**
  * 雛形を targetIds にだけ当てる。配列順と未選択の座標は変えない。
- * 全員対象のときは既存 Change と同じ（順番で identity を載せる）。
+ * 全員対象でも前の立ち位置から最短（Hungarian）で割り当てる。
+ * matchSource を渡すと直前キューなど別フォーメーションの座標を距離基準にする。
  */
 export function applyLayoutPresetToTargetDancers(
   dancers: DancerSpot[],
   targetIds: readonly string[],
   presetId: LayoutPresetId,
-  opts?: LayoutPresetOptions
+  opts?: LayoutPresetOptions,
+  matchSource?: readonly DancerSpot[] | null
 ): DancerSpot[] {
   if (dancers.length === 0) return dancers;
   const idSet = new Set(targetIds);
@@ -122,14 +140,21 @@ export function applyLayoutPresetToTargetDancers(
   const positioned = dancersForLayoutPreset(targets.length, presetId, opts);
   if (positioned.length === 0) return dancers;
 
-  if (isFullFormationTarget(dancers, targetIds)) {
-    return transferDancerIdentitiesByOrder(positioned, dancers);
-  }
-
+  const matchSpots = resolveNearestMatchSpots(targets, matchSource);
   const assigned = transferDancerIdentitiesByNearestPosition(
     positioned,
-    targets
+    matchSpots
   );
+
+  if (isFullFormationTarget(dancers, targetIds)) {
+    const byId = new Map(assigned.map((d) => [d.id, d]));
+    return dancers.map((d) => {
+      const next = byId.get(d.id);
+      if (!next) return d;
+      return { ...d, xPct: next.xPct, yPct: next.yPct };
+    });
+  }
+
   const placed = translateSpotsToMatchCentroid(assigned, targets);
   const byId = new Map(placed.map((d) => [d.id, d]));
   return dancers.map((d) => {
@@ -141,13 +166,13 @@ export function applyLayoutPresetToTargetDancers(
 
 /**
  * 形プレビュー用。配列順は変えない。id → 新座標だけ返す。
- * 全員対象でも順番入れ替えはしない（Apply は x/y だけ書く）。
  */
 export function layoutPresetPositionsById(
   dancers: readonly DancerSpot[],
   targetIds: readonly string[],
   presetId: LayoutPresetId,
-  opts?: LayoutPresetOptions
+  opts?: LayoutPresetOptions,
+  matchSource?: readonly DancerSpot[] | null
 ): Map<string, StagePosPct> {
   const positions = new Map<string, StagePosPct>();
   const idSet = new Set(targetIds);
@@ -157,9 +182,10 @@ export function layoutPresetPositionsById(
   const positioned = dancersForLayoutPreset(targets.length, presetId, opts);
   if (positioned.length === 0) return positions;
 
+  const matchSpots = resolveNearestMatchSpots(targets, matchSource);
   const assigned = transferDancerIdentitiesByNearestPosition(
     positioned,
-    targets
+    matchSpots
   );
   const placed = isFullFormationTarget(dancers, targetIds)
     ? assigned

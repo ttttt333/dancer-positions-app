@@ -3010,87 +3010,102 @@ export function transferDancerIdentitiesByOrder(
 }
 
 /**
- * プリセット座標に、既存ダンサーを「位置が近い順」で割り当てる。
- * 最小費用マッチングで greedy の罠を避ける（AI提案・形の箱適用向け）。
+ * プリセット座標へ、既存ダンサーを「前の立ち位置から移動距離の総和が最小」になるよう割り当てて
+ * id / 表示 / 名簿紐付けを引き継ぐ。
+ *
+ * 貪欲な「近い順に確定」だと、中央付近の取り合いで端の人が遠くへ押し出されることがあるため、
+ * 最小費用マッチング（Hungarian）で全体最適にする。
+ *
+ * 重要: 出力配列の並びは identitySource（前キュー）の順を保つ。
+ * キュー間ギャップ補間は配列インデックスでも結ぶため、雛形スロット順に並べ替えると
+ * 「移動の途中で別人の場所へ入る」見た目になる。座標だけ最寄りスロットへ移す。
  */
 export function transferDancerIdentitiesByNearestPosition(
   positioned: DancerSpot[],
   identitySource: DancerSpot[]
 ): DancerSpot[] {
   if (positioned.length === 0) return [];
-  if (identitySource.length === 0) return positioned;
+  if (identitySource.length === 0) return positioned.map((d) => ({ ...d }));
 
-  const n = Math.min(positioned.length, identitySource.length);
-  const cost: number[][] = [];
-  for (let i = 0; i < n; i++) {
-    const src = identitySource[i]!;
-    const row: number[] = [];
-    for (let j = 0; j < positioned.length; j++) {
-      const dst = positioned[j]!;
-      const dx = src.xPct - dst.xPct;
-      const dy = src.yPct - dst.yPct;
-      row.push(dx * dx + dy * dy);
-    }
-    cost.push(row);
-  }
-
+  const cost: number[][] = identitySource.map((od) =>
+    positioned.map((nd) => {
+      const dx = od.xPct - nd.xPct;
+      const dy = od.yPct - nd.yPct;
+      return dx * dx + dy * dy;
+    })
+  );
   const assignment = minCostBipartiteAssignment(cost);
-  const usedSlots = new Set<number>();
-  const out: DancerSpot[] = positioned.map((p) => ({ ...p }));
 
-  for (let i = 0; i < assignment.length; i++) {
-    const slot = assignment[i]!;
-    if (slot < 0 || slot >= out.length) continue;
-    usedSlots.add(slot);
-    const od = identitySource[i]!;
-    const nd = out[slot]!;
-    const markerBadge =
-      od.crewMemberId
-        ? ""
-        : od.markerBadge !== undefined
-          ? od.markerBadge
-          : nd.markerBadge;
-    const markerBadgeSource = od.crewMemberId
-      ? undefined
-      : od.markerBadgeSource;
-    out[slot] = {
-      ...nd,
-      id: od.id,
-      label: od.label,
-      colorIndex: od.colorIndex,
-      crewMemberId: od.crewMemberId,
-      markerBadge,
-      markerBadgeSource,
-      sizePx: od.sizePx ?? nd.sizePx,
-      note: od.note ?? nd.note,
-      heightCm: od.heightCm ?? nd.heightCm,
-    };
+  const usedNew = new Set<number>();
+  /** oldIndex → newSlotIndex */
+  const oldToNew = new Map<number, number>();
+  for (let oi = 0; oi < assignment.length; oi++) {
+    const ni = assignment[oi]!;
+    if (ni < 0) continue;
+    oldToNew.set(oi, ni);
+    usedNew.add(ni);
   }
 
-  // 余った identity は未使用スロットへ順番で埋める
-  let nextId = n;
-  for (let j = 0; j < out.length; j++) {
-    if (usedSlots.has(j)) continue;
-    const od = identitySource[nextId++];
-    if (!od) break;
-    const nd = out[j]!;
-    out[j] = {
-      ...nd,
-      id: od.id,
-      label: od.label,
-      colorIndex: od.colorIndex,
-      crewMemberId: od.crewMemberId,
-      markerBadge: od.crewMemberId
-        ? ""
-        : od.markerBadge !== undefined
-          ? od.markerBadge
-          : nd.markerBadge,
-      markerBadgeSource: od.crewMemberId ? undefined : od.markerBadgeSource,
-      sizePx: od.sizePx ?? nd.sizePx,
-      note: od.note ?? nd.note,
-      heightCm: od.heightCm ?? nd.heightCm,
-    };
+  const inheritCenterDistance = identitySource.some(
+    (d) => d.markerBadgeSource === "centerDistance"
+  );
+
+  const result: DancerSpot[] = [];
+  for (let oi = 0; oi < identitySource.length; oi++) {
+    const ni = oldToNew.get(oi);
+    if (ni === undefined) continue;
+    result.push(
+      mergeDancerIdentityOntoPosition(positioned[ni]!, identitySource[oi]!)
+    );
+  }
+  // 余った雛形スロット（人数増）は末尾に追加
+  for (let ni = 0; ni < positioned.length; ni++) {
+    if (usedNew.has(ni)) continue;
+    const nd = { ...positioned[ni]! };
+    if (inheritCenterDistance) {
+      nd.markerBadge = "";
+      nd.markerBadgeSource = "centerDistance";
+    }
+    result.push(nd);
+  }
+  return result;
+}
+
+/** 座標は `positioned`、身元・○内表示モードは `identity` から引き継ぐ */
+function mergeDancerIdentityOntoPosition(
+  positioned: DancerSpot,
+  identity: DancerSpot
+): DancerSpot {
+  const keepCenterDistance = identity.markerBadgeSource === "centerDistance";
+
+  let markerBadge: string | undefined;
+  let markerBadgeSource: DancerSpot["markerBadgeSource"];
+
+  if (keepCenterDistance) {
+    markerBadge = "";
+    markerBadgeSource = "centerDistance";
+  } else if (identity.crewMemberId) {
+    markerBadge = "";
+    markerBadgeSource = undefined;
+  } else {
+    markerBadge =
+      identity.markerBadge !== undefined
+        ? identity.markerBadge
+        : positioned.markerBadge;
+    markerBadgeSource = identity.markerBadgeSource;
   }
 
-  return out;
+  return {
+    ...positioned,
+    id: identity.id,
+    label: identity.label,
+    colorIndex: identity.colorIndex,
+    crewMemberId: identity.crewMemberId,
+    markerBadge,
+    markerBadgeSource,
+    sizePx: identity.sizePx ?? positioned.sizePx,
+    note: identity.note ?? positioned.note,
+    heightCm: identity.heightCm ?? positioned.heightCm,
+    facingDeg: identity.facingDeg ?? positioned.facingDeg,
+  };
 }

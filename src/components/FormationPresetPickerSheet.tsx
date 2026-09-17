@@ -8,6 +8,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
+import { sortCuesByStart } from "../lib/cueInterval";
 import {
   PRESET_CATEGORIES,
   type LayoutPresetId,
@@ -151,6 +152,24 @@ export function FormationPresetPickerSheet({
     [project.formations, targetFormationId]
   );
 
+  /**
+   * Change 適用時の「前の立ち位置」参照。
+   * 直前キューのフォーメーションがあればそちらを優先（複製キューへ雛形を載せる用途）。
+   * なければ編集中フォーメーション自体を使う。
+   */
+  const nearestMatchSource = useMemo((): DancerSpot[] => {
+    if (selectedCueId) {
+      const sorted = sortCuesByStart(project.cues);
+      const idx = sorted.findIndex((c) => c.id === selectedCueId);
+      if (idx > 0) {
+        const prev = sorted[idx - 1]!;
+        const prevF = project.formations.find((f) => f.id === prev.formationId);
+        if (prevF && prevF.dancers.length > 0) return prevF.dancers;
+      }
+    }
+    return targetFormation?.dancers ?? [];
+  }, [project.cues, project.formations, selectedCueId, targetFormation]);
+
   const selectedDancerIds = useStageBoardInteractionStore(
     (s) => s.selectedDancerIds
   );
@@ -223,9 +242,16 @@ export function FormationPresetPickerSheet({
       targetFormation.dancers,
       targetIds,
       selectedPresetId,
-      spacingOpts
+      spacingOpts,
+      nearestMatchSource
     );
-  }, [targetFormation, targetIds, selectedPresetId, spacingOpts]);
+  }, [
+    targetFormation,
+    targetIds,
+    selectedPresetId,
+    spacingOpts,
+    nearestMatchSource,
+  ]);
 
   const closeAndCleanup = useCallback(() => {
     onStagePreviewChange?.(null);
