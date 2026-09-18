@@ -410,7 +410,7 @@ export function AddCueWithFormationDialog({
   const [addMode, setAddMode] = useState<AddMode | null>(null);
   const [templatePresetId, setTemplatePresetId] = useState<LayoutPresetId | null>(null);
   const [showAllPresetTiers, setShowAllPresetTiers] = useState(false);
-  const [basicPresetTab, setBasicPresetTab] = useState(true);
+  const [basicPresetTab, setBasicPresetTab] = useState(false);
   const {
     favoriteSet,
     favoriteCount,
@@ -516,7 +516,7 @@ export function AddCueWithFormationDialog({
       setAddMode(null);
       setTemplatePresetId(null);
       setShowAllPresetTiers(false);
-      setBasicPresetTab(true);
+      setBasicPresetTab(false);
       setSavedBoxId(null);
       setSavedSlotId(null);
       setTimeMode("now");
@@ -1329,22 +1329,6 @@ export function AddCueWithFormationDialog({
                 }}
               >
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-                  <span style={sectionNumberStyle}>4</span>
-                  雛形（プリセット）
-                </span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  {!basicPresetTab ? (
-                    <FormationPresetTierToggle
-                      showAll={showAllPresetTiers}
-                      onToggle={() => setShowAllPresetTiers((v) => !v)}
-                      hiddenCount={hiddenPresetTierCount}
-                    />
-                  ) : null}
-                  <FormationPresetFavoritesFilter
-                    active={favoritesOnly}
-                    onToggle={toggleFavoritesOnly}
-                    count={favoriteCount}
-                  />
                   <button
                     type="button"
                     onClick={() => setBasicPresetTab((v) => !v)}
@@ -1368,10 +1352,27 @@ export function AddCueWithFormationDialog({
                       fontWeight: 800,
                       letterSpacing: "0.06em",
                       cursor: "pointer",
+                      flexShrink: 0,
                     }}
                   >
                     BASIC
                   </button>
+                  <span style={sectionNumberStyle}>4</span>
+                  雛形（プリセット）
+                </span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  {!basicPresetTab ? (
+                    <FormationPresetTierToggle
+                      showAll={showAllPresetTiers}
+                      onToggle={() => setShowAllPresetTiers((v) => !v)}
+                      hiddenCount={hiddenPresetTierCount}
+                    />
+                  ) : null}
+                  <FormationPresetFavoritesFilter
+                    active={favoritesOnly}
+                    onToggle={toggleFavoritesOnly}
+                    count={favoriteCount}
+                  />
                 </span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", paddingLeft: "4px" }}>

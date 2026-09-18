@@ -190,8 +190,8 @@ export function FormationPresetPickerSheet({
     null
   );
   const [showAllTiers, setShowAllTiers] = useState(false);
-  /** true = 定番の提案のみ（BASIC タブ） */
-  const [basicTab, setBasicTab] = useState(true);
+  /** true = 定番の提案のみ（BASIC タブ）。初期は全カテゴリ表示 */
+  const [basicTab, setBasicTab] = useState(false);
   const {
     favoriteSet,
     favoriteCount,
@@ -267,15 +267,15 @@ export function FormationPresetPickerSheet({
     if (open && !wasOpenRef.current) {
       setShowAllTiers(false);
       setFavoritesOnly(false);
-      setBasicTab(true);
-      setSelectedPresetId("classic_pyramid");
+      setBasicTab(false);
+      setSelectedPresetId(null);
     }
     wasOpenRef.current = open;
     if (!open) {
       setSelectedPresetId(null);
       setShowAllTiers(false);
       setFavoritesOnly(false);
-      setBasicTab(true);
+      setBasicTab(false);
     }
   }, [open, setFavoritesOnly]);
 
@@ -356,6 +356,34 @@ export function FormationPresetPickerSheet({
 
   const actionsControls = (
     <>
+      <button
+        type="button"
+        onClick={() => setBasicTab((v) => !v)}
+        aria-pressed={basicTab}
+        title={basicTab ? "すべての雛形カテゴリを表示" : "定番の提案だけを表示"}
+        style={{
+          ...basicTabBtnStyle,
+          ...(basicTab ? basicTabBtnActiveStyle : null),
+          marginRight: 4,
+          flexShrink: 0,
+          ...(actionsDocked
+            ? { minHeight: 44, height: 44, boxShadow: "0 4px 18px rgba(0, 0, 0, 0.55)" }
+            : null),
+        }}
+      >
+        BASIC
+      </button>
+      <FormationPresetFavoritesFilter
+        active={favoritesOnly}
+        onToggle={toggleFavoritesOnly}
+        count={favoriteCount}
+        style={
+          actionsDocked
+            ? { minHeight: 44, height: 44, boxShadow: "0 4px 18px rgba(0, 0, 0, 0.55)" }
+            : undefined
+        }
+      />
+      <span style={{ flex: 1, minWidth: 8 }} aria-hidden />
       <button type="button" onClick={closeAndCleanup} style={cancelBtnCompactStyle}>
         閉じる
       </button>
@@ -370,32 +398,6 @@ export function FormationPresetPickerSheet({
         }}
       >
         適用
-      </button>
-      <FormationPresetFavoritesFilter
-        active={favoritesOnly}
-        onToggle={toggleFavoritesOnly}
-        count={favoriteCount}
-        style={
-          actionsDocked
-            ? { minHeight: 44, height: 44, boxShadow: "0 4px 18px rgba(0, 0, 0, 0.55)" }
-            : undefined
-        }
-      />
-      <button
-        type="button"
-        onClick={() => setBasicTab((v) => !v)}
-        aria-pressed={basicTab}
-        title={basicTab ? "すべての雛形カテゴリを表示" : "定番の提案だけを表示"}
-        style={{
-          ...basicTabBtnStyle,
-          ...(basicTab ? basicTabBtnActiveStyle : null),
-          marginLeft: "auto",
-          ...(actionsDocked
-            ? { minHeight: 44, height: 44, boxShadow: "0 4px 18px rgba(0, 0, 0, 0.55)" }
-            : null),
-        }}
-      >
-        BASIC
       </button>
     </>
   );

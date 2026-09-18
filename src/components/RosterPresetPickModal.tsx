@@ -66,7 +66,7 @@ export function RosterPresetPickModal({
   /** 選択中の雛形（未確定状態） */
   const [selectedPresetId, setSelectedPresetId] = useState<LayoutPresetId | null>(null);
   const [showAllTiers, setShowAllTiers] = useState(false);
-  const [basicTab, setBasicTab] = useState(true);
+  const [basicTab, setBasicTab] = useState(false);
   const {
     favoriteSet,
     favoriteCount,
@@ -129,7 +129,7 @@ export function RosterPresetPickModal({
     setSelectedPresetId(null);
     setShowAllTiers(false);
     setFavoritesOnly(false);
-    setBasicTab(true);
+    setBasicTab(false);
     onClose();
   }, [onPreviewPreset, onClose, setFavoritesOnly]);
 
@@ -138,7 +138,7 @@ export function RosterPresetPickModal({
       setSelectedPresetId(null);
       setShowAllTiers(false);
       setFavoritesOnly(false);
-      setBasicTab(true);
+      setBasicTab(false);
       return;
     }
     if (!selectedPresetId) return;
@@ -319,16 +319,42 @@ export function RosterPresetPickModal({
               marginBottom: "10px",
             }}
           >
-            <div
-              style={{
-                fontSize: "10px",
-                fontWeight: 600,
-                color: "#94a3b8",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-              }}
-            >
-              2. 立ち位置の雛形を選ぶ
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <button
+                type="button"
+                onClick={() => setBasicTab((v) => !v)}
+                aria-pressed={basicTab}
+                title={
+                  basicTab ? "すべての雛形カテゴリを表示" : "定番の提案だけを表示"
+                }
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 8,
+                  border: basicTab ? "1px solid #d4af37" : "1px solid #334155",
+                  background: basicTab
+                    ? "rgba(212,175,55,0.22)"
+                    : "rgba(15,23,42,0.94)",
+                  color: basicTab ? "#fef3c7" : "#94a3b8",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.06em",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                BASIC
+              </button>
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                2. 立ち位置の雛形を選ぶ
+              </div>
             </div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
               {!basicTab ? (
@@ -338,6 +364,11 @@ export function RosterPresetPickModal({
                   hiddenCount={hiddenTierCount}
                 />
               ) : null}
+              <FormationPresetFavoritesFilter
+                active={favoritesOnly}
+                onToggle={toggleFavoritesOnly}
+                count={favoriteCount}
+              />
             </div>
           </div>
 
@@ -441,35 +472,6 @@ export function RosterPresetPickModal({
             }}
           >
             ✓ 決定
-          </button>
-          <FormationPresetFavoritesFilter
-            active={favoritesOnly}
-            onToggle={toggleFavoritesOnly}
-            count={favoriteCount}
-            style={{ marginLeft: "auto" }}
-          />
-          <button
-            type="button"
-            onClick={() => setBasicTab((v) => !v)}
-            aria-pressed={basicTab}
-            title={
-              basicTab ? "すべての雛形カテゴリを表示" : "定番の提案だけを表示"
-            }
-            style={{
-              padding: "7px 12px",
-              borderRadius: 8,
-              border: basicTab ? "1px solid #d4af37" : "1px solid #334155",
-              background: basicTab
-                ? "rgba(212,175,55,0.22)"
-                : "rgba(15,23,42,0.94)",
-              color: basicTab ? "#fef3c7" : "#94a3b8",
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: "0.06em",
-              cursor: "pointer",
-            }}
-          >
-            BASIC
           </button>
         </div>
       </div>

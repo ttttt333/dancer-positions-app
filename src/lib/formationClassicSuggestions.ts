@@ -169,6 +169,37 @@ function formatRows(rows: number[]): string {
   return rows.filter((c) => c > 0).join("-");
 }
 
+/** counts[0]=最前列（客席側）。formationLayouts.evenRowCounts と同じ配分 */
+export function classicEvenRowCounts(n: number, targetRows: number): number[] {
+  if (n <= 0 || targetRows <= 0) return [];
+  const rows = Math.min(targetRows, n);
+  const base = Math.floor(n / rows);
+  const rem = n - base * rows;
+  const counts = new Array<number>(rows).fill(base);
+  for (let i = 0; i < rem; i++) {
+    counts[rows - 1 - i]! += 1;
+  }
+  return counts;
+}
+
+/**
+ * 人数に応じて提案する横列数の上限。
+ * 少人数でも 1〜人数分、多いときは最大 12 列まで広げる。
+ */
+export function classicMaxEqualRowSuggestions(n: number): number {
+  const total = Math.max(1, Math.floor(n));
+  if (total <= 4) return total;
+  return Math.min(12, total, Math.max(4, Math.floor(total / 2)));
+}
+
+/** 横 R 列（均等）に対応する既存プリセット id */
+export function classicEqualRowsPresetId(rowCount: number): string | null {
+  if (rowCount <= 1) return "line";
+  if (rowCount === 2) return "two_rows_equal";
+  if (rowCount >= 3 && rowCount <= 12) return `rows_${rowCount}`;
+  return null;
+}
+
 function pushTwoRows(out: DancerSpot[], front: number, back: number) {
   pushClassicRows(
     out,
@@ -361,7 +392,22 @@ export function classicSuggestionEntries(n: number): ClassicSuggestionEntry[] {
     });
   }
 
-  items.push({ id: "line", label: "横一列" });
+  /** 横1列〜N列（均等）。人数が増えると列数の提案も増える */
+  const maxEqualRows = classicMaxEqualRowSuggestions(count);
+  for (let r = 1; r <= maxEqualRows; r++) {
+    const id = classicEqualRowsPresetId(r);
+    if (!id) continue;
+    if (r === 1) {
+      items.push({ id, label: "横1列" });
+      continue;
+    }
+    const rows = classicEvenRowCounts(count, r);
+    items.push({
+      id,
+      label: `横${r}列（${formatRows(rows)}）`,
+    });
+  }
+
   items.push({ id: "vee", label: "V字" });
   items.push({ id: "inverse_vee", label: "逆V字" });
   items.push({ id: "diagonal_se", label: "斜め" });

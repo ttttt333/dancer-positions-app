@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { dancersForLayoutPreset } from "./formationLayouts";
 import {
+  classicEvenRowCounts,
+  classicEqualRowsPresetId,
   classicFrontHeavyTwoRows,
   classicFrontLightTwoRows,
+  classicMaxEqualRowSuggestions,
   classicPyramidRowCounts,
   classicShimoteKamitePair,
   classicSuggestionEntries,
@@ -28,6 +31,26 @@ describe("classicPyramidRowCounts", () => {
   });
 });
 
+describe("classic equal horizontal rows", () => {
+  it("scales max row suggestions with dancer count", () => {
+    expect(classicMaxEqualRowSuggestions(3)).toBe(3);
+    expect(classicMaxEqualRowSuggestions(7)).toBe(4);
+    expect(classicMaxEqualRowSuggestions(16)).toBe(8);
+    expect(classicMaxEqualRowSuggestions(30)).toBe(12);
+  });
+
+  it("maps row counts to existing preset ids", () => {
+    expect(classicEqualRowsPresetId(1)).toBe("line");
+    expect(classicEqualRowsPresetId(2)).toBe("two_rows_equal");
+    expect(classicEqualRowsPresetId(4)).toBe("rows_4");
+  });
+
+  it("distributes people evenly front-light on remainder", () => {
+    expect(classicEvenRowCounts(7, 3)).toEqual([2, 2, 3]);
+    expect(classicEvenRowCounts(8, 4)).toEqual([2, 2, 2, 2]);
+  });
+});
+
 describe("classicSuggestionEntries (7 dancers)", () => {
   it("follows the classic order for 7 people", () => {
     const ids = classicSuggestionEntries(7).map((e) => e.id);
@@ -39,6 +62,9 @@ describe("classicSuggestionEntries (7 dancers)", () => {
       "classic_rows_front_light",
       "classic_rows_front_heavy",
       "line",
+      "two_rows_equal",
+      "rows_3",
+      "rows_4",
       "vee",
       "inverse_vee",
       "diagonal_se",
@@ -58,6 +84,10 @@ describe("classicSuggestionEntries (7 dancers)", () => {
     expect(byId.classic_rows_mid_heavy).toContain("2-3-2");
     expect(byId.classic_rows_front_light).toContain("3-4");
     expect(byId.classic_rows_front_heavy).toContain("4-3");
+    expect(byId.line).toBe("横1列");
+    expect(byId.two_rows_equal).toContain("横2列");
+    expect(byId.rows_3).toContain("横3列");
+    expect(byId.rows_4).toContain("横4列");
     expect(byId.classic_kamite_light).toBe("上手3・下手4");
     expect(byId.classic_kamite_heavy).toBe("上手4・下手3");
   });
