@@ -30,6 +30,9 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   const addDancerFromStageToolbar = props.addDancerFromStageToolbar as () => void;
   const setMemberRosterSheetOpen = props.setMemberRosterSheetOpen as (open: boolean) => void;
   const setStageShapePickerOpen = props.setStageShapePickerOpen as (open: boolean) => void;
+  const setFormationPresetPickerOpen = props.setFormationPresetPickerOpen as (
+    open: boolean
+  ) => void;
   const rightPaneCollapsed = props.rightPaneCollapsed as boolean;
   const wideEditorLayout = props.wideEditorLayout as boolean;
   const setRightPaneCollapsed = props.setRightPaneCollapsed as (
@@ -84,6 +87,11 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
       onOpenRoster={() => setMemberRosterSheetOpen(true)}
       onOpenStageTransform={() => setStageShapePickerOpen(true)}
       onOpenVideoExport={() => useVideoExportUiStore.getState().openSheet()}
+      onOpenFormationChange={
+        project?.viewMode === "view"
+          ? undefined
+          : () => setFormationPresetPickerOpen(true)
+      }
       collapsed={rightPaneCollapsed && wideEditorLayout}
       onCollapsePointerDown={
         wideEditorLayout

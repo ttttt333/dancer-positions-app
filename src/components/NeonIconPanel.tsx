@@ -37,6 +37,8 @@ type NeonIconPanelProps = ChoreoCoreToolbarCoreProps & {
   onOpenRosterImport?: () => void;
   onOpenStageTransform?: () => void;
   onOpenVideoExport?: () => void;
+  /** 立ち位置の雛形（Change）シートを開く */
+  onOpenFormationChange?: () => void;
   collapsed?: boolean;
   onCollapseToggle?: () => void;
   /** 折りたたみボタン pointerdown（レイアウト変更前に波形ドラッグを破棄） */
@@ -429,6 +431,7 @@ export function NeonIconPanel({
   collapsed = false,
   onCollapseToggle,
   onCollapsePointerDown,
+  onOpenFormationChange,
 }: NeonIconPanelProps) {
   const { t } = useI18n();
   useEffect(() => {
@@ -539,38 +542,82 @@ export function NeonIconPanel({
           overflow-y: auto;
         }
       `}</style>
-      {/* Collapse toggle button */}
-      {onCollapseToggle && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 2 }}>
-          <button
-            type="button"
-            title={t("editor.comp.k034")}
-            aria-label={t("editor.comp.k034")}
-            onPointerDown={() => onCollapsePointerDown?.()}
-            onClick={onCollapseToggle}
-            style={{
-              height: 26,
-              minWidth: 26,
-              padding: "0 8px",
-              borderRadius: 8,
-              background: "rgba(212,175,55,0.12)",
-              border: "1px solid rgba(212,175,55,0.4)",
-              color: "#e8d48b",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 4,
-              fontSize: 11,
-              fontWeight: 700,
-              lineHeight: 1,
-              flexShrink: 0,
-              transition: "background 0.15s",
-            }}
-          >
-            <span aria-hidden>›</span>
-            <span>閉じる</span>
-          </button>
+      {/* Header: 雛形（左） / 閉じる（右） */}
+      {(onCollapseToggle || onOpenFormationChange) && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 2,
+          }}
+        >
+          {onOpenFormationChange ? (
+            <button
+              type="button"
+              title="立ち位置の雛形を選ぶ"
+              aria-label="立ち位置の雛形を選ぶ"
+              onClick={onOpenFormationChange}
+              disabled={disabled}
+              style={{
+                height: 26,
+                minWidth: 52,
+                padding: "0 10px",
+                borderRadius: 8,
+                background: "rgba(212,175,55,0.10)",
+                border: "1px solid rgba(212,175,55,0.38)",
+                color: "#e8d48b",
+                cursor: disabled ? "not-allowed" : "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                lineHeight: 1,
+                flexShrink: 0,
+                opacity: disabled ? 0.45 : 1,
+                transition: "background 0.15s, border-color 0.15s",
+              }}
+            >
+              雛形
+            </button>
+          ) : (
+            <span />
+          )}
+          {onCollapseToggle ? (
+            <button
+              type="button"
+              title={t("editor.comp.k034")}
+              aria-label={t("editor.comp.k034")}
+              onPointerDown={() => onCollapsePointerDown?.()}
+              onClick={onCollapseToggle}
+              style={{
+                height: 26,
+                minWidth: 26,
+                padding: "0 8px",
+                borderRadius: 8,
+                background: "rgba(212,175,55,0.12)",
+                border: "1px solid rgba(212,175,55,0.4)",
+                color: "#e8d48b",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 4,
+                fontSize: 11,
+                fontWeight: 700,
+                lineHeight: 1,
+                flexShrink: 0,
+                transition: "background 0.15s",
+                marginLeft: "auto",
+              }}
+            >
+              <span aria-hidden>›</span>
+              <span>閉じる</span>
+            </button>
+          ) : null}
         </div>
       )}
       <div

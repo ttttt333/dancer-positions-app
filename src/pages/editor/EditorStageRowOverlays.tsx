@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type CSSProperties } from "react";
 import { useSafeElementRef } from "./useSafeElementRef";
 import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoGridLogo";
@@ -24,6 +24,15 @@ import { playbackEngine } from "../../core/playbackEngine";
 import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
 import { panelCard, shell } from "../../theme/choreoShell";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../../lib/dancerColorPalette";
+import {
+  MEMBER_ROSTER_GRADE_OPTIONS,
+  MEMBER_ROSTER_SKILL_OPTIONS,
+  memberRosterHeightSelectOptions,
+  memberRosterSelectOptions,
+  patchMemberRosterDancerInProject,
+  removeMemberRosterDancerFromFormation,
+  resolveMemberRosterFields,
+} from "../../lib/memberRosterSheetFields";
 import { sortCuesByStart, MIN_CUE_DURATION_SEC, DEFAULT_CUE_SPAN_WITH_AUDIO_SEC } from "../../core/timelineController";
 import { dancersForLayoutPreset, transferDancerIdentitiesByOrder } from "../../lib/formationLayouts";
 import { formatMmSsFloor } from "../../lib/timeFormat";
@@ -468,7 +477,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
       <EditorSideSheet
         open={memberRosterSheetOpen}
         zIndex={2200}
-        width="min(380px, calc(100vw - 16px))"
+        width="min(520px, calc(100vw - 16px))"
         onClose={() => setMemberRosterSheetOpen(false)}
         ariaLabelledBy="member-roster-sheet-title"
       >
@@ -500,7 +509,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             >×</button>
           </div>
           {/* 本文 */}
-          <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "8px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
             {(() => {
               const fid = project?.activeFormationId;
               const formation = fid ? formationById.get(fid) : null;
@@ -512,80 +521,220 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   </p>
                 );
               }
+              const viewOnly = project?.viewMode === "view";
+              const selectStyle: CSSProperties = {
+                height: 26,
+                maxWidth: "100%",
+                boxSizing: "border-box",
+                borderRadius: 6,
+                border: `1px solid ${shell.border}`,
+                background: "rgba(255,255,255,0.04)",
+                color: shell.text,
+                fontSize: 10,
+                fontWeight: 600,
+                padding: "0 2px",
+                outline: "none",
+                cursor: viewOnly ? "default" : "pointer",
+              };
               return formation.dancers.map((dancer, idx) => {
-                const colorHex = DANCER_COLOR_PALETTE_HEX[dancer.colorIndex % DANCER_COLOR_PALETTE_HEX.length];
+                const colorIdx = modDancerColorIndex(dancer.colorIndex);
+                const colorHex = DANCER_COLOR_PALETTE_HEX[colorIdx]!;
                 const badgeLabel = dancer.markerBadge ?? String(idx + 1);
+                const fields = project
+                  ? resolveMemberRosterFields(dancer, project)
+                  : {
+                      heightCm: dancer.heightCm,
+                      gradeLabel: dancer.gradeLabel,
+                      skillRankLabel: dancer.skillRankLabel,
+                    };
+                const gradeOpts = memberRosterSelectOptions(
+                  MEMBER_ROSTER_GRADE_OPTIONS,
+                  fields.gradeLabel
+                );
+                const skillOpts = memberRosterSelectOptions(
+                  MEMBER_ROSTER_SKILL_OPTIONS,
+                  fields.skillRankLabel
+                );
+                const heightOpts = memberRosterHeightSelectOptions(fields.heightCm);
+                const patchDancer = (
+                  patch: Parameters<typeof patchMemberRosterDancerInProject>[3]
+                ) => {
+                  if (!fid || viewOnly) return;
+                  setProjectSafe((p) =>
+                    patchMemberRosterDancerInProject(p, fid, dancer.id, patch)
+                  );
+                };
                 return (
-                  <div key={dancer.id} style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "7px 10px", borderRadius: 10,
-                    border: `1px solid ${shell.border}`,
-                    background: "rgba(255,255,255,0.025)",
-                  }}>
-                    {/* カラーサークル */}
-                    <div style={{
-                      width: 28, height: 28, borderRadius: "50%",
-                      background: colorHex, flexShrink: 0,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 10, fontWeight: 700,
-                      color: "#fff", textShadow: "0 0 2px rgba(0,0,0,0.6)",
-                    }}>
+                  <div
+                    key={dancer.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "4px 6px",
+                      borderRadius: 8,
+                      border: `1px solid ${shell.border}`,
+                      background: "rgba(255,255,255,0.025)",
+                      minWidth: 0,
+                    }}
+                  >
+                    <select
+                      aria-label="色"
+                      title="色"
+                      disabled={viewOnly}
+                      value={colorIdx}
+                      onChange={(e) =>
+                        patchDancer({ colorIndex: Number(e.target.value) })
+                      }
+                      style={{
+                        ...selectStyle,
+                        width: 28,
+                        flexShrink: 0,
+                        background: colorHex,
+                        color: "#0f172a",
+                        textAlign: "center",
+                        padding: 0,
+                      }}
+                    >
+                      {DANCER_COLOR_PALETTE_HEX.map((hex, ci) => (
+                        <option key={hex} value={ci} style={{ background: hex, color: "#0f172a" }}>
+                          {ci + 1}
+                        </option>
+                      ))}
+                    </select>
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        width: 18,
+                        textAlign: "center",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: shell.textMuted,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
                       {badgeLabel}
-                    </div>
-                    {/* 名前入力 */}
+                    </span>
                     <input
                       type="text"
                       value={dancer.label ?? ""}
                       placeholder={t("editor.layout.dancerPlaceholder", { n: idx + 1 })}
-                      disabled={project?.viewMode === "view"}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setProjectSafe((p) => ({
-                          ...p,
-                          formations: p.formations.map((f) =>
-                            f.id !== fid ? f : {
-                              ...f,
-                              dancers: f.dancers.map((d) => d.id === dancer.id ? { ...d, label: val } : d),
-                            }
-                          ),
-                        }));
-                      }}
+                      disabled={viewOnly}
+                      onChange={(e) => patchDancer({ label: e.target.value })}
                       style={{
-                        flex: 1, background: "rgba(255,255,255,0.04)",
-                        border: `1px solid ${shell.border}`, borderRadius: 6,
-                        color: shell.text, fontSize: 12, padding: "5px 8px", outline: "none",
+                        flex: "1 1 72px",
+                        minWidth: 56,
+                        height: 26,
+                        boxSizing: "border-box",
+                        background: "rgba(255,255,255,0.04)",
+                        border: `1px solid ${shell.border}`,
+                        borderRadius: 6,
+                        color: shell.text,
+                        fontSize: 11,
+                        padding: "0 6px",
+                        outline: "none",
                       }}
                     />
-                    {/* カラー変更 */}
-                    {project?.viewMode !== "view" && (
-                      <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-                        {DANCER_COLOR_PALETTE_HEX.slice(0, 9).map((hex, ci) => (
-                          <button
-                            key={hex}
-                            type="button"
-                            title={hex}
-                            onClick={() => {
-                              setProjectSafe((p) => ({
-                                ...p,
-                                formations: p.formations.map((f) =>
-                                  f.id !== fid ? f : {
-                                    ...f,
-                                    dancers: f.dancers.map((d) =>
-                                      d.id === dancer.id ? { ...d, colorIndex: ci } : d
-                                    ),
-                                  }
-                                ),
-                              }));
-                            }}
-                            style={{
-                              width: 14, height: 14, borderRadius: "50%", background: hex,
-                              border: dancer.colorIndex === ci ? `2px solid #fff` : `1px solid transparent`,
-                              cursor: "pointer", padding: 0, flexShrink: 0,
-                            }}
-                          />
-                        ))}
-                      </div>
-                    )}
+                    <select
+                      aria-label="学年"
+                      title="学年"
+                      disabled={viewOnly}
+                      value={fields.gradeLabel?.trim() ?? ""}
+                      onChange={(e) =>
+                        patchDancer({ gradeLabel: e.target.value })
+                      }
+                      style={{ ...selectStyle, width: 52, flexShrink: 0 }}
+                    >
+                      <option value="">学年</option>
+                      {gradeOpts.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="身長"
+                      title="身長（cm）"
+                      disabled={viewOnly}
+                      value={
+                        typeof fields.heightCm === "number" &&
+                        Number.isFinite(fields.heightCm)
+                          ? String(Math.round(fields.heightCm))
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (!raw) {
+                          patchDancer({ heightCm: undefined });
+                          return;
+                        }
+                        const h = Number(raw);
+                        patchDancer({
+                          heightCm:
+                            Number.isFinite(h) && h > 0 && h < 300
+                              ? h
+                              : undefined,
+                        });
+                      }}
+                      style={{ ...selectStyle, width: 54, flexShrink: 0 }}
+                    >
+                      <option value="">身長</option>
+                      {heightOpts.map((h) => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="スキル"
+                      title="スキル"
+                      disabled={viewOnly}
+                      value={fields.skillRankLabel?.trim() ?? ""}
+                      onChange={(e) =>
+                        patchDancer({ skillRankLabel: e.target.value })
+                      }
+                      style={{ ...selectStyle, width: 44, flexShrink: 0 }}
+                    >
+                      <option value="">Sk</option>
+                      {skillOpts.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    {!viewOnly ? (
+                      <button
+                        type="button"
+                        aria-label="削除"
+                        title="舞台から削除"
+                        onClick={() => {
+                          if (!fid) return;
+                          setProjectSafe((p) =>
+                            removeMemberRosterDancerFromFormation(
+                              p,
+                              fid,
+                              dancer.id
+                            )
+                          );
+                        }}
+                        style={{
+                          flexShrink: 0,
+                          width: 24,
+                          height: 26,
+                          borderRadius: 6,
+                          border: "1px solid rgba(248,113,113,0.45)",
+                          background: "rgba(127,29,29,0.35)",
+                          color: "#fecaca",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          padding: 0,
+                          lineHeight: 1,
+                        }}
+                      >
+                        ×
+                      </button>
+                    ) : null}
                   </div>
                 );
               });
