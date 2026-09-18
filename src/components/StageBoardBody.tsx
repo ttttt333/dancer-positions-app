@@ -134,6 +134,7 @@ import {
   pointerInViewportTrashRevealZone,
   syncRosterAfterRemovingLinkedMembersFromFirstCue,
 } from "../lib/stageBoardRosterAndTrash";
+import { enrichDancerSpotsFromCrew } from "../lib/memberRosterSheetFields";
 import {
   applySetPieceResizePct,
   clamp,
@@ -4890,7 +4891,10 @@ export function StageBoardBody({
       );
       updateActiveFormation((f) => ({
         ...f,
-        dancers: fn(f.dancers, targetIds),
+        dancers: fn(
+          enrichDancerSpotsFromCrew(f.dancers, project.crews),
+          targetIds
+        ),
       }));
       setStageContextMenu(null);
       setDancerSelectionSheetOpen(false);
@@ -4903,6 +4907,7 @@ export function StageBoardBody({
       arrangeAnchorDancerId,
       selectedDancerIds,
       updateActiveFormation,
+      project.crews,
     ],
   );
 
@@ -4943,7 +4948,10 @@ export function StageBoardBody({
       }
       updateActiveFormation((f) => ({
         ...f,
-        dancers: fn(f.dancers, targetIds),
+        dancers: fn(
+          enrichDancerSpotsFromCrew(f.dancers, project.crews),
+          targetIds
+        ),
       }));
     },
     [
@@ -4953,6 +4961,7 @@ export function StageBoardBody({
       playbackOrPreview,
       selectedDancerIds,
       updateActiveFormation,
+      project.crews,
     ],
   );
 
@@ -5499,6 +5508,7 @@ export function StageBoardBody({
     /* プレビュー帯・ステージ枠・床下一括色ツール */
     mainColumn: (
       <StageBoardMainColumn
+        dancerCount={displayDancers.length}
         previewBanner={
           <StageBoardPreviewFormationBanner
             show={Boolean(previewDancers && previewDancers.length > 0)}

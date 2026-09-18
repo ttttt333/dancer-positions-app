@@ -45,14 +45,15 @@ export function StageExportRootColumn({
       id="stage-export-root"
       style={exportRootStyle(previewFormationHighlight)}
     >
-      <StageDancerCountBadge
-        count={dancerCount}
-        stageRotationDeg={stageRotationDeg}
-      />
       <StageShellWithMainFloor {...mainFloor} />
       {hanamichiEnabled && !stageShapeActive ? (
         <StageHanamichiStrip depthPct={hanamichiDepthPct} />
       ) : null}
+      {/* 床・サイド帯の上に常時出す（パネル開閉や印の z に隠れない） */}
+      <StageDancerCountBadge
+        count={dancerCount}
+        stageRotationDeg={stageRotationDeg}
+      />
     </div>
   );
 }

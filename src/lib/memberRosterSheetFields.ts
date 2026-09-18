@@ -183,25 +183,60 @@ export function patchMemberRosterDancerInProject(
   return { ...p, formations, crews };
 }
 
-/** アクティブ隊形から印を削除（名簿本人は残す／紐付け解除はしない） */
+/**
+ * 名簿に紐づく印へ、名簿側の身長・学年・スキルを埋める（印側が空のとき）。
+ * 並べ替え前に呼ぶと、名簿だけに入っているスキルでも前列へ正しく寄る。
+ */
+export function enrichDancerSpotsFromCrew(
+  dancers: DancerSpot[],
+  crews: ChoreographyProjectJson["crews"]
+): DancerSpot[] {
+  if (!crews?.length) return dancers;
+  const byId = new Map<string, (typeof crews)[number]["members"][number]>();
+  for (const c of crews) {
+    for (const m of c.members) byId.set(m.id, m);
+  }
+  return dancers.map((d) => {
+    if (!d.crewMemberId) return d;
+    const m = byId.get(d.crewMemberId);
+    if (!m) return d;
+    return {
+      ...d,
+      heightCm: d.heightCm ?? m.heightCm,
+      gradeLabel: d.gradeLabel?.trim()
+        ? d.gradeLabel
+        : m.gradeLabel?.trim() || d.gradeLabel,
+      skillRankLabel: d.skillRankLabel?.trim()
+        ? d.skillRankLabel
+        : m.skillRankLabel?.trim() || d.skillRankLabel,
+    };
+  });
+}
 export function removeMemberRosterDancerFromFormation(
   p: ChoreographyProjectJson,
   formationId: string,
   dancerId: string
 ): ChoreographyProjectJson {
+  const target = p.formations.find((f) => f.id === formationId);
+  const removed = target?.dancers.find((d) => d.id === dancerId);
+  const crewId = removed?.crewMemberId;
+
   return {
     ...p,
-    formations: p.formations.map((f) =>
-      f.id !== formationId
-        ? f
-        : {
-            ...f,
-            dancers: f.dancers.filter((d) => d.id !== dancerId),
-            confirmedDancerCount: Math.max(
-              0,
-              (f.confirmedDancerCount ?? f.dancers.length) - 1
-            ),
-          }
-    ),
+    formations: p.formations.map((f) => {
+      if (f.id !== formationId) return f;
+      const dancers = f.dancers.filter((d) => {
+        if (d.id === dancerId) return false;
+        /** 同一名簿メンバーの重複印もまとめて消す */
+        if (crewId && d.crewMemberId === crewId) return false;
+        return true;
+      });
+      if (dancers.length === f.dancers.length) return f;
+      return {
+        ...f,
+        dancers,
+        confirmedDancerCount: dancers.length,
+      };
+    }),
   };
 }

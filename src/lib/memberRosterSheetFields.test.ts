@@ -4,6 +4,7 @@ import {
   memberRosterHeightSelectOptions,
   memberRosterSelectOptions,
   MEMBER_ROSTER_GRADE_OPTIONS,
+  enrichDancerSpotsFromCrew,
   patchMemberRosterDancerInProject,
   removeMemberRosterDancerFromFormation,
   resolveMemberRosterFields,
@@ -91,6 +92,44 @@ describe("removeMemberRosterDancerFromFormation", () => {
     const next = removeMemberRosterDancerFromFormation(project, "f1", "d1");
     expect(next.formations[0]!.dancers.map((d) => d.id)).toEqual(["d2"]);
     expect(next.formations[0]!.confirmedDancerCount).toBe(1);
+  });
+
+  it("also removes duplicate spots for the same crew member", () => {
+    const project = {
+      formations: [
+        {
+          id: "f1",
+          name: "A",
+          dancers: [
+            spot({ id: "d1", crewMemberId: "m1" }),
+            spot({ id: "d1b", crewMemberId: "m1" }),
+            spot({ id: "d2" }),
+          ],
+        },
+      ],
+      crews: [],
+      cues: [],
+    } as unknown as ChoreographyProjectJson;
+    const next = removeMemberRosterDancerFromFormation(project, "f1", "d1");
+    expect(next.formations[0]!.dancers.map((d) => d.id)).toEqual(["d2"]);
+  });
+});
+
+describe("enrichDancerSpotsFromCrew", () => {
+  it("fills empty skill from linked roster member", () => {
+    const dancers = [spot({ id: "d1", crewMemberId: "m1" })];
+    const crews = [
+      {
+        id: "c1",
+        name: "名簿",
+        members: [
+          { id: "m1", label: "あこ", colorIndex: 0, skillRankLabel: "2" },
+        ],
+      },
+    ];
+    expect(enrichDancerSpotsFromCrew(dancers, crews)[0]!.skillRankLabel).toBe(
+      "2"
+    );
   });
 });
 

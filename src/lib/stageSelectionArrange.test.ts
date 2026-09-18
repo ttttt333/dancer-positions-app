@@ -101,6 +101,43 @@ describe("applyPositionSort", () => {
     expect(byId.rightLow!.xPct).toBeGreaterThan(50);
   });
 
+  it("col sorts skill ascending toward the audience (front / high y)", () => {
+    const dancers = [
+      spot("backSkilled", 40, 20, { skillRankLabel: "1" }),
+      spot("frontUnskilled", 40, 80, { skillRankLabel: "5" }),
+      spot("backMid", 70, 25, { skillRankLabel: "2" }),
+      spot("frontMid", 70, 75, { skillRankLabel: "4" }),
+    ];
+    const next = applyPositionSort(
+      dancers,
+      dancers.map((d) => d.id),
+      { axis: "skill", scope: "col", direction: "asc" }
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    expect(byId.backSkilled!.yPct).toBeGreaterThan(byId.frontUnskilled!.yPct);
+    expect(byId.backMid!.yPct).toBeGreaterThan(byId.frontMid!.yPct);
+  });
+
+  it("all + skill + asc puts smaller skill numbers on front slots", () => {
+    const dancers = [
+      spot("a", 30, 30, { skillRankLabel: "5" }),
+      spot("b", 70, 30, { skillRankLabel: "1" }),
+      spot("c", 30, 70, { skillRankLabel: "3" }),
+      spot("d", 70, 70, { skillRankLabel: "2" }),
+    ];
+    const next = applyPositionSort(
+      dancers,
+      dancers.map((d) => d.id),
+      { axis: "skill", scope: "all", direction: "asc" }
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    /** skill 1,2 が手前段 (y=70) へ */
+    expect(byId.b!.yPct).toBe(70);
+    expect(byId.d!.yPct).toBe(70);
+    expect(byId.c!.yPct).toBe(30);
+    expect(byId.a!.yPct).toBe(30);
+  });
+
   it("builds the preview sentence from axis, direction, and scope", () => {
     expect(
       formatPositionSortPreview({

@@ -33,6 +33,7 @@ import {
   removeMemberRosterDancerFromFormation,
   resolveMemberRosterFields,
 } from "../../lib/memberRosterSheetFields";
+import { syncRosterAfterRemovingLinkedMembersFromFirstCue } from "../../lib/stageBoardRosterAndTrash";
 import { sortCuesByStart, MIN_CUE_DURATION_SEC, DEFAULT_CUE_SPAN_WITH_AUDIO_SEC } from "../../core/timelineController";
 import { dancersForLayoutPreset, transferDancerIdentitiesByOrder } from "../../lib/formationLayouts";
 import { formatMmSsFloor } from "../../lib/timeFormat";
@@ -511,7 +512,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
           {/* 本文 */}
           <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "8px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
             {(() => {
-              const fid = project?.activeFormationId;
+              const fid =
+                (selectedCue as { formationId?: string } | null | undefined)
+                  ?.formationId ?? project?.activeFormationId;
               const formation = fid ? formationById.get(fid) : null;
               if (!formation || formation.dancers.length === 0) {
                 return (
@@ -708,14 +711,32 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                         aria-label="削除"
                         title="舞台から削除"
                         onClick={() => {
-                          if (!fid) return;
-                          setProjectSafe((p) =>
-                            removeMemberRosterDancerFromFormation(
+                          const editFid =
+                            (selectedCue as { formationId?: string } | null | undefined)
+                              ?.formationId ?? project?.activeFormationId;
+                          if (!editFid) return;
+                          setProjectSafe((p) => {
+                            const f = p.formations.find((x) => x.id === editFid);
+                            const removedSpots =
+                              f?.dancers.filter(
+                                (d) =>
+                                  d.id === dancer.id ||
+                                  (dancer.crewMemberId &&
+                                    d.crewMemberId === dancer.crewMemberId)
+                              ) ?? [];
+                            let next = removeMemberRosterDancerFromFormation(
                               p,
-                              fid,
+                              editFid,
                               dancer.id
-                            )
-                          );
+                            );
+                            next = syncRosterAfterRemovingLinkedMembersFromFirstCue(
+                              next,
+                              editFid,
+                              removedSpots
+                            );
+                            return next;
+                          });
+                          setStagePreviewDancers?.(null);
                         }}
                         style={{
                           flexShrink: 0,
@@ -742,7 +763,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
           </div>
           {/* フッター：全フォーメーションに名前を反映 */}
           {project?.viewMode !== "view" && (() => {
-            const fid = project?.activeFormationId;
+            const fid =
+              (selectedCue as { formationId?: string } | null | undefined)
+                ?.formationId ?? project?.activeFormationId;
             const formation = fid ? formationById.get(fid) : null;
             /** crew メンバーのうち未配置のものがあるか */
             const unplacedCount = (() => {

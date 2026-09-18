@@ -3011,6 +3011,9 @@ export function transferDancerIdentitiesByOrder(
       sizePx: od.sizePx ?? nd.sizePx,
       note: od.note ?? nd.note,
       heightCm: od.heightCm ?? nd.heightCm,
+      gradeLabel: od.gradeLabel ?? nd.gradeLabel,
+      skillRankLabel: od.skillRankLabel ?? nd.skillRankLabel,
+      facingDeg: od.facingDeg ?? nd.facingDeg,
     };
   });
 }
@@ -3112,6 +3115,8 @@ function mergeDancerIdentityOntoPosition(
     sizePx: identity.sizePx ?? positioned.sizePx,
     note: identity.note ?? positioned.note,
     heightCm: identity.heightCm ?? positioned.heightCm,
+    gradeLabel: identity.gradeLabel ?? positioned.gradeLabel,
+    skillRankLabel: identity.skillRankLabel ?? positioned.skillRankLabel,
     facingDeg: identity.facingDeg ?? positioned.facingDeg,
   };
 }

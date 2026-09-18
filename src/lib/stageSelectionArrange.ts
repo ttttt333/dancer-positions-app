@@ -147,19 +147,32 @@ function slotOrderCmp(a: DancerSpot, b: DancerSpot): number {
 }
 
 /**
+ * スキル用: 客席側（y 大＝手前）から、同段内は左→右。
+ * 「数字が小さい＝上手」を前列へ割り当てる。
+ */
+function skillFrontFirstSlotOrderCmp(a: DancerSpot, b: DancerSpot): number {
+  const dy = b.yPct - a.yPct;
+  if (Math.abs(dy) > 1e-6) return dy;
+  const dx = a.xPct - b.xPct;
+  if (Math.abs(dx) > 1e-6) return dx;
+  return a.id.localeCompare(b.id);
+}
+
+/**
  * 選択メンバーの **位置の集合** はそのままに、誰がどの座標に立つかだけ入れ替える。
- * `sortPeople` で並べた人を、スロット順（左から・上から）の位置に順に割り当てる。
+ * `sortPeople` で並べた人を、スロット順の位置に順に割り当てる。
  */
 function permutePreservingSlotPositions(
   dancers: DancerSpot[],
   targetIds: string[],
-  sortPeople: (a: DancerSpot, b: DancerSpot) => number
+  sortPeople: (a: DancerSpot, b: DancerSpot) => number,
+  slotCmp: (a: DancerSpot, b: DancerSpot) => number = slotOrderCmp
 ): DancerSpot[] {
   const idSet = new Set(targetIds);
   const subset = dancers.filter((d) => idSet.has(d.id));
   if (subset.length <= 1) return dancers;
 
-  const slotsOrdered = [...subset].sort(slotOrderCmp);
+  const slotsOrdered = [...subset].sort(slotCmp);
   const peopleOrdered = [...subset].sort(sortPeople);
   const newPos = new Map<string, { xPct: number; yPct: number }>();
   for (let i = 0; i < subset.length; i++) {
@@ -221,14 +234,18 @@ export function permuteSlotsByGradeDesc(
   );
 }
 
-/** 今の位置のまま・スキル数字が小さい人が左寄りの位置へ */
+/** 今の位置のまま・スキル数字が小さい人を手前（客席側）寄りの位置へ */
 export function permuteSlotsBySkillAsc(
   dancers: DancerSpot[],
   targetIds: string[]
 ): DancerSpot[] {
-  return permutePreservingSlotPositions(dancers, targetIds, (a, b) =>
-    skillSortKey(a.skillRankLabel) - skillSortKey(b.skillRankLabel) ||
-    a.label.localeCompare(b.label, "ja")
+  return permutePreservingSlotPositions(
+    dancers,
+    targetIds,
+    (a, b) =>
+      skillSortKey(a.skillRankLabel) - skillSortKey(b.skillRankLabel) ||
+      a.label.localeCompare(b.label, "ja"),
+    skillFrontFirstSlotOrderCmp
   );
 }
 
@@ -236,9 +253,13 @@ export function permuteSlotsBySkillDesc(
   dancers: DancerSpot[],
   targetIds: string[]
 ): DancerSpot[] {
-  return permutePreservingSlotPositions(dancers, targetIds, (a, b) =>
-    skillSortKey(b.skillRankLabel) - skillSortKey(a.skillRankLabel) ||
-    a.label.localeCompare(b.label, "ja")
+  return permutePreservingSlotPositions(
+    dancers,
+    targetIds,
+    (a, b) =>
+      skillSortKey(b.skillRankLabel) - skillSortKey(a.skillRankLabel) ||
+      a.label.localeCompare(b.label, "ja"),
+    skillFrontFirstSlotOrderCmp
   );
 }
 
@@ -508,7 +529,9 @@ function lineUpAlongAxis(
   dancers: DancerSpot[],
   targetIds: string[],
   sortPeople: (a: DancerSpot, b: DancerSpot) => number,
-  along: "x" | "y"
+  along: "x" | "y",
+  /** true のとき先頭（sort 昇順の先頭）を手前 y 大へ。スキル「小さい順＝前列」用 */
+  frontFirstOnY = false
 ): DancerSpot[] {
   const idSet = new Set(targetIds);
   const subset = dancers.filter((d) => idSet.has(d.id));
@@ -526,9 +549,12 @@ function lineUpAlongAxis(
         yPct: clampPct(box.cy),
       });
     } else {
+      const y = frontFirstOnY
+        ? box.maxY - (box.maxY - box.minY) * t
+        : box.minY + (box.maxY - box.minY) * t;
       newPos.set(sorted[i]!.id, {
         xPct: clampPct(box.cx),
-        yPct: clampPct(box.minY + (box.maxY - box.minY) * t),
+        yPct: clampPct(y),
       });
     }
   }
@@ -544,6 +570,8 @@ function lineUpAlongAxis(
  * - all: 位置の集合はそのまま人だけ割当（旧「位置のまま入替」）
  * - row: Y で段を分け、各段を横一列として独立に並べる
  * - col: X で縦列を分け、各列を縦一列として独立に並べる
+ *
+ * スキルは「数字が小さい＝上手」を客席側（手前）へ置く。
  */
 export function applyPositionSort(
   dancers: DancerSpot[],
@@ -552,8 +580,14 @@ export function applyPositionSort(
 ): DancerSpot[] {
   if (targetIds.length < 2) return dancers;
   const cmp = peopleSortCmp(request.axis, request.direction);
+  const skillFrontFirst = request.axis === "skill";
   if (request.scope === "all") {
-    return permutePreservingSlotPositions(dancers, targetIds, cmp);
+    return permutePreservingSlotPositions(
+      dancers,
+      targetIds,
+      cmp,
+      skillFrontFirst ? skillFrontFirstSlotOrderCmp : slotOrderCmp
+    );
   }
   const groups =
     request.scope === "row"
@@ -567,7 +601,8 @@ export function applyPositionSort(
       next,
       group.map((d) => d.id),
       cmp,
-      along
+      along,
+      skillFrontFirst && along === "y"
     );
   }
   return next;
