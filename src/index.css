@@ -3818,17 +3818,42 @@ body > [data-editor-sheet-root] {
 
 [data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line,
 [data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line {
-  font-size: 18px !important;
-  line-height: 1.45 !important;
+  font-size: 11px !important;
+  line-height: 1.35 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
 
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line--updated,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line--updated {
+  font-size: 10px !important;
+  flex-shrink: 0 !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-actions,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-actions {
+  display: flex !important;
+  gap: 4px !important;
+  width: 100% !important;
+  flex-wrap: nowrap !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-actions > button,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-actions > button {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  width: auto !important;
+  padding: 6px 4px !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
 [data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-load-btn,
 [data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-load-btn {
-  width: 100% !important;
-  display: flex !important;
+  width: auto !important;
+  display: inline-flex !important;
   justify-content: center !important;
   align-items: center !important;
   white-space: nowrap !important;
