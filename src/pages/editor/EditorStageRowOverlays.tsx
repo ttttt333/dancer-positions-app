@@ -1650,6 +1650,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 reloadViewerAudio();
               }
             }}
+            onPlaybackRateChange={(rate) => {
+              setProjectSafe((p) => ({ ...p, playbackRate: rate }));
+            }}
           />
           <ChoreoViewerBottomBar
             project={project}

@@ -13,6 +13,10 @@ import { useI18n } from "../i18n/I18nContext";
 import { formatMmSsFloor } from "../lib/timeFormat";
 import { playbackEngine } from "../core/playbackEngine";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
+import {
+  PRACTICE_PLAYBACK_RATES,
+  normalizePracticePlaybackRate,
+} from "../store/practicePlaybackStore";
 import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { useViewerTransportActions } from "../hooks/useViewerTransportActions";
 import { ViewerMemberModeSwitch } from "./ViewerMemberModeSwitch";
@@ -46,7 +50,36 @@ type Props = {
   onCuePrev: () => void;
   onCueNext: () => void;
   onInsetsChange?: (insets: ViewerChromeInsets) => void;
+  onPlaybackRateChange?: (rate: number) => void;
 };
+
+function ViewerPlaybackRateSelect({
+  playbackRate,
+  onPlaybackRateChange,
+}: {
+  playbackRate: number;
+  onPlaybackRateChange: (rate: number) => void;
+}) {
+  const rate = normalizePracticePlaybackRate(playbackRate);
+  return (
+    <select
+      className="choreo-viewer-bars__rate-select"
+      value={String(rate)}
+      aria-label="再生速度（ピッチ固定）"
+      title="ピッチ固定の再生速度"
+      onChange={(e) => {
+        const next = Number(e.target.value);
+        if (Number.isFinite(next)) onPlaybackRateChange(next);
+      }}
+    >
+      {PRACTICE_PLAYBACK_RATES.map((r) => (
+        <option key={r} value={String(r)}>
+          {r === 1 ? "1x" : `${r}x`}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 function ViewerTransportControls({
   showCueNav,
@@ -55,6 +88,8 @@ function ViewerTransportControls({
   isPlaying,
   duration,
   playReadyGlow,
+  playbackRate,
+  onPlaybackRateChange,
   onPlayPointerDown,
   togglePlay,
   seekBack,
@@ -68,6 +103,8 @@ function ViewerTransportControls({
   isPlaying: boolean;
   duration: number;
   playReadyGlow: boolean;
+  playbackRate: number;
+  onPlaybackRateChange?: (rate: number) => void;
   onPlayPointerDown: () => void;
   togglePlay: () => void;
   seekBack: () => void;
@@ -145,6 +182,12 @@ function ViewerTransportControls({
           <TransportIconPlay size={24} />
         )}
       </button>
+      {onPlaybackRateChange ? (
+        <ViewerPlaybackRateSelect
+          playbackRate={playbackRate}
+          onPlaybackRateChange={onPlaybackRateChange}
+        />
+      ) : null}
     </div>
   );
 }
@@ -168,6 +211,7 @@ export function ChoreoViewerControlBars({
   onCuePrev,
   onCueNext,
   onInsetsChange,
+  onPlaybackRateChange,
 }: Props) {
   const { t } = useI18n();
   const trimStartSec = project.trimStartSec ?? 0;
@@ -257,6 +301,8 @@ export function ChoreoViewerControlBars({
       isPlaying={isPlaying}
       duration={duration}
       playReadyGlow={playReadyGlow}
+      playbackRate={project.playbackRate ?? 1}
+      onPlaybackRateChange={onPlaybackRateChange}
       onPlayPointerDown={onPlayPointerDown}
       togglePlay={togglePlay}
       seekBack={seekBack}

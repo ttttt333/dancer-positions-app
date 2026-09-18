@@ -1234,6 +1234,23 @@ html.choreo-public-view-html::backdrop {
     background: rgba(67, 56, 202, 0.85);
     color: #f8fafc;
   }
+  .choreo-viewer-bars__rate-select {
+    flex-shrink: 0;
+    min-width: 52px;
+    min-height: 40px;
+    padding: 4px 6px;
+    border-radius: 10px;
+    border: 1px solid rgba(71, 85, 105, 0.9);
+    background: rgba(30, 41, 59, 0.92);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 700;
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+  .choreo-viewer-bars--portrait .choreo-viewer-bars__rate-select {
+    min-height: 40px;
+  }
   .choreo-public-view-root--landscape .stage-board-fit-viewport-inner {
     /* 帯余白を潰してステージを画面いっぱいに近づける */
     padding-top: 0 !important;
@@ -1413,7 +1430,8 @@ html.choreo-public-view-html::backdrop {
   }
   .choreo-viewer-bars--landscape .choreo-viewer-bars__seek-btn,
   .choreo-viewer-bars--landscape .choreo-viewer-bars__cue-btn,
-  .choreo-viewer-bars--landscape .choreo-viewer-bars__play-btn {
+  .choreo-viewer-bars--landscape .choreo-viewer-bars__play-btn,
+  .choreo-viewer-bars--landscape .choreo-viewer-bars__rate-select {
     width: 100%;
     min-width: 0;
   }
@@ -1433,6 +1451,10 @@ html.choreo-public-view-html::backdrop {
     border-color: rgba(99, 102, 241, 0.95);
     background: rgba(67, 56, 202, 0.85);
     color: #f8fafc;
+  }
+  .choreo-viewer-bars--landscape .choreo-viewer-bars__rate-select {
+    min-height: 34px;
+    font-size: 11px;
   }
   .choreo-viewer-bars--landscape .choreo-viewer-bars__time {
     font-size: 11px;
