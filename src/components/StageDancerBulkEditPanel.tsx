@@ -215,11 +215,6 @@ export function StageDancerBulkEditPanel({
             title="選択全員を削除します"
             onClick={() => {
               if (targetIds.length === 0) return;
-              const msg =
-                targetIds.length === 1
-                  ? "この立ち位置を削除しますか？"
-                  : `選択中の ${targetIds.length} 人の立ち位置を削除しますか？`;
-              if (!window.confirm(msg)) return;
               removeDancersByIds(targetIds);
             }}
           >

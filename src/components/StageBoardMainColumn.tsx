@@ -7,7 +7,10 @@ export type StageBoardMainColumnProps = {
   editModeHeader?: ReactNode;
   /** `StageBoardFitViewport` 〜ステージ本体まで。 */
   stageFrame: ReactNode;
-  /** ステージ枠の外・客席側。編集ドック。 */
+  /**
+   * 選択時の編集ドック。床下に載せずオーバーレイするため、
+   * 表示の有無でステージ（コンテナクエリ）の大きさが変わらない。
+   */
   editDock?: ReactNode;
   /** 床下の一括ツールバー等。不要なら `null`。 */
   bulkToolbar: ReactNode;
@@ -89,10 +92,49 @@ export function StageBoardMainColumn({
         {editModeHeader ? (
           <div style={{ flexShrink: 0, width: "100%" }}>{editModeHeader}</div>
         ) : null}
-        {stageFrame}
-        {editDock ? (
-          <div style={{ flexShrink: 0, width: "100%" }}>{editDock}</div>
-        ) : null}
+        <div
+          style={{
+            position: "relative",
+            flex: "1 1 0%",
+            minHeight: 0,
+            minWidth: 0,
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "stretch",
+          }}
+        >
+          {stageFrame}
+          {editDock ? (
+            <div
+              data-stage-edit-dock-overlay
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 55,
+                display: "flex",
+                justifyContent: "center",
+                padding: "4px 8px 10px",
+                pointerEvents: "none",
+                boxSizing: "border-box",
+              }}
+            >
+              <div
+                style={{
+                  pointerEvents: "auto",
+                  width: "100%",
+                  maxWidth: "min(100%, 640px)",
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+              >
+                {editDock}
+              </div>
+            </div>
+          ) : null}
+        </div>
         {bulkToolbar}
       </div>
     </div>

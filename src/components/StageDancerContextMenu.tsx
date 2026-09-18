@@ -204,11 +204,6 @@ menuInteractionDisabled
           selectedDancerIds
         );
         if (ids.length === 0) return;
-        const msg =
-          ids.length === 1
-            ? "この立ち位置を削除しますか？"
-            : `選択中の ${ids.length} 人の立ち位置を削除しますか？`;
-        if (!window.confirm(msg)) return;
         removeDancersByIds(ids);
       }}
       style={{

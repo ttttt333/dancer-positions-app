@@ -132,9 +132,14 @@ import {
 import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
 import {
   pointerInViewportTrashRevealZone,
-  syncRosterAfterRemovingLinkedMembersFromFirstCue,
 } from "../lib/stageBoardRosterAndTrash";
 import { enrichDancerSpotsFromCrew } from "../lib/memberRosterSheetFields";
+import {
+  removeMembersFromStage,
+  shouldConfirmMemberDeleteScope,
+  type MemberDeleteScope,
+} from "../lib/removeMemberFromStage";
+import { MemberDeleteScopeDialog } from "./MemberDeleteScopeDialog";
 import {
   applySetPieceResizePct,
   clamp,
@@ -484,6 +489,12 @@ export function StageBoardBody({
   const [sizeApplyPending, setSizeApplyPending] = useState<{
     kind: StageSizeApplyKind;
     overrides: Map<string, number>;
+  } | null>(null);
+  /** メンバー削除の適用範囲確認（このキュー / すべて） */
+  const [memberDeletePending, setMemberDeletePending] = useState<{
+    dancerIds: string[];
+    formationId: string;
+    label?: string;
   } | null>(null);
   /**
    * 回転ハンドルドラッグ中の向きプレビュー（選択中の各 ID → 度）。
@@ -1487,36 +1498,49 @@ export function StageBoardBody({
       )
         return;
       const spot = writeFormation.dancers.find((x) => x.id === dancerId);
-      setProject((p) => {
-        let next: ChoreographyProjectJson = {
-          ...p,
-          formations: p.formations.map((f) =>
-            f.id === formationIdForWrites
-              ? { ...f, dancers: f.dancers.filter((x) => x.id !== dancerId) }
-              : f,
-          ),
-        };
-        if (spot) {
-          next = syncRosterAfterRemovingLinkedMembersFromFirstCue(
-            next,
-            formationIdForWrites,
-            [spot],
-          );
-        }
-        return next;
-      });
-      setSelectedDancerIds((ids) =>
-        removeDancerFromSelection(ids, dancerId),
-      );
-      setDancerQuickEditId((id) => (id === dancerId ? null : id));
-      setStageContextMenu(null);
+      const run = (scope: MemberDeleteScope) => {
+        setProject((p) =>
+          removeMembersFromStage(p, {
+            formationId: formationIdForWrites,
+            cueId: editCueId,
+            dancerIds: [dancerId],
+            scope,
+          }),
+        );
+        setSelectedDancerIds((ids) =>
+          removeDancerFromSelection(ids, dancerId),
+        );
+        setDancerQuickEditId((id) => (id === dancerId ? null : id));
+        setStageContextMenu(null);
+        setMemberDeletePending(null);
+      };
+      if (shouldConfirmMemberDeleteScope(project)) {
+        setMemberDeletePending({
+          dancerIds: [dancerId],
+          formationId: formationIdForWrites,
+          label: spot?.label,
+        });
+        return;
+      }
+      if (
+        !window.confirm(
+          spot?.label?.trim()
+            ? `「${spot.label.trim()}」を舞台から削除しますか？`
+            : "この立ち位置を削除しますか？",
+        )
+      ) {
+        return;
+      }
+      run("cue");
     },
     [
       writeFormation,
       formationIdForWrites,
+      editCueId,
       setProject,
       viewMode,
       stageInteractionsEnabled,
+      project,
     ],
   );
 
@@ -1603,39 +1627,48 @@ export function StageBoardBody({
       )
         return;
       const removeSet = new Set(dancerIds);
-      const removedSpots = writeFormation.dancers.filter((x) =>
-        removeSet.has(x.id),
-      );
-      setProject((p) => {
-        let next: ChoreographyProjectJson = {
-          ...p,
-          formations: p.formations.map((f) =>
-            f.id === formationIdForWrites
-              ? { ...f, dancers: f.dancers.filter((x) => !removeSet.has(x.id)) }
-              : f,
-          ),
-        };
-        next = syncRosterAfterRemovingLinkedMembersFromFirstCue(
-          next,
-          formationIdForWrites,
-          removedSpots,
+      const run = (scope: MemberDeleteScope) => {
+        setProject((p) =>
+          removeMembersFromStage(p, {
+            formationId: formationIdForWrites,
+            cueId: editCueId,
+            dancerIds,
+            scope,
+          }),
         );
-        return next;
-      });
-      setSelectedDancerIds((ids) =>
-        removeDancersFromSelection(ids, removeSet),
-      );
-      setDancerQuickEditId((id) =>
-        id != null && removeSet.has(id) ? null : id,
-      );
-      setStageContextMenu(null);
+        setSelectedDancerIds((ids) =>
+          removeDancersFromSelection(ids, removeSet),
+        );
+        setDancerQuickEditId((id) =>
+          id != null && removeSet.has(id) ? null : id,
+        );
+        setStageContextMenu(null);
+        setMemberDeletePending(null);
+      };
+      if (shouldConfirmMemberDeleteScope(project)) {
+        const first = writeFormation.dancers.find((d) => removeSet.has(d.id));
+        setMemberDeletePending({
+          dancerIds: [...dancerIds],
+          formationId: formationIdForWrites,
+          label: dancerIds.length === 1 ? first?.label : undefined,
+        });
+        return;
+      }
+      const msg =
+        dancerIds.length === 1
+          ? "この立ち位置を削除しますか？"
+          : `選択中の ${dancerIds.length} 人の立ち位置を削除しますか？`;
+      if (!window.confirm(msg)) return;
+      run("cue");
     },
     [
       writeFormation,
       formationIdForWrites,
+      editCueId,
       setProject,
       viewMode,
       stageInteractionsEnabled,
+      project,
     ],
   );
 
@@ -5542,19 +5575,7 @@ export function StageBoardBody({
           />
         }
         editDock={
-          !stageEditDockHost && stageEditDock ? (
-            <div
-              style={{
-                flexShrink: 0,
-                width: "100%",
-                display: "flex",
-                justifyContent: "center",
-                padding: "4px 0 8px",
-              }}
-            >
-              {stageEditDock}
-            </div>
-          ) : null
+          !stageEditDockHost && stageEditDock ? stageEditDock : null
         }
         bulkToolbar={
           canStageBulkTools ? (
@@ -5705,6 +5726,33 @@ export function StageBoardBody({
               kind={sizeApplyPending.kind}
               onChoose={commitSizeApplyPending}
               onCancel={cancelSizeApplyPending}
+            />
+          ) : null}
+          {memberDeletePending ? (
+            <MemberDeleteScopeDialog
+              memberLabel={memberDeletePending.label}
+              count={memberDeletePending.dancerIds.length}
+              onCancel={() => setMemberDeletePending(null)}
+              onChoose={(scope) => {
+                const pending = memberDeletePending;
+                const removeSet = new Set(pending.dancerIds);
+                setProject((p) =>
+                  removeMembersFromStage(p, {
+                    formationId: pending.formationId,
+                    cueId: editCueId,
+                    dancerIds: pending.dancerIds,
+                    scope,
+                  }),
+                );
+                setSelectedDancerIds((ids) =>
+                  removeDancersFromSelection(ids, removeSet),
+                );
+                setDancerQuickEditId((id) =>
+                  id != null && removeSet.has(id) ? null : id,
+                );
+                setStageContextMenu(null);
+                setMemberDeletePending(null);
+              }}
             />
           ) : null}
         </>

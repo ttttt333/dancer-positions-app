@@ -1,4 +1,4 @@
-import { lazy, Suspense, type CSSProperties } from "react";
+import { lazy, Suspense, useState, type CSSProperties } from "react";
 import { useSafeElementRef } from "./useSafeElementRef";
 import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoGridLogo";
@@ -30,10 +30,14 @@ import {
   memberRosterHeightSelectOptions,
   memberRosterSelectOptions,
   patchMemberRosterDancerInProject,
-  removeMemberRosterDancerFromFormation,
   resolveMemberRosterFields,
 } from "../../lib/memberRosterSheetFields";
-import { syncRosterAfterRemovingLinkedMembersFromFirstCue } from "../../lib/stageBoardRosterAndTrash";
+import {
+  removeMembersFromStage,
+  shouldConfirmMemberDeleteScope,
+  type MemberDeleteScope,
+} from "../../lib/removeMemberFromStage";
+import { MemberDeleteScopeDialog } from "../../components/MemberDeleteScopeDialog";
 import { sortCuesByStart, MIN_CUE_DURATION_SEC, DEFAULT_CUE_SPAN_WITH_AUDIO_SEC } from "../../core/timelineController";
 import { dancersForLayoutPreset, transferDancerIdentitiesByOrder } from "../../lib/formationLayouts";
 import { formatMmSsFloor } from "../../lib/timeFormat";
@@ -65,6 +69,13 @@ const Stage3DView = lazy(() =>
 
 
 export function EditorStageRowOverlays(props: EditorLayoutProps) {
+  const [memberDeletePending, setMemberDeletePending] = useState<{
+    formationId: string;
+    cueId: string | null;
+    dancerId: string;
+    label: string;
+  } | null>(null);
+
   const videoExportOpen = useVideoExportUiStore((s) => s.open);
   const closeVideoExport = useVideoExportUiStore((s) => s.closeSheet);
   const activeFormationId = props.activeFormationId as never;
@@ -714,29 +725,41 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                           const editFid =
                             (selectedCue as { formationId?: string } | null | undefined)
                               ?.formationId ?? project?.activeFormationId;
-                          if (!editFid) return;
-                          setProjectSafe((p) => {
-                            const f = p.formations.find((x) => x.id === editFid);
-                            const removedSpots =
-                              f?.dancers.filter(
-                                (d) =>
-                                  d.id === dancer.id ||
-                                  (dancer.crewMemberId &&
-                                    d.crewMemberId === dancer.crewMemberId)
-                              ) ?? [];
-                            let next = removeMemberRosterDancerFromFormation(
-                              p,
-                              editFid,
-                              dancer.id
+                          if (!editFid || !project) return;
+                          const cueId =
+                            (selectedCue as { id?: string } | null | undefined)?.id ??
+                            (typeof selectedCueId === "string" ? selectedCueId : null);
+                          const run = (scope: MemberDeleteScope) => {
+                            setProjectSafe((p) =>
+                              removeMembersFromStage(p, {
+                                formationId: editFid,
+                                cueId,
+                                dancerIds: [dancer.id],
+                                scope,
+                              })
                             );
-                            next = syncRosterAfterRemovingLinkedMembersFromFirstCue(
-                              next,
-                              editFid,
-                              removedSpots
-                            );
-                            return next;
-                          });
-                          setStagePreviewDancers?.(null);
+                            setStagePreviewDancers?.(null);
+                            setMemberDeletePending(null);
+                          };
+                          if (shouldConfirmMemberDeleteScope(project)) {
+                            setMemberDeletePending({
+                              formationId: editFid,
+                              cueId,
+                              dancerId: dancer.id,
+                              label: dancer.label || "メンバー",
+                            });
+                            return;
+                          }
+                          if (
+                            !window.confirm(
+                              dancer.label?.trim()
+                                ? `「${dancer.label.trim()}」を舞台から削除しますか？`
+                                : "このメンバーを舞台から削除しますか？"
+                            )
+                          ) {
+                            return;
+                          }
+                          run("cue");
                         }}
                         style={{
                           flexShrink: 0,
@@ -1420,6 +1443,25 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
       ) : null}
 
       {exportDialogEl}
+      {memberDeletePending ? (
+        <MemberDeleteScopeDialog
+          memberLabel={memberDeletePending.label}
+          onCancel={() => setMemberDeletePending(null)}
+          onChoose={(scope) => {
+            const pending = memberDeletePending;
+            setProjectSafe((p) =>
+              removeMembersFromStage(p, {
+                formationId: pending.formationId,
+                cueId: pending.cueId,
+                dancerIds: [pending.dancerId],
+                scope,
+              })
+            );
+            setStagePreviewDancers?.(null);
+            setMemberDeletePending(null);
+          }}
+        />
+      ) : null}
       {!choreoPublicView && project ? (
         <VideoExportSheet
           open={videoExportOpen}
