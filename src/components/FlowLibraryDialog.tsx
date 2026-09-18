@@ -66,6 +66,8 @@ type Props = {
    * クラウド音源のみのときは呼び出し元で null を返してよい（memento の `audioAssetId` / `audioSupabasePath` で足りる）
    */
   getAudioBlobForFlowLibrary?: () => Promise<Blob | null>;
+  /** 未ログインで保存しようとしたとき（ログイン画面へ誘導） */
+  onRequireLoginToSave?: () => void;
 };
 
 const card: CSSProperties = {
@@ -166,6 +168,7 @@ export function FlowLibraryDialog({
   serverId = null,
   serverShareToken = null,
   syncProjectToCloud,
+  onRequireLoginToSave,
 }: Props) {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -248,6 +251,10 @@ export function FlowLibraryDialog({
   );
 
   const doSave = useCallback(() => {
+    if (!me) {
+      onRequireLoginToSave?.();
+      return;
+    }
     const trimmed = name.trim();
     if (!trimmed) {
       setFeedback({ kind: "error", text: "名前を入力してください。" });
@@ -340,6 +347,8 @@ export function FlowLibraryDialog({
       }
     });
   }, [
+    me,
+    onRequireLoginToSave,
     name,
     project,
     refresh,
@@ -353,6 +362,10 @@ export function FlowLibraryDialog({
 
   const doOverwrite = useCallback(
     (id: string, label: string) => {
+      if (!me) {
+        onRequireLoginToSave?.();
+        return;
+      }
       if (!confirm(`「${label}」を現在のステージ内容で上書きします。よろしいですか？`)) return;
       try {
         (document.activeElement as HTMLElement | null)?.blur?.();
@@ -440,6 +453,8 @@ export function FlowLibraryDialog({
       });
     },
     [
+      me,
+      onRequireLoginToSave,
       project,
       refresh,
       refreshCloud,
@@ -792,6 +807,18 @@ export function FlowLibraryDialog({
               }}
             >
               {canSaveHint}
+            </p>
+          ) : null}
+          {!me ? (
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: "11px",
+                color: "#94a3b8",
+                lineHeight: 1.4,
+              }}
+            >
+              {t("editor.saveNeedLoginTitle")}
             </p>
           ) : null}
         </section>

@@ -25,6 +25,8 @@ import {
 import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
 import { ProjectConflictDialog } from "../components/ProjectConflictDialog";
 import { clearEditorDraft } from "../lib/editorDraftStorage";
+import { redirectToLoginForSave } from "../lib/redirectToLoginForSave";
+import { consumeSaveIntentAfterLogin } from "../lib/postLoginRedirect";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import {
   isDancerCountOverFreeLimit,
@@ -1995,6 +1997,16 @@ function EditorPageContent({
           getWavePeaks={getWavePeaksSnapshot}
           onRestoreWaveform={restoreWavePeaks}
           getAudioBlobForFlowLibrary={getCurrentAudioBlobForFlowLibrary}
+          onRequireLoginToSave={() => {
+            if (!project) return;
+            setFlowLibraryOpen(false);
+            redirectToLoginForSave({
+              navigate,
+              project,
+              projectName,
+              serverId,
+            });
+          }}
         />
       ) : null,
     [
@@ -2009,6 +2021,8 @@ function EditorPageContent({
       getWavePeaksSnapshot,
       restoreWavePeaks,
       getCurrentAudioBlobForFlowLibrary,
+      navigate,
+      projectName,
     ]
   );
 
@@ -2416,11 +2430,80 @@ function EditorPageContent({
 
   const handleKeyboardCloudSave = useCallback(() => {
     if (choreoPublicView) return;
-    if (!me) return;
     if (!project || project.viewMode === "view") return;
     if (saving) return;
+    if (!me) {
+      redirectToLoginForSave({
+        navigate,
+        project,
+        projectName,
+        serverId,
+      });
+      return;
+    }
     void performCloudSave();
-  }, [choreoPublicView, me, project, saving, performCloudSave]);
+  }, [
+    choreoPublicView,
+    me,
+    navigate,
+    project,
+    projectName,
+    saving,
+    serverId,
+    performCloudSave,
+  ]);
+
+  const requestEditorSave = useCallback(() => {
+    if (choreoPublicView) return;
+    if (!project || project.viewMode === "view") return;
+    if (!me) {
+      redirectToLoginForSave({
+        navigate,
+        project,
+        projectName,
+        serverId,
+      });
+      return;
+    }
+    setCloudSaveDialogOpen(true);
+  }, [
+    choreoPublicView,
+    me,
+    navigate,
+    project,
+    projectName,
+    serverId,
+  ]);
+
+  const openFlowLibraryOrLogin = useCallback(() => {
+    if (choreoPublicView) return;
+    if (!project) return;
+    if (!me) {
+      redirectToLoginForSave({
+        navigate,
+        project,
+        projectName,
+        serverId,
+      });
+      return;
+    }
+    setFlowLibraryOpen(true);
+  }, [choreoPublicView, me, navigate, project, projectName, serverId]);
+
+  /** 未ログインで保存→ログイン復帰後にクラウド保存を続行 */
+  useEffect(() => {
+    if (!me || choreoPublicView || !project) return;
+    if (project.viewMode === "view") return;
+    if (awaitingInitialName) return;
+    if (!consumeSaveIntentAfterLogin()) return;
+    void performCloudSave();
+  }, [
+    me,
+    choreoPublicView,
+    project,
+    awaitingInitialName,
+    performCloudSave,
+  ]);
 
   useEditorKeyboardShortcuts({
     stageZenFullscreen,
@@ -2762,7 +2845,7 @@ function EditorPageContent({
       }
       onOpenFormationChange={() => setFormationPresetPickerOpen(true)}
       onRequestAddCueAtTime={() => setAddCueDialogOpen(true)}
-      onSave={() => setFlowLibraryOpen(true)}
+      onSave={openFlowLibraryOrLogin}
       onOpenAudioImport={openAudioImport}
       onApplyAiSectionKeyframes={
         sectionAutoKeyframes.requestApplyAiSectionKeyframes
@@ -2846,15 +2929,21 @@ function EditorPageContent({
     onOpenViewerMode: choreoPublicView
       ? () => setChoreoMemberSheetOpen(true)
       : () => setEditorViewerSheetOpen(true),
-    ...(me && !choreoPublicView
+    ...(!choreoPublicView
       ? {
-          onOpenCloudSave: () => setCloudSaveDialogOpen(true),
+          onOpenCloudSave: requestEditorSave,
           cloudSaveDisabled: saving,
           cloudSaveRailLine1: t("editor.cloudSaveRailLine1"),
-          cloudSaveRailLine2: serverId ? t("editor.saveOverwrite") : t("editor.save"),
-          cloudSaveRailTitle: serverId
-            ? `${t("editor.saveTitleOverwrite")}（⌘S / Ctrl+S）`
-            : `${t("editor.saveTitleNew")}（⌘S / Ctrl+S）`,
+          cloudSaveRailLine2: !me
+            ? t("editor.saveNeedLoginShort")
+            : serverId
+              ? t("editor.saveOverwrite")
+              : t("editor.save"),
+          cloudSaveRailTitle: !me
+            ? t("editor.saveNeedLoginTitle")
+            : serverId
+              ? `${t("editor.saveTitleOverwrite")}（⌘S / Ctrl+S）`
+              : `${t("editor.saveTitleNew")}（⌘S / Ctrl+S）`,
         }
       : {}),
   };

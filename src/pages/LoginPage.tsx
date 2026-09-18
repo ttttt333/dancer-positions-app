@@ -1,10 +1,11 @@
 import type { CSSProperties } from "react";
 import { Fragment, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authApi, setToken, CLOUD_AUTH_CONFIG_MISSING_MESSAGE, isProdBuildMissingCloudAuth } from "../api/client";
 import { getSupabase, isSupabaseBackend } from "../lib/supabaseClient";
 import { useAuth, mapApiMeToContextMe } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
+import { resolvePostLoginTarget } from "../lib/postLoginRedirect";
 import { AuthAlternativeMethods, AuthMethodDivider } from "../components/auth/AuthAlternativeMethods";
 import { AuthScreenLayout } from "../components/AuthScreenLayout";
 import { btnAccent, inputField } from "../components/stageButtonStyles";
@@ -35,10 +36,17 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const { me, ready, setAuth, logout, refresh } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const stateFrom = (location.state as { from?: unknown } | null)?.from;
+
+  const goAfterLogin = () => {
+    navigate(resolvePostLoginTarget(stateFrom, "/"), { replace: true });
+  };
 
   useEffect(() => {
-    if (ready && me) navigate("/", { replace: true });
-  }, [ready, me, navigate]);
+    if (ready && me) goAfterLogin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when auth settles
+  }, [ready, me]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +66,7 @@ export function LoginPage() {
           return;
         }
         await refresh();
-        navigate("/", { replace: true });
+        goAfterLogin();
         return;
       }
       const { token } = await authApi.login(email, password);
@@ -66,7 +74,7 @@ export function LoginPage() {
       try {
         const m = await authApi.me();
         setAuth(token, mapApiMeToContextMe(m));
-        navigate("/", { replace: true });
+        goAfterLogin();
       } catch {
         logout();
         setError(t("auth.postLoginMeFailed"));
@@ -141,7 +149,11 @@ export function LoginPage() {
             lineHeight: 1.6,
           }}
         >
-          <Link to="/register" style={{ color: shell.text, fontWeight: 600, textDecoration: "none" }}>
+          <Link
+            to="/register"
+            state={stateFrom != null ? { from: stateFrom } : undefined}
+            style={{ color: shell.text, fontWeight: 600, textDecoration: "none" }}
+          >
             {t("auth.registerLink")}
           </Link>
           <br />
