@@ -177,6 +177,10 @@ const EN_BASE: MessageBundle = {
   "home.libraryTitle": "Library",
   "home.myLibrary": "My library",
   "home.cloudLibrary": "Cloud",
+  "home.unifiedLibraryHint":
+    "Cloud and on-device works in one list. Rename or delete from each card.",
+  "home.badge.cloud": "Cloud",
+  "home.badge.local": "This device",
   "home.flowLibraryHint":
     "Works saved in the editor library on this device.",
   "home.flowLibraryMeta": "Cues {cues} / People {dancers} / Length {dur}",
@@ -221,6 +225,8 @@ const EN_BASE: MessageBundle = {
   "home.sheet.limitReached": "Free plan is limited to 3 projects. Upgrade to Pro to add more.",
   "home.sheet.linkCopied": "Viewer link copied",
   "home.sheet.collabCopied": "Collab link copied",
+  "home.sheet.localNeedCloud":
+    "Save this work to the cloud first to create a share link.",
   "viewer.viral.aria": "Try ChoreoCore",
   "viewer.viral.line": "This formation was made with ChoreoCore.",
   "viewer.viral.sub": "Build yours too — free to start.",
@@ -643,6 +649,10 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "home.libraryTitle": "ライブラリ",
     "home.myLibrary": "自分のライブラリ",
     "home.cloudLibrary": "クラウド",
+    "home.unifiedLibraryHint":
+      "クラウドとこの端末の作品をまとめて表示します。各カードから名前変更・削除ができます。",
+    "home.badge.cloud": "クラウド",
+    "home.badge.local": "この端末",
     "home.flowLibraryHint":
       "エディタのライブラリに保存した作品です。この端末に残っています。",
     "home.flowLibraryMeta": "キュー {cues} / 人数 {dancers} / 尺 {dur}",
@@ -687,6 +697,8 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "home.sheet.limitReached": "無料プランは作品 3 件までです。追加するには Pro へアップグレードしてください。",
     "home.sheet.linkCopied": "閲覧リンクをコピーしました",
     "home.sheet.collabCopied": "共同編集リンクをコピーしました",
+    "home.sheet.localNeedCloud":
+      "共有リンクを作るには、先に作品をクラウドへ保存してください。",
     "viewer.viral.aria": "ChoreoCore を試す",
     "viewer.viral.line": "このフォーメーションは ChoreoCore で作られました。",
     "viewer.viral.sub": "あなたも無料で作れます。",
@@ -1133,6 +1145,10 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "home.libraryTitle": "라이브러리",
     "home.myLibrary": "내 라이브러리",
     "home.cloudLibrary": "클라우드",
+    "home.unifiedLibraryHint":
+      "클라우드와 이 기기의 작품을 한 목록으로 표시합니다. 각 카드에서 이름 변경·삭제가 가능합니다.",
+    "home.badge.cloud": "클라우드",
+    "home.badge.local": "이 기기",
     "home.flowLibraryHint":
       "에디터 라이브러리에 저장한 작품입니다. 이 기기에 남아 있습니다.",
     "home.flowLibraryMeta": "큐 {cues} / 인원 {dancers} / 길이 {dur}",
@@ -1177,6 +1193,8 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "home.sheet.limitReached": "무료 플랜은 작품 3개까지입니다. 더 추가하려면 Pro로 업그레이드하세요.",
     "home.sheet.linkCopied": "보기 링크를 복사했습니다",
     "home.sheet.collabCopied": "공동 편집 링크를 복사했습니다",
+    "home.sheet.localNeedCloud":
+      "공유 링크를 만들려면 먼저 작품을 클라우드에 저장하세요.",
     "home.sheet.exportPdf": "PDF로 내보내기",
     "home.sheet.exportPdfFail": "PDF 내보내기에 실패했습니다",
     "newProject.title": "작품 이름을 정하고 시작하세요",
@@ -1572,6 +1590,10 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "home.libraryTitle": "作品库",
     "home.myLibrary": "我的作品库",
     "home.cloudLibrary": "云端",
+    "home.unifiedLibraryHint":
+      "云端与本机作品合并显示。可在各卡片中重命名或删除。",
+    "home.badge.cloud": "云端",
+    "home.badge.local": "本机",
     "home.flowLibraryHint": "保存在编辑器资料库中的作品，留在此设备上。",
     "home.flowLibraryMeta": "提示点 {cues} / 人数 {dancers} / 时长 {dur}",
     "home.flowLibraryUpdated": "更新 {date}",
@@ -1615,6 +1637,7 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "home.sheet.limitReached": "免费方案最多保存3个作品。如需添加更多，请升级到 Pro。",
     "home.sheet.linkCopied": "已复制查看链接",
     "home.sheet.collabCopied": "已复制协作链接",
+    "home.sheet.localNeedCloud": "请先将作品保存到云端，才能生成分享链接。",
     "home.sheet.exportPdf": "导出为 PDF",
     "home.sheet.exportPdfFail": "PDF 导出失败",
     "newProject.title": "为作品命名后开始",

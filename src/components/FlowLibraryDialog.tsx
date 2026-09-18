@@ -1119,6 +1119,97 @@ export function FlowLibraryDialog({
                       >
                         開く
                       </button>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "5px",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          style={{
+                            ...btnSecondary,
+                            padding: "4px 8px",
+                            fontSize: "10px",
+                          }}
+                          disabled={busy}
+                          onClick={() => {
+                            const next = window.prompt("新しい名前", p.name);
+                            if (next == null) return;
+                            const trimmed = next.trim();
+                            if (!trimmed || trimmed === p.name) return;
+                            void (async () => {
+                              setBusy(true);
+                              try {
+                                const row = await projectApi.get(p.id);
+                                await projectApi.update(p.id, trimmed, row.json);
+                                await refreshCloud();
+                                setFeedback({
+                                  kind: "info",
+                                  text: `「${trimmed}」に名前を変更しました。`,
+                                });
+                              } catch (e) {
+                                setFeedback({
+                                  kind: "error",
+                                  text:
+                                    e instanceof Error
+                                      ? e.message
+                                      : "名前の変更に失敗しました。",
+                                });
+                              } finally {
+                                setBusy(false);
+                              }
+                            })();
+                          }}
+                        >
+                          名前変更
+                        </button>
+                        <button
+                          type="button"
+                          style={{
+                            ...btnSecondary,
+                            padding: "4px 8px",
+                            fontSize: "10px",
+                            borderColor: "#7f1d1d",
+                            color: "#fecaca",
+                          }}
+                          disabled={busy}
+                          onClick={() => {
+                            if (
+                              !confirm(
+                                `クラウドの「${p.name}」を削除します。よろしいですか？`
+                              )
+                            ) {
+                              return;
+                            }
+                            void (async () => {
+                              setBusy(true);
+                              try {
+                                await projectApi.remove(p.id);
+                                await refreshCloud();
+                                setFeedback({
+                                  kind: "info",
+                                  text: `「${p.name}」を削除しました。`,
+                                });
+                              } catch (e) {
+                                setFeedback({
+                                  kind: "error",
+                                  text:
+                                    e instanceof Error
+                                      ? e.message
+                                      : "削除に失敗しました。",
+                                });
+                              } finally {
+                                setBusy(false);
+                              }
+                            })();
+                          }}
+                        >
+                          削除
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
