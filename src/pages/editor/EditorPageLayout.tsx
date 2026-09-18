@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoGridLogo";
 import { StageBoard } from "../../components/StageBoard";
@@ -18,6 +18,7 @@ import { dancersForLayoutPreset, transferDancerIdentitiesByOrder } from "../../l
 import { formatMmSsFloor } from "../../lib/timeFormat";
 import { getViewRosterEntries } from "../../lib/viewRoster";
 import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
+import { useViewerHoldToDoubleSpeed } from "../../hooks/useViewerHoldToDoubleSpeed";
 import { parseMeterCmDraftToMm } from "./stageAreaSettingsDraft";
 import {
   EDITOR_GRID_GAP_PX,
@@ -235,6 +236,24 @@ export function EditorPageLayout(props: EditorLayoutProps) {
 
   const attachTopDockSection = useAssignRef(topDockSectionRef);
   const publicRootRef = useRef<HTMLDivElement | null>(null);
+
+  const onViewerHoldPlaybackRateChange = useCallback(
+    (rate: number) => {
+      setProjectSafe((p: { playbackRate?: number } & Record<string, unknown>) => ({
+        ...p,
+        playbackRate: rate,
+      }));
+    },
+    [setProjectSafe]
+  );
+
+  const { boosting: viewerHold2x, onPointerDown: onViewerHold2xPointerDown } =
+    useViewerHoldToDoubleSpeed({
+      enabled: Boolean(choreoPublicView && choreoStudentPick && project),
+      project,
+      playbackRate: project?.playbackRate ?? 1,
+      onPlaybackRateChange: onViewerHoldPlaybackRateChange,
+    });
 
   useEffect(() => {
     if (!choreoPublicView) return;
@@ -485,8 +504,16 @@ export function EditorPageLayout(props: EditorLayoutProps) {
 
       {/* ─── Stage row: editor grid + NeonIconPanel ─── */}
       <div
-        className={
-          choreoPublicView ? "choreo-public-view-stage-shell" : undefined
+        className={[
+          choreoPublicView ? "choreo-public-view-stage-shell" : "",
+          viewerHold2x ? "choreo-public-view-stage-shell--hold-2x" : "",
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined}
+        onPointerDown={
+          choreoPublicView && choreoStudentPick
+            ? onViewerHold2xPointerDown
+            : undefined
         }
         style={{
           display: "flex",
@@ -495,8 +522,14 @@ export function EditorPageLayout(props: EditorLayoutProps) {
           flexDirection:
             choreoPublicView && publicViewTightHeight ? "row" : "column",
           overflow: "visible",
+          touchAction: choreoPublicView ? "manipulation" : undefined,
         }}
       >
+        {viewerHold2x ? (
+          <div className="choreo-viewer-hold-2x-badge" aria-live="polite">
+            2x
+          </div>
+        ) : null}
         <div
           style={{
             display: "flex",

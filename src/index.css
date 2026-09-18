@@ -810,6 +810,41 @@ html.choreo-public-view-html::backdrop {
 .choreo-public-view-stage-shell {
   min-height: 0;
   min-width: 0;
+  position: relative;
+}
+
+.choreo-viewer-hold-2x-badge {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  pointer-events: none;
+  min-width: 52px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.82);
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: choreo-viewer-hold-2x-in 140ms ease-out;
+}
+
+@keyframes choreo-viewer-hold-2x-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
 }
 
 .choreo-viewer-member-mode--compact-bar {
