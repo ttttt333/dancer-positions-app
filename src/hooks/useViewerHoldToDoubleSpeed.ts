@@ -3,7 +3,9 @@ import {
   useEffect,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
 } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { playbackEngine } from "../core/playbackEngine";
@@ -26,7 +28,21 @@ type Args = {
   project: ChoreographyProjectJson | null | undefined;
   playbackRate: number;
   onPlaybackRateChange: (rate: number) => void;
+  /** 長押し対象のステージシェル（ネイティブ選択・コールアウト抑止用） */
+  shellRef?: RefObject<HTMLElement | null>;
 };
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(INTERACTIVE_SELECTOR));
+}
+
+function clearDomSelection(): void {
+  try {
+    window.getSelection()?.removeAllRanges();
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * 生徒閲覧: ステージを長押ししている間だけ 2 倍速再生。
@@ -37,6 +53,7 @@ export function useViewerHoldToDoubleSpeed({
   project,
   playbackRate,
   onPlaybackRateChange,
+  shellRef,
 }: Args) {
   const [boosting, setBoosting] = useState(false);
 
@@ -48,6 +65,8 @@ export function useViewerHoldToDoubleSpeed({
   const timerRef = useRef<number | null>(null);
   const pointerIdRef = useRef<number | null>(null);
   const originRef = useRef({ x: 0, y: 0 });
+  /** 長押し追跡中（タイマー待ち or 2x 中）— ネイティブ UI を抑止 */
+  const suppressNativeUiRef = useRef(false);
 
   useEffect(() => {
     projectRef.current = project;
@@ -69,6 +88,7 @@ export function useViewerHoldToDoubleSpeed({
   const endBoost = useCallback(() => {
     clearTimer();
     pointerIdRef.current = null;
+    suppressNativeUiRef.current = false;
     if (!boostingRef.current) return;
     boostingRef.current = false;
     setBoosting(false);
@@ -83,6 +103,7 @@ export function useViewerHoldToDoubleSpeed({
     const base = restoreRateRef.current;
     boostingRef.current = true;
     setBoosting(true);
+    clearDomSelection();
     playbackEngine.setPlaybackRate(2);
     if (base !== 2) {
       onRateChangeRef.current(2);
@@ -109,14 +130,18 @@ export function useViewerHoldToDoubleSpeed({
         endBoost();
         return;
       }
-      const t = e.target;
-      if (t instanceof Element && t.closest(INTERACTIVE_SELECTOR)) return;
+      if (isInteractiveTarget(e.target)) return;
+
+      // iOS/Android のテキスト選択・コールアウトを抑止
+      e.preventDefault();
+      clearDomSelection();
 
       pointerIdRef.current = e.pointerId;
       originRef.current = { x: e.clientX, y: e.clientY };
       restoreRateRef.current = normalizePracticePlaybackRate(
         playbackRateRef.current ?? 1
       );
+      suppressNativeUiRef.current = true;
       clearTimer();
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null;
@@ -126,6 +151,48 @@ export function useViewerHoldToDoubleSpeed({
     },
     [beginBoost, clearTimer, enabled, endBoost]
   );
+
+  const onContextMenu = useCallback((e: ReactMouseEvent | MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  // ステージ上の touch / 選択 / コンテキストメニューをネイティブ側で抑止
+  useEffect(() => {
+    if (!enabled) return;
+    const el = shellRef?.current;
+    if (!el) return;
+
+    const onTouchStart = (ev: TouchEvent) => {
+      if (ev.touches.length !== 1) {
+        endBoost();
+        return;
+      }
+      if (isInteractiveTarget(ev.target)) return;
+      // passive: false 必須（iOS の長押しコールアウト抑止）
+      ev.preventDefault();
+      clearDomSelection();
+    };
+
+    const onSelectStart = (ev: Event) => {
+      if (isInteractiveTarget(ev.target)) return;
+      ev.preventDefault();
+    };
+
+    const onContextMenuCapture = (ev: Event) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("selectstart", onSelectStart, true);
+    el.addEventListener("contextmenu", onContextMenuCapture, true);
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("selectstart", onSelectStart, true);
+      el.removeEventListener("contextmenu", onContextMenuCapture, true);
+    };
+  }, [enabled, endBoost, shellRef]);
 
   useEffect(() => {
     if (!enabled) {
@@ -145,6 +212,7 @@ export function useViewerHoldToDoubleSpeed({
       if (dist > WAVE_LONG_PRESS_CANCEL_PX) {
         clearTimer();
         pointerIdRef.current = null;
+        suppressNativeUiRef.current = false;
       }
     };
 
@@ -156,9 +224,15 @@ export function useViewerHoldToDoubleSpeed({
     };
 
     const onBlur = () => endBoost();
-    const onContextMenu = (ev: Event) => {
-      if (boostingRef.current || timerRef.current != null) {
+    const onContextMenuWindow = (ev: Event) => {
+      if (suppressNativeUiRef.current || boostingRef.current) {
         ev.preventDefault();
+        ev.stopPropagation();
+      }
+    };
+    const onSelectionChange = () => {
+      if (suppressNativeUiRef.current || boostingRef.current) {
+        clearDomSelection();
       }
     };
 
@@ -166,16 +240,18 @@ export function useViewerHoldToDoubleSpeed({
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
     window.addEventListener("blur", onBlur);
-    window.addEventListener("contextmenu", onContextMenu, true);
+    window.addEventListener("contextmenu", onContextMenuWindow, true);
+    document.addEventListener("selectionchange", onSelectionChange);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("blur", onBlur);
-      window.removeEventListener("contextmenu", onContextMenu, true);
+      window.removeEventListener("contextmenu", onContextMenuWindow, true);
+      document.removeEventListener("selectionchange", onSelectionChange);
       endBoost();
     };
   }, [clearTimer, enabled, endBoost]);
 
-  return { boosting, onPointerDown };
+  return { boosting, onPointerDown, onContextMenu };
 }

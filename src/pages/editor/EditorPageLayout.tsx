@@ -236,6 +236,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
 
   const attachTopDockSection = useAssignRef(topDockSectionRef);
   const publicRootRef = useRef<HTMLDivElement | null>(null);
+  const viewerStageShellRef = useRef<HTMLDivElement | null>(null);
 
   const onViewerHoldPlaybackRateChange = useCallback(
     (rate: number) => {
@@ -247,13 +248,17 @@ export function EditorPageLayout(props: EditorLayoutProps) {
     [setProjectSafe]
   );
 
-  const { boosting: viewerHold2x, onPointerDown: onViewerHold2xPointerDown } =
-    useViewerHoldToDoubleSpeed({
-      enabled: Boolean(choreoPublicView && choreoStudentPick && project),
-      project,
-      playbackRate: project?.playbackRate ?? 1,
-      onPlaybackRateChange: onViewerHoldPlaybackRateChange,
-    });
+  const {
+    boosting: viewerHold2x,
+    onPointerDown: onViewerHold2xPointerDown,
+    onContextMenu: onViewerHold2xContextMenu,
+  } = useViewerHoldToDoubleSpeed({
+    enabled: Boolean(choreoPublicView && choreoStudentPick && project),
+    project,
+    playbackRate: project?.playbackRate ?? 1,
+    onPlaybackRateChange: onViewerHoldPlaybackRateChange,
+    shellRef: viewerStageShellRef,
+  });
 
   useEffect(() => {
     if (!choreoPublicView) return;
@@ -504,6 +509,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
 
       {/* ─── Stage row: editor grid + NeonIconPanel ─── */}
       <div
+        ref={choreoPublicView ? viewerStageShellRef : undefined}
         className={[
           choreoPublicView ? "choreo-public-view-stage-shell" : "",
           viewerHold2x ? "choreo-public-view-stage-shell--hold-2x" : "",
@@ -513,6 +519,11 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         onPointerDown={
           choreoPublicView && choreoStudentPick
             ? onViewerHold2xPointerDown
+            : undefined
+        }
+        onContextMenu={
+          choreoPublicView && choreoStudentPick
+            ? onViewerHold2xContextMenu
             : undefined
         }
         style={{

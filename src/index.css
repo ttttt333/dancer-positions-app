@@ -811,6 +811,26 @@ html.choreo-public-view-html::backdrop {
   min-height: 0;
   min-width: 0;
   position: relative;
+  /* 長押し 2x 時に iOS/Android のテキスト選択・コールアウトが出ないようにする */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.choreo-public-view-stage-shell *,
+.choreo-public-view-stage-shell *::before,
+.choreo-public-view-stage-shell *::after {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+.choreo-public-view-stage-shell input,
+.choreo-public-view-stage-shell textarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default;
 }
 
 .choreo-viewer-hold-2x-badge {
