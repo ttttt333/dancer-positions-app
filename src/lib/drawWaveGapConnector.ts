@@ -21,18 +21,18 @@ export function resolveWaveGapConnectorStyle(opts: {
   const lw = Math.max(1.35, opts.waveBitmapPxPerCssPx * 1.15);
   if (opts.ownedBySelection) {
     return {
-      fillStyle: "rgba(239, 68, 68, 0.045)",
-      strokeStyle: "rgba(252, 165, 165, 0.28)",
-      crossStyle: "rgba(254, 226, 226, 0.72)",
-      lineWidth: lw,
+      fillStyle: "rgba(220, 38, 38, 0.1)",
+      strokeStyle: "rgba(248, 113, 113, 0.55)",
+      crossStyle: "rgba(254, 202, 202, 0.92)",
+      lineWidth: lw * 1.08,
     };
   }
   if (opts.configuredGapMovement) {
     return {
-      fillStyle: "rgba(248, 113, 113, 0.06)",
-      strokeStyle: "rgba(248, 113, 113, 0.32)",
-      crossStyle: "rgba(254, 202, 202, 0.7)",
-      lineWidth: lw,
+      fillStyle: "rgba(239, 68, 68, 0.14)",
+      strokeStyle: "rgba(239, 68, 68, 0.62)",
+      crossStyle: "rgba(252, 165, 165, 0.95)",
+      lineWidth: lw * 1.12,
     };
   }
   return {

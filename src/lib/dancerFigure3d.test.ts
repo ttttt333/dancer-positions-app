@@ -8,6 +8,15 @@ describe("normalizeDancerFigure3d", () => {
   it("keeps known ids", () => {
     expect(normalizeDancerFigure3d("dog")).toBe("dog");
     expect(normalizeDancerFigure3d("elephant")).toBe("elephant");
+    expect(normalizeDancerFigure3d("rabbit")).toBe("rabbit");
+    expect(normalizeDancerFigure3d("kirin")).toBe("kirin");
+    expect(normalizeDancerFigure3d("penguin")).toBe("penguin");
+    expect(normalizeDancerFigure3d("bear")).toBe("bear");
+  });
+
+  it("maps legacy ids", () => {
+    expect(normalizeDancerFigure3d("monkey")).toBe("bear");
+    expect(normalizeDancerFigure3d("pig")).toBe("bear");
   });
 
   it("drops unknown", () => {

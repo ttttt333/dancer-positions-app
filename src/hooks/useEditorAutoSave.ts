@@ -71,7 +71,8 @@ export function useEditorAutoSave({
         return;
       }
       if (json === lastCloudJsonRef.current) {
-        persistLocalDraft();
+        // クラウドと同一なら草稿を残さない（再読込時の競合ダイアログ連発を防ぐ）
+        clearEditorDraft(serverId);
         return;
       }
       if (cloudInFlightRef.current) {

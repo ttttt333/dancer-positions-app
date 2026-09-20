@@ -463,11 +463,11 @@ export function DancerPathEditor({
         const prevLabelFill = isActive ? "#ffffff" : "#93c5fd";
         const nextLabelFill = isActive ? "#ffffff" : "#86efac";
         const stationaryLabelFill = isActive ? "#ffffff" : "#e2e8f0";
-        const pathStroke = isActive ? "#a5b4fc" : "#6366f1";
+        const pathStroke = isActive ? "#fca5a5" : "#ef4444";
         const pathWidth = isActive
           ? markers.pathStroke * 1.35
           : markers.pathStroke;
-        const guideStroke = isActive ? "#94a3b8" : "#475569";
+        const guideStroke = isActive ? "#fda4af" : "#7f1d1d";
 
         return (
           <g

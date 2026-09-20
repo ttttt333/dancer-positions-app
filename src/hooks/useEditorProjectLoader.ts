@@ -26,7 +26,7 @@ import {
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { Me } from "../types/authMe";
 import { loadShareViewProject, primeShareViewLoaderState } from "../lib/shareViewProjectCache";
-import { projectJsonDiffers } from "../lib/projectConflict";
+import { projectJsonDiffers, shouldPreferLocalDraft } from "../lib/projectConflict";
 
 export type PendingLoadConflict = {
   kind: "load-draft";
@@ -263,30 +263,29 @@ export function useEditorProjectLoader({
         const baseJson = normalizeProject(row.json);
         const draft = loadEditorDraft(id);
         let loadedJson = baseJson;
-        let deferredConflict: PendingLoadConflict | null = null;
 
-        // 下書きがあり内容が違う場合は無言適用せず、ユーザーに選択させる
+        // 下書きがあり内容が違う場合は、新しい方を無言で採用（毎回の確認ダイアログを出さない）
         if (
           !choreoPublicView &&
           draft &&
           draft.serverId === id &&
-          draft.project &&
-          projectJsonDiffers(draft.project, baseJson)
+          draft.project
         ) {
-          deferredConflict = {
-            kind: "load-draft",
-            serverUpdatedAt: row.updated_at,
-            localSavedAt: draft.savedAt,
-            serverJson: baseJson,
-            draftJson: normalizeProject(draft.project),
-            draftName:
-              draft.projectName?.trim() ||
-              draft.project.pieceTitle?.trim() ||
-              row.name,
-            serverName: row.name,
-          };
-          // 暫定でクラウドを表示し、ダイアログで切替可能にする
-          loadedJson = baseJson;
+          if (projectJsonDiffers(draft.project, baseJson)) {
+            if (shouldPreferLocalDraft(draft.savedAt, row.updated_at)) {
+              loadedJson = normalizeProject(draft.project);
+              const draftName =
+                draft.projectName?.trim() ||
+                draft.project.pieceTitle?.trim() ||
+                row.name;
+              if (draftName) setProjectName(draftName);
+            } else {
+              clearEditorDraft(id);
+              loadedJson = baseJson;
+            }
+          } else {
+            clearEditorDraft(id);
+          }
         }
 
         // 無料復帰後: 超過があるときはライブラリで削減してから開く
@@ -321,7 +320,7 @@ export function useEditorProjectLoader({
             choreoPublicView ? { ...loadedJson, viewMode: "view" } : loadedJson
           );
         }
-        setPendingLoadConflict(deferredConflict);
+        setPendingLoadConflict(null);
         setLoadError(null);
         onHistoryReset();
       } catch (e) {

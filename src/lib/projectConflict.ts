@@ -27,6 +27,21 @@ export function isServerNewerThanKnown(
   return server > known + 50;
 }
 
+/**
+ * 端末草稿とクラウドのどちらを開くか。
+ * 草稿の savedAt がクラウド updated_at より新しければ草稿、それ以外はクラウド。
+ */
+export function shouldPreferLocalDraft(
+  draftSavedAt: string | null | undefined,
+  serverUpdatedAt: string | null | undefined
+): boolean {
+  const draft = parseIsoMs(draftSavedAt);
+  const server = parseIsoMs(serverUpdatedAt);
+  if (!Number.isFinite(draft)) return false;
+  if (!Number.isFinite(server)) return true;
+  return draft > server + 50;
+}
+
 /** 草稿とサーバー JSON が実質違うか（簡易シグネチャ） */
 export function projectJsonDiffers(a: unknown, b: unknown): boolean {
   try {

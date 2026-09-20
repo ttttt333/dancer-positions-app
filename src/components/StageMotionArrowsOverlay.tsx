@@ -33,22 +33,22 @@ function findById(dancers: DancerSpot[], id: string): DancerSpot | undefined {
 }
 
 const DANCER_COLORS = [
+  "#ef4444",
   "#f87171",
+  "#fb7185",
+  "#f43f5e",
+  "#e11d48",
+  "#dc2626",
+  "#f97316",
+  "#ea580c",
   "#fb923c",
-  "#facc15",
-  "#4ade80",
-  "#34d399",
-  "#22d3ee",
-  "#60a5fa",
-  "#a78bfa",
-  "#f472b6",
-  "#e879f9",
-  "#94a3b8",
-  "#fbbf24",
-  "#86efac",
-  "#7dd3fc",
-  "#c4b5fd",
-  "#f9a8d4",
+  "#ef4444",
+  "#f43f5e",
+  "#e11d48",
+  "#f87171",
+  "#fb7185",
+  "#dc2626",
+  "#f97316",
 ];
 
 export function StageMotionArrowsOverlay({
