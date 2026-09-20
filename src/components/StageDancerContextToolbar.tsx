@@ -103,6 +103,14 @@ export type StageDancerContextToolbarProps = {
     ids: string[],
     stamp: import("../lib/dancerFaceStamp").DancerFaceStampId | null
   ) => void;
+  applyBulkGenderToDancerIds?: (
+    ids: string[],
+    genderLabel: string | null
+  ) => void;
+  applyBulkFigure3dToDancerIds?: (
+    ids: string[],
+    figure3d: import("../lib/dancerFigure3d").DancerFigure3dId
+  ) => void;
   shapePreviewActive?: boolean;
   depthPreviewActive?: boolean;
   rotationPreviewActive?: boolean;
@@ -233,6 +241,8 @@ export function StageDancerContextToolbar({
   applyBulkMarkerSame,
   applyBulkMarkerCenterDistance,
   applyBulkFaceStamp,
+  applyBulkGenderToDancerIds,
+  applyBulkFigure3dToDancerIds,
   shapePreviewActive = false,
   depthPreviewActive: _depthPreviewActive = false,
   rotationPreviewActive = false,
@@ -1088,6 +1098,8 @@ export function StageDancerContextToolbar({
                 applyBulkMarkerCenterDistance ?? (() => {})
               }
               applyBulkFaceStamp={applyBulkFaceStamp}
+              applyBulkGenderToDancerIds={applyBulkGenderToDancerIds}
+              applyBulkFigure3dToDancerIds={applyBulkFigure3dToDancerIds}
               markerPx={markerPx}
               nameFontPx={nameFontPx}
               onMarkerSizeChange={onMarkerSizeChange}

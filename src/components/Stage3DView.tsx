@@ -6,6 +6,9 @@ import {
   DANCER_COLOR_PALETTE_THREE as PALETTE,
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
+import { buildDancerFigure3d } from "../lib/buildDancerFigure3d";
+import { resolveDancerFigure3dId } from "../lib/dancerFigure3d";
+import { resolveDancerDisplayThree } from "../lib/dancerGender";
 import {
   DEFAULT_DANCER_MARKER_DIAMETER_PX,
   MARKER_DIAMETER_PX_MAX,
@@ -74,7 +77,7 @@ type Api = {
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   controls: OrbitControls;
-  meshes: THREE.Mesh[];
+  figures: THREE.Object3D[];
   nameLabels: THREE.Sprite[];
   marksGroup: THREE.Group;
   planeGeom: THREE.PlaneGeometry;
@@ -109,13 +112,6 @@ function resolveHeightCm(d: DancerSpot): number {
     return d.heightCm;
   }
   return DEFAULT_HEIGHT_CM;
-}
-
-function disposeMesh(mesh: THREE.Mesh) {
-  mesh.geometry.dispose();
-  const mat = mesh.material;
-  if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
-  else (mat as THREE.Material).dispose();
 }
 
 function disposeSprite(sprite: THREE.Sprite) {
@@ -510,7 +506,7 @@ export function Stage3DView({
     scene.add(plane);
     const marksGroup = new THREE.Group();
     scene.add(marksGroup);
-    const meshes: THREE.Mesh[] = [];
+    const figures: THREE.Object3D[] = [];
     const nameLabels: THREE.Sprite[] = [];
     let raf = 0;
     const loop = () => {
@@ -524,7 +520,7 @@ export function Stage3DView({
       camera,
       renderer,
       controls,
-      meshes,
+      figures,
       nameLabels,
       marksGroup,
       planeGeom,
@@ -551,9 +547,9 @@ export function Stage3DView({
       ro.disconnect();
       cancelAnimationFrame(raf);
       controls.dispose();
-      meshes.forEach((m) => {
-        disposeMesh(m);
-        scene.remove(m);
+      figures.forEach((fig) => {
+        disposeObject3D(fig);
+        scene.remove(fig);
       });
       nameLabels.forEach((s) => {
         disposeSprite(s);
@@ -608,12 +604,12 @@ export function Stage3DView({
   useEffect(() => {
     const api = apiRef.current;
     if (!api || !sceneReady) return;
-    const { scene, meshes, nameLabels } = api;
-    meshes.forEach((m) => {
-      disposeMesh(m);
-      scene.remove(m);
+    const { scene, figures, nameLabels } = api;
+    figures.forEach((fig) => {
+      disposeObject3D(fig);
+      scene.remove(fig);
     });
-    meshes.length = 0;
+    figures.length = 0;
     nameLabels.forEach((s) => {
       disposeSprite(s);
       scene.remove(s);
@@ -626,21 +622,20 @@ export function Stage3DView({
     const sizeScale = clampD / DEFAULT_DANCER_MARKER_DIAMETER_PX;
     dancers.forEach((d) => {
       const heightCm = resolveHeightCm(d);
-      const totalH = BASE_FIGURE_HEIGHT * (heightCm / DEFAULT_HEIGHT_CM);
-      const radius = Math.min(0.28 * sizeScale, Math.max(0.1, totalH * 0.14));
-      const cylLen = Math.max(0.04, totalH - 2 * radius);
-      const geom = new THREE.CapsuleGeometry(radius, cylLen, 4, 10);
-      const mat = new THREE.MeshStandardMaterial({
-        color: PALETTE[modDancerColorIndex(d.colorIndex)],
-        roughness: 0.35,
-        metalness: 0.12,
-      });
-      const m = new THREE.Mesh(geom, mat);
+      const totalH =
+        BASE_FIGURE_HEIGHT * (heightCm / DEFAULT_HEIGHT_CM) * Math.min(1.35, Math.max(0.75, sizeScale));
+      const paletteColor = PALETTE[modDancerColorIndex(d.colorIndex)]!;
+      const color = resolveDancerDisplayThree(d.genderLabel, paletteColor);
+      const figureId = resolveDancerFigure3dId(d.figure3d);
+      const fig = buildDancerFigure3d(figureId, totalH, color);
       const x = pctToX(d.xPct);
       const z = pctToZ(d.yPct);
-      m.position.set(x, totalH / 2, z);
-      scene.add(m);
-      meshes.push(m);
+      fig.position.set(x, 0, z);
+      if (typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)) {
+        fig.rotation.y = -THREE.MathUtils.degToRad(d.facingDeg);
+      }
+      scene.add(fig);
+      figures.push(fig);
 
       const nameText = formatDancerNameLabel(d.label ?? "");
       if (nameText) {

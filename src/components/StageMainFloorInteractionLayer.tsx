@@ -13,6 +13,7 @@ import {
   modDancerColorIndex,
   normalizeDancerFacingDeg,
 } from "../lib/dancerColorPalette";
+import { resolveDancerDisplayHex } from "../lib/dancerGender";
 import { shell } from "../theme/choreoShell";
 import { StageDancerDragGhostItem } from "./StageDancerDragGhostItem";
 import { StageGroupRotateGuideBadge } from "./StageGroupRotateGuideBadge";
@@ -262,7 +263,10 @@ export function StageMainFloorInteractionLayer({
               pivotTransform={pivotTransform}
               halfMarker={halfMarker}
               markerPx={dMarkerPx}
-              fillHex={DANCER_PALETTE[modDancerColorIndex(d.colorIndex)]}
+              fillHex={resolveDancerDisplayHex(
+                d.genderLabel,
+                DANCER_PALETTE[modDancerColorIndex(d.colorIndex)]!
+              )}
               labelFontPx={dLabelFontPx}
               hideGlyph={hideGlyph}
               circleLabel={circleLabel}

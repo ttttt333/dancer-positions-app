@@ -4220,7 +4220,7 @@ export function StageBoardBody({
               if (!matches(x)) return x;
               const slicedBadge = sliceMarkerBadgeForStorage(patch.markerBadge);
               const nextFace = patch.faceStamp;
-              const { faceStamp: _dropFace, ...restSpot } = x;
+              const { faceStamp: _dropFace, figure3d: _dropFig, ...restSpot } = x;
               return {
                 ...restSpot,
                 label: patch.label.slice(0, 120),
@@ -4233,6 +4233,9 @@ export function StageBoardBody({
                 markerBadge: slicedBadge,
                 ...(slicedBadge ? { markerBadgeSource: undefined } : {}),
                 ...(nextFace ? { faceStamp: nextFace } : {}),
+                ...(patch.figure3d && patch.figure3d !== "human"
+                  ? { figure3d: patch.figure3d }
+                  : {}),
               };
             }),
           })),
@@ -4846,6 +4849,98 @@ export function StageBoardBody({
     ],
   );
 
+  /** 選択メンバーの性別を一括設定（null／空でクリア）。名簿紐付け時は名簿も同期 */
+  const applyBulkGenderToDancerIds = useCallback(
+    (targetIds: string[], genderLabel: string | null) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      const idSet = new Set(targetIds);
+      const nextGender =
+        genderLabel && genderLabel.trim()
+          ? genderLabel.trim().slice(0, 32)
+          : undefined;
+      setProject((p) => {
+        const crewIds = new Set<string>();
+        const form = p.formations.find((f) => f.id === formationIdForWrites);
+        if (!form) return p;
+        for (const d of form.dancers) {
+          if (!idSet.has(d.id)) continue;
+          if (d.crewMemberId) crewIds.add(d.crewMemberId);
+        }
+        return {
+          ...p,
+          crews: p.crews.map((crew) => ({
+            ...crew,
+            members: crew.members.map((m) =>
+              crewIds.has(m.id)
+                ? { ...m, genderLabel: nextGender }
+                : m
+            ),
+          })),
+          formations: p.formations.map((f) => {
+            if (f.id !== formationIdForWrites) return f;
+            return {
+              ...f,
+              dancers: f.dancers.map((d) => {
+                if (!idSet.has(d.id)) return d;
+                if (!nextGender) {
+                  const { genderLabel: _g, ...rest } = d;
+                  return rest;
+                }
+                return { ...d, genderLabel: nextGender };
+              }),
+            };
+          }),
+        };
+      });
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ]
+  );
+
+  /** 選択メンバーの 3D フィギュアを一括設定（human はフィールド省略） */
+  const applyBulkFigure3dToDancerIds = useCallback(
+    (
+      targetIds: string[],
+      figure3d: import("../lib/dancerFigure3d").DancerFigure3dId
+    ) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      const idSet = new Set(targetIds);
+      setProject((p) => ({
+        ...p,
+        formations: p.formations.map((f) => {
+          if (f.id !== formationIdForWrites) return f;
+          return {
+            ...f,
+            dancers: f.dancers.map((d) => {
+              if (!idSet.has(d.id)) return d;
+              if (figure3d === "human") {
+                const { figure3d: _f, ...rest } = d;
+                return rest;
+              }
+              return { ...d, figure3d };
+            }),
+          };
+        }),
+      }));
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ]
+  );
+
   /**
    * 「名前は○の下」のとき、○内を「センターからの距離」モードにする。
    * 印の中心 x と現在のステージ幅から毎回 5cm 刻みの整数（cm）で表示するので、隣同士間隔や横幅を変えても数字が追従する。
@@ -5077,6 +5172,8 @@ export function StageBoardBody({
       applyBulkMarkerSequence,
       applyBulkMarkerSame,
       applyBulkMarkerCenterDistance,
+      applyBulkGenderToDancerIds,
+      applyBulkFigure3dToDancerIds,
       applyPermuteArrange,
       applyDancerArrange,
     }),
@@ -5094,6 +5191,8 @@ export function StageBoardBody({
       applyBulkMarkerSequence,
       applyBulkMarkerSame,
       applyBulkMarkerCenterDistance,
+      applyBulkGenderToDancerIds,
+      applyBulkFigure3dToDancerIds,
       applyPermuteArrange,
       applyDancerArrange,
     ],
@@ -5454,6 +5553,8 @@ export function StageBoardBody({
       applyBulkMarkerSame={applyBulkMarkerSame}
       applyBulkMarkerCenterDistance={applyBulkMarkerCenterDistance}
       applyBulkFaceStamp={applyBulkFaceStamp}
+      applyBulkGenderToDancerIds={applyBulkGenderToDancerIds}
+      applyBulkFigure3dToDancerIds={applyBulkFigure3dToDancerIds}
       shapePreviewActive={Boolean(
         shapePreviewById && shapePreviewById.size > 0
       )}

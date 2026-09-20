@@ -1,6 +1,7 @@
 import type { DancerFaceStampId } from "../lib/dancerFaceStamp";
+import type { DancerFigure3dId } from "../lib/dancerFigure3d";
 
-export type { DancerFaceStampId };
+export type { DancerFaceStampId, DancerFigure3dId };
 
 /** 客席は画面の上辺または下辺のみ（旧 JSON の left/right は読み込み時に正規化される） */
 export type AudienceEdge = "top" | "bottom";
@@ -73,6 +74,10 @@ export type DancerSpot = {
    * 設定時は○内の名前・番号の代わりに表情を描き、名前は○の下に出す。
    */
   faceStamp?: DancerFaceStampId;
+  /**
+   * 3D 表示のフィギュア種類（人型・犬・猫など）。未指定は人型。
+   */
+  figure3d?: DancerFigure3dId;
 };
 
 /** 大道具（ChoreoCore §9）。バウンディングボックス内の図形。 */

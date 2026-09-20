@@ -21,6 +21,7 @@ import { ChoreoViewerViralCta } from "../../components/ChoreoViewerViralCta";
 import { VideoExportSheet } from "../../components/VideoExportSheet";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import { playbackEngine } from "../../core/playbackEngine";
+import { withDancerLabelPosition } from "../../lib/withDancerLabelPosition";
 import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
 import { panelCard, shell } from "../../theme/choreoShell";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../../lib/dancerColorPalette";
@@ -1058,7 +1059,16 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                     return (
                       <button key={val} type="button"
                         disabled={project.viewMode === "view"}
-                        onClick={() => setStageAreaSettingsDraft((d) => ({ ...d, dancerLabelPosition: val }))}
+                        onClick={() => {
+                          setStageAreaSettingsDraft((d) => ({
+                            ...d,
+                            dancerLabelPosition: val,
+                          }));
+                          if (project.viewMode === "view") return;
+                          setProjectSafe((p) =>
+                            withDancerLabelPosition(p, val)
+                          );
+                        }}
                         style={{
                           flex: 1, padding: "6px 8px", borderRadius: 8,
                           border: active ? "1px solid rgba(99,102,241,0.8)" : "1px solid rgba(51,65,85,0.7)",

@@ -14,8 +14,14 @@ import {
   normalizeDancerFaceStamp,
   type DancerFaceStampId,
 } from "../lib/dancerFaceStamp";
+import {
+  resolveDancerFigure3dId,
+  type DancerFigure3dId,
+} from "../lib/dancerFigure3d";
 import { EditorSideSheet } from "./EditorSideSheet";
 import { DancerFaceStampPicker } from "./DancerFaceStampPicker";
+import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
+import { DancerGenderPicker } from "./DancerGenderPicker";
 
 const LABEL_MAX = 120;
 const NOTE_MAX = 2000;
@@ -35,6 +41,8 @@ export type DancerQuickEditApply = {
   note: string | undefined;
   /** null で表情クリア */
   faceStamp: DancerFaceStampId | null;
+  /** 3D フィギュア（人型・動物） */
+  figure3d: DancerFigure3dId;
 };
 
 type Props = {
@@ -60,6 +68,7 @@ export function DancerQuickEditDialog({
   const [markerBadge, setMarkerBadge] = useState("");
   const [colorIndex, setColorIndex] = useState(0);
   const [faceStamp, setFaceStamp] = useState<DancerFaceStampId | null>(null);
+  const [figure3d, setFigure3d] = useState<DancerFigure3dId>("human");
   const [heightStr, setHeightStr] = useState("");
   const [gradeLabel, setGradeLabel] = useState("");
   const [genderLabel, setGenderLabel] = useState("");
@@ -72,6 +81,7 @@ export function DancerQuickEditDialog({
     setMarkerBadge(sliceMarkerBadgeForStorage(dancer.markerBadge) ?? "");
     setColorIndex(modDancerColorIndex(dancer.colorIndex));
     setFaceStamp(normalizeDancerFaceStamp(dancer.faceStamp) ?? null);
+    setFigure3d(resolveDancerFigure3dId(dancer.figure3d));
     setHeightStr(
       typeof dancer.heightCm === "number" && Number.isFinite(dancer.heightCm)
         ? String(dancer.heightCm)
@@ -124,6 +134,7 @@ export function DancerQuickEditDialog({
       skillRankLabel: sk ? sk : undefined,
       note: noteOut,
       faceStamp,
+      figure3d,
     });
     onClose();
   };
@@ -246,17 +257,42 @@ export function DancerQuickEditDialog({
 
         {block("gender", (
           <>
-            <span style={labelStyle}>性別</span>
-            <input
-              type="text"
+            <span style={labelStyle}>性別（男子＝青・女子＝ピンク）</span>
+            <DancerGenderPicker
               value={genderLabel}
               disabled={disabled}
-              maxLength={GENDER_MAX}
-              placeholder="例: 女・男"
-              onChange={(e) =>
-                setGenderLabel(e.target.value.slice(0, GENDER_MAX))
-              }
-              style={inputStyle}
+              onChange={(next) => setGenderLabel(next.slice(0, GENDER_MAX))}
+            />
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: 11,
+                color: "#64748b",
+                lineHeight: 1.4,
+              }}
+            >
+              もう一度押すと未設定に戻ります。未設定のときは下の印の色が使われます。
+            </p>
+          </>
+        ))}
+
+        {block("figure3d", (
+          <>
+            <span style={labelStyle}>3Dの見た目</span>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: 11,
+                color: "#64748b",
+                lineHeight: 1.4,
+              }}
+            >
+              3D表示で使う人型・動物を選びます。
+            </p>
+            <DancerFigure3dPicker
+              value={figure3d}
+              disabled={disabled}
+              onChange={setFigure3d}
             />
           </>
         ))}

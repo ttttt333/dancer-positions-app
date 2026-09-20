@@ -29,6 +29,7 @@ import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
+import { resolveDancerDisplayHex } from "../lib/dancerGender";
 import { dancerMarkerDiameterAfterRosterImport } from "../lib/projectDefaults";
 import { useI18n } from "../i18n/I18nContext";
 import {
@@ -445,6 +446,9 @@ export function RosterTimelineStrip({
                       ...(m.gradeLabel?.trim()
                         ? { gradeLabel: m.gradeLabel.trim().slice(0, 32) }
                         : {}),
+                      ...(m.genderLabel?.trim()
+                        ? { genderLabel: m.genderLabel.trim().slice(0, 32) }
+                        : {}),
                       ...(m.skillRankLabel?.trim()
                         ? { skillRankLabel: m.skillRankLabel.trim().slice(0, 24) }
                         : {}),
@@ -491,6 +495,9 @@ export function RosterTimelineStrip({
               ...(typeof m.heightCm === "number" ? { heightCm: m.heightCm } : {}),
               ...(m.gradeLabel?.trim()
                 ? { gradeLabel: m.gradeLabel.trim().slice(0, 32) }
+                : {}),
+              ...(m.genderLabel?.trim()
+                ? { genderLabel: m.genderLabel.trim().slice(0, 32) }
                 : {}),
               ...(m.skillRankLabel?.trim()
                 ? { skillRankLabel: m.skillRankLabel.trim().slice(0, 24) }
@@ -828,7 +835,10 @@ export function RosterTimelineStrip({
   if (flatRows.length === 0) return null;
 
   const chipBg = (m: CrewMember) =>
-    DANCER_PALETTE[modDancerColorIndex(m.colorIndex)];
+    resolveDancerDisplayHex(
+      m.genderLabel,
+      DANCER_PALETTE[modDancerColorIndex(m.colorIndex)]!
+    );
 
   if (collapsed) {
     return (

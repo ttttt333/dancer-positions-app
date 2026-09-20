@@ -25,6 +25,7 @@ import {
   swapSelectionKamiteShimote,
 } from "../lib/stageColumnSwap";
 import { btnSecondary } from "./stageButtonStyles";
+import { withDancerLabelPosition } from "../lib/withDancerLabelPosition";
 
 export type StageDancerContextMenuProps = {
   anchorDancerId: string;
@@ -41,6 +42,14 @@ export type StageDancerContextMenuProps = {
   applyBulkMarkerSequence: (ids: string[], start: number) => void;
   applyBulkMarkerSame: (ids: string[], badgeRaw: string) => void;
   applyBulkMarkerCenterDistance: (ids: string[]) => void;
+  applyBulkGenderToDancerIds?: (
+    ids: string[],
+    genderLabel: string | null
+  ) => void;
+  applyBulkFigure3dToDancerIds?: (
+    ids: string[],
+    figure3d: import("../lib/dancerFigure3d").DancerFigure3dId
+  ) => void;
   applyPermuteArrange: (
     fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
   ) => void;
@@ -245,7 +254,7 @@ menuInteractionDisabled
 menuInteractionDisabled
       }
       onClick={() => {
-        setProject((p) => ({ ...p, dancerLabelPosition: "inside" }));
+        setProject((p) => withDancerLabelPosition(p, "inside"));
       }}
       style={{
         flex: 1,
@@ -279,7 +288,7 @@ menuInteractionDisabled
 menuInteractionDisabled
       }
       onClick={() => {
-        setProject((p) => ({ ...p, dancerLabelPosition: "below" }));
+        setProject((p) => withDancerLabelPosition(p, "below"));
       }}
       style={{
         flex: 1,

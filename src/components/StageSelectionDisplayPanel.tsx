@@ -17,7 +17,10 @@ import {
   dockSectionTitle,
 } from "./stageDockPanelStyles";
 import { DancerFaceStampPicker } from "./DancerFaceStampPicker";
+import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
+import { DancerGenderPicker } from "./DancerGenderPicker";
 import type { DancerFaceStampId } from "../lib/dancerFaceStamp";
+import { withDancerLabelPosition } from "../lib/withDancerLabelPosition";
 
 const PRIMARY_COLOR_COUNT = 8;
 
@@ -109,6 +112,14 @@ export type StageSelectionDisplayPanelProps = {
     ids: string[],
     stamp: import("../lib/dancerFaceStamp").DancerFaceStampId | null
   ) => void;
+  applyBulkGenderToDancerIds?: (
+    ids: string[],
+    genderLabel: string | null
+  ) => void;
+  applyBulkFigure3dToDancerIds?: (
+    ids: string[],
+    figure3d: import("../lib/dancerFigure3d").DancerFigure3dId
+  ) => void;
   selectedDancerIds: readonly string[];
   markerPx: number;
   nameFontPx: number;
@@ -130,6 +141,8 @@ export function StageSelectionDisplayPanel({
   applyBulkMarkerSame,
   applyBulkMarkerCenterDistance,
   applyBulkFaceStamp,
+  applyBulkGenderToDancerIds,
+  applyBulkFigure3dToDancerIds,
   selectedDancerIds,
   markerPx,
   nameFontPx,
@@ -161,6 +174,41 @@ export function StageSelectionDisplayPanel({
       </div>
 
       <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>
+          性別（男子＝青・女子＝ピンク）
+        </div>
+        <p style={{ ...dockSectionHint, margin: "0 0 8px" }}>
+          選択中に一括で付けます。もう一度同じボタンでクリア。
+        </p>
+        <DancerGenderPicker
+          value=""
+          disabled={busy || !applyBulkGenderToDancerIds}
+          onChange={(next) => applyBulkGenderToDancerIds?.(ids, next || null)}
+        />
+        <button
+          type="button"
+          disabled={busy || !applyBulkGenderToDancerIds}
+          style={{ ...markerActionBtn, marginTop: 8, width: "100%" }}
+          onClick={() => applyBulkGenderToDancerIds?.(ids, null)}
+        >
+          性別をクリア
+        </button>
+      </div>
+
+      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>3Dの見た目</div>
+        <p style={{ ...dockSectionHint, margin: "0 0 8px" }}>
+          選択中の立ち位置を人型・動物にします（3D表示で反映）。
+        </p>
+        <DancerFigure3dPicker
+          value="human"
+          compact
+          disabled={busy || !applyBulkFigure3dToDancerIds}
+          onChange={(fig) => applyBulkFigure3dToDancerIds?.(ids, fig)}
+        />
+      </div>
+
+      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
         <div style={{ ...dockSectionTitle, marginBottom: 8 }}>名前の表示</div>
         <div style={{ display: "flex", gap: 8, marginBottom: dancerLabelBelow ? 8 : 0 }}>
           {(["inside", "below"] as const).map((pos) => {
@@ -171,7 +219,9 @@ export function StageSelectionDisplayPanel({
                 key={pos}
                 type="button"
                 disabled={busy}
-                onClick={() => setProject((p) => ({ ...p, dancerLabelPosition: pos }))}
+                onClick={() =>
+                  setProject((p) => withDancerLabelPosition(p, pos))
+                }
                 style={{
                   flex: 1,
                   padding: "10px 12px",

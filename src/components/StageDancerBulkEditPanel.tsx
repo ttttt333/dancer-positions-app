@@ -13,6 +13,9 @@ import {
 } from "../lib/stageSelectionArrange";
 import { btnSecondary } from "./stageButtonStyles";
 import type { StageDancerContextMenuProps } from "./StageDancerContextMenu";
+import { withDancerLabelPosition } from "../lib/withDancerLabelPosition";
+import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
+import { DancerGenderPicker } from "./DancerGenderPicker";
 
 export type BulkEditTabId = "basic" | "sort" | "formation" | "display";
 
@@ -160,6 +163,8 @@ export function StageDancerBulkEditPanel({
   applyBulkMarkerSequence,
   applyBulkMarkerSame,
   applyBulkMarkerCenterDistance,
+  applyBulkGenderToDancerIds,
+  applyBulkFigure3dToDancerIds,
   applyPermuteArrange,
   applyDancerArrange,
   selectionColumnCount,
@@ -413,7 +418,9 @@ export function StageDancerBulkEditPanel({
                     key={pos}
                     type="button"
                     disabled={menuInteractionDisabled}
-                    onClick={() => setProject((p) => ({ ...p, dancerLabelPosition: pos }))}
+                    onClick={() =>
+                      setProject((p) => withDancerLabelPosition(p, pos))
+                    }
                     style={{
                       flex: 1,
                       padding: "10px 12px",
@@ -489,9 +496,47 @@ export function StageDancerBulkEditPanel({
               </>
             ) : (
               <p style={{ ...sectionHint, margin: "8px 0 0" }}>
-                「丸の下」を選ぶと、丸の内に空白・連番・同じ文字・センターからの距離を指定できます。
+                「丸の内」「丸の下」は押した時点で反映されます（確認不要）。「丸の下」を選ぶと、丸の内に空白・連番・同じ文字・センターからの距離を指定できます。
               </p>
             )}
+          </div>
+
+          <div style={card}>
+            <div style={sectionTitle}>性別（男子＝青・女子＝ピンク）</div>
+            <p style={sectionHint}>選択中に一括で付けます。</p>
+            <DancerGenderPicker
+              value=""
+              disabled={menuInteractionDisabled || !applyBulkGenderToDancerIds}
+              onChange={(next) =>
+                applyBulkGenderToDancerIds?.(targetIds, next || null)
+              }
+            />
+            <div style={{ marginTop: 8 }}>
+              <ActionButton
+                disabled={menuInteractionDisabled || !applyBulkGenderToDancerIds}
+                wide
+                onClick={() => applyBulkGenderToDancerIds?.(targetIds, null)}
+              >
+                性別をクリア
+              </ActionButton>
+            </div>
+          </div>
+
+          <div style={card}>
+            <div style={sectionTitle}>3Dの見た目</div>
+            <p style={sectionHint}>
+              選択中の立ち位置を人型・動物にします（3D表示で反映）。
+            </p>
+            <DancerFigure3dPicker
+              value="human"
+              compact
+              disabled={
+                menuInteractionDisabled || !applyBulkFigure3dToDancerIds
+              }
+              onChange={(fig) =>
+                applyBulkFigure3dToDancerIds?.(targetIds, fig)
+              }
+            />
           </div>
 
           <div style={{ ...card, marginBottom: 0 }}>

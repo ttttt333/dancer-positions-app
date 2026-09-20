@@ -6,6 +6,7 @@ import {
   DANCER_COLOR_PALETTE_HEX,
   modDancerColorIndex,
 } from "./dancerColorPalette";
+import { resolveDancerDisplayHex } from "./dancerGender";
 import { resolveStageExportRange } from "./stageExportRange";
 import { buildStageExportAppearance } from "./stageExportAppearance";
 import { resolvePlaybackAudioUrlForExport } from "./resolvePlaybackAudioUrlForExport";
@@ -19,7 +20,10 @@ import {
 } from "./videoExportQualityPresets";
 
 function dancerColorHex(d: DancerSpot): string {
-  return DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)];
+  return resolveDancerDisplayHex(
+    d.genderLabel,
+    DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)]!
+  );
 }
 
 function mapDancers(dancers: DancerSpot[]) {

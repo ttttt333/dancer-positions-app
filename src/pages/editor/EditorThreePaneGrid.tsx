@@ -881,6 +881,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                           ? project.crews
                           : [];
                         const heightByMemberId = new Map<string, number>();
+                        const genderByMemberId = new Map<string, string>();
                         for (const c of crews) {
                           for (const m of c.members ?? []) {
                             if (
@@ -890,24 +891,43 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                             ) {
                               heightByMemberId.set(m.id, m.heightCm);
                             }
+                            if (m.genderLabel?.trim()) {
+                              genderByMemberId.set(
+                                m.id,
+                                m.genderLabel.trim().slice(0, 32)
+                              );
+                            }
                           }
                         }
-                        if (heightByMemberId.size === 0) return base;
+                        if (
+                          heightByMemberId.size === 0 &&
+                          genderByMemberId.size === 0
+                        ) {
+                          return base;
+                        }
                         return base.map((d) => {
+                          let next = d;
                           if (
-                            typeof d.heightCm === "number" &&
-                            Number.isFinite(d.heightCm) &&
-                            d.heightCm > 0
-                          ) {
-                            return d;
-                          }
-                          const fromCrew =
+                            !(
+                              typeof d.heightCm === "number" &&
+                              Number.isFinite(d.heightCm) &&
+                              d.heightCm > 0
+                            ) &&
                             d.crewMemberId != null
-                              ? heightByMemberId.get(d.crewMemberId)
-                              : undefined;
-                          return fromCrew != null
-                            ? { ...d, heightCm: fromCrew }
-                            : d;
+                          ) {
+                            const fromCrew = heightByMemberId.get(d.crewMemberId);
+                            if (fromCrew != null) {
+                              next = { ...next, heightCm: fromCrew };
+                            }
+                          }
+                          if (
+                            !d.genderLabel?.trim() &&
+                            d.crewMemberId != null
+                          ) {
+                            const g = genderByMemberId.get(d.crewMemberId);
+                            if (g) next = { ...next, genderLabel: g };
+                          }
+                          return next;
                         });
                       })()}
                       markerDiameterPx={
