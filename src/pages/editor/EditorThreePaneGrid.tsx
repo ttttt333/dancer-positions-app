@@ -981,6 +981,62 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         (audienceEdgeOverride as "top" | "bottom" | undefined) ??
                         (project.audienceEdge === "top" ? "top" : "bottom")
                       }
+                      readOnly={project.viewMode === "view"}
+                      onPatchDancer={(dancerId, patch) => {
+                        if (project.viewMode === "view") return;
+                        setProjectSafe((p: typeof project) => {
+                          const fid = p.activeFormationId;
+                          const form = p.formations.find((f) => f.id === fid);
+                          const spot = form?.dancers.find((d) => d.id === dancerId);
+                          if (!form || !spot) return p;
+                          const cmid = spot.crewMemberId;
+                          let crews = p.crews;
+                          if (cmid && patch.genderLabel !== undefined) {
+                            crews = p.crews.map((crew) => ({
+                              ...crew,
+                              members: crew.members.map((m) =>
+                                m.id === cmid
+                                  ? {
+                                      ...m,
+                                      genderLabel: patch.genderLabel,
+                                    }
+                                  : m
+                              ),
+                            }));
+                          }
+                          return {
+                            ...p,
+                            crews,
+                            formations: p.formations.map((f) => {
+                              if (f.id !== fid) return f;
+                              return {
+                                ...f,
+                                dancers: f.dancers.map((d) => {
+                                  if (d.id !== dancerId) return d;
+                                  let next = { ...d };
+                                  if (patch.genderLabel !== undefined) {
+                                    if (patch.genderLabel) {
+                                      next.genderLabel = patch.genderLabel;
+                                    } else {
+                                      const { genderLabel: _g, ...rest } = next;
+                                      next = rest;
+                                    }
+                                  }
+                                  if (patch.figure3d !== undefined) {
+                                    if (patch.figure3d === "human") {
+                                      const { figure3d: _f, ...rest } = next;
+                                      next = rest;
+                                    } else {
+                                      next.figure3d = patch.figure3d;
+                                    }
+                                  }
+                                  return next;
+                                }),
+                              };
+                            }),
+                          };
+                        });
+                      }}
                     />
                   </Suspense>
                 ) : (

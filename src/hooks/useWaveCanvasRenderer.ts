@@ -503,7 +503,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
             holdLeft,
             holdRight,
           });
-          /** 空白があるときホールド終端の区切り線のみ（グリップは hold 端の外向き） */
+          /** 空白があるときホールド終端の区切り線（実線）＋移動終端の外向きグリップ */
           if (
             (isSel || isDrag) &&
             holdEndSec > frameTs + 1e-3 &&
@@ -516,23 +516,71 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
             const top = inset;
             const boxH = h - inset * 2;
             g.strokeStyle = isSel
-              ? "rgba(252, 165, 165, 0.75)"
-              : "rgba(250, 230, 160, 0.75)";
+              ? "rgba(252, 165, 165, 0.9)"
+              : "rgba(250, 230, 160, 0.9)";
             g.lineWidth =
               (isSel
                 ? WAVE_CUE_FRAME_BORDER_SELECTED_CSS_PX
                 : WAVE_CUE_FRAME_BORDER_CSS_PX) *
               waveBitmapPxPerCssPx *
-              0.85;
-            g.setLineDash([
-              3 * waveBitmapPxPerCssPx,
-              3 * waveBitmapPxPerCssPx,
-            ]);
+              0.95;
+            g.setLineDash([]);
             g.beginPath();
             g.moveTo(xHold, top);
             g.lineTo(xHold, top + boxH);
             g.stroke();
-            g.setLineDash([]);
+          }
+          /** 移動区間の右端（次キュー手前）にもでっぱった選択グリップ */
+          if (
+            (isSel || isDrag) &&
+            holdEndSec < frameTe - 1e-3
+          ) {
+            const inset = 0.5;
+            const frameRight = left + width - inset;
+            const gripW = Math.max(
+              WAVE_CUE_SELECTED_EDGE_GRIP_CSS_PX * waveBitmapPxPerCssPx,
+              waveBitmapPxPerCssPx * 4
+            );
+            const gripH = Math.min(
+              h * 0.72,
+              Math.max(28 * waveBitmapPxPerCssPx, h * 0.48)
+            );
+            const gripTop = inset + (h - inset * 2 - gripH) / 2;
+            const outset = gripW * WAVE_CUE_SELECTED_EDGE_GRIP_OUTSET;
+            const gx = frameRight - (gripW - outset);
+            const r = Math.min(4 * waveBitmapPxPerCssPx, gripW * 0.35);
+            g.fillStyle = "rgba(252, 165, 165, 0.98)";
+            g.strokeStyle = "rgba(254, 226, 226, 0.98)";
+            g.lineWidth = Math.max(1, waveBitmapPxPerCssPx);
+            g.beginPath();
+            g.moveTo(gx + r, gripTop);
+            g.lineTo(gx + gripW - r, gripTop);
+            g.quadraticCurveTo(gx + gripW, gripTop, gx + gripW, gripTop + r);
+            g.lineTo(gx + gripW, gripTop + gripH - r);
+            g.quadraticCurveTo(
+              gx + gripW,
+              gripTop + gripH,
+              gx + gripW - r,
+              gripTop + gripH
+            );
+            g.lineTo(gx + r, gripTop + gripH);
+            g.quadraticCurveTo(gx, gripTop + gripH, gx, gripTop + gripH - r);
+            g.lineTo(gx, gripTop + r);
+            g.quadraticCurveTo(gx, gripTop, gx + r, gripTop);
+            g.closePath();
+            g.fill();
+            g.stroke();
+            g.strokeStyle = "rgba(127, 29, 29, 0.55)";
+            g.lineWidth = Math.max(1.2, waveBitmapPxPerCssPx);
+            const barGap = gripW * 0.18;
+            const bar1 = gx + gripW * 0.38;
+            const bar2 = bar1 + barGap;
+            g.beginPath();
+            g.moveTo(bar1, gripTop + gripH * 0.28);
+            g.lineTo(bar1, gripTop + gripH * 0.72);
+            g.moveTo(bar2, gripTop + gripH * 0.28);
+            g.lineTo(bar2, gripTop + gripH * 0.72);
+            g.stroke();
           }
         }
       }

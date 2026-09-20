@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { AudienceEdge, DancerSpot } from "../types/choreography";
@@ -7,7 +7,10 @@ import {
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
 import { buildDancerFigure3d } from "../lib/buildDancerFigure3d";
-import { resolveDancerFigure3dId } from "../lib/dancerFigure3d";
+import {
+  resolveDancerFigure3dId,
+  type DancerFigure3dId,
+} from "../lib/dancerFigure3d";
 import { resolveDancerDisplayThree } from "../lib/dancerGender";
 import {
   DEFAULT_DANCER_MARKER_DIAMETER_PX,
@@ -15,6 +18,8 @@ import {
   MARKER_DIAMETER_PX_MIN,
   clampStageGridAxisMm,
 } from "../lib/projectDefaults";
+import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
+import { DancerGenderPicker } from "./DancerGenderPicker";
 
 /** 身長未入力時の基準（cm）。入力済みの身長はこの値との比率で立体の高さを決める */
 const DEFAULT_HEIGHT_CM = 170;
@@ -105,6 +110,16 @@ type Props = {
   dancers: DancerSpot[];
   /** 2D ステージのダンサー印と揃えた見た目用（既定は projectDefaults と同じ） */
   markerDiameterPx?: number;
+  /** 閲覧専用のときキャラ編集不可 */
+  readOnly?: boolean;
+  /** 3D 上でキャラ／性別を変えたとき */
+  onPatchDancer?: (
+    dancerId: string,
+    patch: {
+      figure3d?: import("../lib/dancerFigure3d").DancerFigure3dId;
+      genderLabel?: string | undefined;
+    }
+  ) => void;
 } & Stage3DFloorMarks;
 
 function resolveHeightCm(d: DancerSpot): number {
@@ -468,10 +483,14 @@ export function Stage3DView({
   stageGridSpacingDepthMm = null,
   stageGridLineSpacingMm = null,
   audienceEdge = "bottom",
+  readOnly = false,
+  onPatchDancer,
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<Api | null>(null);
   const [sceneReady, setSceneReady] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const pointerDownRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const el = mountRef.current;
@@ -628,6 +647,7 @@ export function Stage3DView({
       const color = resolveDancerDisplayThree(d.genderLabel, paletteColor);
       const figureId = resolveDancerFigure3dId(d.figure3d);
       const fig = buildDancerFigure3d(figureId, totalH, color);
+      fig.userData.dancerId = d.id;
       const x = pctToX(d.xPct);
       const z = pctToZ(d.yPct);
       fig.position.set(x, 0, z);
@@ -654,6 +674,74 @@ export function Stage3DView({
     });
   }, [dancers, markerDiameterPx, sceneReady]);
 
+  useEffect(() => {
+    const api = apiRef.current;
+    const el = mountRef.current;
+    if (!api || !sceneReady || !el || readOnly) return;
+    const { camera, renderer, figures, controls } = api;
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+
+    const pickDancerId = (clientX: number, clientY: number): string | null => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return null;
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(figures, true);
+      for (const hit of hits) {
+        let obj: THREE.Object3D | null = hit.object;
+        while (obj) {
+          const id = obj.userData?.dancerId;
+          if (typeof id === "string" && id) return id;
+          obj = obj.parent;
+        }
+      }
+      return null;
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      pointerDownRef.current = { x: e.clientX, y: e.clientY };
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      const down = pointerDownRef.current;
+      pointerDownRef.current = null;
+      if (!down) return;
+      if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) return;
+      const id = pickDancerId(e.clientX, e.clientY);
+      setSelectedId(id);
+    };
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
+    return () => {
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      void controls;
+    };
+  }, [sceneReady, readOnly, dancers]);
+
+  const selected = selectedId
+    ? dancers.find((d) => d.id === selectedId) ?? null
+    : null;
+
+  const dolly = (factor: number) => {
+    const api = apiRef.current;
+    if (!api) return;
+    const { camera, controls } = api;
+    const offset = new THREE.Vector3().subVectors(
+      camera.position,
+      controls.target
+    );
+    const dist = offset.length() * factor;
+    const minD = controls.minDistance || 3;
+    const maxD = controls.maxDistance || 22;
+    const next = Math.min(maxD, Math.max(minD, dist));
+    offset.setLength(next);
+    camera.position.copy(controls.target).add(offset);
+    controls.update();
+  };
+
   return (
     <div
       style={{
@@ -678,6 +766,37 @@ export function Stage3DView({
         }}
       />
       <div
+        aria-label="3Dズーム"
+        style={{
+          position: "absolute",
+          top: 8,
+          left: 8,
+          zIndex: 3,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+        }}
+      >
+        <button
+          type="button"
+          title="拡大"
+          aria-label="拡大"
+          onClick={() => dolly(0.82)}
+          style={zoomBtnStyle}
+        >
+          ＋
+        </button>
+        <button
+          type="button"
+          title="縮小"
+          aria-label="縮小"
+          onClick={() => dolly(1.22)}
+          style={zoomBtnStyle}
+        >
+          −
+        </button>
+      </div>
+      <div
         aria-live="polite"
         aria-label={`ステージ上 ${dancers.length} 人（3D）。客席と舞台裏のラベルあり`}
         title="金色線＝センター／場ミリ。数字はセンターからの場ミリ番号。色帯＝客席／舞台裏"
@@ -701,6 +820,94 @@ export function Stage3DView({
       >
         {dancers.length}人 · 3D
       </div>
+      {selected && !readOnly && onPatchDancer ? (
+        <div
+          role="dialog"
+          aria-label={`${selected.label || "メンバー"}の3D設定`}
+          style={{
+            position: "absolute",
+            left: 8,
+            right: 8,
+            bottom: 8,
+            zIndex: 4,
+            maxHeight: "46%",
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            borderRadius: 12,
+            border: "1px solid rgba(212,175,55,0.35)",
+            background: "rgba(7, 9, 15, 0.96)",
+            padding: "10px 12px 12px",
+            boxShadow: "0 8px 28px rgba(0,0,0,0.5)",
+            color: "#e2e8f0",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              marginBottom: 8,
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700, minWidth: 0 }}>
+              {(selected.label || "?").slice(0, 24)}
+              <span style={{ color: "#94a3b8", fontWeight: 600 }}> · 3D設定</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              style={{
+                border: "1px solid #334155",
+                background: "#0f172a",
+                color: "#cbd5e1",
+                borderRadius: 8,
+                padding: "6px 10px",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              閉じる
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
+            性別（男子＝青・女子＝ピンク）
+          </div>
+          <DancerGenderPicker
+            value={selected.genderLabel ?? ""}
+            onChange={(next) =>
+              onPatchDancer(selected.id, {
+                genderLabel: next.trim() ? next.trim() : undefined,
+              })
+            }
+          />
+          <div style={{ fontSize: 11, color: "#94a3b8", margin: "10px 0 6px" }}>
+            3Dの見た目
+          </div>
+          <DancerFigure3dPicker
+            value={resolveDancerFigure3dId(selected.figure3d)}
+            compact
+            onChange={(fig: DancerFigure3dId) =>
+              onPatchDancer(selected.id, { figure3d: fig })
+            }
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
+
+const zoomBtnStyle: CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 10,
+  border: "1px solid rgba(51, 65, 85, 0.95)",
+  background: "rgba(15, 23, 42, 0.92)",
+  color: "#f1f5f9",
+  fontSize: 22,
+  fontWeight: 700,
+  lineHeight: 1,
+  cursor: "pointer",
+  boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+};

@@ -373,6 +373,20 @@ export function lerpDancersAcrossGap(
                   ? { markerBadgeSource: b.markerBadgeSource }
                   : {}),
             }),
+        /** 見た目属性は移動中も維持（3D 動物・性別色・身長など） */
+        ...(() => {
+          const src = alpha < 0.5 ? a : b;
+          return {
+            ...(src.heightCm != null ? { heightCm: src.heightCm } : {}),
+            ...(src.genderLabel ? { genderLabel: src.genderLabel } : {}),
+            ...(src.gradeLabel ? { gradeLabel: src.gradeLabel } : {}),
+            ...(src.skillRankLabel ? { skillRankLabel: src.skillRankLabel } : {}),
+            ...(src.faceStamp ? { faceStamp: src.faceStamp } : {}),
+            ...(src.figure3d ? { figure3d: src.figure3d } : {}),
+            ...(src.poseLevel ? { poseLevel: src.poseLevel } : {}),
+            ...(src.facingDeg != null ? { facingDeg: src.facingDeg } : {}),
+          };
+        })(),
       });
     } else if (a) {
       out.push({ ...a });

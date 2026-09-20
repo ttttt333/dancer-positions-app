@@ -5,6 +5,7 @@
 
 import type { Cue } from "../types/choreography";
 import { sortCuesByStart } from "./cueInterval";
+import { cueSelectionExtentSec } from "./cueSelectionExtent";
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
@@ -363,9 +364,17 @@ export function pickCueDragKindAtWave(
         : cue.tEndSec;
     if (te < viewStart || ts > viewEnd) continue;
 
+    const isSelected = selectedSet?.has(cue.id) ?? false;
+    const extent = isSelected
+      ? cueSelectionExtentSec(cue, cueList, dragPreview)
+      : null;
+    const hitTs = extent?.startSec ?? Math.min(ts, te);
+    const hitTe = extent?.endSec ?? Math.max(ts, te);
+    const holdEnd = extent?.holdEndSec ?? Math.max(ts, te);
+
     let { left, right } = cueWaveHorizontalBoundsPx(
-      ts,
-      te,
+      hitTs,
+      hitTe,
       viewStart,
       viewSpan,
       viewEnd,
@@ -378,17 +387,43 @@ export function pickCueDragKindAtWave(
       right = bandMid + 1.5;
     }
     if (right - left < 1) continue;
-    const isSelected = selectedSet?.has(cue.id) ?? false;
     const grab =
       edgeGrab != null && !isSelected
         ? edgeGrab
         : resolveCueEdgeGrabPx(portraitActive, isSelected);
     if (!cueWaveExpandedHitX(x, left, right, grab)) continue;
 
-    const mode = pickCueDragModeForCueAtX(x, left, right, grab);
+    /** ホールド端と移動終端でヒットを分ける（移動終端は次キュー開始を掴む） */
+    let mode = pickCueDragModeForCueAtX(x, left, right, grab);
+    let targetCueId = cue.id;
+    if (isSelected && holdEnd < hitTe - 1e-3) {
+      const holdX = waveTimeToExtentX(
+        Math.min(Math.max(holdEnd, viewStart), viewEnd),
+        viewStart,
+        viewSpan,
+        w
+      );
+      const nearMoveEnd =
+        x >= right - grab.inner && x <= right + grab.outer;
+      const nearHoldEnd =
+        x >= holdX - grab.inner && x <= holdX + grab.outer;
+      if (nearMoveEnd && !nearHoldEnd) {
+        const sorted = sortCuesByStart(cueList);
+        const idx = sorted.findIndex((c) => c.id === cue.id);
+        const next = idx >= 0 ? sorted[idx + 1] : undefined;
+        if (next) {
+          mode = "start";
+          targetCueId = next.id;
+        }
+      } else if (nearHoldEnd) {
+        mode = "end";
+        targetCueId = cue.id;
+      }
+    }
+
     const dist = cueDragKindPickDistance(x, y, mid, left, right, mode);
     if (!best || shouldPreferCueDragHit(dist, mode, best)) {
-      best = { cueId: cue.id, mode, dist };
+      best = { cueId: targetCueId, mode, dist };
     }
   }
 
