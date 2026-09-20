@@ -3254,8 +3254,10 @@ body > [data-editor-sheet-root] {
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: 0;
   overflow: hidden;
-  /* 下のステージへタッチが抜けないようにする */
+  /* 下のステージへタッチが抜けないようにする（子の pan-y は維持） */
   touch-action: manipulation;
+  height: 100dvh;
+  max-height: 100dvh;
 }
 
 .formation-preset-picker-fullscreen .formation-preset-picker-sheet-header {
@@ -3290,9 +3292,10 @@ body > [data-editor-sheet-root] {
 }
 
 .formation-preset-picker-sheet-body--portrait-full {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
-  overflow-y: auto;
+  height: 0; /* flex 子の縦スクロールを確実にする */
+  overflow-y: auto !important;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
@@ -3301,6 +3304,12 @@ body > [data-editor-sheet-root] {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+/* ボタン上でも縦スクロールできるようにする */
+.formation-preset-picker-sheet-body--portrait-full .formation-preset-picker-preset-btn,
+.formation-preset-picker-sheet-body--portrait-full .formation-preset-picker-grid {
+  touch-action: pan-y;
 }
 
 /* スマホ縦: 2列でタップしやすく */
@@ -3397,8 +3406,14 @@ body > [data-editor-sheet-root] {
   margin-left: auto;
 }
 
-/* PC 雛形シート: 外側スクロールを止め、ヘッダー＋操作バー固定・一覧だけスクロール */
-[data-editor-sheet="formation-preset-picker"] > div {
+/* PC 雛形シート: 外側スクロールを止め、ヘッダー＋操作バー固定・一覧だけスクロール
+   ※ スマホ全画面／横画面ドックには当てない（一覧の overflow-y:auto を潰すため） */
+[data-editor-sheet="formation-preset-picker"]:not(
+    .formation-preset-picker-fullscreen
+  ):not(.formation-preset-picker-landscape-fullscreen):not(
+    .formation-preset-picker-landscape-dock
+  )
+  > div {
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
