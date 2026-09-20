@@ -36,9 +36,9 @@ const WAVE_CUE_FRAME_BORDER_CSS_PX = 2;
 /** 選択中は FODI / Choreographic 系のように枠を太くし、端を掴みやすくする */
 const WAVE_CUE_FRAME_BORDER_SELECTED_CSS_PX = 5.5;
 /** 選択キュー左右端のグリップ幅（CSS px）— 枠外へ飛び出す分を含む */
-const WAVE_CUE_SELECTED_EDGE_GRIP_CSS_PX = 14;
+const WAVE_CUE_SELECTED_EDGE_GRIP_CSS_PX = 20;
 /** 枠外への飛び出し割合（0.55 = 半分以上が枠の外） */
-const WAVE_CUE_SELECTED_EDGE_GRIP_OUTSET = 0.62;
+const WAVE_CUE_SELECTED_EDGE_GRIP_OUTSET = 0.72;
 
 export type UseWaveCanvasRendererArgs = {
   canvasRef: RefObject<HTMLCanvasElement>;

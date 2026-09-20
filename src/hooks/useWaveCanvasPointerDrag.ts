@@ -655,7 +655,7 @@ export function useWaveCanvasPointerDrag({
             const dx = ev.clientX - drag.originX;
             const dy = ev.clientY - drag.originY;
             const armPx = useTimelineWaveBridgeStore.getState().portraitActive
-              ? 10
+              ? 5
               : WAVE_DRAG_ARM_PX;
             if (Math.hypot(dx, dy) < armPx) return;
             drag.armed = true;
@@ -758,7 +758,7 @@ export function useWaveCanvasPointerDrag({
           }
           const dragPx = Math.hypot(ev.clientX - drag.originX, ev.clientY - drag.originY);
           const commitArmPx = useTimelineWaveBridgeStore.getState().portraitActive
-            ? 10
+            ? 5
             : WAVE_DRAG_ARM_PX;
           if (dragPx < commitArmPx) {
             redraw();

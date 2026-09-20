@@ -59,13 +59,16 @@ const DOUBLE_TAP_MS = 450;
 const LONG_PRESS_MS = 520;
 const PORTRAIT_WAVE_CSS_H = 96;
 const DEFAULT_WAVE_HEIGHT_PX = PORTRAIT_WAVE_CSS_H;
-/** この距離未満の指の動きはタップ扱い（選択／シーク） */
-const TAP_MAX_MOVE_PX = 16;
+/**
+ * 武装していないとき、この距離未満はタップ（選択／シーク）。
+ * 武装後にリサイズ／移動した内容は破棄しない。
+ */
+const TAP_MAX_MOVE_PX = 10;
 /**
  * この距離を超えたらキュー枠ドラッグを開始（長押しメニューはキャンセル）。
- * 指の微ブレでドラッグ武装しないようタップ閾値より少し低くする。
+ * 端ヒット時は pointerdown で即武装するため、主に帯中央の移動用。
  */
-const CUE_DRAG_ARM_PX = 12;
+const CUE_DRAG_ARM_PX = 5;
 
 interface Props {
   audioUrl: string | null;
@@ -1027,6 +1030,12 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         /* ignore */
       }
 
+      // 枠の端に触れたら即リサイズ武装（12px 動かすまで待たない）
+      if (bridgeApi.isCueEdgeAtPointer?.(e.clientX, e.clientY)) {
+        armCanvasDrag(e);
+        return;
+      }
+
       longPressTimerRef.current = window.setTimeout(() => {
         longPressFiredRef.current = true;
         pointerDownRef.current = null;
@@ -1040,7 +1049,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         bridgeApi.openWaveCueMenuAtPointer?.(e.clientX, e.clientY);
       }, LONG_PRESS_MS);
     },
-    [bridgeApi, clearPendingSingleTap, isNearPlayhead, beginPortraitPlayheadDrag]
+    [bridgeApi, clearPendingSingleTap, isNearPlayhead, beginPortraitPlayheadDrag, armCanvasDrag]
   );
 
   const onPointerMove = useCallback(
@@ -1158,14 +1167,12 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       }
 
       const wasDragArmed = dragArmedRef.current;
-      const treatAsTap = !wasDragArmed || movedPx <= TAP_MAX_MOVE_PX;
+      /**
+       * 武装済みなら短いリサイズでも破棄しない。
+       * （以前は TAP_MAX_MOVE 以内だと abort して枠の大きさが変わらなかった）
+       */
+      const treatAsTap = !wasDragArmed && movedPx <= TAP_MAX_MOVE_PX;
       dragArmedRef.current = false;
-
-      if (treatAsTap && wasDragArmed) {
-        // CUE_DRAG_ARM_PX を超えて武装したが TAP_MAX_MOVE_PX 以内なら
-        // タップ扱いに戻す前にキュー枠ドラッグを破棄する。
-        abortTimelineWavePointerGestures();
-      }
 
       if (treatAsTap) {
         const now = Date.now();
@@ -1214,6 +1221,8 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             bridgeApi.drawWaveformAt?.(t);
           }
         }
+      } else if (wasDragArmed) {
+        suppressClickRef.current = true;
       }
 
       try {

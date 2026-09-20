@@ -20,6 +20,11 @@ type TimelineWaveBridgeApi = {
   openGapRouteMenuAtPointer: (clientX: number, clientY: number) => void;
   /** スマホ長押し: キュー内→操作メニュー、間→動線メニュー */
   openWaveCueMenuAtPointer: (clientX: number, clientY: number) => void;
+  /**
+   * スマホ: 指下がキュー開始/終了端なら true（即リサイズ武装用）。
+   * 未登録時は null。
+   */
+  isCueEdgeAtPointer: ((clientX: number, clientY: number) => boolean) | null;
   duration: number;
   isPlaying: boolean;
   hasPeaks: boolean;

@@ -205,12 +205,12 @@ export function pickCueIdAtWave(
 const CUE_EDGE_INNER_GRAB_PX = 12;
 /** 枠外側の端ドラッグ判定幅（px）— FODI 風に枠外へ飛び出したグリップを掴む */
 export const CUE_EDGE_OUTER_GRAB_PX = 22;
-/** スマホ: 指で掴みやすいよう端ヒットを拡大 */
-const CUE_EDGE_INNER_GRAB_PORTRAIT_PX = 24;
-const CUE_EDGE_OUTER_GRAB_PORTRAIT_PX = 38;
+/** スマホ: 指で枠外・枠線を掴みやすいよう端ヒットをさらに拡大 */
+const CUE_EDGE_INNER_GRAB_PORTRAIT_PX = 40;
+const CUE_EDGE_OUTER_GRAB_PORTRAIT_PX = 64;
 /** 選択中キュー: 外向きグリップに合わせて外側ヒットを大きくする */
 const CUE_EDGE_SELECTED_BONUS_DESKTOP = { inner: 8, outer: 18 };
-const CUE_EDGE_SELECTED_BONUS_PORTRAIT = { inner: 12, outer: 22 };
+const CUE_EDGE_SELECTED_BONUS_PORTRAIT = { inner: 18, outer: 36 };
 
 export type CueEdgeGrabPx = { inner: number; outer: number };
 

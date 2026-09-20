@@ -2,6 +2,12 @@ import { useEffect, useMemo, useRef } from "react";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 import type { TimelinePanelWaveHandlersBundleParams } from "./useTimelinePanelWaveHandlersBundle";
 import type { TimelineWaveBridgeHandlers } from "../store/timelineWaveBridgeStore";
+import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
+import {
+  pickCueDragKindAtWave,
+  resolveCueEdgeGrabPx,
+  resolveWaveDrawView,
+} from "../lib/timelineWaveGeometry";
 
 type Handlers = TimelineWaveBridgeHandlers;
 
@@ -22,6 +28,8 @@ export function useRegisterTimelineWaveBridge(
 ) {
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
+  const paramsRef = useRef(waveBundleParams);
+  paramsRef.current = waveBundleParams;
 
   const stableHandlers = useMemo<Handlers>(
     () => ({
@@ -39,6 +47,41 @@ export function useRegisterTimelineWaveBridge(
   const duration = waveBundleParams.playback.duration;
   const hasPeaks = (waveBundleParams.peaks?.length ?? 0) > 0;
 
+  const isCueEdgeAtPointer = useMemo(
+    () => (clientX: number, clientY: number) => {
+      const p = paramsRef.current;
+      const c = resolveActiveWaveCanvas(p.canvas.canvasRef);
+      if (!c || duration <= 0) return false;
+      const portion = Math.min(
+        1,
+        Math.max(0.02, p.canvas.viewPortionRef.current ?? p.viewport.viewPortion)
+      );
+      const playhead = p.canvas.currentTimePropRef.current;
+      const override = p.canvas.waveViewStartOverrideRef.current;
+      const drawView = resolveWaveDrawView({
+        durationSec: duration,
+        viewPortion: portion,
+        anchorTimeSec: playhead,
+        isPlaying,
+        viewStartOverride: override,
+      });
+      const hit = pickCueDragKindAtWave(
+        clientX,
+        clientY,
+        c,
+        p.projectSlice.cuesSorted,
+        drawView.start,
+        drawView.span,
+        p.canvas.cueDragPreviewRangeRef.current,
+        resolveCueEdgeGrabPx(true),
+        p.canvas.selectedCueIdsRef.current,
+        true
+      );
+      return hit?.mode === "start" || hit?.mode === "end";
+    },
+    [duration, isPlaying]
+  );
+
   useEffect(() => {
     useTimelineWaveBridgeStore.getState().register({
       handlers: stableHandlers,
@@ -49,6 +92,7 @@ export function useRegisterTimelineWaveBridge(
         handlersRef.current.openGapRouteMenuAtPointer(clientX, clientY),
       openWaveCueMenuAtPointer: (clientX, clientY) =>
         handlersRef.current.openWaveCueMenuAtPointer(clientX, clientY),
+      isCueEdgeAtPointer,
       duration,
       isPlaying,
       hasPeaks,
@@ -59,6 +103,7 @@ export function useRegisterTimelineWaveBridge(
     drawWaveformAt,
     viewport.setViewPortion,
     viewport.setWaveViewStartOverride,
+    isCueEdgeAtPointer,
     duration,
     isPlaying,
     hasPeaks,
