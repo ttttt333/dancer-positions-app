@@ -18,9 +18,11 @@ import {
   resolveDancerFigure3dId,
   type DancerFigure3dId,
 } from "../lib/dancerFigure3d";
+import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
 import { EditorSideSheet } from "./EditorSideSheet";
 import { DancerFaceStampPicker } from "./DancerFaceStampPicker";
 import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
+import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle";
 import { DancerGenderPicker } from "./DancerGenderPicker";
 
 const LABEL_MAX = 120;
@@ -43,6 +45,8 @@ export type DancerQuickEditApply = {
   faceStamp: DancerFaceStampId | null;
   /** 3D フィギュア（人型・動物） */
   figure3d: DancerFigure3dId;
+  /** 3D フィギュアの適用範囲（省略時は全キュー） */
+  figure3dScope?: DancerFigure3dApplyScope;
 };
 
 type Props = {
@@ -69,6 +73,8 @@ export function DancerQuickEditDialog({
   const [colorIndex, setColorIndex] = useState(0);
   const [faceStamp, setFaceStamp] = useState<DancerFaceStampId | null>(null);
   const [figure3d, setFigure3d] = useState<DancerFigure3dId>("human");
+  const [figure3dScope, setFigure3dScope] =
+    useState<DancerFigure3dApplyScope>("all");
   const [heightStr, setHeightStr] = useState("");
   const [gradeLabel, setGradeLabel] = useState("");
   const [genderLabel, setGenderLabel] = useState("");
@@ -82,6 +88,7 @@ export function DancerQuickEditDialog({
     setColorIndex(modDancerColorIndex(dancer.colorIndex));
     setFaceStamp(normalizeDancerFaceStamp(dancer.faceStamp) ?? null);
     setFigure3d(resolveDancerFigure3dId(dancer.figure3d));
+    setFigure3dScope("all");
     setHeightStr(
       typeof dancer.heightCm === "number" && Number.isFinite(dancer.heightCm)
         ? String(dancer.heightCm)
@@ -135,6 +142,7 @@ export function DancerQuickEditDialog({
       note: noteOut,
       faceStamp,
       figure3d,
+      figure3dScope,
     });
     onClose();
   };
@@ -287,8 +295,13 @@ export function DancerQuickEditDialog({
                 lineHeight: 1.4,
               }}
             >
-              3D表示で使う人型・動物を選びます。
+              3D表示で使う人型・動物を選びます。適用範囲を選べます。
             </p>
+            <DancerFigure3dApplyScopeToggle
+              value={figure3dScope}
+              onChange={setFigure3dScope}
+              disabled={disabled}
+            />
             <DancerFigure3dPicker
               value={figure3d}
               disabled={disabled}

@@ -18,8 +18,10 @@ import {
 } from "./stageDockPanelStyles";
 import { DancerFaceStampPicker } from "./DancerFaceStampPicker";
 import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
+import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle";
 import { DancerGenderPicker } from "./DancerGenderPicker";
 import type { DancerFaceStampId } from "../lib/dancerFaceStamp";
+import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
 import { withDancerLabelPosition } from "../lib/withDancerLabelPosition";
 
 const PRIMARY_COLOR_COUNT = 8;
@@ -118,7 +120,8 @@ export type StageSelectionDisplayPanelProps = {
   ) => void;
   applyBulkFigure3dToDancerIds?: (
     ids: string[],
-    figure3d: import("../lib/dancerFigure3d").DancerFigure3dId
+    figure3d: import("../lib/dancerFigure3d").DancerFigure3dId,
+    scope?: DancerFigure3dApplyScope
   ) => void;
   selectedDancerIds: readonly string[];
   markerPx: number;
@@ -152,6 +155,8 @@ export function StageSelectionDisplayPanel({
   onSizeGestureEnd,
 }: StageSelectionDisplayPanelProps) {
   const [showAllColors, setShowAllColors] = useState(false);
+  const [figure3dScope, setFigure3dScope] =
+    useState<DancerFigure3dApplyScope>("all");
   const colors = showAllColors ? DANCER_PALETTE : DANCER_PALETTE.slice(0, PRIMARY_COLOR_COUNT);
   const ids = [...selectedDancerIds];
   const busy = Boolean(disabled) || selectedCount === 0;
@@ -197,14 +202,21 @@ export function StageSelectionDisplayPanel({
 
       <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
         <div style={{ ...dockSectionTitle, marginBottom: 6 }}>3Dの見た目</div>
-        <p style={{ ...dockSectionHint, margin: "0 0 8px" }}>
-          選択中の立ち位置を人型・動物にします（3D表示で反映）。
+        <p style={{ margin: "0 0 8px", fontSize: 11, color: "#94a3b8", lineHeight: 1.4 }}>
+          選択中の立ち位置を人型・動物にします。適用範囲を選べます。
         </p>
+        <DancerFigure3dApplyScopeToggle
+          value={figure3dScope}
+          onChange={setFigure3dScope}
+          disabled={busy || !applyBulkFigure3dToDancerIds}
+        />
         <DancerFigure3dPicker
           value="human"
           compact
           disabled={busy || !applyBulkFigure3dToDancerIds}
-          onChange={(fig) => applyBulkFigure3dToDancerIds?.(ids, fig)}
+          onChange={(fig) =>
+            applyBulkFigure3dToDancerIds?.(ids, fig, figure3dScope)
+          }
         />
       </div>
 

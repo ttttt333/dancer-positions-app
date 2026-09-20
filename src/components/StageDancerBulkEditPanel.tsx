@@ -15,7 +15,9 @@ import { btnSecondary } from "./stageButtonStyles";
 import type { StageDancerContextMenuProps } from "./StageDancerContextMenu";
 import { withDancerLabelPosition } from "../lib/withDancerLabelPosition";
 import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
+import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle";
 import { DancerGenderPicker } from "./DancerGenderPicker";
+import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
 
 export type BulkEditTabId = "basic" | "sort" | "formation" | "display";
 
@@ -177,6 +179,8 @@ export function StageDancerBulkEditPanel({
   const [axis, setAxis] = useState<PositionSortAxis>("height");
   const [scope, setScope] = useState<PositionSortScope>("all");
   const [direction, setDirection] = useState<PositionSortDirection>("asc");
+  const [figure3dScope, setFigure3dScope] =
+    useState<DancerFigure3dApplyScope>("all");
   const [showAllColors, setShowAllColors] = useState(false);
 
   const targetIds = useMemo(
@@ -525,8 +529,15 @@ export function StageDancerBulkEditPanel({
           <div style={card}>
             <div style={sectionTitle}>3Dの見た目</div>
             <p style={sectionHint}>
-              選択中の立ち位置を人型・動物にします（3D表示で反映）。
+              選択中の立ち位置を人型・動物にします。適用範囲を選べます。
             </p>
+            <DancerFigure3dApplyScopeToggle
+              value={figure3dScope}
+              onChange={setFigure3dScope}
+              disabled={
+                menuInteractionDisabled || !applyBulkFigure3dToDancerIds
+              }
+            />
             <DancerFigure3dPicker
               value="human"
               compact
@@ -534,7 +545,11 @@ export function StageDancerBulkEditPanel({
                 menuInteractionDisabled || !applyBulkFigure3dToDancerIds
               }
               onChange={(fig) =>
-                applyBulkFigure3dToDancerIds?.(targetIds, fig)
+                applyBulkFigure3dToDancerIds?.(
+                  targetIds,
+                  fig,
+                  figure3dScope
+                )
               }
             />
           </div>

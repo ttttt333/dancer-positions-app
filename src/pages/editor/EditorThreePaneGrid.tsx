@@ -25,6 +25,7 @@ import { sortCuesByStart } from "../../core/timelineController";
 import { cueSelectionExtentSec } from "../../lib/cueSelectionExtent";
 import { TransportIconUndo, TransportIconRedo } from "../../components/mobile/TransportIcons";
 import type { DancerSpot } from "../../types/choreography";
+import { applyDancerFigure3d } from "../../lib/applyDancerFigure3d";
 import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "../../lib/projectDefaults";
 
 const Stage3DView = lazy(() =>
@@ -990,51 +991,55 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                           const spot = form?.dancers.find((d) => d.id === dancerId);
                           if (!form || !spot) return p;
                           const cmid = spot.crewMemberId;
-                          let crews = p.crews;
+                          let nextProject = p;
                           if (cmid && patch.genderLabel !== undefined) {
-                            crews = p.crews.map((crew) => ({
-                              ...crew,
-                              members: crew.members.map((m) =>
-                                m.id === cmid
-                                  ? {
-                                      ...m,
-                                      genderLabel: patch.genderLabel,
-                                    }
-                                  : m
-                              ),
-                            }));
+                            nextProject = {
+                              ...nextProject,
+                              crews: nextProject.crews.map((crew) => ({
+                                ...crew,
+                                members: crew.members.map((m) =>
+                                  m.id === cmid
+                                    ? {
+                                        ...m,
+                                        genderLabel: patch.genderLabel,
+                                      }
+                                    : m
+                                ),
+                              })),
+                            };
                           }
-                          return {
-                            ...p,
-                            crews,
-                            formations: p.formations.map((f) => {
-                              if (f.id !== fid) return f;
-                              return {
-                                ...f,
-                                dancers: f.dancers.map((d) => {
-                                  if (d.id !== dancerId) return d;
-                                  let next = { ...d };
-                                  if (patch.genderLabel !== undefined) {
+                          if (patch.genderLabel !== undefined) {
+                            nextProject = {
+                              ...nextProject,
+                              formations: nextProject.formations.map((f) => {
+                                if (f.id !== fid) return f;
+                                return {
+                                  ...f,
+                                  dancers: f.dancers.map((d) => {
+                                    if (d.id !== dancerId) return d;
                                     if (patch.genderLabel) {
-                                      next.genderLabel = patch.genderLabel;
-                                    } else {
-                                      const { genderLabel: _g, ...rest } = next;
-                                      next = rest;
+                                      return {
+                                        ...d,
+                                        genderLabel: patch.genderLabel,
+                                      };
                                     }
-                                  }
-                                  if (patch.figure3d !== undefined) {
-                                    if (patch.figure3d === "human") {
-                                      const { figure3d: _f, ...rest } = next;
-                                      next = rest;
-                                    } else {
-                                      next.figure3d = patch.figure3d;
-                                    }
-                                  }
-                                  return next;
-                                }),
-                              };
-                            }),
-                          };
+                                    const { genderLabel: _g, ...rest } = d;
+                                    return rest;
+                                  }),
+                                };
+                              }),
+                            };
+                          }
+                          // 3D フィギュア（このキューだけ / すべてのキュー）
+                          if (patch.figure3d !== undefined) {
+                            nextProject = applyDancerFigure3d(nextProject, {
+                              dancerIds: [dancerId],
+                              formationId: fid,
+                              figure3d: patch.figure3d,
+                              scope: patch.figure3dScope ?? "all",
+                            });
+                          }
+                          return nextProject;
                         });
                       }}
                     />

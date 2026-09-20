@@ -123,6 +123,11 @@ import { StageBoardBulkToolbarSlot } from "./StageBoardBulkToolbarSlot";
 import { StageBoardStageFrame } from "./StageBoardStageFrame";
 import { StageMotionArrowsOverlay } from "./StageMotionArrowsOverlay";
 import { StagePrevCueCompareOverlay } from "./StagePrevCueCompareOverlay";
+import {
+  applyDancerFigure3d,
+  withDancerFigure3d,
+  type DancerFigure3dApplyScope,
+} from "../lib/applyDancerFigure3d";
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
 import { shell } from "../theme/choreoShell";
 import {
@@ -4189,7 +4194,7 @@ export function StageBoardBody({
               const slicedBadge = sliceMarkerBadgeForStorage(patch.markerBadge);
               const nextFace = patch.faceStamp;
               const { faceStamp: _dropFace, figure3d: _dropFig, ...restSpot } = x;
-              return {
+              const withMeta = {
                 ...restSpot,
                 label: patch.label.slice(0, 120),
                 colorIndex: modDancerColorIndex(patch.colorIndex),
@@ -4201,10 +4206,21 @@ export function StageBoardBody({
                 markerBadge: slicedBadge,
                 ...(slicedBadge ? { markerBadgeSource: undefined } : {}),
                 ...(nextFace ? { faceStamp: nextFace } : {}),
-                ...(patch.figure3d && patch.figure3d !== "human"
-                  ? { figure3d: patch.figure3d }
-                  : {}),
               };
+              const figureScope = patch.figure3dScope ?? "all";
+              if (
+                figureScope === "cue" &&
+                f.id !== formationIdForWrites
+              ) {
+                return withDancerFigure3d(
+                  withMeta,
+                  x.figure3d ?? "human"
+                );
+              }
+              return withDancerFigure3d(
+                withMeta,
+                patch.figure3d ?? "human"
+              );
             }),
           })),
         };
@@ -4872,33 +4888,24 @@ export function StageBoardBody({
     ]
   );
 
-  /** 選択メンバーの 3D フィギュアを一括設定（human はフィールド省略） */
+  /** 選択メンバーの 3D フィギュア設定（このキューだけ / 全キュー） */
   const applyBulkFigure3dToDancerIds = useCallback(
     (
       targetIds: string[],
-      figure3d: import("../lib/dancerFigure3d").DancerFigure3dId
+      figure3d: import("../lib/dancerFigure3d").DancerFigure3dId,
+      scope: DancerFigure3dApplyScope = "all"
     ) => {
       if (!formationIdForWrites || targetIds.length === 0) return;
       if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
         return;
-      const idSet = new Set(targetIds);
-      setProject((p) => ({
-        ...p,
-        formations: p.formations.map((f) => {
-          if (f.id !== formationIdForWrites) return f;
-          return {
-            ...f,
-            dancers: f.dancers.map((d) => {
-              if (!idSet.has(d.id)) return d;
-              if (figure3d === "human") {
-                const { figure3d: _f, ...rest } = d;
-                return rest;
-              }
-              return { ...d, figure3d };
-            }),
-          };
-        }),
-      }));
+      setProject((p) =>
+        applyDancerFigure3d(p, {
+          dancerIds: targetIds,
+          formationId: formationIdForWrites,
+          figure3d,
+          scope,
+        })
+      );
     },
     [
       formationIdForWrites,

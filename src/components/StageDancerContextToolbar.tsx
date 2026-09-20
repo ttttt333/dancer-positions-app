@@ -109,7 +109,8 @@ export type StageDancerContextToolbarProps = {
   ) => void;
   applyBulkFigure3dToDancerIds?: (
     ids: string[],
-    figure3d: import("../lib/dancerFigure3d").DancerFigure3dId
+    figure3d: import("../lib/dancerFigure3d").DancerFigure3dId,
+    scope?: import("../lib/applyDancerFigure3d").DancerFigure3dApplyScope
   ) => void;
   shapePreviewActive?: boolean;
   depthPreviewActive?: boolean;

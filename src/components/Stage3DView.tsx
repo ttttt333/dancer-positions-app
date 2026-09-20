@@ -19,7 +19,9 @@ import {
   clampStageGridAxisMm,
 } from "../lib/projectDefaults";
 import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
+import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle";
 import { DancerGenderPicker } from "./DancerGenderPicker";
+import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
 
 /** 身長未入力時の基準（cm）。入力済みの身長はこの値との比率で立体の高さを決める */
 const DEFAULT_HEIGHT_CM = 170;
@@ -117,6 +119,7 @@ type Props = {
     dancerId: string,
     patch: {
       figure3d?: import("../lib/dancerFigure3d").DancerFigure3dId;
+      figure3dScope?: import("../lib/applyDancerFigure3d").DancerFigure3dApplyScope;
       genderLabel?: string | undefined;
     }
   ) => void;
@@ -490,6 +493,8 @@ export function Stage3DView({
   const apiRef = useRef<Api | null>(null);
   const [sceneReady, setSceneReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [figure3dScope, setFigure3dScope] =
+    useState<DancerFigure3dApplyScope>("all");
   const pointerDownRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -885,11 +890,18 @@ export function Stage3DView({
           <div style={{ fontSize: 11, color: "#94a3b8", margin: "10px 0 6px" }}>
             3Dの見た目
           </div>
+          <DancerFigure3dApplyScopeToggle
+            value={figure3dScope}
+            onChange={setFigure3dScope}
+          />
           <DancerFigure3dPicker
             value={resolveDancerFigure3dId(selected.figure3d)}
             compact
             onChange={(fig: DancerFigure3dId) =>
-              onPatchDancer(selected.id, { figure3d: fig })
+              onPatchDancer(selected.id, {
+                figure3d: fig,
+                figure3dScope,
+              })
             }
           />
         </div>
