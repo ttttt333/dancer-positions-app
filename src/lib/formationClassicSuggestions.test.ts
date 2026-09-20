@@ -5,11 +5,14 @@ import {
   classicEqualRowsPresetId,
   classicFrontHeavyTwoRows,
   classicFrontLightTwoRows,
+  classicFrontStairFirstRowsUntilBackFewer,
+  classicFrontStairRowCounts,
   classicMaxEqualRowSuggestions,
   classicPyramidRowCounts,
   classicShimoteKamitePair,
   classicSuggestionEntries,
   classicTriple323,
+  classicTwoRowFrontProgression,
 } from "./formationClassicSuggestions";
 import { midHeavyRowCounts } from "./formationLayoutPresetsGallery";
 
@@ -58,9 +61,12 @@ describe("classicSuggestionEntries (7 dancers)", () => {
       "classic_pyramid",
       "front_stair_from_2",
       "front_stair_from_3",
+      "front_stair_from_4",
       "classic_rows_mid_heavy",
-      "classic_rows_front_light",
-      "classic_rows_front_heavy",
+      "classic_two_rows_1",
+      "classic_two_rows_2",
+      "classic_two_rows_3",
+      "classic_two_rows_4",
       "line",
       "two_rows_equal",
       "rows_3",
@@ -82,14 +88,56 @@ describe("classicSuggestionEntries (7 dancers)", () => {
     );
     expect(byId.classic_pyramid).toContain("1-2-4");
     expect(byId.classic_rows_mid_heavy).toContain("2-3-2");
-    expect(byId.classic_rows_front_light).toContain("3-4");
-    expect(byId.classic_rows_front_heavy).toContain("4-3");
+    expect(byId.classic_two_rows_3).toContain("3-4");
+    expect(byId.classic_two_rows_4).toContain("4-3");
+    expect(byId.front_stair_from_2).toContain("2-3-2");
+    expect(byId.front_stair_from_4).toContain("4-3");
     expect(byId.line).toBe("横1列");
     expect(byId.two_rows_equal).toContain("横2列");
     expect(byId.rows_3).toContain("横3列");
     expect(byId.rows_4).toContain("横4列");
     expect(byId.classic_kamite_light).toBe("上手3・下手4");
     expect(byId.classic_kamite_heavy).toBe("上手4・下手3");
+  });
+});
+
+describe("classic progressive front suggestions", () => {
+  it("grows 2-row front count until back is fewer than front", () => {
+    expect(classicTwoRowFrontProgression(7)).toEqual([
+      [1, 6],
+      [2, 5],
+      [3, 4],
+      [4, 3],
+    ]);
+    expect(classicTwoRowFrontProgression(10)).toEqual([
+      [1, 9],
+      [2, 8],
+      [3, 7],
+      [4, 6],
+      [5, 5],
+      [6, 4],
+    ]);
+  });
+
+  it("grows front_stair first row until 2nd row is fewer", () => {
+    expect(classicFrontStairFirstRowsUntilBackFewer(7)).toEqual([2, 3, 4]);
+    expect(classicFrontStairFirstRowsUntilBackFewer(15)).toEqual([
+      2, 3, 4, 5, 6, 7, 8,
+    ]);
+    expect(classicFrontStairRowCounts(15, 8)).toEqual([8, 7]);
+  });
+
+  it("keeps suggesting stair variants when the cast is large", () => {
+    const stairs = classicSuggestionEntries(20)
+      .map((e) => e.id)
+      .filter((id) => id.startsWith("front_stair_from_"));
+    expect(stairs[0]).toBe("front_stair_from_2");
+    expect(stairs.at(-1)).toBe("front_stair_from_11");
+    const twoRows = classicSuggestionEntries(20)
+      .map((e) => e.id)
+      .filter((id) => id.startsWith("classic_two_rows_"));
+    expect(twoRows[0]).toBe("classic_two_rows_1");
+    expect(twoRows.at(-1)).toBe("classic_two_rows_11");
   });
 });
 

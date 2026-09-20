@@ -313,7 +313,7 @@ function pushGridFrontFilled(
  * 客席側（y 大）の列から埋める行人数: first, first+1, first+2, …（最後の列は余りのみ）。
  * rowCounts[0] が最前列（手前）。
  */
-function frontAudienceGrowingRowCounts(n: number, firstRow: number): number[] {
+export function frontAudienceGrowingRowCounts(n: number, firstRow: number): number[] {
   if (n <= 0) return [];
   const rows: number[] = [];
   let rem = n;
@@ -325,6 +325,31 @@ function frontAudienceGrowingRowCounts(n: number, firstRow: number): number[] {
     w += 1;
   }
   return rows;
+}
+
+/** `front_stair_from_N` 用の配置を out に積む */
+function pushFrontStairRows(out: DancerSpot[], n: number, firstRow: number) {
+  const rowCounts = frontAudienceGrowingRowCounts(n, firstRow);
+  const nr = rowCounts.length;
+  if (nr === 0) return;
+  const maxCnt = Math.max(1, ...rowCounts);
+  let idx = 0;
+  for (let r = 0; r < nr; r++) {
+    const cnt = rowCounts[r]!;
+    const y = yPctPyramidRow(nr - 1 - r, nr);
+    for (let j = 0; j < cnt; j++) {
+      pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt, nr), y);
+    }
+  }
+}
+
+/** `front_stair_from_12` など動的 id も解釈する */
+export function parseFrontStairFromPresetId(preset: string): number | null {
+  const m = /^front_stair_from_(\d+)$/.exec(preset);
+  if (!m) return null;
+  const first = Number.parseInt(m[1]!, 10);
+  if (!Number.isFinite(first) || first < 1) return null;
+  return first;
 }
 
 /**
@@ -1259,20 +1284,11 @@ export function dancersForLayoutPreset(
     case "front_stair_from_10":
     case "front_stair_from_11": {
       const first = parseInt(preset.replace("front_stair_from_", ""), 10);
-      const rowCounts = frontAudienceGrowingRowCounts(
+      pushFrontStairRows(
+        out,
         n,
-        Math.max(2, Math.min(11, first))
+        Number.isFinite(first) ? Math.max(1, first) : 2
       );
-      const nr = rowCounts.length;
-      const maxCnt = Math.max(1, ...rowCounts);
-      let idx = 0;
-      for (let r = 0; r < nr; r++) {
-        const cnt = rowCounts[r]!;
-        const y = yPctPyramidRow(nr - 1 - r, nr);
-        for (let j = 0; j < cnt; j++) {
-          pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt, nr), y);
-        }
-      }
       break;
     }
     case "waist_stair_from_3":
@@ -2885,6 +2901,11 @@ export function dancersForLayoutPreset(
       break;
     }
     default: {
+      const stairFirst = parseFrontStairFromPresetId(preset);
+      if (stairFirst != null) {
+        pushFrontStairRows(out, n, stairFirst);
+        break;
+      }
       if (
         !tryApplyExtraLayoutPreset(preset, n, out) &&
         !tryApplyGalleryLayoutPreset(preset, n, out) &&

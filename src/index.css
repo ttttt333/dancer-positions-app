@@ -3234,12 +3234,12 @@ body > [data-editor-sheet-root] {
 }
 
 /*
-  縦画面 Change 雛形: 画面いっぱいのグリッド +
-  閉じる・適用は画面左下固定（浮遊 ✕ 閉じるは MobileShell 側で非表示）
+  縦画面 Change 雛形: 画面いっぱい + 下部固定フッター（適用を押しやすく）
+  一覧だけ縦スクロールできるようにする
 */
 [data-shell-portrait] {
   --portrait-bottom-bar-h: 152px;
-  --formation-picker-actions-h: 52px;
+  --formation-picker-actions-h: 64px;
 }
 
 .formation-preset-picker-fullscreen {
@@ -3254,11 +3254,13 @@ body > [data-editor-sheet-root] {
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: 0;
   overflow: hidden;
+  /* 下のステージへタッチが抜けないようにする */
+  touch-action: manipulation;
 }
 
 .formation-preset-picker-fullscreen .formation-preset-picker-sheet-header {
   flex-shrink: 0;
-  padding: 10px 12px 8px;
+  padding: 10px 12px 6px;
   border-bottom: 1px solid rgba(212, 175, 55, 0.22);
   background: #07090f;
 }
@@ -3276,18 +3278,106 @@ body > [data-editor-sheet-root] {
   line-height: 1.4;
 }
 
+.formation-preset-picker-mobile-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
+  background: #07090f;
+}
+
 .formation-preset-picker-sheet-body--portrait-full {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 8px 8px calc(
-    var(--formation-picker-actions-h, 52px) + env(safe-area-inset-bottom, 0px) + 10px
-  );
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 10px 10px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+}
+
+/* スマホ縦: 2列でタップしやすく */
+.formation-preset-picker-fullscreen .formation-preset-picker-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.formation-preset-picker-fullscreen .formation-preset-picker-grid .formation-preset-picker-preset-btn {
+  min-height: 118px;
+  padding: 10px 8px 12px !important;
+  gap: 6px !important;
+}
+
+.formation-preset-picker-fullscreen .formation-preset-picker-grid .formation-preset-picker-thumb--large {
+  max-width: 88px;
+  max-height: 56px;
+}
+
+.formation-preset-picker-fullscreen .formation-preset-picker-grid .formation-preset-picker-preset-label {
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  white-space: normal !important;
+  overflow: hidden !important;
+  text-overflow: unset !important;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-height: 2.6em;
+}
+
+/* 下部固定フッター: 閉じる + 大きめの適用 */
+.formation-preset-picker-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+  padding: 10px 12px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(212, 175, 55, 0.28);
+  background: #07090f;
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.45);
+  z-index: 2;
+}
+
+.formation-preset-picker-footer-cancel {
+  flex: 0 0 auto;
+  min-width: 88px;
+  min-height: 52px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  background: rgba(15, 23, 42, 0.96);
+  color: #e2e8f0;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.formation-preset-picker-footer-apply {
+  flex: 1 1 auto;
+  min-height: 52px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid #d4af37;
+  background: rgba(212, 175, 55, 0.32);
+  color: #fef3c7;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+
+.formation-preset-picker-footer-apply:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .formation-preset-picker-category-label {
@@ -3443,6 +3533,11 @@ body > [data-editor-sheet-root] {
   padding-right: 12px;
 }
 
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-footer,
+.formation-preset-picker-landscape-dock .formation-preset-picker-footer {
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+}
+
 /* 波形表示中のドックも、たたみ時と同じ大きな 4 列グリッドで見やすく表示する */
 .formation-preset-picker-landscape-fullscreen .formation-preset-picker-grid,
 .formation-preset-picker-landscape-dock .formation-preset-picker-grid {
@@ -3558,36 +3653,9 @@ body > [data-editor-sheet-root] {
   gap: 8px !important;
 }
 
-/* 縦画面: portal した閉じる・適用・☆を画面最下部左に固定（親指が届きやすい） */
+/* 旧: 左下浮遊ボタン（フッター固定に置き換え済み・互換のため無効化） */
 .formation-preset-picker-actions--portrait-docked {
-  position: fixed !important;
-  left: max(8px, env(safe-area-inset-left, 0px)) !important;
-  right: auto !important;
-  bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
-  z-index: 520 !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  gap: 10px !important;
-  pointer-events: auto !important;
-}
-
-.formation-preset-picker-actions--portrait-docked button {
-  min-height: 44px !important;
-  padding: 9px 16px !important;
-  font-size: 14px !important;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
-}
-
-[data-shell-landscape] .formation-preset-picker-actions--portrait-docked {
-  left: max(8px, env(safe-area-inset-left, 0px)) !important;
-  bottom: max(10px, env(safe-area-inset-bottom, 0px)) !important;
+  display: none !important;
 }
 
 /* スマホ: キュー間長押し → 動線設定（全画面シート） */

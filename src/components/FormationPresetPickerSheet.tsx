@@ -351,10 +351,10 @@ export function FormationPresetPickerSheet({
         ? `「${cueLabel}」に反映（${count} 人）`
         : `現在のフォーメーションに反映（${count} 人）`;
 
-  /** スマホ: 左下固定 / PC: 右上 sticky（スクロールしても常時表示） */
+  /** スマホ全画面: フッター固定。PC: ヘッダー下 sticky */
   const actionsDocked = portraitFullscreen || landscapeHorizontal;
 
-  const actionsControls = (
+  const filterControls = (
     <>
       <button
         type="button"
@@ -364,11 +364,7 @@ export function FormationPresetPickerSheet({
         style={{
           ...basicTabBtnStyle,
           ...(basicTab ? basicTabBtnActiveStyle : null),
-          marginRight: 4,
           flexShrink: 0,
-          ...(actionsDocked
-            ? { minHeight: 44, height: 44, boxShadow: "0 4px 18px rgba(0, 0, 0, 0.55)" }
-            : null),
         }}
       >
         BASIC
@@ -377,54 +373,71 @@ export function FormationPresetPickerSheet({
         active={favoritesOnly}
         onToggle={toggleFavoritesOnly}
         count={favoriteCount}
-        style={
-          actionsDocked
-            ? { minHeight: 44, height: 44, boxShadow: "0 4px 18px rgba(0, 0, 0, 0.55)" }
-            : undefined
-        }
       />
-      <span style={{ flex: 1, minWidth: 8 }} aria-hidden />
-      <button type="button" onClick={closeAndCleanup} style={cancelBtnCompactStyle}>
+    </>
+  );
+
+  const applyDisabled = noTarget || !selectedPresetId;
+
+  const footerActions = (
+    <div
+      role="group"
+      aria-label="立ち位置雛形の操作"
+      className={
+        actionsDocked
+          ? "formation-preset-picker-footer"
+          : "formation-preset-picker-actions-sticky"
+      }
+    >
+      {!actionsDocked ? filterControls : null}
+      {!actionsDocked ? <span style={{ flex: 1, minWidth: 8 }} aria-hidden /> : null}
+      <button
+        type="button"
+        onClick={closeAndCleanup}
+        className="formation-preset-picker-footer-cancel"
+        style={actionsDocked ? undefined : cancelBtnCompactStyle}
+      >
         閉じる
       </button>
       <button
         type="button"
         onClick={apply}
-        disabled={noTarget || !selectedPresetId}
-        style={{
-          ...applyBtnCompactStyle,
-          opacity: noTarget || !selectedPresetId ? 0.45 : 1,
-          cursor: noTarget || !selectedPresetId ? "not-allowed" : "pointer",
-        }}
+        disabled={applyDisabled}
+        className="formation-preset-picker-footer-apply"
+        style={
+          actionsDocked
+            ? undefined
+            : {
+                ...applyBtnCompactStyle,
+                opacity: applyDisabled ? 0.45 : 1,
+                cursor: applyDisabled ? "not-allowed" : "pointer",
+              }
+        }
       >
         適用
       </button>
-    </>
-  );
-
-  const stickyActionsBar = !actionsDocked ? (
-    <div
-      role="group"
-      aria-label="立ち位置雛形の操作"
-      className="formation-preset-picker-actions-sticky"
-    >
-      {actionsControls}
     </div>
-  ) : null;
-
-  const dockedActionsBar =
-    actionsDocked && typeof document !== "undefined" ? (
-      <div
-        role="group"
-        aria-label="立ち位置雛形の操作"
-        className="formation-preset-picker-actions formation-preset-picker-actions--portrait-docked"
-      >
-        {actionsControls}
-      </div>
-    ) : null;
+  );
 
   // 横画面はドック表示・波形たたみ表示のどちらも同じ大きな正方グリッドを使い、見やすさを揃える
   const useBigGrid = portraitFullscreen || landscapeHorizontal;
+
+  const mobileToolbar = actionsDocked ? (
+    <div className="formation-preset-picker-mobile-toolbar">
+      {filterControls}
+      <span style={{ flex: 1, minWidth: 4 }} aria-hidden />
+      <FormationPresetTierToggle
+        showAll={showAllTiers}
+        onToggle={() => setShowAllTiers((v) => !v)}
+        hiddenCount={hiddenTierCount}
+        style={{
+          flexShrink: 0,
+          visibility: basicTab ? "hidden" : "visible",
+          pointerEvents: basicTab ? "none" : "auto",
+        }}
+      />
+    </div>
+  ) : null;
 
   const presetGrid = (
     <div
@@ -551,17 +564,19 @@ export function FormationPresetPickerSheet({
           <h2 id="formation-preset-picker-title">立ち位置の雛形</h2>
           <p>{subtitle}</p>
         </div>
-        <FormationPresetTierToggle
-          showAll={showAllTiers}
-          onToggle={() => setShowAllTiers((v) => !v)}
-          hiddenCount={hiddenTierCount}
-          style={{
-            flexShrink: 0,
-            marginTop: 2,
-            visibility: basicTab ? "hidden" : "visible",
-            pointerEvents: basicTab ? "none" : "auto",
-          }}
-        />
+        {actionsDocked ? null : (
+          <FormationPresetTierToggle
+            showAll={showAllTiers}
+            onToggle={() => setShowAllTiers((v) => !v)}
+            hiddenCount={hiddenTierCount}
+            style={{
+              flexShrink: 0,
+              marginTop: 2,
+              visibility: basicTab ? "hidden" : "visible",
+              pointerEvents: basicTab ? "none" : "auto",
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -570,42 +585,40 @@ export function FormationPresetPickerSheet({
 
   if (landscapeHorizontal && typeof document !== "undefined") {
     return createPortal(
-      <>
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="formation-preset-picker-title"
-          data-editor-sheet="formation-preset-picker"
-          className={
-            landscapeFullscreen
-              ? "formation-preset-picker-landscape-fullscreen"
-              : "formation-preset-picker-landscape-dock"
-          }
-        >
-          {sheetHeader}
-          {presetGrid}
-        </div>
-        {dockedActionsBar}
-      </>,
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="formation-preset-picker-title"
+        data-editor-sheet="formation-preset-picker"
+        className={
+          landscapeFullscreen
+            ? "formation-preset-picker-landscape-fullscreen"
+            : "formation-preset-picker-landscape-dock"
+        }
+      >
+        {sheetHeader}
+        {mobileToolbar}
+        {presetGrid}
+        {footerActions}
+      </div>,
       document.body
     );
   }
 
   if (portraitFullscreen && typeof document !== "undefined") {
     return createPortal(
-      <>
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="formation-preset-picker-title"
-          data-editor-sheet="formation-preset-picker"
-          className="formation-preset-picker-fullscreen"
-        >
-          {sheetHeader}
-          {presetGrid}
-        </div>
-        {dockedActionsBar}
-      </>,
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="formation-preset-picker-title"
+        data-editor-sheet="formation-preset-picker"
+        className="formation-preset-picker-fullscreen"
+      >
+        {sheetHeader}
+        {mobileToolbar}
+        {presetGrid}
+        {footerActions}
+      </div>,
       document.body
     );
   }
@@ -671,7 +684,7 @@ export function FormationPresetPickerSheet({
             />
           </div>
         </div>
-        {stickyActionsBar}
+        {footerActions}
         {presetGrid}
       </div>
     </EditorSideSheet>

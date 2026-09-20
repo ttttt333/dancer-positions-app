@@ -165,6 +165,55 @@ export function classicShimoteKamitePair(
   return kamiteFewer ? [larger, smaller] : [smaller, larger];
 }
 
+/** 前列 first から +1 ずつ増やす段配分（formationLayouts.frontAudienceGrowingRowCounts と同じ） */
+export function classicFrontStairRowCounts(n: number, firstRow: number): number[] {
+  if (n <= 0) return [];
+  const rows: number[] = [];
+  let rem = n;
+  let w = Math.max(1, Math.floor(firstRow));
+  while (rem > 0) {
+    const take = Math.min(w, rem);
+    rows.push(take);
+    rem -= take;
+    w += 1;
+  }
+  return rows;
+}
+
+/**
+ * 2列（手前・奥）で、手前人数を 1,2,3…と増やした配分。
+ * 2列目が1列目より少なくなった案まで含めて返す。
+ * 例: 7人 → [1,6] [2,5] [3,4] [4,3]
+ */
+export function classicTwoRowFrontProgression(n: number): [number, number][] {
+  const total = Math.max(0, Math.floor(n));
+  if (total < 2) return [];
+  const out: [number, number][] = [];
+  for (let front = 1; front < total; front++) {
+    const back = total - front;
+    out.push([front, back]);
+    if (back < front) break;
+  }
+  return out;
+}
+
+/**
+ * 前列人数を 2,3,4…と増やした段々案。
+ * 2列目が1列目より少なくなった案まで含めて返す。
+ */
+export function classicFrontStairFirstRowsUntilBackFewer(n: number): number[] {
+  const total = Math.max(0, Math.floor(n));
+  if (total < 3) return [];
+  const firsts: number[] = [];
+  for (let first = 2; first < total; first++) {
+    const rows = classicFrontStairRowCounts(total, first);
+    if (rows.length < 2) break;
+    firsts.push(first);
+    if ((rows[1] ?? 0) < (rows[0] ?? 0)) break;
+  }
+  return firsts;
+}
+
 function formatRows(rows: number[]): string {
   return rows.filter((c) => c > 0).join("-");
 }
@@ -297,6 +346,14 @@ export function tryApplyClassicLayoutPreset(
   n: number,
   out: DancerSpot[]
 ): boolean {
+  const twoRows = /^classic_two_rows_(\d+)$/.exec(preset);
+  if (twoRows) {
+    const front = Number.parseInt(twoRows[1]!, 10);
+    if (!Number.isFinite(front) || front < 1 || front >= n) return false;
+    const back = n - front;
+    pushTwoRows(out, front, back);
+    return true;
+  }
   if (!CLASSIC_IDS.has(preset)) return false;
   switch (preset) {
     case "classic_pyramid":
@@ -344,8 +401,7 @@ export type ClassicSuggestionEntry = {
 
 /**
  * 人数に応じた定番提案の並び。
- * 7人の例: ピラミッド → 2-3-2 → 3-4 → 4-3 → 横一列 → V → 逆V → 斜め → 逆斜め →
- * 縦被り → 3分割 → 上手3下手4 → 上手4下手3
+ * 前列人数を一人ずつ増やした2列・段々を、2列目が1列目より少なくなるまで含める。
  */
 export function classicSuggestionEntries(n: number): ClassicSuggestionEntry[] {
   const count = Math.max(1, Math.floor(n));
@@ -357,17 +413,12 @@ export function classicSuggestionEntries(n: number): ClassicSuggestionEntry[] {
     label: `ピラミッド（${formatRows(pyramidRows)}）`,
   });
 
-  /** 前列2人・3人からの段々（ピラミッドの次に人数順で） */
-  if (count >= 4) {
+  /** 前列2人・3人…と一人ずつ増やした段々（2列目 < 1列目になるまで） */
+  for (const first of classicFrontStairFirstRowsUntilBackFewer(count)) {
+    const rows = classicFrontStairRowCounts(count, first);
     items.push({
-      id: "front_stair_from_2",
-      label: "前列2人から段々",
-    });
-  }
-  if (count >= 6) {
-    items.push({
-      id: "front_stair_from_3",
-      label: "前列3人から段々",
+      id: `front_stair_from_${first}`,
+      label: `前列${first}人から段々（${formatRows(rows)}）`,
     });
   }
 
@@ -379,16 +430,11 @@ export function classicSuggestionEntries(n: number): ClassicSuggestionEntry[] {
     });
   }
 
-  if (count >= 3) {
-    const light = classicFrontLightTwoRows(count);
-    const heavy = classicFrontHeavyTwoRows(count);
+  /** 2列で手前人数を1人ずつ増やし、2列目が少なくなるまで */
+  for (const [front, back] of classicTwoRowFrontProgression(count)) {
     items.push({
-      id: "classic_rows_front_light",
-      label: `2列（${formatRows(light)}）`,
-    });
-    items.push({
-      id: "classic_rows_front_heavy",
-      label: `2列（${formatRows(heavy)}）`,
+      id: `classic_two_rows_${front}`,
+      label: `2列（${front}-${back}）`,
     });
   }
 
