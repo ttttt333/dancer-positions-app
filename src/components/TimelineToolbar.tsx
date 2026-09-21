@@ -1360,7 +1360,11 @@ export function TimelineToolbar({
 
   return (
     <div
-      className="wave-compact-time-above-wave"
+      className={
+        compactTopDock
+          ? "wave-compact-time-above-wave wave-dock-compact-toolbar"
+          : "wave-compact-time-above-wave"
+      }
       style={{
         display: "grid",
         gridTemplateColumns: unifiedWideChrome
@@ -1386,6 +1390,7 @@ export function TimelineToolbar({
         />
       ) : null}
       <div
+        className="wave-dock-toolbar-row"
         style={{
           display: "flex",
           flexWrap: "nowrap",

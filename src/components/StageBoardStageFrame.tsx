@@ -48,23 +48,43 @@ export function StageBoardStageFrame({
 
   /**
    * Galaxy 等で cqi/cqb が潰れてステージが極小になるのを避ける。
-   * - 生徒共有横画面: compactLandscapeViewport
+   * - 生徒共有（縦・横）: compactViewportChrome
    * - モバイル編集 (縦/横): enablePinchViewport && !compactViewportChrome
-   *   （閲覧縦は帯余白付き CQ のまま）
    */
   const fillStageFramePx =
+    compactViewportChrome ||
     compactLandscapeViewport ||
     (enablePinchViewport && !compactViewportChrome);
+
+  /**
+   * 客席帯は aspect 比の外（床下）に描くため、上下どちらに出るかに応じて
+   * 測り領域から少しだけ削ってラベルが切れないようにする。
+   * 横画面の実測フィット時は帯余白ゼロ（ラベルは重ね描き）。
+   */
+  const audienceBandPad = compactLandscapeViewport ? 0 : 28;
+  const backstageBandPad = compactLandscapeViewport ? 0 : 18;
+  const useSymmetricEditorFit = !compactViewportChrome;
+
+  let bandTop = 0;
+  let bandBottom = 0;
+  if (!useSymmetricEditorFit && !compactLandscapeViewport) {
+    if (isAudienceTop) {
+      bandTop = audienceBandPad;
+      bandBottom = backstageBandPad;
+    } else {
+      bandTop = backstageBandPad;
+      bandBottom = audienceBandPad;
+    }
+  }
 
   const fillSize = useFillStageFrameSize({
     enabled: fillStageFramePx,
     containerRef: fitMeasureRef,
     aspectWidth: rotatedFrame.hasStageDims ? rotatedFrame.outerWmm : 4,
     aspectDepth: rotatedFrame.hasStageDims ? rotatedFrame.outerDmm : 3,
-    // 左レール分は CSS padding-left で測り領域から除外済み
     leftInsetPx: 0,
-    topInsetPx: 2,
-    bottomInsetPx: 2,
+    topInsetPx: fillStageFramePx ? 2 + bandTop : 2,
+    bottomInsetPx: fillStageFramePx ? 2 + bandBottom : 2,
     rightInsetPx: 2,
   });
 
@@ -78,28 +98,15 @@ export function StageBoardStageFrame({
     ...pinch.wrapperStyle,
   };
 
-  /**
-   * 客席帯は aspect 比の外（床下）に描くため、上下どちらに出るかに応じて
-   * `cqb` を少しだけ削ってラベルが切れないようにする。
-   * 横画面の実測フィット時は帯余白ゼロ（ラベルは重ね描き）。
-   */
-  const audienceBandPad = compactLandscapeViewport ? 0 : 42;
-  const backstageBandPad = compactLandscapeViewport ? 0 : 28;
-
+  // 実測フィット時は inset で帯を確保済み。CQ 時のみ padding で cqb を削る。
   let paddingTop: number | undefined;
   let paddingBottom: number | undefined;
-  const useSymmetricEditorFit = !compactViewportChrome;
   if (useSymmetricEditorFit) {
     paddingTop = undefined;
     paddingBottom = undefined;
-  } else if (!compactLandscapeViewport) {
-    if (isAudienceTop) {
-      paddingTop = audienceBandPad;
-      paddingBottom = backstageBandPad;
-    } else {
-      paddingTop = backstageBandPad;
-      paddingBottom = audienceBandPad;
-    }
+  } else if (!fillStageFramePx && !compactLandscapeViewport) {
+    paddingTop = bandTop || undefined;
+    paddingBottom = bandBottom || undefined;
   }
 
   const forcedSizePx = fillSize

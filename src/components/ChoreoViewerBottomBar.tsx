@@ -8,8 +8,8 @@ import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { ShareViewAudioLoadBanner } from "./ShareViewAudioLoadBanner";
 
-/** 閲覧共有ステージ上のダンサー印の表示倍率（従来比 2/3） */
-export const PUBLIC_VIEWER_MARKER_DISPLAY_SCALE = 2 / 3;
+/** 閲覧共有ステージ上のダンサー印の表示倍率（読みやすさ優先。旧 2/3 は Galaxy で小さすぎた） */
+export const PUBLIC_VIEWER_MARKER_DISPLAY_SCALE = 0.9;
 
 function viewerBarHeightPx(tight: boolean, showAudioRow: boolean): number {
   if (!showAudioRow) return 0;

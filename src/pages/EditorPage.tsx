@@ -184,7 +184,6 @@ import {
   STAGE_RESIZER_PX,
   TIMELINE_FULL_COL_MIN_PX,
   TOP_DOCK_HEIGHT_PX,
-  TOP_DOCK_HEIGHT_WIDE_PX,
   TOP_DOCK_ROW_MAX_PX,
   TOP_DOCK_ROW_MIN_PX,
   TOP_DOCK_ROW_MIN_WIDE_PX,
@@ -194,6 +193,10 @@ import {
   persistEditorLayout,
   readStoredEditorLayout,
 } from "./editor/editorLayoutStorage";
+import {
+  clampWideTopDockRowToViewport,
+  resolveAdaptiveWideTopDockDefaultPx,
+} from "../lib/waveDockMetrics";
 import { readMaxStageWidthPx, round2Pct, studentPickToStageFocus } from "./editor/editorStageLayout";
 import { useEditorViewport, resolveWideEditorLayout, subscribeWideEditorLayout } from "./editor/editorViewport";
 import { EditorPageLayout } from "./editor/EditorPageLayout";
@@ -416,6 +419,10 @@ function EditorPageContent({
   const [topDockRowPx, setTopDockRowPx] = useState<number | null>(() => {
     return readStoredEditorLayout().topDockRowPx;
   });
+  /** Windows 拡大表示などで CSS 高さが変わるので、ドック既定値の再計算に使う */
+  const [layoutViewportH, setLayoutViewportH] = useState(() =>
+    typeof window !== "undefined" ? window.innerHeight : 900
+  );
   /** ステージのみ全画面（波形・右列・ステージ上の補助行を隠す） */
   const [stageZenFullscreen, setStageZenFullscreen] = useState(false);
   /** `showTopWaveDock` の直前値（早期 return の前でもフック順を一定にするため ref はここで保持） */
@@ -894,6 +901,26 @@ function EditorPageContent({
 
   useEffect(() => {
     if (!wideEditorLayout || typeof window === "undefined") return;
+    const reclampDock = () => {
+      const vh = window.innerHeight;
+      setLayoutViewportH(vh);
+      setTopDockRowPx((cur) => {
+        if (cur == null) return cur;
+        const next = clampWideTopDockRowToViewport(cur, vh, TOP_DOCK_ROW_MAX_PX);
+        return next === cur ? cur : next;
+      });
+    };
+    reclampDock();
+    window.addEventListener("resize", reclampDock);
+    window.visualViewport?.addEventListener("resize", reclampDock);
+    return () => {
+      window.removeEventListener("resize", reclampDock);
+      window.visualViewport?.removeEventListener("resize", reclampDock);
+    };
+  }, [wideEditorLayout]);
+
+  useEffect(() => {
+    if (!wideEditorLayout || typeof window === "undefined") return;
     persistEditorLayout({ stageColumnPx, topDockRowPx });
   }, [wideEditorLayout, stageColumnPx, topDockRowPx]);
 
@@ -991,7 +1018,11 @@ function EditorPageContent({
       const minH = wideEditorLayout ? TOP_DOCK_ROW_MIN_WIDE_PX : TOP_DOCK_ROW_MIN_PX;
       const maxH = Math.max(
         minH,
-        Math.min(TOP_DOCK_ROW_MAX_PX, gridRect.height - 200)
+        Math.min(
+          TOP_DOCK_ROW_MAX_PX,
+          gridRect.height - 200,
+          Math.floor(window.innerHeight * 0.4)
+        )
       );
       const next = clampTopDockRowPx(
         Math.min(maxH, Math.max(minH, d.startH + (e.clientY - d.startY)))
@@ -2777,10 +2808,17 @@ function EditorPageContent({
   const publicNarrowLayout =
     choreoPublicView && !wideEditorLayout && !stageZenLayout;
 
-  // wideEditorLayout時は常に固定 160px 下バー
-  const wideBottomDockPx = topDockRowPx != null
-    ? Math.max(TOP_DOCK_HEIGHT_WIDE_PX, clampTopDockRowPx(topDockRowPx))
-    : TOP_DOCK_HEIGHT_WIDE_PX;
+  // wideEditorLayout: ビューポートに合わせてドック高さを調整（Windows 拡大表示・短いノートPC向け）
+  const adaptiveWideDockDefault =
+    resolveAdaptiveWideTopDockDefaultPx(layoutViewportH);
+  const wideBottomDockPx =
+    topDockRowPx != null
+      ? clampWideTopDockRowToViewport(
+          topDockRowPx,
+          layoutViewportH,
+          TOP_DOCK_ROW_MAX_PX
+        )
+      : adaptiveWideDockDefault;
   const editorTopDockHeightPx = wideEditorLayout
     ? wideBottomDockPx
     : TOP_DOCK_HEIGHT_PX;

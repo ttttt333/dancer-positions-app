@@ -8,7 +8,7 @@ export type FillStageSize = {
 /**
  * コンテナ実寸からステージの contain フィットサイズを px で算出する。
  * Galaxy 等で container query (cqi/cqb) が潰れてステージが極小になるのを避ける。
- * （生徒共有横画面・モバイル編集の縦/横で使用）
+ * （生徒共有の縦/横・モバイル編集で使用）
  */
 export function useFillStageFrameSize(params: {
   enabled: boolean;

@@ -65,6 +65,27 @@ body {
   height: 12px !important;
 }
 
+/* 短い画面 / 狭い CSS 幅（Windows 拡大表示含む）: ツールバー折り返しと余白圧縮 */
+@media (max-height: 820px), (max-width: 1180px) {
+  .wave-dock-compact-toolbar .wave-dock-toolbar-row {
+    flex-wrap: wrap !important;
+    row-gap: 4px !important;
+    justify-content: flex-start !important;
+    overflow-x: hidden !important;
+  }
+}
+
+@media (max-height: 760px) {
+  .wave-dock-compact-toolbar button,
+  .wave-dock-compact-toolbar label,
+  .wave-dock-compact-toolbar select {
+    min-height: 26px !important;
+    font-size: 10px !important;
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+  }
+}
+
 /* 上部ドック: 波形直前の現在時刻／総時間 */
 .wave-compact-time-above-wave {
   font-variant-numeric: tabular-nums;
@@ -1378,12 +1399,32 @@ html.choreo-public-view-html::backdrop {
   .choreo-public-view-root .stage-board-main-slot {
     padding: 0 !important;
     overflow: visible !important;
+    align-items: stretch !important;
   }
   .choreo-public-view-root .stage-board-fit-viewport,
   .choreo-public-view-root .stage-board-fit-viewport-inner,
   .choreo-public-view-root .stage-board-stage-wrapper,
   .choreo-public-view-root #stage-export-root {
     overflow: visible !important;
+  }
+  /* 縦画面の生徒閲覧: Galaxy で CQ が潰れて黒余白だらけにならないよう測り親を伸ばす */
+  .choreo-public-view-root:not(.choreo-public-view-root--landscape)
+    .stage-board-fit-viewport,
+  .choreo-public-view-root:not(.choreo-public-view-root--landscape)
+    .stage-board-fit-viewport-inner,
+  .choreo-public-view-root:not(.choreo-public-view-root--landscape)
+    .stage-board-pinch-clip,
+  .choreo-public-view-root:not(.choreo-public-view-root--landscape)
+    .stage-board-stage-wrapper {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    align-self: stretch !important;
+  }
+  .choreo-public-view-root:not(.choreo-public-view-root--landscape)
+    .stage-board-fit-viewport-inner {
+    align-items: center !important;
+    justify-content: center !important;
   }
   .choreo-public-view-root .stage-board-pinch-clip {
     overflow: hidden !important;
