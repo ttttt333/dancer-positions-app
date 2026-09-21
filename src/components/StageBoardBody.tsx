@@ -180,15 +180,6 @@ import { STAGE_BOARD_ABORT_POINTER_GESTURES } from "../lib/stageBoardGestureAbor
 /** タッチ時、指で隠れないようマーカーを指より上に置くオフセット（px） */
 const TOUCH_DANCER_FINGER_CLEARANCE_PX = 56;
 
-function prefersIndirectDancerRelocate(pointerType: string): boolean {
-  if (pointerType === "touch" || pointerType === "pen") return true;
-  try {
-    return window.matchMedia("(pointer: coarse)").matches;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * ステージボードの実装本体。`useStageDancerMarkerElements` / `useSetPieceBlockElements` 等で束ね、return 直前では次の順にオブジェクトを組み立てる:
  * `buildStageBoardExportColumnProps` → `stageBoardLayoutSlots` → `stageBoardOverlaysProps`（`useMemo`）→ `StageBoardShell`。
@@ -2829,144 +2820,6 @@ export function StageBoardBody({
 
       const additive = e.shiftKey || e.metaKey || e.ctrlKey;
 
-      /**
-       * スマホ等: 選択中のダンサーを、空ステージのタップ／ドラッグで移動する。
-       * 指がマーカーに被らず微調整できるようにする（PC のマウスは従来どおりマーキー）。
-       * 全員選択中は誤って全員移動しないよう、クリア／マーキーへ落とす。
-       */
-      const floorDancers =
-        writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-      const selectingAllOnFloor =
-        floorDancers.length > 0 &&
-        selectedDancerIds.length >= floorDancers.length;
-      if (
-        selectedDancerIds.length > 0 &&
-        !selectingAllOnFloor &&
-        !additive &&
-        prefersIndirectDancerRelocate(e.pointerType) &&
-        floorMarkupTool !== "text" &&
-        floorMarkupTool !== "line" &&
-        floorMarkupTool !== "erase"
-      ) {
-        const dancers =
-          writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-        const clearance =
-          e.pointerType === "touch" || e.pointerType === "pen"
-            ? TOUCH_DANCER_FINGER_CLEARANCE_PX
-            : 0;
-        e.preventDefault();
-        e.stopPropagation();
-        try {
-          el.setPointerCapture(e.pointerId);
-        } catch {
-          /* ignore */
-        }
-
-        if (selectedDancerIds.length === 1) {
-          const dancerId = selectedDancerIds[0]!;
-          const d = dancers.find((x) => x.id === dancerId);
-          if (!d) {
-            clearSelectedDancers();
-            return;
-          }
-          const next = pxToPct(
-            e.clientX,
-            e.clientY - clearance,
-            e.shiftKey,
-            true,
-          );
-          if (!next) return;
-          onGestureHistoryBegin?.();
-          updateActiveFormation((f) => ({
-            ...f,
-            dancers: f.dancers.map((x) =>
-              x.id === dancerId
-                ? { ...x, xPct: next.xPct, yPct: next.yPct }
-                : x,
-            ),
-          }));
-          dragRef.current = {
-            dancerId,
-            offsetXPx: 0,
-            offsetYPx: clearance,
-            startXPct: next.xPct,
-            startYPct: next.yPct,
-          };
-          setDragGhostById(
-            new Map([[dancerId, { xPct: next.xPct, yPct: next.yPct }]]),
-          );
-          setTrashUiVisible(true);
-          trashRevealActiveRef.current = true;
-          return;
-        }
-
-        const startPositions = new Map<
-          string,
-          { xPct: number; yPct: number }
-        >();
-        let sumX = 0;
-        let sumY = 0;
-        let n = 0;
-        for (const id of selectedDancerIds) {
-          const d = dancers.find((x) => x.id === id);
-          if (!d) continue;
-          startPositions.set(id, { xPct: d.xPct, yPct: d.yPct });
-          sumX += d.xPct;
-          sumY += d.yPct;
-          n += 1;
-        }
-        if (n === 0 || startPositions.size === 0) {
-          clearSelectedDancers();
-          return;
-        }
-        const next = pxToPct(
-          e.clientX,
-          e.clientY - clearance,
-          e.shiftKey,
-          true,
-        );
-        if (!next) return;
-        const dx = next.xPct - sumX / n;
-        const dy = next.yPct - sumY / n;
-        const moved = new Map<string, { xPct: number; yPct: number }>();
-        for (const [id, p] of startPositions) {
-          moved.set(id, {
-            xPct: clamp(
-              p.xPct + dx,
-              DANCER_STAGE_POSITION_PCT_LO,
-              DANCER_STAGE_POSITION_PCT_HI,
-            ),
-            yPct: clamp(
-              p.yPct + dy,
-              DANCER_STAGE_POSITION_PCT_LO,
-              DANCER_STAGE_POSITION_PCT_HI,
-            ),
-          });
-        }
-        onGestureHistoryBegin?.();
-        updateActiveFormation((f) => ({
-          ...f,
-          dancers: f.dancers.map((x) => {
-            const m = moved.get(x.id);
-            return m ? { ...x, xPct: m.xPct, yPct: m.yPct } : x;
-          }),
-        }));
-        groupDragRef.current = {
-          mode: "move",
-          ids: [...selectedDancerIds],
-          startPositions: moved,
-          startClientX: e.clientX,
-          startClientY: e.clientY,
-          floorWpx: r.width,
-          floorHpx: r.height,
-        };
-        setBulkHideDancerGlyphs(true);
-        setDragGhostById(new Map(moved));
-        setTrashUiVisible(true);
-        trashRevealActiveRef.current = true;
-        return;
-      }
-
       marqueeSessionRef.current = {
         startClientX: e.clientX,
         startClientY: e.clientY,
@@ -3010,9 +2863,6 @@ export function StageBoardBody({
       setSelectedDancerIds,
       setMarquee,
       activeFormation,
-      pxToPct,
-      onGestureHistoryBegin,
-      setBulkHideDancerGlyphs,
       setTrashUiVisible,
     ],
   );
