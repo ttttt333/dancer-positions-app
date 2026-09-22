@@ -35,7 +35,10 @@ export type StageDancerContextMenuProps = {
   rawDancerLabelPosition: "inside" | "below" | undefined;
   dancerLabelBelow: boolean;
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
-  duplicateDancerIds: (ids: string[]) => void;
+  duplicateDancerIds: (
+    ids: string[],
+    placement?: "end" | "after"
+  ) => void;
   removeDancersByIds: (ids: string[]) => void;
   applyBulkColorToDancerIds: (ids: string[], colorIndex: number) => void;
   applyBulkMarkerClear: (ids: string[]) => void;

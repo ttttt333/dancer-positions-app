@@ -12,6 +12,7 @@ import {
 import {
   StageDancerDockQuickMenu,
   type StageDockQuickSection,
+  type StageDuplicatePlacement,
 } from "./StageDancerDockQuickMenu";
 
 export type StageBoardContextMenuState =
@@ -38,6 +39,7 @@ export type StageBoardContextMenuLayerProps = {
     showDisplay: boolean;
     showSort: boolean;
     onPick: (section: StageDockQuickSection) => void;
+    onDuplicate?: (placement: StageDuplicatePlacement) => void;
     onOpenLegacyMore?: () => void;
     onDelete?: () => void;
   };
@@ -86,6 +88,14 @@ export function StageBoardContextMenuLayer({
             dockQuickMenu.onPick(section);
             onCloseMenu();
           }}
+          onDuplicate={
+            dockQuickMenu.onDuplicate
+              ? (placement) => {
+                  dockQuickMenu.onDuplicate?.(placement);
+                  onCloseMenu();
+                }
+              : undefined
+          }
           onDelete={
             dockQuickMenu.onDelete
               ? () => {

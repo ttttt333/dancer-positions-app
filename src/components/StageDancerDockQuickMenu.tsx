@@ -1,12 +1,14 @@
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 
 export type StageDockQuickSection = "shape" | "display" | "sort";
+export type StageDuplicatePlacement = "end" | "after";
 
 export type StageDancerDockQuickMenuProps = {
   showShape: boolean;
   showDisplay: boolean;
   showSort: boolean;
   onPick: (section: StageDockQuickSection) => void;
+  onDuplicate?: (placement: StageDuplicatePlacement) => void;
   onOpenLegacyMore?: () => void;
   onDelete?: () => void;
 };
@@ -28,17 +30,27 @@ const itemBtn: CSSProperties = {
   textAlign: "left",
 };
 
+const subItemBtn: CSSProperties = {
+  ...itemBtn,
+  padding: "8px 12px 8px 18px",
+  fontSize: 12,
+  fontWeight: 600,
+  color: "#cbd5e1",
+};
+
 /**
- * 選択中の右クリック用。右ドックの 雛形 / 表示 / 並べ替え をすぐ選ぶ一覧。
+ * 選択中の右クリック用。右ドックの 雛形 / 表示 / 並べ替え / 複製 をすぐ選ぶ一覧。
  */
 export function StageDancerDockQuickMenu({
   showShape,
   showDisplay,
   showSort,
   onPick,
+  onDuplicate,
   onOpenLegacyMore,
   onDelete,
 }: StageDancerDockQuickMenuProps) {
+  const [dupOpen, setDupOpen] = useState(false);
   const entries: { id: StageDockQuickSection; label: string; hint: string }[] =
     [];
   if (showShape) {
@@ -84,6 +96,60 @@ export function StageDancerDockQuickMenu({
           </span>
         </button>
       ))}
+      {onDuplicate ? (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            aria-expanded={dupOpen}
+            style={itemBtn}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(56,189,248,0.12)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+            onClick={() => setDupOpen((v) => !v)}
+          >
+            <span>複製</span>
+            <span style={{ color: "#64748b", fontSize: 11, fontWeight: 600 }}>
+              {dupOpen ? "▾" : "▸"}
+            </span>
+          </button>
+          {dupOpen ? (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                style={subItemBtn}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(56,189,248,0.14)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+                onClick={() => onDuplicate("end")}
+              >
+                <span>一番最後に複製</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                style={subItemBtn}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(56,189,248,0.14)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+                onClick={() => onDuplicate("after")}
+              >
+                <span>すぐ後に複製</span>
+              </button>
+            </>
+          ) : null}
+        </>
+      ) : null}
       {onDelete || onOpenLegacyMore ? (
         <div
           style={{

@@ -42,7 +42,7 @@ export function computeStageContextMenuStyle(
   const mw =
     menu.kind === "dancerDock" ? 220 : menu.kind === "floorText" ? 168 : 132;
   const mh =
-    menu.kind === "dancerDock" ? 220 : menu.kind === "floorText" ? 88 : 52;
+    menu.kind === "dancerDock" ? 320 : menu.kind === "floorText" ? 88 : 52;
   const { width: vw, height: vh } =
     typeof window !== "undefined"
       ? readLayoutViewportSize()

@@ -44,6 +44,7 @@ type PopoverKind =
   | "shape"
   | "sort"
   | "display"
+  | "dup"
   | null;
 
 export type StageDancerContextToolbarProps = {
@@ -132,6 +133,8 @@ export type StageDancerContextToolbarProps = {
    * `requestId` が変わるたびにそのセクションを開く。
    */
   dockSectionRequest?: { requestId: number; section: "shape" | "display" | "sort" } | null;
+  /** 選択中のダンサーを複製（end=末尾 / after=選択の直後） */
+  onDuplicateSelection?: (placement: "end" | "after") => void;
 };
 
 const BTN_BORDER = "#334155";
@@ -261,8 +264,14 @@ export function StageDancerContextToolbar({
   onTogglePrevCueMotionView,
   placement = "floor",
   dockSectionRequest = null,
+  onDuplicateSelection,
 }: StageDancerContextToolbarProps) {
   const side = placement === "side";
+  const formationEdit = editMode === "formation";
+  const groupEdit = editMode === "group";
+  const dancerEdit = editMode === "dancer";
+  const multiEdit = formationEdit || groupEdit;
+  const showDup = Boolean(onDuplicateSelection) && selectedCount >= 1;
   const btn: CSSProperties = side
     ? {
         ...floorBtn,
@@ -278,7 +287,7 @@ export function StageDancerContextToolbar({
     ? {
         ...bar,
         display: "grid",
-        gridTemplateColumns: "1fr 1fr 1fr",
+        gridTemplateColumns: showDup ? "1fr 1fr" : "1fr 1fr 1fr",
         alignItems: "stretch",
         justifyContent: "stretch",
         flexWrap: "nowrap",
@@ -293,10 +302,6 @@ export function StageDancerContextToolbar({
     markA: string;
     markB: string;
   } | null>(null);
-  const formationEdit = editMode === "formation";
-  const groupEdit = editMode === "group";
-  const dancerEdit = editMode === "dancer";
-  const multiEdit = formationEdit || groupEdit;
   const tidyAvailable = isStageTidyAvailable(editMode);
   const openFormationPresets = useMobileShellBridgeStore(
     (s) => s.onFormationChange
@@ -771,6 +776,22 @@ export function StageDancerContextToolbar({
                 並べ替え
               </button>
             ) : null}
+            {showDup ? (
+              <button
+                type="button"
+                data-dup-entry
+                style={{
+                  ...btn,
+                  borderColor:
+                    open === "dup" ? "rgba(56,189,248,0.9)" : BTN_BORDER,
+                }}
+                title="選択中のダンサーを複製"
+                aria-expanded={open === "dup"}
+                onClick={() => setOpen((v) => (v === "dup" ? null : "dup"))}
+              >
+                複製
+              </button>
+            ) : null}
           </>
         )}
       </div>
@@ -919,6 +940,50 @@ export function StageDancerContextToolbar({
               onSizeGestureBegin={onSizeGestureBegin}
               onSizeGestureEnd={onSizeGestureEnd}
             />
+          </div>
+        ) : null}
+        {showDup && open === "dup" && onDuplicateSelection ? (
+          <div
+            style={{
+              ...popoverStyle(side),
+              minWidth: 0,
+              marginTop: side ? 6 : 8,
+              padding: side ? 6 : 10,
+            }}
+          >
+            <div style={{ ...dockSectionTitle, marginBottom: 8 }}>複製</div>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: 11,
+                color: "#94a3b8",
+                lineHeight: 1.4,
+              }}
+            >
+              選択中を少しずらしてコピーします。置き場所を選んでください。
+            </p>
+            <button
+              type="button"
+              style={{ ...dockActionBtn, width: "100%", marginBottom: 6 }}
+              title="フォーメーションの末尾に追加"
+              onClick={() => {
+                onDuplicateSelection("end");
+                setOpen(null);
+              }}
+            >
+              一番最後に複製
+            </button>
+            <button
+              type="button"
+              style={{ ...dockActionBtn, width: "100%" }}
+              title="選択したメンバーのすぐ後ろに挿入"
+              onClick={() => {
+                onDuplicateSelection("after");
+                setOpen(null);
+              }}
+            >
+              すぐ後に複製
+            </button>
           </div>
         ) : null}
         {showShape && open === "shape" ? (

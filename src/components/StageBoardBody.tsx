@@ -1548,7 +1548,7 @@ export function StageBoardBody({
 
   /** 選択（または右クリック対象）のメンバーを複製し、少しずらして追加。新しい印だけ選択する。 */
   const duplicateDancerIds = useCallback(
-    (ids: string[]) => {
+    (ids: string[], placement: "end" | "after" = "end") => {
       if (
         !writeFormation ||
         viewMode === "view" ||
@@ -1559,9 +1559,9 @@ export function StageBoardBody({
       const uniq = [...new Set(ids.filter(Boolean))];
       if (uniq.length === 0) return;
       const fid = formationIdForWrites;
-      const snapshots = uniq
-        .map((id) => writeFormation.dancers.find((d) => d.id === id))
-        .filter((d): d is DancerSpot => d != null);
+      const idSet = new Set(uniq);
+      /** フォーメーション順を保った複製元 */
+      const snapshots = writeFormation.dancers.filter((d) => idSet.has(d.id));
       if (snapshots.length === 0) return;
       const clones: DancerSpot[] = snapshots.map((d) => {
         const nid = crypto.randomUUID();
@@ -1592,15 +1592,32 @@ export function StageBoardBody({
       const newIds = clones.map((c) => c.id);
       setProject((p) => ({
         ...p,
-        formations: p.formations.map((f) =>
-          f.id === fid
-            ? {
-                ...f,
-                dancers: [...f.dancers, ...clones],
-                confirmedDancerCount: f.dancers.length + clones.length,
-              }
-            : f,
-        ),
+        formations: p.formations.map((f) => {
+          if (f.id !== fid) return f;
+          let dancers: DancerSpot[];
+          if (placement === "after") {
+            let insertAt = -1;
+            for (let i = 0; i < f.dancers.length; i++) {
+              if (idSet.has(f.dancers[i]!.id)) insertAt = i;
+            }
+            if (insertAt < 0) {
+              dancers = [...f.dancers, ...clones];
+            } else {
+              dancers = [
+                ...f.dancers.slice(0, insertAt + 1),
+                ...clones,
+                ...f.dancers.slice(insertAt + 1),
+              ];
+            }
+          } else {
+            dancers = [...f.dancers, ...clones];
+          }
+          return {
+            ...f,
+            dancers,
+            confirmedDancerCount: dancers.length,
+          };
+        }),
       }));
       setSelectedDancerIds(newIds);
       setStageContextMenu(null);
@@ -5424,6 +5441,9 @@ export function StageBoardBody({
         applyBulkColorToDancerIds(selectedDancerIds, i)
       }
       dockSectionRequest={dockSectionRequest}
+      onDuplicateSelection={(placement) =>
+        duplicateDancerIds(selectedDancerIds, placement)
+      }
       onOpenMore={handleOpenToolbarMore}
       onCreateNextCue={
         stageEditMode === "formation" ? handleCreateNextCue : undefined
@@ -5637,6 +5657,8 @@ export function StageBoardBody({
                         stageEditMode === "group") &&
                       selectedDancerIds.length >= 2,
                     onPick: handlePickDockQuickSection,
+                    onDuplicate: (placement) =>
+                      duplicateDancerIds(selectedDancerIds, placement),
                     onDelete: handleDeleteSelectedDancers,
                     onOpenLegacyMore: () => {
                       const m = stageContextMenu;
