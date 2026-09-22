@@ -262,23 +262,23 @@ export function StageDancerContextToolbar({
         ...floorBtn,
         minWidth: 0,
         width: "100%",
-        height: 46,
-        fontSize: 15,
+        height: 40,
+        fontSize: 13,
         fontWeight: 800,
-        padding: "0 8px",
+        padding: "0 4px",
       }
     : floorBtn;
   const barStyle: CSSProperties = side
     ? {
         ...bar,
         display: "grid",
-        gridTemplateColumns: "1fr",
+        gridTemplateColumns: "1fr 1fr 1fr",
         alignItems: "stretch",
         justifyContent: "stretch",
         flexWrap: "nowrap",
-        gap: 8,
+        gap: 6,
         width: "100%",
-        padding: "8px 4px",
+        padding: "4px 2px",
       }
     : bar;
   const barRef = useRef<HTMLDivElement | null>(null);
