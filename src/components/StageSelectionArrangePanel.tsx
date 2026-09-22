@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type { DancerSpot } from "../types/choreography";
 import {
   applyPositionSort,
@@ -14,6 +14,7 @@ import type { PositionRotationDir } from "../lib/stagePositionRotation";
 import {
   dockActionBtn,
   dockCard,
+  dockSectionHint,
   dockSectionTitle,
 } from "./stageDockPanelStyles";
 
@@ -77,6 +78,8 @@ export type StageSelectionArrangePanelProps = {
   ) => void;
   onFlip?: (axis: SelectionFlipAxis) => void;
   onBeginRotationPreview?: (dir: PositionRotationDir) => void;
+  /** 「列の前後交代」など、並べ替えタブに集約する追加 UI */
+  ranksSlot?: ReactNode;
 };
 
 export function StageSelectionArrangePanel({
@@ -86,6 +89,7 @@ export function StageSelectionArrangePanel({
   onArrange,
   onFlip,
   onBeginRotationPreview,
+  ranksSlot,
 }: StageSelectionArrangePanelProps) {
   const [axis, setAxis] = useState<PositionSortAxis>("height");
   const [scope, setScope] = useState<PositionSortScope>("all");
@@ -100,6 +104,84 @@ export function StageSelectionArrangePanel({
 
   return (
     <div data-selection-arrange-panel>
+      {ranksSlot}
+
+      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 4 }}>属性で並べ替え</div>
+        <p style={{ ...dockSectionHint, marginBottom: 10 }}>
+          身長・学年・スキルの順で、選んだ範囲の立ち位置を入れ替えます。
+        </p>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ ...dockSectionTitle, marginBottom: 6 }}>何で並べる？</div>
+          <Segment
+            ariaLabel="並べ替えの軸"
+            value={axis}
+            onChange={setAxis}
+            options={[
+              { id: "height", label: "身長" },
+              { id: "grade", label: "学年" },
+              { id: "skill", label: "スキル" },
+            ]}
+          />
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ ...dockSectionTitle, marginBottom: 6 }}>どこで？</div>
+          <Segment
+            ariaLabel="並べ替えの範囲"
+            value={scope}
+            onChange={setScope}
+            options={[
+              { id: "all", label: "全体" },
+              { id: "row", label: "横一列" },
+              { id: "col", label: "縦一列" },
+            ]}
+          />
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ ...dockSectionTitle, marginBottom: 6 }}>順番</div>
+          <Segment
+            ariaLabel="並べ替えの方向"
+            value={direction}
+            onChange={setDirection}
+            options={[
+              { id: "asc", label: dirLabels.asc },
+              { id: "desc", label: dirLabels.desc },
+            ]}
+          />
+        </div>
+        <p
+          style={{
+            margin: "0 0 10px",
+            padding: "8px 10px",
+            borderRadius: 8,
+            background: "rgba(251,191,36,0.1)",
+            border: "1px solid rgba(251,191,36,0.35)",
+            color: "#fde68a",
+            fontSize: 12,
+            fontWeight: 600,
+            lineHeight: 1.4,
+          }}
+        >
+          {preview}
+        </p>
+        <button
+          type="button"
+          disabled={!canSort}
+          title={canSort ? "並べ替えを適用" : "2人以上を選択してください"}
+          style={{
+            ...actionBtn,
+            opacity: canSort ? 1 : 0.55,
+          }}
+          onClick={() =>
+            onArrange((dancers, ids) =>
+              applyPositionSort(dancers, ids, { axis, scope, direction })
+            )
+          }
+        >
+          並べ替えを適用
+        </button>
+      </div>
+
       <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
         <div style={{ ...dockSectionTitle, marginBottom: 6 }}>2人の立ち位置を交換</div>
         <p
@@ -138,118 +220,42 @@ export function StageSelectionArrangePanel({
         </button>
       </div>
 
-      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
-        <div style={{ ...dockSectionTitle, marginBottom: 8 }}>属性で並べ替え</div>
-        <div style={{ marginBottom: 8 }}>
-          <div style={dockSectionTitle}>軸</div>
-          <Segment
-            ariaLabel="並べ替えの軸"
-            value={axis}
-            onChange={setAxis}
-            options={[
-              { id: "height", label: "身長" },
-              { id: "grade", label: "学年" },
-              { id: "skill", label: "スキル" },
-            ]}
-          />
-        </div>
-        <div style={{ marginBottom: 8 }}>
-          <div style={dockSectionTitle}>範囲</div>
-          <Segment
-            ariaLabel="並べ替えの範囲"
-            value={scope}
-            onChange={setScope}
-            options={[
-              { id: "all", label: "全体" },
-              { id: "row", label: "横一列" },
-              { id: "col", label: "縦一列" },
-            ]}
-          />
-        </div>
-        <div style={{ marginBottom: 8 }}>
-          <div style={dockSectionTitle}>方向</div>
-          <Segment
-            ariaLabel="並べ替えの方向"
-            value={direction}
-            onChange={setDirection}
-            options={[
-              { id: "asc", label: dirLabels.asc },
-              { id: "desc", label: dirLabels.desc },
-            ]}
-          />
-        </div>
-        <p
-          style={{
-            margin: "0 0 8px",
-            padding: "8px 10px",
-            borderRadius: 8,
-            background: "rgba(251,191,36,0.1)",
-            border: "1px solid rgba(251,191,36,0.35)",
-            color: "#fde68a",
-            fontSize: 12,
-            lineHeight: 1.4,
-            fontWeight: 600,
-          }}
-        >
-          {preview}
-        </p>
-        <button
-          type="button"
-          disabled={!canSort}
-          style={{ ...actionBtn, opacity: canSort ? 1 : 0.55 }}
-          onClick={() => {
-            const req = { axis, scope, direction };
-            if (scope === "all") {
-              onPermute((dancers, ids) => applyPositionSort(dancers, ids, req));
-              return;
-            }
-            onArrange((dancers, ids) => applyPositionSort(dancers, ids, req));
-          }}
-        >
-          並べ替えを適用
-        </button>
-      </div>
-
-      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
-        <div style={{ ...dockSectionTitle, marginBottom: 8 }}>反転</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <button
-            type="button"
-            disabled={disabled}
-            title="左右を反転（上手 ⇄ 下手）"
-            style={actionBtn}
-            onClick={() => onFlip?.("x")}
-          >
-            左右を反転
-          </button>
-          <button
-            type="button"
-            disabled={disabled}
-            title="上下を反転（客席 ⇄ 舞台裏）"
-            style={actionBtn}
-            onClick={() => onFlip?.("y")}
-          >
-            上下を反転
-          </button>
-        </div>
-      </div>
-
-      {onBeginRotationPreview ? (
-        <div style={{ ...dockCard, marginBottom: 0, padding: "8px 8px 10px" }}>
-          <div style={{ ...dockSectionTitle, marginBottom: 8 }}>位置の入れ替え</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      {onFlip ? (
+        <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+          <div style={{ ...dockSectionTitle, marginBottom: 8 }}>反転</div>
+          <div style={{ display: "flex", gap: 6 }}>
             <button
               type="button"
-              disabled={disabled}
-              style={actionBtn}
+              style={{ ...actionBtn, flex: 1 }}
+              onClick={() => onFlip("x")}
+            >
+              左右を反転
+            </button>
+            <button
+              type="button"
+              style={{ ...actionBtn, flex: 1 }}
+              onClick={() => onFlip("y")}
+            >
+              上下を反転
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {onBeginRotationPreview ? (
+        <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 0 }}>
+          <div style={{ ...dockSectionTitle, marginBottom: 8 }}>位置の入れ替え</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              type="button"
+              style={{ ...actionBtn, flex: 1 }}
               onClick={() => onBeginRotationPreview("cw")}
             >
               右回り 1人
             </button>
             <button
               type="button"
-              disabled={disabled}
-              style={actionBtn}
+              style={{ ...actionBtn, flex: 1 }}
               onClick={() => onBeginRotationPreview("ccw")}
             >
               左回り 1人

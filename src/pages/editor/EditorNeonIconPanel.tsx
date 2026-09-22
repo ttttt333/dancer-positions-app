@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { NeonIconPanel } from "../../components/NeonIconPanel";
 import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSession";
 import { abortTimelineWavePointerGestures } from "../../lib/abortTimelineWavePointerGestures";
+import { subscribeStageEditRightPaneRequest } from "../../lib/stageEditDockHost";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 
@@ -40,6 +42,13 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   ) => void;
   const setStageAreaSettingsOpen = props.setStageAreaSettingsOpen as (open: boolean) => void;
   const t = props.t as (key: string, params?: Record<string, string | number>) => string;
+
+  useEffect(() => {
+    if (!wideEditorLayout) return;
+    return subscribeStageEditRightPaneRequest(() => {
+      setRightPaneCollapsed(false);
+    });
+  }, [wideEditorLayout, setRightPaneCollapsed]);
 
   return (
     <div

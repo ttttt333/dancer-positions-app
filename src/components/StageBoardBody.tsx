@@ -64,6 +64,7 @@ import {
 import { cueNumberById } from "../lib/cueInterval";
 import {
   getStageEditDockHost,
+  requestStageEditRightPane,
   subscribeStageEditDockHost,
 } from "../lib/stageEditDockHost";
 import {
@@ -1667,21 +1668,6 @@ export function StageBoardBody({
       project,
     ],
   );
-
-  /** ゴミ箱隣の ×：選択だけ解除（空ステージタップでの間接移動を避ける） */
-  const handleClearSelection = useCallback(() => {
-    dragRef.current = null;
-    groupDragRef.current = null;
-    marqueeSessionRef.current = null;
-    setMarquee(null);
-    setDragGhostById(null);
-    setBulkHideDancerGlyphs(false);
-    setTrashUiVisible(false);
-    trashRevealActiveRef.current = false;
-    setAlignGuides({ x: null, y: null });
-    setGroupRotateGuideDeltaDeg(null);
-    clearSelectedDancers();
-  }, [clearSelectedDancers, setBulkHideDancerGlyphs, setGroupRotateGuideDeltaDeg]);
 
   const handleDeleteSelectedDancers = useCallback(() => {
     if (
@@ -5294,7 +5280,6 @@ export function StageBoardBody({
         effectiveMarkerPx,
         effectiveFacingDeg,
         onGroupBoxHandlePointerDown: handlePointerDownGroupBoxHandle,
-        onOpenSelectionMenuClick: handleOpenSelectionMenu,
         selectedDancerIds,
         onGroupRotatePointerDown: handlePointerDownMarkerRotate,
         dragGhostById,
@@ -5310,7 +5295,6 @@ export function StageBoardBody({
         onMarkerResizePointerDown: handlePointerDownMarkerResize,
         onNameBelowFontResizePointerDown: handlePointerDownNameBelowFontResize,
         onDeleteSelectedDancers: handleDeleteSelectedDancers,
-        onClearSelection: handleClearSelection,
         tapStageToEditLayout,
         onTapEditOverlayPointerDown: handleTapOverlayPointerDown,
         depthGroupMarks,
@@ -5366,6 +5350,12 @@ export function StageBoardBody({
     Boolean(primarySelectedDancer) &&
     selectedDancerIds.length >= 1 &&
     !marquee;
+
+  useEffect(() => {
+    if (!showStageEditDock || stageEditDockHost) return;
+    requestStageEditRightPane();
+  }, [showStageEditDock, stageEditDockHost]);
+
   const stageEditDock = showStageEditDock && primarySelectedDancer ? (
     <StageDancerContextToolbar
       placement={stageEditDockHost ? "side" : "floor"}
@@ -5656,7 +5646,6 @@ export function StageBoardBody({
       floorTextInlineRect,
       globalFloorMarkup,
       handleDeleteSelectedDancers,
-      handleClearSelection,
       handleFloorTextInlineRequestClose,
       onUpdateGlobalFloorMarkup,
       quickEditDancerForDialog,
