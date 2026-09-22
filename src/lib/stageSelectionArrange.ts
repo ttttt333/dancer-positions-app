@@ -1,5 +1,6 @@
 import type { DancerSpot } from "../types/choreography";
 import { gradeSortKey, skillSortKey } from "./rosterSortKeys";
+import { minCostBipartiteAssignment } from "./minCostAssignment";
 import {
   clusterSelectionByDepthRows,
   clusterSelectionByVerticalColumns,
@@ -83,6 +84,49 @@ export function swapTwoDancerPositions(
     if (d.id === idA) return { ...d, xPct: bx, yPct: by };
     if (d.id === idB) return { ...d, xPct: ax, yPct: ay };
     return d;
+  });
+}
+
+/**
+ * いまの立ち位置（スロット）はそのままに、誰がどこに立つかを入れ替える。
+ * 各人の「前の立ち位置」から割当スロットまでの移動距離の総和が最小になるよう
+ * 最小費用マッチングで割り当てる（前 Cue が無い人は現在位置を起点にする）。
+ */
+export function permuteSlotsMinimizeTravelFromPrev(
+  dancers: DancerSpot[],
+  targetIds: string[],
+  prevDancers: readonly DancerSpot[] | null | undefined
+): DancerSpot[] {
+  if (!prevDancers || prevDancers.length === 0) return dancers;
+  const idSet = new Set(targetIds);
+  const subset = dancers.filter((d) => idSet.has(d.id));
+  if (subset.length < 2) return dancers;
+
+  const prevById = new Map(prevDancers.map((d) => [d.id, d] as const));
+  const slots = subset.map((d) => ({ xPct: d.xPct, yPct: d.yPct }));
+  const cost: number[][] = subset.map((person) => {
+    const from = prevById.get(person.id) ?? person;
+    return slots.map((slot) => {
+      const dx = from.xPct - slot.xPct;
+      const dy = from.yPct - slot.yPct;
+      return dx * dx + dy * dy;
+    });
+  });
+  const assignment = minCostBipartiteAssignment(cost);
+  const newPos = new Map<string, { xPct: number; yPct: number }>();
+  for (let i = 0; i < subset.length; i++) {
+    const slotIndex = assignment[i]!;
+    if (slotIndex < 0) continue;
+    const slot = slots[slotIndex]!;
+    newPos.set(subset[i]!.id, {
+      xPct: clampPct(slot.xPct),
+      yPct: clampPct(slot.yPct),
+    });
+  }
+  return dancers.map((d) => {
+    const np = newPos.get(d.id);
+    if (!np) return d;
+    return { ...d, xPct: np.xPct, yPct: np.yPct };
   });
 }
 

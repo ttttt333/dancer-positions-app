@@ -40,6 +40,7 @@ export type StageBoardContextMenuLayerProps = {
     showSort: boolean;
     onPick: (section: StageDockQuickSection) => void;
     onDuplicate?: (placement: StageDuplicatePlacement) => void;
+    onSwapPair?: () => void;
     onOpenLegacyMore?: () => void;
     onDelete?: () => void;
   };
@@ -92,6 +93,14 @@ export function StageBoardContextMenuLayer({
             dockQuickMenu.onDuplicate
               ? (placement) => {
                   dockQuickMenu.onDuplicate?.(placement);
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onSwapPair={
+            dockQuickMenu.onSwapPair
+              ? () => {
+                  dockQuickMenu.onSwapPair?.();
                   onCloseMenu();
                 }
               : undefined

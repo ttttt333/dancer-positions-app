@@ -14,6 +14,7 @@ import {
   permuteSlotsByHeightDesc,
   permuteSlotsBySkillAsc,
   permuteSlotsBySkillDesc,
+  permuteSlotsMinimizeTravelFromPrev,
   resolveArrangeTargetIds,
   rotateDancerRingOneStep,
   swapTwoDancerPositions,
@@ -60,6 +61,8 @@ export type StageDancerContextMenuProps = {
   applyDancerArrange: (
     fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
   ) => void;
+  /** 直前 Cue の立ち位置（最短距離並び替え） */
+  prevCueDancers?: readonly DancerSpot[] | null;
   onCloseMenu: () => void;
   onOpenPathEditor?: () => void;
   /** contextMenu=右クリック小窓 / sheet=範囲選択の緑ボタンからの大パネル */
@@ -83,6 +86,7 @@ export function StageDancerContextMenu({
   applyBulkMarkerCenterDistance,
   applyPermuteArrange,
   applyDancerArrange,
+  prevCueDancers = null,
   onCloseMenu,
   onOpenPathEditor,
   presentation = "menu",
@@ -548,6 +552,46 @@ menuInteractionDisabled
   >
     印の形は変えず、身長・学年・スキル順に人だけ割当。
   </div>
+  <button
+    type="button"
+    style={{
+      ...btnSecondary,
+      width: "100%",
+      fontSize: "9px",
+      padding: "5px 6px",
+      textAlign: "center",
+      marginBottom: "5px",
+      opacity:
+        arrangeTargetIds.length >= 2 &&
+        prevCueDancers &&
+        prevCueDancers.length > 0
+          ? 1
+          : 0.55,
+    }}
+    title="直前キューからの移動距離が全体で最短になるよう入れ替え"
+    disabled={
+      arrangeTargetIds.length < 2 ||
+      !prevCueDancers ||
+      prevCueDancers.length === 0
+    }
+    onClick={() => {
+      if (arrangeTargetIds.length < 2) {
+        window.alert("最短距離の並び替えは、対象を 2 人以上選んでください。");
+        onCloseMenu();
+        return;
+      }
+      if (!prevCueDancers || prevCueDancers.length === 0) {
+        window.alert("直前のキューがありません。");
+        onCloseMenu();
+        return;
+      }
+      applyPermuteArrange((dancers, t) =>
+        permuteSlotsMinimizeTravelFromPrev(dancers, t, prevCueDancers)
+      );
+    }}
+  >
+    前の立ち位置から最短距離に並び替え
+  </button>
   <div
     style={{
       display: "grid",
@@ -763,8 +807,9 @@ menuInteractionDisabled
       margin: "2px 0 1px",
     }}
   >
-    2人の立ち位置を交換
+    二人を入れ替え
   </div>
+  {selectedDancerIds.length === 2 ? (
   <button
     type="button"
     style={{
@@ -774,24 +819,35 @@ menuInteractionDisabled
       padding: "5px 6px",
       textAlign: "center",
       marginBottom: "5px",
-      opacity: selectedDancerIds.length === 2 ? 1 : 0.55,
     }}
-    title="ちょうど2人を選択して交換"
+    title="選んだ2人の立ち位置を入れ替え"
     onClick={() => {
       const ids = resolveArrangeTargetIds(
         anchorDancerId,
         selectedDancerIds
       );
       if (ids.length !== 2) {
-        window.alert("立ち位置の交換は、ちょうど 2 人を選んでください。");
+        window.alert("二人の入れ替えは、ちょうど 2 人を選んでください。");
         onCloseMenu();
         return;
       }
       applyDancerArrange((dancers, t) => swapTwoDancerPositions(dancers, t));
     }}
   >
-    立ち位置を交換
+    二人を入れ替え
   </button>
+  ) : (
+  <p
+    style={{
+      margin: "0 0 5px",
+      fontSize: "8px",
+      color: "#64748b",
+      lineHeight: 1.3,
+    }}
+  >
+    ちょうど2人を選ぶと表示されます
+  </p>
+  )}
   <div
     style={{
       fontSize: "9px",

@@ -3,6 +3,7 @@ import type { DancerSpot } from "../types/choreography";
 import {
   applyPositionSort,
   formatPositionSortPreview,
+  permuteSlotsMinimizeTravelFromPrev,
   positionSortDirectionLabels,
   swapTwoDancerPositions,
   type PositionSortAxis,
@@ -70,6 +71,8 @@ const actionBtn: CSSProperties = dockActionBtn;
 export type StageSelectionArrangePanelProps = {
   selectedCount: number;
   disabled?: boolean;
+  /** 直前 Cue の立ち位置（最短距離並び替え用）。無いとボタン無効 */
+  prevCueDancers?: readonly DancerSpot[] | null;
   onPermute: (
     fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
   ) => void;
@@ -85,6 +88,7 @@ export type StageSelectionArrangePanelProps = {
 export function StageSelectionArrangePanel({
   selectedCount,
   disabled,
+  prevCueDancers = null,
   onPermute,
   onArrange,
   onFlip,
@@ -101,10 +105,56 @@ export function StageSelectionArrangePanel({
   const dirLabels = positionSortDirectionLabels(axis);
   const canSort = selectedCount >= 2 && !disabled;
   const canSwapPair = selectedCount === 2 && !disabled;
+  const canMinimizePrev =
+    canSort && Boolean(prevCueDancers && prevCueDancers.length > 0);
 
   return (
     <div data-selection-arrange-panel>
       {ranksSlot}
+
+      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>
+          前の立ち位置から最短距離
+        </div>
+        <p
+          style={{
+            margin: "0 0 8px",
+            color: "#94a3b8",
+            fontSize: 11,
+            lineHeight: 1.4,
+          }}
+        >
+          いまの隊形の位置はそのままに、直前のキューからの移動が全体で最短になるよう入れ替えます。
+        </p>
+        <button
+          type="button"
+          disabled={!canMinimizePrev}
+          title={
+            canMinimizePrev
+              ? "前の立ち位置からの移動距離が最短になるよう並び替え"
+              : !prevCueDancers || prevCueDancers.length === 0
+                ? "直前のキューがありません"
+                : "2人以上を選択してください"
+          }
+          style={{
+            ...actionBtn,
+            opacity: canMinimizePrev ? 1 : 0.55,
+            borderColor: canMinimizePrev
+              ? "rgba(52,211,153,0.85)"
+              : undefined,
+            background: canMinimizePrev ? "rgba(16,185,129,0.16)" : undefined,
+            color: canMinimizePrev ? "#d1fae5" : undefined,
+            fontWeight: 700,
+          }}
+          onClick={() =>
+            onPermute((dancers, ids) =>
+              permuteSlotsMinimizeTravelFromPrev(dancers, ids, prevCueDancers)
+            )
+          }
+        >
+          前の立ち位置から最短距離に並び替え
+        </button>
+      </div>
 
       <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
         <div style={{ ...dockSectionTitle, marginBottom: 4 }}>属性で並べ替え</div>
@@ -183,7 +233,7 @@ export function StageSelectionArrangePanel({
       </div>
 
       <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
-        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>2人の立ち位置を交換</div>
+        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>二人を入れ替え</div>
         <p
           style={{
             margin: "0 0 8px",
@@ -192,7 +242,7 @@ export function StageSelectionArrangePanel({
             lineHeight: 1.4,
           }}
         >
-          Shift / ⌘ クリックで2人を選び、「交換」を押します。
+          Shift / ⌘ クリックで2人を選び、「入れ替え」を押します。
         </p>
         <button
           type="button"
@@ -216,7 +266,7 @@ export function StageSelectionArrangePanel({
             onPermute((dancers, ids) => swapTwoDancerPositions(dancers, ids))
           }
         >
-          立ち位置を交換
+          二人を入れ替え
         </button>
       </div>
 

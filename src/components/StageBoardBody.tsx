@@ -5052,6 +5052,7 @@ export function StageBoardBody({
       applyBulkFigure3dToDancerIds,
       applyPermuteArrange,
       applyDancerArrange,
+      prevCueDancers,
     }),
     [
       selectedDancerIds,
@@ -5071,6 +5072,7 @@ export function StageBoardBody({
       applyBulkFigure3dToDancerIds,
       applyPermuteArrange,
       applyDancerArrange,
+      prevCueDancers,
     ],
   );
 
@@ -5529,6 +5531,7 @@ export function StageBoardBody({
       prevCueMotionViewOn={prevCueMotionViewOn}
       prevCueFromOrdinal={prevCueFromOrdinal}
       prevCueToOrdinal={editCueOrdinal}
+      prevCueDancers={prevCueDancers}
       onTogglePrevCueMotionView={
         prevCueCompareAvailable
           ? () => {
@@ -5662,6 +5665,10 @@ export function StageBoardBody({
                     onPick: handlePickDockQuickSection,
                     onDuplicate: (placement) =>
                       duplicateDancerIds(selectedDancerIds, placement),
+                    onSwapPair:
+                      selectedDancerIds.length === 2
+                        ? () => handleSwapSelectedPair()
+                        : undefined,
                     onDelete: handleDeleteSelectedDancers,
                     onOpenLegacyMore: () => {
                       const m = stageContextMenu;

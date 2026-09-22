@@ -4,6 +4,7 @@ import {
   applyPositionSort,
   formatPositionSortPreview,
   permuteSlotsByHeightAsc,
+  permuteSlotsMinimizeTravelFromPrev,
   swapTwoDancerPositions,
 } from "./stageSelectionArrange";
 
@@ -185,5 +186,39 @@ describe("applyPositionSort", () => {
         direction: "asc",
       })
     ).toBe("学年が低学年から、縦一列で並べ替えます");
+  });
+});
+
+describe("permuteSlotsMinimizeTravelFromPrev", () => {
+  it("reassigns people to current slots to minimize travel from previous positions", () => {
+    const dancers = [
+      spot("a", 20, 50, { label: "A" }),
+      spot("b", 80, 50, { label: "B" }),
+    ];
+    /** 前回: A は右、B は左 → 入れ替えた方が総移動が短い */
+    const prev = [
+      spot("a", 80, 50),
+      spot("b", 20, 50),
+    ];
+    const next = permuteSlotsMinimizeTravelFromPrev(
+      dancers,
+      ["a", "b"],
+      prev
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    expect(byId.a).toMatchObject({ xPct: 80, yPct: 50, label: "A" });
+    expect(byId.b).toMatchObject({ xPct: 20, yPct: 50, label: "B" });
+  });
+
+  it("no-ops without previous dancers or with fewer than 2 targets", () => {
+    const dancers = [spot("a", 20, 50), spot("b", 80, 50)];
+    expect(
+      permuteSlotsMinimizeTravelFromPrev(dancers, ["a", "b"], null)
+    ).toEqual(dancers);
+    expect(
+      permuteSlotsMinimizeTravelFromPrev(dancers, ["a"], [
+        spot("a", 10, 10),
+      ])
+    ).toEqual(dancers);
   });
 });

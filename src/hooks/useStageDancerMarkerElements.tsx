@@ -235,7 +235,21 @@ export function useStageDancerMarkerElements(
               e.preventDefault();
               e.stopPropagation();
               if (interactionLocked) return;
-              if (selectedDancerIds.length >= 2) return;
+              if (selectedDancerIds.length >= 2) {
+                if (!selectedDancerIds.includes(d.id)) {
+                  setSelectedDancerIds?.([d.id]);
+                  setDancerQuickEditId(d.id);
+                  return;
+                }
+                setShowStageDancerColorToolbar(true);
+                setStageContextMenu({
+                  kind: "dancerDock",
+                  clientX: e.clientX,
+                  clientY: e.clientY,
+                  dancerId: d.id,
+                });
+                return;
+              }
               setDancerQuickEditId(d.id);
             }}
             halfMarker={halfMarker}

@@ -9,6 +9,8 @@ export type StageDancerDockQuickMenuProps = {
   showSort: boolean;
   onPick: (section: StageDockQuickSection) => void;
   onDuplicate?: (placement: StageDuplicatePlacement) => void;
+  /** ちょうど2人選択時: 立ち位置を入れ替え */
+  onSwapPair?: () => void;
   onOpenLegacyMore?: () => void;
   onDelete?: () => void;
 };
@@ -47,6 +49,7 @@ export function StageDancerDockQuickMenu({
   showSort,
   onPick,
   onDuplicate,
+  onSwapPair,
   onOpenLegacyMore,
   onDelete,
 }: StageDancerDockQuickMenuProps) {
@@ -96,6 +99,25 @@ export function StageDancerDockQuickMenu({
           </span>
         </button>
       ))}
+      {onSwapPair ? (
+        <button
+          type="button"
+          role="menuitem"
+          style={itemBtn}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(56,189,248,0.12)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
+          onClick={onSwapPair}
+        >
+          <span>二人を入れ替え</span>
+          <span style={{ color: "#64748b", fontSize: 11, fontWeight: 600 }}>
+            立ち位置を交換
+          </span>
+        </button>
+      ) : null}
       {onDuplicate ? (
         <>
           <button
