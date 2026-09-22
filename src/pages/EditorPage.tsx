@@ -2505,6 +2505,18 @@ function EditorPageContent({
     performCloudSave,
   ]);
 
+  const handleKeyboardUndo = useCallback(() => {
+    if (choreoPublicView) return;
+    if (projectRef.current?.viewMode === "view") return;
+    undo();
+  }, [choreoPublicView, undo]);
+
+  const handleKeyboardRedo = useCallback(() => {
+    if (choreoPublicView) return;
+    if (projectRef.current?.viewMode === "view") return;
+    redo();
+  }, [choreoPublicView, redo]);
+
   useEditorKeyboardShortcuts({
     stageZenFullscreen,
     setStageZenFullscreen,
@@ -2526,8 +2538,8 @@ function EditorPageContent({
     rosterImportDraft,
     setRosterImportDraft,
     setRosterImportExtraNames,
-    undo,
-    redo,
+    undo: handleKeyboardUndo,
+    redo: handleKeyboardRedo,
     getTrimStartSec: () => projectRef.current?.trimStartSec ?? 0,
     onSelectAdjacentCue: selectAdjacentCueByKeyboard,
     getSeekContext: getKeyboardSeekContext,
