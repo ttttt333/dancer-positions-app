@@ -733,7 +733,8 @@ export function resolveWaveDrawView(params: {
   }
   const zoomed = viewPortion < 1 - 1e-9;
   const span = zoomed ? waveVisibleSpanSec(durationSec, viewPortion) : durationSec;
-  const pinOverride = playheadScrubArmed || cueDragArmed;
+  /** 再生中はキュー枠ドラッグでも窓を固定しない（赤バー追従を優先） */
+  const pinOverride = playheadScrubArmed || (cueDragArmed && !isPlaying);
   const leadInOverride =
     viewStartOverride !== null &&
     Number.isFinite(viewStartOverride) &&
@@ -773,6 +774,7 @@ export function resolveWaveDrawView(params: {
 
   /**
    * 再生中: 赤バーが窓外に出たら中央追従へ（ホイールズーム後の自動スクロール）。
+   * キュー枠ドラッグ中でも再生中は追従する（編集操作で赤バーを止めない）。
    */
   if (
     zoomed &&

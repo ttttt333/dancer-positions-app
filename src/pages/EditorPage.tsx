@@ -2827,7 +2827,10 @@ function EditorPageContent({
       serverProjectId={serverId}
       loggedIn={!!me}
       onStagePreviewChange={setStagePreviewDancers}
-      onFormationChosenFromCueList={() => setIsPlaying(false)}
+      onFormationChosenFromCueList={() => {
+        // 停止中のキュー選択・新規作成時のみ。再生中の複製などは呼び出し側でスキップ済み。
+        setIsPlaying(false);
+      }}
       onUndo={undo}
       onRedo={redo}
       undoDisabled={

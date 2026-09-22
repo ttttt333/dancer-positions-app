@@ -187,8 +187,9 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         viewStartOverride: viewOverride,
         playheadScrubArmed:
           (playheadScrubDragRef.current?.armed ?? false) || snapPinned,
-        // Pin as soon as a cue pointer session exists (including unarmed move).
-        cueDragArmed: cueDragRef.current != null,
+        // 再生中はキュー枠ドラッグでも赤バー追従を続ける（停止中のみ窓を固定）
+        cueDragArmed:
+          cueDragRef.current != null && !isPlayingForWaveRef.current,
       });
       const viewEnd = viewStart + viewSpan;
       lastWaveDrawRangeRef.current = { viewStart, viewSpan };

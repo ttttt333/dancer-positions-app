@@ -16,7 +16,8 @@ import { getLiveEngineTimeSecOrNull, getLivePlaybackHeadSec } from "../lib/playb
 import {
   beginPlaybackScrubSession,
   endPlaybackScrubSession,
-  syncPlaybackHeadAfterCueEdit,
+  notifyFormationChosenWhenStopped,
+  syncPlaybackHeadAfterCueEditWhenStopped,
   type PlaybackScrubSession,
 } from "../lib/playbackTransport";
 import {
@@ -1091,14 +1092,14 @@ export function useWaveCanvasPointerDrag({
                 activeFormationId: newFm.id,
               };
             });
-            syncPlaybackHeadAfterCueEdit({
+            syncPlaybackHeadAfterCueEditWhenStopped({
               t: appliedT,
               durationSec: durationRef.current,
               trimStartSec,
               trimEndSec,
             });
             onSelectedCueIdsChange([newCueId]);
-            onFormationChosenFromCueList?.();
+            notifyFormationChosenWhenStopped(onFormationChosenFromCueList);
           }
         }
         redraw();

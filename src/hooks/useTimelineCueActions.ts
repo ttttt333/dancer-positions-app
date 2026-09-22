@@ -12,7 +12,10 @@ import {
   sortCuesByStart,
   trimHiSecForCueTimeline,
 } from "../core/timelineController";
-import { syncPlaybackHeadAfterCueEdit } from "../lib/playbackTransport";
+import {
+  notifyFormationChosenWhenStopped,
+  syncPlaybackHeadAfterCueEditWhenStopped,
+} from "../lib/playbackTransport";
 import { listFormationBoxItemsByCount, saveFormationToBox } from "../lib/formationBox";
 import { dancersForLayoutPreset } from "../lib/formationLayouts";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
@@ -115,14 +118,14 @@ export function useTimelineCueActions({
           activeFormationId: newFm.id,
         };
       });
-      syncPlaybackHeadAfterCueEdit({
+      syncPlaybackHeadAfterCueEditWhenStopped({
         t: appliedT,
         durationSec: durationRef.current,
         trimStartSec,
         trimEndSec,
       });
       onSelectedCueIdsChange([newCueId]);
-      onFormationChosenFromCueList?.();
+      notifyFormationChosenWhenStopped(onFormationChosenFromCueList);
     },
     [
       project.viewMode,
@@ -230,14 +233,14 @@ export function useTimelineCueActions({
           activeFormationId: newFm.id,
         };
       });
-      syncPlaybackHeadAfterCueEdit({
+      syncPlaybackHeadAfterCueEditWhenStopped({
         t: appliedT,
         durationSec: durationRef.current,
         trimStartSec: project.trimStartSec,
         trimEndSec: project.trimEndSec,
       });
       onSelectedCueIdsChange([newCueId]);
-      onFormationChosenFromCueList?.();
+      notifyFormationChosenWhenStopped(onFormationChosenFromCueList);
     },
     [
       project.viewMode,
@@ -311,7 +314,7 @@ export function useTimelineCueActions({
         };
       });
       onSelectedCueIdsChange([newCueId]);
-      onFormationChosenFromCueList?.();
+      notifyFormationChosenWhenStopped(onFormationChosenFromCueList);
     },
     [
       project.viewMode,
@@ -346,7 +349,7 @@ export function useTimelineCueActions({
         return next;
       });
       if (appliedT != null) {
-        syncPlaybackHeadAfterCueEdit({
+        syncPlaybackHeadAfterCueEditWhenStopped({
           t: appliedT,
           durationSec: durationRef.current,
           trimStartSec,
@@ -354,7 +357,7 @@ export function useTimelineCueActions({
         });
       }
       onSelectedCueIdsChange([newCueId]);
-      onFormationChosenFromCueList?.();
+      notifyFormationChosenWhenStopped(onFormationChosenFromCueList);
     },
     [
       project.viewMode,
@@ -440,14 +443,14 @@ export function useTimelineCueActions({
           activeFormationId: newFm.id,
         };
       });
-      syncPlaybackHeadAfterCueEdit({
+      syncPlaybackHeadAfterCueEditWhenStopped({
         t: appliedT,
         durationSec: durationRef.current,
         trimStartSec,
         trimEndSec,
       });
       onSelectedCueIdsChange([newCueId]);
-      onFormationChosenFromCueList?.();
+      notifyFormationChosenWhenStopped(onFormationChosenFromCueList);
     },
     [
       project.viewMode,
@@ -474,7 +477,7 @@ export function useTimelineCueActions({
       );
       const trimLo = project.trimStartSec;
       const t0 = Math.max(trimLo, Math.min(trimHi, t0Raw));
-      syncPlaybackHeadAfterCueEdit({
+      syncPlaybackHeadAfterCueEditWhenStopped({
         t: t0,
         durationSec: durationRef.current,
         trimStartSec,
@@ -550,14 +553,14 @@ export function useTimelineCueActions({
           activeFormationId: origInner.formationId,
         };
       });
-      syncPlaybackHeadAfterCueEdit({
+      syncPlaybackHeadAfterCueEditWhenStopped({
         t: splitAt,
         durationSec: durationRef.current,
         trimStartSec: project.trimStartSec,
         trimEndSec: project.trimEndSec,
       });
       onSelectedCueIdsChange([cueId]);
-      onFormationChosenFromCueList?.();
+      notifyFormationChosenWhenStopped(onFormationChosenFromCueList);
     },
     [
       project,

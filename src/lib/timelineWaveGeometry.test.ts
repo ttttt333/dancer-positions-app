@@ -207,7 +207,7 @@ describe("resolveWaveDrawView", () => {
     expect(v.start).toBe(12);
   });
 
-  it("keeps override while cue drag is armed during playback", () => {
+  it("follows playhead even while cue drag is armed during playback", () => {
     const v = resolveWaveDrawView({
       durationSec: 100,
       viewPortion: 0.2,
@@ -216,7 +216,9 @@ describe("resolveWaveDrawView", () => {
       viewStartOverride: 18,
       cueDragArmed: true,
     });
-    expect(v.start).toBe(18);
+    expect(v.span).toBeCloseTo(20, 5);
+    expect(v.start).toBeCloseTo(40, 5);
+    expect(v.start + v.span * 0.5).toBeCloseTo(50, 5);
   });
 });
 

@@ -16,7 +16,7 @@ import {
  * 再生エンジンと `usePlaybackUiStore` をつなぐ操作の集約。
  *
  * - 通常シーク（波形クリック・±秒など）: `seekPlaybackClampedAndSyncStore`
- * - キュー作成／複製直後（実尺 0 でもプレースホルダ上限で clamp）: `syncPlaybackHeadAfterCueEdit`
+ * - キュー作成／複製直後（停止中のみヘッド合わせ）: `syncPlaybackHeadAfterCueEditWhenStopped`
  * - 停止・トリム先頭: `stopPlaybackAtTrimStart` / `pauseAndSeekPlaybackToSec`
  * - 再生トグル: `togglePlaybackRespectingTrimStart`
  *
@@ -162,6 +162,40 @@ export function syncPlaybackHeadAfterCueEdit(
   if (synced == null) {
     usePlaybackUiStore.getState().setCurrentTimeSec(params.t);
   }
+}
+
+/**
+ * 再生中（UI またはエンジン）かどうか。
+ * 波形上の複製・移動・ズーム中に再生を止めない判定に使う。
+ */
+export function isLivePlaybackActive(): boolean {
+  if (usePlaybackUiStore.getState().isPlaying) return true;
+  return Boolean(
+    playbackEngine.getMediaSourceUrl() && !playbackEngine.isPaused()
+  );
+}
+
+/**
+ * 停止中だけキュー編集後にヘッドを合わせる。
+ * 再生中はシークも停止もしない（赤バーを動かし続ける）。
+ */
+export function syncPlaybackHeadAfterCueEditWhenStopped(
+  params: SyncPlaybackHeadAfterCueParams
+): void {
+  if (isLivePlaybackActive()) return;
+  syncPlaybackHeadAfterCueEdit(params);
+}
+
+/**
+ * キュー一覧からの選択など「編集のために止める」コールバック。
+ * 再生中は呼ばない（複製・新規キューでは再生を継続する）。
+ */
+export function notifyFormationChosenWhenStopped(
+  onChosen?: () => void
+): void {
+  if (!onChosen) return;
+  if (isLivePlaybackActive()) return;
+  onChosen();
 }
 
 export type PauseAndSeekPlaybackParams = {
