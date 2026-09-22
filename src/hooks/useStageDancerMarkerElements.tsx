@@ -52,6 +52,7 @@ export type UseStageDancerMarkerElementsParams = {
   setShowStageDancerColorToolbar: Dispatch<SetStateAction<boolean>>;
   setStageContextMenu: Dispatch<SetStateAction<StageBoardContextMenuState>>;
   setDancerQuickEditId: Dispatch<SetStateAction<string | null>>;
+  setSelectedDancerIds?: Dispatch<SetStateAction<string[]>>;
   studentViewerFocus:
     | null
     | { kind: "all" }
@@ -83,6 +84,7 @@ export function useStageDancerMarkerElements(
     setShowStageDancerColorToolbar,
     setStageContextMenu,
     setDancerQuickEditId,
+    setSelectedDancerIds,
     studentViewerFocus,
   } = params;
 
@@ -218,9 +220,12 @@ export function useStageDancerMarkerElements(
               if (interactionLocked) return;
               e.preventDefault();
               e.stopPropagation();
+              if (!selectedDancerIds.includes(d.id)) {
+                setSelectedDancerIds?.([d.id]);
+              }
               setShowStageDancerColorToolbar(true);
               setStageContextMenu({
-                kind: "dancer",
+                kind: "dancerDock",
                 clientX: e.clientX,
                 clientY: e.clientY,
                 dancerId: d.id,
@@ -281,6 +286,7 @@ export function useStageDancerMarkerElements(
       setShowStageDancerColorToolbar,
       setStageContextMenu,
       setDancerQuickEditId,
+      setSelectedDancerIds,
       studentViewerFocus,
     ]
   );

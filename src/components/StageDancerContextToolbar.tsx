@@ -127,6 +127,11 @@ export type StageDancerContextToolbarProps = {
   onTogglePrevCueMotionView?: () => void;
   /** side: 右メニュー。floor: ステージ下（portal がないとき） */
   placement?: "floor" | "side";
+  /**
+   * 右クリック等から開くセクション要求。
+   * `requestId` が変わるたびにそのセクションを開く。
+   */
+  dockSectionRequest?: { requestId: number; section: "shape" | "display" | "sort" } | null;
 };
 
 const BTN_BORDER = "#334155";
@@ -255,6 +260,7 @@ export function StageDancerContextToolbar({
   prevCueToOrdinal = null,
   onTogglePrevCueMotionView,
   placement = "floor",
+  dockSectionRequest = null,
 }: StageDancerContextToolbarProps) {
   const side = placement === "side";
   const btn: CSSProperties = side
@@ -314,6 +320,16 @@ export function StageDancerContextToolbar({
       : rotationPreviewActive
         ? "rotation"
         : null;
+
+  useEffect(() => {
+    if (!dockSectionRequest) return;
+    const section = dockSectionRequest.section;
+    if (section === "shape") {
+      goToShapePicker();
+      return;
+    }
+    setOpen(section);
+  }, [dockSectionRequest?.requestId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

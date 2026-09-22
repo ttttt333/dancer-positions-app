@@ -1,9 +1,15 @@
-import type { CSSProperties, PointerEventHandler, ReactNode } from "react";
+import type {
+  CSSProperties,
+  MouseEventHandler,
+  PointerEventHandler,
+  ReactNode,
+} from "react";
 import { forwardRef } from "react";
 
 export type StageMainFloorPanelProps = {
   onPointerDownCapture: PointerEventHandler<HTMLDivElement>;
   onPointerDown: PointerEventHandler<HTMLDivElement>;
+  onContextMenu?: MouseEventHandler<HTMLDivElement>;
   style: CSSProperties;
   children: ReactNode;
 };
@@ -13,7 +19,7 @@ export const StageMainFloorPanel = forwardRef<
   HTMLDivElement,
   StageMainFloorPanelProps
 >(function StageMainFloorPanel(
-  { onPointerDownCapture, onPointerDown, style, children },
+  { onPointerDownCapture, onPointerDown, onContextMenu, style, children },
   ref
 ) {
   return (
@@ -21,6 +27,7 @@ export const StageMainFloorPanel = forwardRef<
       ref={ref}
       onPointerDownCapture={onPointerDownCapture}
       onPointerDown={onPointerDown}
+      onContextMenu={onContextMenu}
       style={style}
     >
       {children}

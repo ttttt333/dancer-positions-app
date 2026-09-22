@@ -1,5 +1,6 @@
 import type {
   CSSProperties,
+  MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
   RefObject,
@@ -39,6 +40,8 @@ export type StageShellWithMainFloorProps = {
    */
   stopPlaybackOnFloorTap?: boolean;
   onPointerDownFloor: (e: ReactPointerEvent<HTMLDivElement>) => void;
+  /** 選択中の床右クリック（ブラウザメニューを抑止してクイック操作） */
+  onContextMenuFloor?: (e: ReactMouseEvent<HTMLDivElement>) => void;
   mainFloorStyle: CSSProperties;
   floorMarkupToolbar?: StageFloorMarkupToolbarHostProps;
   /** 最背面レイヤー：大道具をここに置きBaseOverlays/InteractionLayerより下に描画 */
@@ -59,6 +62,7 @@ export function StageShellWithMainFloor({
   trimStartSec,
   stopPlaybackOnFloorTap = true,
   onPointerDownFloor,
+  onContextMenuFloor,
   mainFloorStyle,
   floorMarkupToolbar,
   setPieceElements,
@@ -117,6 +121,7 @@ export function StageShellWithMainFloor({
                 stopPlaybackAtTrimStart(trimStartSec);
               }}
               onPointerDown={onPointerDownFloor}
+              onContextMenu={onContextMenuFloor}
               style={{
                 ...mainFloorStyle,
                 flex: "1 1 0%",

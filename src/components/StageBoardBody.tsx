@@ -675,6 +675,11 @@ export function StageBoardBody({
     useState(false);
   const [prevCueCompareOn, setPrevCueCompareOn] = useState(false);
   const [prevCueMotionViewOn, setPrevCueMotionViewOn] = useState(false);
+  const [dockSectionRequest, setDockSectionRequest] = useState<{
+    requestId: number;
+    section: "shape" | "display" | "sort";
+  } | null>(null);
+  const dockSectionRequestIdRef = useRef(0);
   const stageEditDockHost = useSyncExternalStore(
     subscribeStageEditDockHost,
     getStageEditDockHost,
@@ -5084,6 +5089,47 @@ export function StageBoardBody({
     stageMainFloorRef,
   ]);
 
+  const handlePickDockQuickSection = useCallback(
+    (section: "shape" | "display" | "sort") => {
+      requestStageEditRightPane();
+      dockSectionRequestIdRef.current += 1;
+      setDockSectionRequest({
+        requestId: dockSectionRequestIdRef.current,
+        section,
+      });
+    },
+    []
+  );
+
+  /** 選択中のステージ床右クリック → 右ドック相当のクイック一覧 */
+  const handleContextMenuFloor = useCallback(
+    (e: ReactMouseEvent<HTMLDivElement>) => {
+      if (dancerMenuInteractionDisabled) return;
+      if (selectedDancerIds.length < 1) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.("button, a, input, textarea, [data-set-piece]")) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      const anchorId =
+        primarySelectedDancer?.id ?? selectedDancerIds[0] ?? null;
+      if (!anchorId) return;
+      setShowStageDancerColorToolbar(true);
+      setStageContextMenu({
+        kind: "dancerDock",
+        clientX: e.clientX,
+        clientY: e.clientY,
+        dancerId: anchorId,
+      });
+    },
+    [
+      dancerMenuInteractionDisabled,
+      selectedDancerIds,
+      primarySelectedDancer?.id,
+    ]
+  );
+
   useEffect(() => {
     if (selectedDancerIds.length < 2) {
       setDancerSelectionSheetOpen(false);
@@ -5171,6 +5217,7 @@ export function StageBoardBody({
     setShowStageDancerColorToolbar,
     setStageContextMenu,
     setDancerQuickEditId,
+    setSelectedDancerIds,
     studentViewerFocus,
   });
 
@@ -5207,6 +5254,7 @@ export function StageBoardBody({
       stopPlaybackOnFloorTap:
         viewMode !== "view" && !enablePinchViewport,
       onPointerDownFloor: handlePointerDownFloor,
+      onContextMenuFloor: handleContextMenuFloor,
       mainFloorStyle,
       setPiecesEditable,
       /* 床マークアップ浮遊ツール（setPiecesEditable 時のみ有効） */
@@ -5375,6 +5423,7 @@ export function StageBoardBody({
       onColorChange={(i) =>
         applyBulkColorToDancerIds(selectedDancerIds, i)
       }
+      dockSectionRequest={dockSectionRequest}
       onOpenMore={handleOpenToolbarMore}
       onCreateNextCue={
         stageEditMode === "formation" ? handleCreateNextCue : undefined
@@ -5575,6 +5624,32 @@ export function StageBoardBody({
             containerRef={stageContextMenuRef}
             onCloseMenu={() => setStageContextMenu(null)}
             dancerMenu={dancerContextMenuShared}
+            dockQuickMenu={
+              stageContextMenu.kind === "dancerDock"
+                ? {
+                    showShape:
+                      (stageEditMode === "formation" ||
+                        stageEditMode === "group") &&
+                      selectedDancerIds.length >= 2,
+                    showDisplay: selectedDancerIds.length >= 1,
+                    showSort:
+                      (stageEditMode === "formation" ||
+                        stageEditMode === "group") &&
+                      selectedDancerIds.length >= 2,
+                    onPick: handlePickDockQuickSection,
+                    onDelete: handleDeleteSelectedDancers,
+                    onOpenLegacyMore: () => {
+                      const m = stageContextMenu;
+                      setStageContextMenu({
+                        kind: "dancer",
+                        clientX: m.clientX,
+                        clientY: m.clientY,
+                        dancerId: m.dancerId,
+                      });
+                    },
+                  }
+                : undefined
+            }
             onOpenDancerPathEditor={onOpenDancerPathEditor}
             viewMode={viewMode}
             setPiecesEditable={setPiecesEditable}

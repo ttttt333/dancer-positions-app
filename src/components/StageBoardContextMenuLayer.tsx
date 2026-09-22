@@ -9,9 +9,19 @@ import {
   StageDancerContextMenu,
   type StageDancerContextMenuProps,
 } from "./StageDancerContextMenu";
+import {
+  StageDancerDockQuickMenu,
+  type StageDockQuickSection,
+} from "./StageDancerDockQuickMenu";
 
 export type StageBoardContextMenuState =
   | { kind: "dancer"; clientX: number; clientY: number; dancerId: string }
+  | {
+      kind: "dancerDock";
+      clientX: number;
+      clientY: number;
+      dancerId: string;
+    }
   | { kind: "setPiece"; clientX: number; clientY: number; pieceId: string }
   | { kind: "floorText"; clientX: number; clientY: number; markupId: string }
   | null;
@@ -23,6 +33,14 @@ export type StageBoardContextMenuLayerProps = {
   onCloseMenu: () => void;
   dancerMenu: Omit<StageDancerContextMenuProps, "anchorDancerId" | "onCloseMenu">;
   onOpenDancerPathEditor?: () => void;
+  dockQuickMenu?: {
+    showShape: boolean;
+    showDisplay: boolean;
+    showSort: boolean;
+    onPick: (section: StageDockQuickSection) => void;
+    onOpenLegacyMore?: () => void;
+    onDelete?: () => void;
+  };
   viewMode: "edit" | "view";
   setPiecesEditable: boolean;
   playbackDancers: DancerSpot[] | null;
@@ -43,6 +61,7 @@ export function StageBoardContextMenuLayer({
   onCloseMenu,
   dancerMenu,
   onOpenDancerPathEditor,
+  dockQuickMenu,
   viewMode,
   setPiecesEditable,
   playbackDancers,
@@ -58,7 +77,32 @@ export function StageBoardContextMenuLayer({
       style={style}
       onClick={(e) => e.stopPropagation()}
     >
-      {menu.kind === "dancer" ? (
+      {menu.kind === "dancerDock" && dockQuickMenu ? (
+        <StageDancerDockQuickMenu
+          showShape={dockQuickMenu.showShape}
+          showDisplay={dockQuickMenu.showDisplay}
+          showSort={dockQuickMenu.showSort}
+          onPick={(section) => {
+            dockQuickMenu.onPick(section);
+            onCloseMenu();
+          }}
+          onDelete={
+            dockQuickMenu.onDelete
+              ? () => {
+                  dockQuickMenu.onDelete?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onOpenLegacyMore={
+            dockQuickMenu.onOpenLegacyMore
+              ? () => {
+                  dockQuickMenu.onOpenLegacyMore?.();
+                }
+              : undefined
+          }
+        />
+      ) : menu.kind === "dancer" ? (
         <StageDancerContextMenu
           anchorDancerId={menu.dancerId}
           onCloseMenu={onCloseMenu}

@@ -1,7 +1,7 @@
 /**
  * @file `StageShellWithMainFloor` 向け mainFloor 束。編集時のみ `floorMarkupToolbar` を渡し、`baseOverlays` に `showStageFloorMarkup` を合成する純関数。
  */
-import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
 import type { StageFloorMarkupToolbarHostProps } from "../components/StageFloorMarkupToolbarHost";
 import type { StageMainFloorBaseOverlaysProps } from "../components/StageMainFloorBaseOverlays";
 import type { StageMainFloorInteractionLayerProps } from "../components/StageMainFloorInteractionLayer";
@@ -18,6 +18,7 @@ export type BuildStageBoardMainFloorParams = {
   /** 生徒共有・ピンチ時は false */
   stopPlaybackOnFloorTap?: boolean;
   onPointerDownFloor: (e: ReactPointerEvent<HTMLDivElement>) => void;
+  onContextMenuFloor?: (e: ReactMouseEvent<HTMLDivElement>) => void;
   mainFloorStyle: CSSProperties;
   setPiecesEditable: boolean;
   /** `setPiecesEditable` が true のときに `floorMarkupToolbar` に渡す中身 */
@@ -45,6 +46,7 @@ export function buildStageBoardMainFloor(
     trimStartSec: p.trimStartSec,
     stopPlaybackOnFloorTap: p.stopPlaybackOnFloorTap,
     onPointerDownFloor: p.onPointerDownFloor,
+    onContextMenuFloor: p.onContextMenuFloor,
     mainFloorStyle: p.mainFloorStyle,
     floorMarkupToolbar: p.setPiecesEditable
       ? p.floorMarkupToolbarWhenEditable
