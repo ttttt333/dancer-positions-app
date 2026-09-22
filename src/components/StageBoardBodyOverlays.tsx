@@ -29,6 +29,7 @@ export const StageBoardBodyOverlays = memo(function StageBoardBodyOverlays({
   viewMode,
   onCloseQuickEdit,
   onApplyQuickEdit,
+  skillOptionCount = 20,
 }: StageBoardBodyOverlaysProps) {
   return (
     <>
@@ -84,6 +85,7 @@ export const StageBoardBodyOverlays = memo(function StageBoardBodyOverlays({
         viewMode={viewMode}
         onClose={onCloseQuickEdit}
         onApply={onApplyQuickEdit}
+        skillOptionCount={skillOptionCount}
       />
     </>
   );

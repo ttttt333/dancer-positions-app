@@ -139,7 +139,10 @@ import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
 import {
   pointerInViewportTrashRevealZone,
 } from "../lib/stageBoardRosterAndTrash";
-import { enrichDancerSpotsFromCrew } from "../lib/memberRosterSheetFields";
+import {
+  countProjectRosterMembers,
+  enrichDancerSpotsFromCrew,
+} from "../lib/memberRosterSheetFields";
 import {
   removeMembersFromStage,
   shouldConfirmMemberDeleteScope,
@@ -5733,6 +5736,11 @@ export function StageBoardBody({
       viewMode,
       onCloseQuickEdit: () => setDancerQuickEditId(null),
       onApplyQuickEdit: applyDancerQuickEdit,
+      skillOptionCount: Math.max(
+        writeFormation?.dancers.length ?? 0,
+        countProjectRosterMembers(project.crews),
+        1
+      ),
     }),
     [
       applyDancerQuickEdit,
@@ -5745,8 +5753,10 @@ export function StageBoardBody({
       handleDeleteSelectedDancers,
       handleFloorTextInlineRequestClose,
       onUpdateGlobalFloorMarkup,
+      project.crews,
       quickEditDancerForDialog,
       selectedDancerIds,
+      writeFormation?.dancers.length,
       setDancerQuickEditId,
       setFloorTextDraft,
       setFloorMarkupTool,

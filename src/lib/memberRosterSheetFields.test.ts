@@ -3,6 +3,7 @@ import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography"
 import {
   memberRosterHeightSelectOptions,
   memberRosterSelectOptions,
+  memberRosterSkillOptions,
   MEMBER_ROSTER_GRADE_OPTIONS,
   enrichDancerSpotsFromCrew,
   patchMemberRosterDancerInProject,
@@ -26,6 +27,16 @@ describe("memberRosterSelectOptions", () => {
       "特待",
       ...MEMBER_ROSTER_GRADE_OPTIONS,
     ]);
+  });
+});
+
+describe("memberRosterSkillOptions", () => {
+  it("builds 1..N for roster size", () => {
+    expect(memberRosterSkillOptions(20)).toEqual(
+      Array.from({ length: 20 }, (_, i) => String(i + 1))
+    );
+    expect(memberRosterSkillOptions(1)).toEqual(["1"]);
+    expect(memberRosterSkillOptions(0)).toEqual(["1"]);
   });
 });
 

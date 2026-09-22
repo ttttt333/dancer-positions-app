@@ -24,6 +24,10 @@ import { DancerFaceStampPicker } from "./DancerFaceStampPicker";
 import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
 import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle";
 import { DancerGenderPicker } from "./DancerGenderPicker";
+import {
+  memberRosterSelectOptions,
+  memberRosterSkillOptions,
+} from "../lib/memberRosterSheetFields";
 
 const LABEL_MAX = 120;
 const NOTE_MAX = 2000;
@@ -55,6 +59,8 @@ type Props = {
   viewMode: "edit" | "view";
   onClose: () => void;
   onApply: (patch: DancerQuickEditApply) => void;
+  /** スキル選択肢の上限（名簿人数）。未指定時は 20 */
+  skillOptionCount?: number;
 };
 
 /**
@@ -67,6 +73,7 @@ export function DancerQuickEditDialog({
   viewMode,
   onClose,
   onApply,
+  skillOptionCount = 20,
 }: Props) {
   const [label, setLabel] = useState("");
   const [markerBadge, setMarkerBadge] = useState("");
@@ -313,17 +320,26 @@ export function DancerQuickEditDialog({
         {block("skill", (
           <>
             <span style={labelStyle}>スキル</span>
-            <input
-              type="text"
+            <select
               value={skillRankLabel}
               disabled={disabled}
-              maxLength={SKILL_MAX}
-              placeholder="例: 2・A"
+              aria-label="スキル"
+              title="名簿人数分の番号から選びます（小さいほど上手）"
               onChange={(e) =>
                 setSkillRankLabel(e.target.value.slice(0, SKILL_MAX))
               }
               style={inputStyle}
-            />
+            >
+              <option value="">—</option>
+              {memberRosterSelectOptions(
+                memberRosterSkillOptions(skillOptionCount),
+                skillRankLabel
+              ).map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
           </>
         ))}
 

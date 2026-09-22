@@ -33,6 +33,25 @@ export const MEMBER_ROSTER_SKILL_OPTIONS = [
   "S",
 ] as const;
 
+/**
+ * スキル順位の選択肢。名簿人数 N なら 1〜N。
+ * （小さい数字ほど上手、として並べ替えに使う）
+ */
+export function memberRosterSkillOptions(memberCount: number): string[] {
+  const n = Math.max(1, Math.min(200, Math.floor(memberCount) || 1));
+  return Array.from({ length: n }, (_, i) => String(i + 1));
+}
+
+/** プロジェクト内の名簿メンバー合計（スキル選択肢の上限に使う） */
+export function countProjectRosterMembers(
+  crews: readonly { members: readonly unknown[] }[] | null | undefined
+): number {
+  if (!crews || crews.length === 0) return 0;
+  let n = 0;
+  for (const c of crews) n += c.members?.length ?? 0;
+  return n;
+}
+
 export const MEMBER_ROSTER_HEIGHT_OPTIONS_CM: readonly number[] = Array.from(
   { length: 51 },
   (_, i) => 140 + i

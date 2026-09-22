@@ -27,9 +27,10 @@ import { panelCard, shell } from "../../theme/choreoShell";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../../lib/dancerColorPalette";
 import {
   MEMBER_ROSTER_GRADE_OPTIONS,
-  MEMBER_ROSTER_SKILL_OPTIONS,
+  countProjectRosterMembers,
   memberRosterHeightSelectOptions,
   memberRosterSelectOptions,
+  memberRosterSkillOptions,
   patchMemberRosterDancerInProject,
   resolveMemberRosterFields,
 } from "../../lib/memberRosterSheetFields";
@@ -537,6 +538,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 );
               }
               const viewOnly = project?.viewMode === "view";
+              const rosterMemberCount = Math.max(
+                formation.dancers.length,
+                countProjectRosterMembers(project?.crews)
+              );
               const selectStyle: CSSProperties = {
                 height: 26,
                 maxWidth: "100%",
@@ -567,7 +572,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   fields.gradeLabel
                 );
                 const skillOpts = memberRosterSelectOptions(
-                  MEMBER_ROSTER_SKILL_OPTIONS,
+                  memberRosterSkillOptions(rosterMemberCount),
                   fields.skillRankLabel
                 );
                 const heightOpts = memberRosterHeightSelectOptions(fields.heightCm);
@@ -708,7 +713,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                       onChange={(e) =>
                         patchDancer({ skillRankLabel: e.target.value })
                       }
-                      style={{ ...selectStyle, width: 44, flexShrink: 0 }}
+                      style={{ ...selectStyle, width: 52, flexShrink: 0 }}
                     >
                       <option value="">Sk</option>
                       {skillOpts.map((s) => (

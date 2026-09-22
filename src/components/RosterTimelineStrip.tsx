@@ -26,6 +26,10 @@ import {
   sortStandaloneDancerSpots,
 } from "../lib/rosterSortKeys";
 import {
+  memberRosterSelectOptions,
+  memberRosterSkillOptions,
+} from "../lib/memberRosterSheetFields";
+import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
@@ -860,6 +864,8 @@ export function RosterTimelineStrip({
 
   if (flatRows.length === 0) return null;
 
+  const skillRankOptions = memberRosterSkillOptions(flatRows.length);
+
   const chipBg = (m: CrewMember) =>
     resolveDancerDisplayHex(
       m.genderLabel,
@@ -1358,19 +1364,28 @@ export function RosterTimelineStrip({
                   }
                   style={inp}
                 />
-                <input
+                <select
                   aria-label={t("editor.comp.k025")}
-                  placeholder={t("editor.comp.k025")}
+                  title="スキル（小さいほど上手）。名簿人数分の番号から選びます"
                   disabled={vm}
                   value={m.skillRankLabel ?? ""}
-                  maxLength={24}
                   onChange={(e) =>
                     updateCrewMemberInProject(row.crewId, m.id, {
                       skillRankLabel: e.target.value,
                     })
                   }
                   style={inp}
-                />
+                >
+                  <option value="">—</option>
+                  {memberRosterSelectOptions(
+                    skillRankOptions,
+                    m.skillRankLabel
+                  ).map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
                 <div
                   style={{
                     display: "flex",
@@ -1807,19 +1822,28 @@ export function RosterTimelineStrip({
                   }
                   style={chipInp}
                 />
-                <input
+                <select
                   aria-label={t("editor.comp.k025")}
-                  placeholder={t("editor.comp.k025")}
+                  title="スキル（小さいほど上手）。名簿人数分の番号から選びます"
                   disabled={vm}
                   value={m.skillRankLabel ?? ""}
-                  maxLength={24}
                   onChange={(e) =>
                     updateCrewMemberInProject(row.crewId, m.id, {
                       skillRankLabel: e.target.value,
                     })
                   }
                   style={chipInp}
-                />
+                >
+                  <option value="">—</option>
+                  {memberRosterSelectOptions(
+                    skillRankOptions,
+                    m.skillRankLabel
+                  ).map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
               </div>
               <span style={{ fontSize: "9px", color: "#64748b" }} title={row.crewName}>
                 {row.crewName}

@@ -54,6 +54,8 @@ export type StageBoardBodyOverlaysProps = {
   viewMode: "edit" | "view";
   onCloseQuickEdit: () => void;
   onApplyQuickEdit: (patch: DancerQuickEditApply) => void;
+  /** クイック編集のスキル選択肢上限（名簿人数） */
+  skillOptionCount?: number;
 };
 
 /** 床にコメント／線を描く／消すツール。未選択は `null`。 */
