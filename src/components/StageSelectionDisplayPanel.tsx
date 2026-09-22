@@ -119,6 +119,68 @@ function DockDisclosure({
   );
 }
 
+function NestedDisclosure({
+  title,
+  summary,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  summary?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        borderRadius: 8,
+        border: "1px solid #334155",
+        background: "#020617",
+        overflow: "hidden",
+      }}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "9px 10px",
+          border: "none",
+          background: open ? "rgba(251,191,36,0.08)" : "transparent",
+          color: "#e2e8f0",
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 700 }}>{title}</span>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            color: "#94a3b8",
+            fontSize: 11,
+            fontWeight: 600,
+          }}
+        >
+          {!open && summary ? <span>{summary}</span> : null}
+          <span aria-hidden style={{ color: open ? "#fbbf24" : "#64748b" }}>
+            {open ? "▾" : "▸"}
+          </span>
+        </span>
+      </button>
+      {open ? <div style={{ padding: "0 8px 8px" }}>{children}</div> : null}
+    </div>
+  );
+}
+
 function SizeSlider({
   label,
   value,
@@ -238,6 +300,7 @@ export function StageSelectionDisplayPanel({
   const [figure3dScope, setFigure3dScope] =
     useState<DancerFigure3dApplyScope>("all");
   const [openSection, setOpenSection] = useState<DisclosureId | null>(null);
+  const [markerInsideOpen, setMarkerInsideOpen] = useState(false);
   const colors = showAllColors
     ? DANCER_PALETTE
     : DANCER_PALETTE.slice(0, PRIMARY_COLOR_COUNT);
@@ -263,7 +326,7 @@ export function StageSelectionDisplayPanel({
           style={{
             display: "flex",
             gap: 8,
-            marginBottom: dancerLabelBelow ? 8 : 0,
+            marginBottom: 0,
           }}
         >
           {(["inside", "below"] as const).map((pos) => {
@@ -296,68 +359,74 @@ export function StageSelectionDisplayPanel({
           })}
         </div>
         {dancerLabelBelow ? (
-          <>
-            <div style={{ ...dockSectionTitle, marginTop: 8 }}>丸の内</div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 8,
-              }}
+          <div style={{ marginTop: 8 }}>
+            <NestedDisclosure
+              title="丸の内の内容"
+              summary="空白・連番など"
+              open={markerInsideOpen}
+              onToggle={() => setMarkerInsideOpen((v) => !v)}
             >
-              <button
-                type="button"
-                disabled={busy}
-                style={markerActionBtn}
-                onClick={() => applyBulkMarkerClear(ids)}
-              >
-                空白
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                style={markerActionBtn}
-                onClick={() => {
-                  const raw = window.prompt(
-                    "連番の開始番号（整数）。フォーメーション順で丸の内に入れます。",
-                    "1"
-                  );
-                  if (raw == null || raw.trim() === "") return;
-                  const v = Number.parseInt(raw.trim(), 10);
-                  if (!Number.isFinite(v)) {
-                    window.alert("整数として読めませんでした。");
-                    return;
-                  }
-                  applyBulkMarkerSequence(ids, v);
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
                 }}
               >
-                連番
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                style={markerActionBtn}
-                onClick={() => {
-                  const raw = window.prompt(
-                    "全員の丸の内を同じ内容に（最大3文字）。",
-                    "1"
-                  );
-                  if (raw == null || raw.trim() === "") return;
-                  applyBulkMarkerSame(ids, raw);
-                }}
-              >
-                同じ
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                style={{ ...markerActionBtn, gridColumn: "1 / -1" }}
-                onClick={() => applyBulkMarkerCenterDistance(ids)}
-              >
-                センターからの距離
-              </button>
-            </div>
-          </>
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={markerActionBtn}
+                  onClick={() => applyBulkMarkerClear(ids)}
+                >
+                  空白
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={markerActionBtn}
+                  onClick={() => {
+                    const raw = window.prompt(
+                      "連番の開始番号（整数）。フォーメーション順で丸の内に入れます。",
+                      "1"
+                    );
+                    if (raw == null || raw.trim() === "") return;
+                    const v = Number.parseInt(raw.trim(), 10);
+                    if (!Number.isFinite(v)) {
+                      window.alert("整数として読めませんでした。");
+                      return;
+                    }
+                    applyBulkMarkerSequence(ids, v);
+                  }}
+                >
+                  連番
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={markerActionBtn}
+                  onClick={() => {
+                    const raw = window.prompt(
+                      "全員の丸の内を同じ内容に（最大3文字）。",
+                      "1"
+                    );
+                    if (raw == null || raw.trim() === "") return;
+                    applyBulkMarkerSame(ids, raw);
+                  }}
+                >
+                  同じ
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={{ ...markerActionBtn, gridColumn: "1 / -1" }}
+                  onClick={() => applyBulkMarkerCenterDistance(ids)}
+                >
+                  センターからの距離
+                </button>
+              </div>
+            </NestedDisclosure>
+          </div>
         ) : (
           <p style={{ ...dockSectionHint, margin: "8px 0 0" }}>
             「丸の下」にすると、丸の内に連番などを入れられます。
