@@ -147,15 +147,38 @@ function slotOrderCmp(a: DancerSpot, b: DancerSpot): number {
 }
 
 /**
- * スキル用: 客席側（y 大＝手前）から、同段内は左→右。
- * 「数字が小さい＝上手」を前列へ割り当てる。
+ * 一段内のスロットをセンター寄り順に並べる。
+ * - センター（段の x 中点）に近いほど先
+ * - 距離が同じ（センター割れ）なら下手（x 小）側を先
  */
-function skillFrontFirstSlotOrderCmp(a: DancerSpot, b: DancerSpot): number {
-  const dy = b.yPct - a.yPct;
-  if (Math.abs(dy) > 1e-6) return dy;
-  const dx = a.xPct - b.xPct;
-  if (Math.abs(dx) > 1e-6) return dx;
-  return a.id.localeCompare(b.id);
+function orderSlotsCenterOutInRow(row: DancerSpot[]): DancerSpot[] {
+  if (row.length <= 1) return [...row];
+  const { cx } = bboxOf(row);
+  return [...row].sort((a, b) => {
+    const da = Math.abs(a.xPct - cx);
+    const db = Math.abs(b.xPct - cx);
+    if (Math.abs(da - db) > 1e-6) return da - db;
+    const dx = a.xPct - b.xPct;
+    if (Math.abs(dx) > 1e-6) return dx;
+    return a.id.localeCompare(b.id);
+  });
+}
+
+/**
+ * スキル用スロット順: 一列目（手前）から、各段はセンター寄り（割れは下手）。
+ * 先頭スロットにスキル番号が小さい人が入る。
+ */
+function orderSlotsForSkill(subset: DancerSpot[]): DancerSpot[] {
+  if (subset.length <= 1) return [...subset];
+  const rows = clusterSelectionByDepthRows(
+    subset,
+    subset.map((d) => d.id)
+  );
+  const ordered: DancerSpot[] = [];
+  for (const row of rows) {
+    ordered.push(...orderSlotsCenterOutInRow(row));
+  }
+  return ordered;
 }
 
 /**
@@ -166,13 +189,16 @@ function permutePreservingSlotPositions(
   dancers: DancerSpot[],
   targetIds: string[],
   sortPeople: (a: DancerSpot, b: DancerSpot) => number,
-  slotCmp: (a: DancerSpot, b: DancerSpot) => number = slotOrderCmp
+  slotCmp: (a: DancerSpot, b: DancerSpot) => number = slotOrderCmp,
+  orderSlots?: (subset: DancerSpot[]) => DancerSpot[]
 ): DancerSpot[] {
   const idSet = new Set(targetIds);
   const subset = dancers.filter((d) => idSet.has(d.id));
   if (subset.length <= 1) return dancers;
 
-  const slotsOrdered = [...subset].sort(slotCmp);
+  const slotsOrdered = orderSlots
+    ? orderSlots(subset)
+    : [...subset].sort(slotCmp);
   const peopleOrdered = [...subset].sort(sortPeople);
   const newPos = new Map<string, { xPct: number; yPct: number }>();
   for (let i = 0; i < subset.length; i++) {
@@ -234,7 +260,7 @@ export function permuteSlotsByGradeDesc(
   );
 }
 
-/** 今の位置のまま・スキル数字が小さい人を手前（客席側）寄りの位置へ */
+/** 今の位置のまま・スキル数字が小さい人を一列目センター寄りへ */
 export function permuteSlotsBySkillAsc(
   dancers: DancerSpot[],
   targetIds: string[]
@@ -245,7 +271,8 @@ export function permuteSlotsBySkillAsc(
     (a, b) =>
       skillSortKey(a.skillRankLabel) - skillSortKey(b.skillRankLabel) ||
       a.label.localeCompare(b.label, "ja"),
-    skillFrontFirstSlotOrderCmp
+    slotOrderCmp,
+    orderSlotsForSkill
   );
 }
 
@@ -259,7 +286,8 @@ export function permuteSlotsBySkillDesc(
     (a, b) =>
       skillSortKey(b.skillRankLabel) - skillSortKey(a.skillRankLabel) ||
       a.label.localeCompare(b.label, "ja"),
-    skillFrontFirstSlotOrderCmp
+    slotOrderCmp,
+    orderSlotsForSkill
   );
 }
 
@@ -530,9 +558,14 @@ function lineUpAlongAxis(
   targetIds: string[],
   sortPeople: (a: DancerSpot, b: DancerSpot) => number,
   along: "x" | "y",
-  /** true のとき先頭（sort 昇順の先頭）を手前 y 大へ。スキル「小さい順＝前列」用 */
-  frontFirstOnY = false
+  options: {
+    /** true のとき先頭を手前 y 大へ（スキル縦列） */
+    frontFirstOnY?: boolean;
+    /** true のとき横一列をセンター寄り割当（スキル横列） */
+    centerOutOnX?: boolean;
+  } = {}
 ): DancerSpot[] {
+  const { frontFirstOnY = false, centerOutOnX = false } = options;
   const idSet = new Set(targetIds);
   const subset = dancers.filter((d) => idSet.has(d.id));
   if (subset.length <= 1) return dancers;
@@ -541,21 +574,43 @@ function lineUpAlongAxis(
   const box = bboxOf(subset);
   const n = sorted.length;
   const newPos = new Map<string, { xPct: number; yPct: number }>();
-  for (let i = 0; i < n; i++) {
-    const t = i / (n - 1);
-    if (along === "x") {
+
+  if (along === "x" && centerOutOnX) {
+    const xs = Array.from({ length: n }, (_, i) =>
+      n === 1 ? box.cx : box.minX + ((box.maxX - box.minX) * i) / (n - 1)
+    );
+    const cx = box.cx;
+    const slotOrder = xs
+      .map((x, index) => ({ x, index }))
+      .sort((a, b) => {
+        const da = Math.abs(a.x - cx);
+        const db = Math.abs(b.x - cx);
+        if (Math.abs(da - db) > 1e-9) return da - db;
+        return a.x - b.x;
+      });
+    for (let i = 0; i < n; i++) {
       newPos.set(sorted[i]!.id, {
-        xPct: clampPct(box.minX + (box.maxX - box.minX) * t),
+        xPct: clampPct(slotOrder[i]!.x),
         yPct: clampPct(box.cy),
       });
-    } else {
-      const y = frontFirstOnY
-        ? box.maxY - (box.maxY - box.minY) * t
-        : box.minY + (box.maxY - box.minY) * t;
-      newPos.set(sorted[i]!.id, {
-        xPct: clampPct(box.cx),
-        yPct: clampPct(y),
-      });
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const t = n === 1 ? 0 : i / (n - 1);
+      if (along === "x") {
+        newPos.set(sorted[i]!.id, {
+          xPct: clampPct(box.minX + (box.maxX - box.minX) * t),
+          yPct: clampPct(box.cy),
+        });
+      } else {
+        const y = frontFirstOnY
+          ? box.maxY - (box.maxY - box.minY) * t
+          : box.minY + (box.maxY - box.minY) * t;
+        newPos.set(sorted[i]!.id, {
+          xPct: clampPct(box.cx),
+          yPct: clampPct(y),
+        });
+      }
     }
   }
   return dancers.map((d) => {
@@ -571,7 +626,7 @@ function lineUpAlongAxis(
  * - row: Y で段を分け、各段を横一列として独立に並べる
  * - col: X で縦列を分け、各列を縦一列として独立に並べる
  *
- * スキルは「数字が小さい＝上手」を客席側（手前）へ置く。
+ * スキルは数字が小さい人を一列目センター寄り（割れは下手）へ。
  */
 export function applyPositionSort(
   dancers: DancerSpot[],
@@ -580,13 +635,14 @@ export function applyPositionSort(
 ): DancerSpot[] {
   if (targetIds.length < 2) return dancers;
   const cmp = peopleSortCmp(request.axis, request.direction);
-  const skillFrontFirst = request.axis === "skill";
+  const skillCenter = request.axis === "skill";
   if (request.scope === "all") {
     return permutePreservingSlotPositions(
       dancers,
       targetIds,
       cmp,
-      skillFrontFirst ? skillFrontFirstSlotOrderCmp : slotOrderCmp
+      slotOrderCmp,
+      skillCenter ? orderSlotsForSkill : undefined
     );
   }
   const groups =
@@ -597,13 +653,10 @@ export function applyPositionSort(
   let next = dancers;
   for (const group of groups) {
     if (group.length < 2) continue;
-    next = lineUpAlongAxis(
-      next,
-      group.map((d) => d.id),
-      cmp,
-      along,
-      skillFrontFirst && along === "y"
-    );
+    next = lineUpAlongAxis(next, group.map((d) => d.id), cmp, along, {
+      frontFirstOnY: skillCenter && along === "y",
+      centerOutOnX: skillCenter && along === "x",
+    });
   }
   return next;
 }

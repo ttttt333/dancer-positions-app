@@ -259,3 +259,30 @@ export function removeMemberRosterDancerFromFormation(
     }),
   };
 }
+
+/**
+ * メンバーシート上の並び替え。フォーメーション内 dancers 配列の順序だけ入れ替える
+ * （舞台上の座標はそのまま）。
+ */
+export function reorderFormationDancersInProject(
+  p: ChoreographyProjectJson,
+  formationId: string,
+  fromIndex: number,
+  toIndex: number
+): ChoreographyProjectJson {
+  if (fromIndex === toIndex) return p;
+  if (fromIndex < 0 || toIndex < 0) return p;
+  return {
+    ...p,
+    formations: p.formations.map((f) => {
+      if (f.id !== formationId) return f;
+      const n = f.dancers.length;
+      if (fromIndex >= n || toIndex >= n) return f;
+      const next = [...f.dancers];
+      const [moved] = next.splice(fromIndex, 1);
+      if (!moved) return f;
+      next.splice(toIndex, 0, moved);
+      return { ...f, dancers: next };
+    }),
+  };
+}

@@ -32,6 +32,7 @@ import {
   memberRosterSelectOptions,
   memberRosterSkillOptions,
   patchMemberRosterDancerInProject,
+  reorderFormationDancersInProject,
   resolveMemberRosterFields,
 } from "../../lib/memberRosterSheetFields";
 import {
@@ -77,6 +78,8 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
     dancerId: string;
     label: string;
   } | null>(null);
+  const [rosterDragFrom, setRosterDragFrom] = useState<number | null>(null);
+  const [rosterDragOver, setRosterDragOver] = useState<number | null>(null);
 
   const videoExportOpen = useVideoExportUiStore((s) => s.open);
   const closeVideoExport = useVideoExportUiStore((s) => s.closeSheet);
@@ -587,17 +590,87 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 return (
                   <div
                     key={dancer.id}
+                    data-roster-row={dancer.id}
+                    onDragOver={
+                      viewOnly
+                        ? undefined
+                        : (e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            if (rosterDragOver !== idx) setRosterDragOver(idx);
+                          }
+                    }
+                    onDrop={
+                      viewOnly
+                        ? undefined
+                        : (e) => {
+                            e.preventDefault();
+                            const raw = e.dataTransfer.getData("text/plain");
+                            const from = Number.parseInt(raw, 10);
+                            setRosterDragFrom(null);
+                            setRosterDragOver(null);
+                            if (!Number.isFinite(from) || from === idx || !fid) {
+                              return;
+                            }
+                            setProjectSafe((p) =>
+                              reorderFormationDancersInProject(p, fid, from, idx)
+                            );
+                          }
+                    }
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: 4,
                       padding: "4px 6px",
                       borderRadius: 8,
-                      border: `1px solid ${shell.border}`,
-                      background: "rgba(255,255,255,0.025)",
+                      border: `1px solid ${
+                        rosterDragOver === idx && rosterDragFrom !== idx
+                          ? "rgba(251,191,36,0.85)"
+                          : shell.border
+                      }`,
+                      background:
+                        rosterDragFrom === idx
+                          ? "rgba(251,191,36,0.1)"
+                          : "rgba(255,255,255,0.025)",
                       minWidth: 0,
+                      opacity: rosterDragFrom === idx ? 0.72 : 1,
                     }}
                   >
+                    {!viewOnly ? (
+                      <button
+                        type="button"
+                        draggable
+                        aria-label="ドラッグして並び替え"
+                        title="上下にドラッグして並び替え"
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", String(idx));
+                          e.dataTransfer.effectAllowed = "move";
+                          setRosterDragFrom(idx);
+                          setRosterDragOver(idx);
+                        }}
+                        onDragEnd={() => {
+                          setRosterDragFrom(null);
+                          setRosterDragOver(null);
+                        }}
+                        style={{
+                          flexShrink: 0,
+                          width: 18,
+                          height: 26,
+                          padding: 0,
+                          border: "none",
+                          borderRadius: 4,
+                          background: "transparent",
+                          color: shell.textMuted,
+                          cursor: "grab",
+                          fontSize: 12,
+                          lineHeight: 1,
+                          letterSpacing: -1,
+                          touchAction: "none",
+                        }}
+                      >
+                        ⠿
+                      </button>
+                    ) : null}
                     <select
                       aria-label="色"
                       title="色"

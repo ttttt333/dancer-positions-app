@@ -8,6 +8,7 @@ import {
   enrichDancerSpotsFromCrew,
   patchMemberRosterDancerInProject,
   removeMemberRosterDancerFromFormation,
+  reorderFormationDancersInProject,
   resolveMemberRosterFields,
 } from "./memberRosterSheetFields";
 
@@ -83,6 +84,32 @@ describe("patchMemberRosterDancerInProject", () => {
     expect(m.heightCm).toBe(162);
     expect(m.skillRankLabel).toBe("A");
     expect(m.colorIndex).toBe(3);
+  });
+});
+
+describe("reorderFormationDancersInProject", () => {
+  it("moves a dancer within the formation list", () => {
+    const project = {
+      formations: [
+        {
+          id: "f1",
+          name: "A",
+          dancers: [
+            spot({ id: "d1", label: "あ" }),
+            spot({ id: "d2", label: "い" }),
+            spot({ id: "d3", label: "う" }),
+          ],
+        },
+      ],
+      crews: [],
+      cues: [],
+    } as unknown as ChoreographyProjectJson;
+    const next = reorderFormationDancersInProject(project, "f1", 0, 2);
+    expect(next.formations[0]!.dancers.map((d) => d.id)).toEqual([
+      "d2",
+      "d3",
+      "d1",
+    ]);
   });
 });
 
