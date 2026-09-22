@@ -22,6 +22,9 @@ function memberToPlaceholderSpot(m: CrewMember): DancerSpot {
   return {
     id: crypto.randomUUID(),
     label: m.label.trim().slice(0, 120) || "?",
+    ...(m.labelPrefix?.trim()
+      ? { labelPrefix: m.labelPrefix.trim().slice(0, 8) }
+      : {}),
     markerBadge: "",
     xPct: 50,
     yPct: 40,

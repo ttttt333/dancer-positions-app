@@ -253,7 +253,18 @@ export function RosterTimelineStrip({
               if (patch.label !== undefined) {
                 /** trim は毎回かけない。空欄も許可（ステージ表示は StageBoard 側で ? フォールバック） */
                 const raw = patch.label.slice(0, 120);
-                nm = { ...nm, label: raw };
+                const keepPrefix =
+                  nm.labelPrefix &&
+                  raw.startsWith(nm.labelPrefix)
+                    ? nm.labelPrefix
+                    : undefined;
+                nm = {
+                  ...nm,
+                  label: raw,
+                  ...(keepPrefix
+                    ? { labelPrefix: keepPrefix }
+                    : { labelPrefix: undefined }),
+                };
               }
               if ("heightCm" in patch) {
                 nm = { ...nm, heightCm: patch.heightCm };
@@ -296,7 +307,10 @@ export function RosterTimelineStrip({
             if (patch.label !== undefined) {
               nd = {
                 ...nd,
-                label: updatedMember.label.trim().slice(0, 8),
+                label: updatedMember.label.trim().slice(0, 120) || "?",
+                ...(updatedMember.labelPrefix
+                  ? { labelPrefix: updatedMember.labelPrefix }
+                  : { labelPrefix: undefined }),
               };
             }
             if ("heightCm" in patch) {
@@ -435,6 +449,9 @@ export function RosterTimelineStrip({
                     {
                       id: crypto.randomUUID(),
                       label: m.label.trim().slice(0, 120) || "?",
+                      ...(m.labelPrefix?.trim()
+                        ? { labelPrefix: m.labelPrefix.trim().slice(0, 8) }
+                        : {}),
                       markerBadge: "",
                       xPct: 50 + (idx % 5) * 5,
                       yPct: 40 + Math.floor(idx / 5) * 10,
@@ -487,6 +504,9 @@ export function RosterTimelineStrip({
             return {
               id: crypto.randomUUID(),
               label: m.label.trim().slice(0, 120) || "?",
+              ...(m.labelPrefix?.trim()
+                ? { labelPrefix: m.labelPrefix.trim().slice(0, 8) }
+                : {}),
               markerBadge: "",
               xPct: 50,
               yPct: 40,
@@ -614,6 +634,9 @@ export function RosterTimelineStrip({
           return {
             id: crypto.randomUUID(),
             label: m.label.trim().slice(0, 120) || "?",
+            ...(m.labelPrefix?.trim()
+              ? { labelPrefix: m.labelPrefix.trim().slice(0, 8) }
+              : {}),
             markerBadge: "",
             xPct: 50,
             yPct: 40,
@@ -773,6 +796,9 @@ export function RosterTimelineStrip({
             return {
               id: crypto.randomUUID(),
               label: m.label.trim().slice(0, 120) || "?",
+              ...(m.labelPrefix?.trim()
+                ? { labelPrefix: m.labelPrefix.trim().slice(0, 8) }
+                : {}),
               markerBadge: "",
               xPct: 50,
               yPct: 40,

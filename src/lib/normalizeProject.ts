@@ -318,6 +318,9 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
   return {
     id: typeof d.id === "string" && d.id ? d.id : randomId("d"),
     label: typeof d.label === "string" ? d.label : String(index + 1),
+    ...(typeof d.labelPrefix === "string" && d.labelPrefix.trim()
+      ? { labelPrefix: d.labelPrefix.trim().slice(0, 8) }
+      : {}),
     xPct:
       typeof d.xPct === "number" && Number.isFinite(d.xPct)
         ? clampPct(d.xPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI)
@@ -524,6 +527,9 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
                   typeof m.colorIndex === "number"
                     ? modDancerColorIndex(m.colorIndex)
                     : 0,
+                ...(typeof mm.labelPrefix === "string" && mm.labelPrefix.trim()
+                  ? { labelPrefix: mm.labelPrefix.trim().slice(0, 8) }
+                  : {}),
               };
               const hc = mm.heightCm;
               if (

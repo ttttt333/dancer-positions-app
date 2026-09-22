@@ -205,6 +205,7 @@ export function useStageDancerMarkerElements(
             xPct={d.xPct}
             yPct={d.yPct}
             nameBelowLabel={d.label || "?"}
+            nameBelowPrefix={d.labelPrefix}
             pivotTransform={pivotTransform}
             zMark={zMark}
             playbackOrPreview={playbackOrPreview}

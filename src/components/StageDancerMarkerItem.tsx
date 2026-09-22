@@ -1,10 +1,13 @@
 import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import { DancerLabelWithPrefix } from "./DancerLabelWithPrefix";
 
 export type StageDancerMarkerItemProps = {
   dancerId: string;
   xPct: number;
   yPct: number;
   nameBelowLabel: string;
+  /** 同名区別の苗字頭。名下で小さく上付き表示 */
+  nameBelowPrefix?: string;
   pivotTransform: string;
   zMark: number;
   playbackOrPreview: boolean;
@@ -49,6 +52,7 @@ export function StageDancerMarkerItem({
   xPct,
   yPct,
   nameBelowLabel,
+  nameBelowPrefix,
   pivotTransform,
   zMark,
   playbackOrPreview,
@@ -265,7 +269,10 @@ export function StageDancerMarkerItem({
             textOverflow: "ellipsis",
           }}
         >
-          {nameBelowLabel}
+          <DancerLabelWithPrefix
+            label={nameBelowLabel}
+            prefix={nameBelowPrefix}
+          />
         </div>
       ) : null}
     </div>

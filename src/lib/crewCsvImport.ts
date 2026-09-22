@@ -515,10 +515,12 @@ function rowToParsedName(
 function buildLabelsWithDuplicateHandling(
   parsed: ParsedNameRow[],
   nameMode: RosterNameImportMode
-): { label: string; colorIndex: number }[] {
+): { label: string; labelPrefix?: string; colorIndex: number }[] {
   type Item = {
     base: string;
     prefix: string;
+    /** true: 重複でなくても苗字頭を付ける（フルネーム＋姓名読み） */
+    forcePrefix: boolean;
     colorIndex: number;
     order: number;
   };
@@ -530,10 +532,10 @@ function buildLabelsWithDuplicateHandling(
 
     if (famR && gvnR) {
       if (nameMode === "full") {
-        const full = `${firstGrapheme(famR)}${gvnR}`;
         return {
-          base: sliceLabel(full),
-          prefix: "",
+          base: sliceLabel(gvnR),
+          prefix: firstGrapheme(famR),
+          forcePrefix: true,
           colorIndex: p.colorIndex,
           order,
         };
@@ -543,6 +545,7 @@ function buildLabelsWithDuplicateHandling(
         return {
           base: sliceLabel(raw),
           prefix: "",
+          forcePrefix: false,
           colorIndex: p.colorIndex,
           order,
         };
@@ -550,7 +553,8 @@ function buildLabelsWithDuplicateHandling(
       const raw = gvnK || gvnR;
       return {
         base: sliceLabel(raw),
-        prefix: "",
+        prefix: firstGrapheme(famR),
+        forcePrefix: false,
         colorIndex: p.colorIndex,
         order,
       };
@@ -587,7 +591,13 @@ function buildLabelsWithDuplicateHandling(
         ? p.familyRaw
         : p.fullRaw;
     const prefix = firstGrapheme(prefixSource) || "";
-    return { base, prefix, colorIndex: p.colorIndex, order };
+    return {
+      base,
+      prefix,
+      forcePrefix: false,
+      colorIndex: p.colorIndex,
+      order,
+    };
   });
 
   const key = (s: string) => s.toLowerCase();
@@ -600,7 +610,8 @@ function buildLabelsWithDuplicateHandling(
   }
 
   const usedGlobal = new Set<string>();
-  const out: { label: string; colorIndex: number }[] = new Array(parsed.length);
+  const out: { label: string; labelPrefix?: string; colorIndex: number }[] =
+    new Array(parsed.length);
 
   for (const [, group] of groups) {
     group.sort((a, b) => a.order - b.order);
@@ -610,9 +621,12 @@ function buildLabelsWithDuplicateHandling(
 
     for (const it of group) {
       let pfx = it.prefix;
+      const wantPrefix = Boolean(pfx) && (duplicateBase || it.forcePrefix);
       let candidate: string;
-      if (duplicateBase && pfx) {
+      let usedPrefix = "";
+      if (wantPrefix && pfx) {
         candidate = sliceLabel(`${pfx}${it.base}`);
+        usedPrefix = pfx;
       } else {
         candidate = it.base;
       }
@@ -630,8 +644,10 @@ function buildLabelsWithDuplicateHandling(
           pfx = `${it.prefix}${extra}`;
         }
         candidate = sliceLabel(`${pfx}${it.base}`);
+        usedPrefix = pfx;
         if (extra > 12) {
           candidate = sliceLabel(`${it.base}${it.order}`);
+          usedPrefix = "";
           break;
         }
       }
@@ -639,7 +655,13 @@ function buildLabelsWithDuplicateHandling(
       const label = candidate;
       usedLocal.add(label);
       usedGlobal.add(label);
-      out[it.order] = { label, colorIndex: it.colorIndex };
+      out[it.order] = {
+        label,
+        colorIndex: it.colorIndex,
+        ...(usedPrefix && label.startsWith(usedPrefix)
+          ? { labelPrefix: usedPrefix }
+          : {}),
+      };
     }
   }
   return out;
@@ -807,6 +829,7 @@ export function rowsToCrewMembers(
       id: crypto.randomUUID(),
       label: L.label,
       colorIndex: L.colorIndex,
+      ...(L.labelPrefix ? { labelPrefix: L.labelPrefix } : {}),
     };
     if (typeof pr.heightCm === "number") m.heightCm = pr.heightCm;
     if (pr.gradeLabel) m.gradeLabel = pr.gradeLabel;

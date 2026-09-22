@@ -18,6 +18,11 @@ export type DancerSpot = {
   id: string;
   label: string;
   /**
+   * 同名区別などで label 先頭に付けた苗字（読み）の 1 文字以上。
+   * 名下表示ではこの部分だけ小さく上付きにする。未指定時は通常の label 表示。
+   */
+  labelPrefix?: string;
+  /**
    * 名前を○の下に出すとき、○の中に表示する数字・略号（最大 3 文字）。
    * 未指定のときは、フォーメーション内の並びで 1 からの番号を表示する（見た目のみ）。
    */
@@ -220,6 +225,10 @@ export type StageShape = {
 export type CrewMember = {
   id: string;
   label: string;
+  /**
+   * 同名区別などで label 先頭に付けた苗字（読み）。ステージ名下で小さく上付き表示する。
+   */
+  labelPrefix?: string;
   colorIndex: number;
   /** 身長（cm）。名簿取り込み・並び替え用 */
   heightCm?: number;

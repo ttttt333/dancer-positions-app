@@ -238,6 +238,7 @@ export function StageMainFloorInteractionLayer({
               belowLabelOriginYpx={belowLabelOriginYpx}
               belowNameFontPx={belowNameFontPx}
               nameBelowLabel={d.label || "?"}
+              nameBelowPrefix={d.labelPrefix}
             />
           );
         })}
