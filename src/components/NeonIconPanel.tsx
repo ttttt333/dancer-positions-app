@@ -520,18 +520,17 @@ export function NeonIconPanel({
     position: "relative",
     display: "flex",
     flexDirection: "column",
-    width: "clamp(168px, 18vw, 232px)",
-    maxWidth: "min(232px, 28vw)",
+    width: 232,
     background: "rgba(10,10,20,0.90)",
     backdropFilter: "blur(16px)",
     WebkitBackdropFilter: "blur(16px)",
     borderLeft: "1px solid rgba(255,255,255,0.06)",
-    flexShrink: 1,
-    minWidth: 148,
+    flexShrink: 0,
     padding: "8px 10px",
     gap: 6,
     overflow: "hidden",
     height: "100%",
+    minWidth: 0,
   };
 
   return (

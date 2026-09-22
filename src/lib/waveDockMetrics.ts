@@ -25,10 +25,8 @@ export const PC_WAVE_RULER_CHROME_PX = Math.round(
   ((16 + 5 * CSS_MM_TO_PX) * 2) / 3
 );
 
-/** コンパクト統合ツールバー行（再生＋ユーティリティ一列）
- * 実ボタンは TIMELINE_UI_SCALE=1.2 で ~34–43px あるため、見積もりを少し余裕付きに。
- */
-export const PC_WIDE_TOP_DOCK_TOOLBAR_CHROME_PX = 52;
+/** コンパクト統合ツールバー行（再生＋ユーティリティ一列） */
+export const PC_WIDE_TOP_DOCK_TOOLBAR_CHROME_PX = 44;
 
 /** 波形ブロック下端の高さリサイズ枠 */
 export const PC_WAVE_BOTTOM_RESIZE_CHROME_PX = 10;
@@ -71,9 +69,6 @@ export function estimateWideTopDockWaveChromePx(): number {
 /** PC ワイド上部／下部ドックの波形キャンバス既定高さ（px） */
 export const WAVE_CANVAS_H_PC_WIDE_DEFAULT = 88;
 
-/** 短い画面向けの波形キャンバス既定高さ（px） */
-export const WAVE_CANVAS_H_PC_WIDE_COMPACT = 56;
-
 /** PC ワイド: ドック内インライン再生バーの高さ目安（px） */
 /** 旧: 再生ピル分離用。一列統合後は 0（ツールバー側に含む） */
 export const PC_WIDE_INLINE_PLAYBACK_CHROME_PX = 0;
@@ -85,47 +80,5 @@ export const TOP_DOCK_HEIGHT_WIDE_PX =
   TOP_DOCK_WAVE_STAGE_RESIZER_PX +
   PC_WIDE_INLINE_PLAYBACK_CHROME_PX;
 
-/**
- * リサイズ時に波形が潰れない最小外枠高さ（px）。
- * 既定ドックより低くし、Windows 拡大表示や短いノートPCでもステージを確保する。
- */
-export const TOP_DOCK_ROW_MIN_WIDE_PX = 112;
-
-/** ステージ確保のための最小残り高さ（ヘッダー等込みの目安） */
-const STAGE_REMAIN_MIN_PX = 260;
-
-/**
- * ビューポート高さに合わせたワイド上部ドックの既定高さ。
- * 短い CSS 高さ（125%/150% 拡大・小型ノート）では圧縮する。
- */
-export function resolveAdaptiveWideTopDockDefaultPx(
-  viewportHeightPx: number
-): number {
-  if (!Number.isFinite(viewportHeightPx) || viewportHeightPx <= 0) {
-    return TOP_DOCK_HEIGHT_WIDE_PX;
-  }
-  const byRatio = Math.floor(viewportHeightPx * 0.22);
-  const byRemain = Math.floor(viewportHeightPx - STAGE_REMAIN_MIN_PX);
-  const capped = Math.min(TOP_DOCK_HEIGHT_WIDE_PX, byRatio, byRemain);
-  return Math.max(TOP_DOCK_ROW_MIN_WIDE_PX, capped);
-}
-
-/**
- * ワイド上部ドックのリサイズ／保存値をビューポート内に収める。
- */
-export function clampWideTopDockRowToViewport(
-  n: number,
-  viewportHeightPx: number,
-  maxCapPx = 480
-): number {
-  const maxByRemain = Math.max(
-    TOP_DOCK_ROW_MIN_WIDE_PX,
-    Math.floor(viewportHeightPx - STAGE_REMAIN_MIN_PX)
-  );
-  const maxByRatio = Math.max(
-    TOP_DOCK_ROW_MIN_WIDE_PX,
-    Math.floor(viewportHeightPx * 0.4)
-  );
-  const maxH = Math.min(maxCapPx, maxByRemain, maxByRatio);
-  return Math.min(maxH, Math.max(TOP_DOCK_ROW_MIN_WIDE_PX, Math.round(n)));
-}
+/** リサイズ時に波形が潰れない最小外枠高さ（px） */
+export const TOP_DOCK_ROW_MIN_WIDE_PX = TOP_DOCK_HEIGHT_WIDE_PX;
