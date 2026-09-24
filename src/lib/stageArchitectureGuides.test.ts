@@ -28,11 +28,14 @@ describe("stageSleeveCurtains", () => {
     expect(curtains.map((c) => c.depthMm)).toEqual([2000, 4000]);
   });
 
-  it("buildSleeveCurtainMarksFromCurtains extends into side space", () => {
+  it("marks use stage edge as origin for inset and wing", () => {
     const curtains = [
-      { ...createDefaultSleeveCurtain(2000, "袖"), insetMm: 3000 },
+      {
+        ...createDefaultSleeveCurtain(2000, "袖"),
+        insetMm: 1000,
+        wingExtentMm: 500,
+      },
     ];
-    // main 16m + side 2m → 3m inset = 18.75% of main width, overflow 12.5%
     const marks = buildSleeveCurtainMarksFromCurtains(
       curtains,
       10_000,
@@ -40,7 +43,24 @@ describe("stageSleeveCurtains", () => {
       2000
     );
     expect(marks).toHaveLength(1);
-    expect(marks[0]!.insetPct).toBeCloseTo(18.75, 1);
-    expect(marks[0]!.sideOverflowPct).toBeCloseTo(12.5, 1);
+    // 1m onto stage / 16m
+    expect(marks[0]!.insetPct).toBeCloseTo(6.25, 1);
+    // 0.5m into wing / 16m
+    expect(marks[0]!.wingPct).toBeCloseTo(3.125, 1);
+  });
+
+  it("defaults wing to full side when wingExtentMm omitted", () => {
+    const curtains = [
+      { ...createDefaultSleeveCurtain(2000, "袖"), insetMm: 0 },
+    ];
+    const marks = buildSleeveCurtainMarksFromCurtains(
+      curtains,
+      10_000,
+      16_000,
+      2000
+    );
+    expect(marks[0]!.insetMm).toBe(0);
+    expect(marks[0]!.wingExtentMm).toBe(2000);
+    expect(marks[0]!.wingPct).toBeCloseTo(12.5, 1);
   });
 });

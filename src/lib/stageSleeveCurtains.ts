@@ -15,7 +15,10 @@ export function createDefaultSleeveCurtain(
     depthMm: Math.max(100, Math.min(50_000, Math.round(depthMm))),
     label: label ?? `そで幕`,
     side: "both",
+    /** 舞台端から内側へ */
     insetMm: 450,
+    /** 未指定＝そでスペースがあるとき全幅まで */
+    wingExtentMm: undefined,
   };
 }
 
@@ -53,8 +56,12 @@ export function normalizeStageSleeveCurtains(
           ? o.label.trim().slice(0, 48)
           : undefined;
       const insetMm =
-        typeof o.insetMm === "number" && Number.isFinite(o.insetMm) && o.insetMm > 0
-          ? Math.max(50, Math.min(20_000, Math.round(o.insetMm)))
+        typeof o.insetMm === "number" && Number.isFinite(o.insetMm) && o.insetMm >= 0
+          ? Math.max(0, Math.min(20_000, Math.round(o.insetMm)))
+          : undefined;
+      const wingExtentMm =
+        typeof o.wingExtentMm === "number" && Number.isFinite(o.wingExtentMm)
+          ? Math.max(0, Math.min(20_000, Math.round(o.wingExtentMm)))
           : undefined;
       out.push({
         id,
@@ -62,6 +69,7 @@ export function normalizeStageSleeveCurtains(
         ...(label ? { label } : {}),
         side: normalizeSide(o.side),
         ...(insetMm != null ? { insetMm } : {}),
+        ...(wingExtentMm != null ? { wingExtentMm } : {}),
       });
       if (out.length >= max) return out;
     }
@@ -89,13 +97,19 @@ export type SleeveCurtainMark = {
   depthMm: number;
   label: string;
   side: StageSleeveCurtainSide;
-  /** 端（そで外側を含む）からの横長さをメイン幅に対する % で表したもの */
+  /** 舞台端からメイン内側へ（メイン幅に対する %） */
   insetPct: number;
   insetMm: number;
-  /** メイン床端から外側へはみ出す量（メイン幅に対する %） */
-  sideOverflowPct: number;
+  /** 舞台端からそで側へ（メイン幅に対する %） */
+  wingPct: number;
+  wingExtentMm: number;
 };
 
+/**
+ * 基準は舞台端（メイン床の左右端）。
+ * - insetMm: 端から内側へ
+ * - wingExtentMm: 端からそでスペースへ（未指定ならサイド全幅）
+ */
 export function buildSleeveCurtainMarksFromCurtains(
   curtains: readonly StageSleeveCurtain[] | null | undefined,
   stageDepthMm: number | null | undefined,
@@ -105,15 +119,18 @@ export function buildSleeveCurtainMarksFromCurtains(
   if (!curtains?.length || !(stageDepthMm && stageDepthMm > 0)) return [];
   const W = stageWidthMm && stageWidthMm > 0 ? stageWidthMm : 10_000;
   const side = sideStageMm && sideStageMm > 0 ? sideStageMm : 0;
-  const sideOverflowPct = side > 0 ? (side / W) * 100 : 0;
-  // そでスペース＋メイン半幅まで伸ばせる
-  const maxInsetMm = side + W * 0.5;
+  const maxInsetMm = Math.max(0, Math.round(W * 0.5));
   const out: SleeveCurtainMark[] = [];
   for (const c of curtains) {
     const yPct = yPctFromFrontMm(c.depthMm, stageDepthMm);
     if (yPct == null) continue;
-    const insetMm = Math.min(maxInsetMm, Math.max(50, c.insetMm ?? 450));
-    const insetPct = Math.max(1.2, (insetMm / W) * 100);
+    const insetMm = Math.min(maxInsetMm, Math.max(0, c.insetMm ?? 450));
+    const wingExtentMm =
+      c.wingExtentMm != null
+        ? Math.min(side, Math.max(0, c.wingExtentMm))
+        : side;
+    const insetPct = (insetMm / W) * 100;
+    const wingPct = side > 0 ? (wingExtentMm / W) * 100 : 0;
     out.push({
       id: c.id,
       yPct,
@@ -122,7 +139,8 @@ export function buildSleeveCurtainMarksFromCurtains(
       side: c.side ?? "both",
       insetPct,
       insetMm,
-      sideOverflowPct,
+      wingPct,
+      wingExtentMm,
     });
   }
   return out;

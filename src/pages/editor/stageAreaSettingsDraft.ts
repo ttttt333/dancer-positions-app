@@ -27,6 +27,8 @@ export type StageAreaSleeveDraft = {
   depth: StageAreaMeterCmDraft;
   side: StageSleeveCurtainSide;
   inset: StageAreaMeterCmDraft;
+  /** null = そで全幅（自動）。数値 = 舞台端からそで側へ mm */
+  wingExtentMm: number | null;
 };
 
 export type StageAreaSettingsDraft = {
@@ -141,24 +143,42 @@ export function parseGridMeterCmDraftToMm(
 }
 
 export function sleeveToDraft(c: StageSleeveCurtain): StageAreaSleeveDraft {
+  const insetMm = c.insetMm ?? 450;
   return {
     id: c.id,
     label: c.label?.trim() || "そで幕",
     depth: mmToMeterCmDraft(c.depthMm),
     side: c.side ?? "both",
-    inset: mmToMeterCmDraft(c.insetMm ?? 450),
+    inset:
+      insetMm <= 0
+        ? { m: "0", cm: "0" }
+        : mmToMeterCmDraft(insetMm),
+    wingExtentMm:
+      typeof c.wingExtentMm === "number" ? c.wingExtentMm : null,
   };
 }
 
 export function sleeveDraftToCurtain(d: StageAreaSleeveDraft): StageSleeveCurtain {
   const depthMm = parseMeterCmDraftToMm(d.depth) ?? 2000;
-  const insetMm = parseMeterCmDraftToMm(d.inset) ?? 450;
+  const mT = d.inset.m.trim();
+  const cT = d.inset.cm.trim();
+  let insetMm = 450;
+  if (mT !== "" || cT !== "") {
+    const m = mT === "" ? 0 : parseInt(mT, 10);
+    const cm = cT === "" ? 0 : parseInt(cT, 10);
+    if (Number.isFinite(m) && Number.isFinite(cm)) {
+      insetMm = Math.max(0, Math.min(20_000, Math.round(m * 1000 + cm * 10)));
+    }
+  }
   return {
     id: d.id || crypto.randomUUID(),
     depthMm: Math.max(100, Math.min(50_000, depthMm)),
     label: d.label.trim().slice(0, 48) || "そで幕",
     side: d.side,
-    insetMm: Math.max(50, Math.min(20_000, insetMm)),
+    insetMm,
+    ...(d.wingExtentMm != null
+      ? { wingExtentMm: Math.max(0, Math.min(20_000, d.wingExtentMm)) }
+      : {}),
   };
 }
 

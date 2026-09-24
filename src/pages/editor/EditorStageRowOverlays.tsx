@@ -48,7 +48,12 @@ import { dancerMarkerDiameterAfterRosterImport } from "../../lib/projectDefaults
 import { getViewRosterEntries } from "../../lib/viewRoster";
 import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
 import { stripFormationStageSnapshots } from "../../lib/savedSpotStageSnapshot";
-import { createEmptySleeveDraft, parseMeterCmDraftToMm, type StageAreaSettingsDraft } from "./stageAreaSettingsDraft";
+import {
+  createEmptySleeveDraft,
+  mmToMeterCmDraft,
+  parseMeterCmDraftToMm,
+  type StageAreaSettingsDraft,
+} from "./stageAreaSettingsDraft";
 import {
   StageAreaDimensionRows,
   StageAreaGridSpacingControls,
@@ -1192,7 +1197,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 </label>
 
                 <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 2 }}>
-                  そで幕 <span style={{ color: "#64748b" }}>（上で奥行／内側の点で横長さ。数字はパネルで確認）</span>
+                  そで幕 <span style={{ color: "#64748b" }}>（基準＝舞台端。内側の点＝舞台へ／外側の点＝そで奥）</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {stageAreaSettingsDraft.stageSleeves.map((sl, idx) => (
@@ -1360,7 +1365,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                           </select>
                         </label>
                         <label style={{ fontSize: 9, color: "#94a3b8" }}>
-                          横の長さ（端から）
+                          舞台端→内側
                           <div
                             style={{
                               display: "flex",
@@ -1435,6 +1440,132 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                           </div>
                         </label>
                       </div>
+                      {(() => {
+                        const sideMm =
+                          parseMeterCmDraftToMm(stageAreaSettingsDraft.side) ?? 0;
+                        if (sideMm <= 0) return null;
+                        const wingDraft =
+                          sl.wingExtentMm == null
+                            ? null
+                            : mmToMeterCmDraft(sl.wingExtentMm);
+                        return (
+                          <label
+                            style={{
+                              display: "block",
+                              fontSize: 9,
+                              color: "#94a3b8",
+                              marginTop: 6,
+                            }}
+                          >
+                            舞台端→そで奥（0＝端ぴったり／空＝サイド全幅）
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 3,
+                                marginTop: 3,
+                              }}
+                            >
+                              <select
+                                disabled={project.viewMode === "view"}
+                                value={
+                                  wingDraft == null ? "" : wingDraft.m || "0"
+                                }
+                                onChange={(e) => {
+                                  const m = e.target.value;
+                                  setStageAreaSettingsDraft((d) => ({
+                                    ...d,
+                                    stageSleeves: d.stageSleeves.map((x) => {
+                                      if (x.id !== sl.id) return x;
+                                      if (m === "") {
+                                        return { ...x, wingExtentMm: null };
+                                      }
+                                      const cm = Number(
+                                        wingDraft?.cm || "0"
+                                      );
+                                      const mm = Math.max(
+                                        0,
+                                        Math.min(
+                                          sideMm,
+                                          Math.round(
+                                            Number(m) * 1000 + cm * 10
+                                          )
+                                        )
+                                      );
+                                      return { ...x, wingExtentMm: mm };
+                                    }),
+                                  }));
+                                }}
+                                style={{
+                                  width: 40,
+                                  padding: "4px 2px",
+                                  borderRadius: 6,
+                                  border: "1px solid #334155",
+                                  background: "#0f172a",
+                                  color: "#e2e8f0",
+                                  fontSize: 11,
+                                }}
+                              >
+                                <option value="">全</option>
+                                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((v) => (
+                                  <option key={v} value={String(v)}>
+                                    {v}
+                                  </option>
+                                ))}
+                              </select>
+                              <span style={{ fontSize: 9, color: "#64748b" }}>
+                                m
+                              </span>
+                              <select
+                                disabled={
+                                  project.viewMode === "view" ||
+                                  wingDraft == null
+                                }
+                                value={wingDraft?.cm || "0"}
+                                onChange={(e) => {
+                                  const cm = e.target.value;
+                                  setStageAreaSettingsDraft((d) => ({
+                                    ...d,
+                                    stageSleeves: d.stageSleeves.map((x) => {
+                                      if (x.id !== sl.id) return x;
+                                      const m = Number(wingDraft?.m || "0");
+                                      const mm = Math.max(
+                                        0,
+                                        Math.min(
+                                          sideMm,
+                                          Math.round(m * 1000 + Number(cm) * 10)
+                                        )
+                                      );
+                                      return { ...x, wingExtentMm: mm };
+                                    }),
+                                  }));
+                                }}
+                                style={{
+                                  width: 40,
+                                  padding: "4px 2px",
+                                  borderRadius: 6,
+                                  border: "1px solid #334155",
+                                  background: "#0f172a",
+                                  color: "#e2e8f0",
+                                  fontSize: 11,
+                                }}
+                              >
+                                {[
+                                  0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55,
+                                  60, 75, 90,
+                                ].map((v) => (
+                                  <option key={v} value={String(v)}>
+                                    {v}
+                                  </option>
+                                ))}
+                              </select>
+                              <span style={{ fontSize: 9, color: "#64748b" }}>
+                                cm
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>

@@ -163,10 +163,14 @@ export type StageSleeveCurtain = {
   /** 左右どちらに出す。省略時 both */
   side?: StageSleeveCurtainSide;
   /**
-   * 袖の横方向の長さ（端からの入り込み mm）。
-   * 設定した長さまでステージ内側へ伸ばして描画する。
+   * 舞台端からメイン床側へ伸ばす長さ（mm）。0＝舞台端にぴったり。
    */
   insetMm?: number;
+  /**
+   * 舞台端からそでスペース側へ伸ばす長さ（mm）。
+   * 未指定かつサイド寸法ありのときはサイド全幅。0＝舞台端で止まる。
+   */
+  wingExtentMm?: number;
 };
 
 /** ステージ照明の種類 */

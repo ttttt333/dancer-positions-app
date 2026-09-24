@@ -9,26 +9,28 @@ export type StageSleeveCurtainOverlayProps = {
   curtains: readonly StageSleeveCurtain[];
   stageDepthMm: number;
   stageWidthMm: number;
-  /** 片側そでスペース mm。0 ならメイン床端から */
+  /** 片側そでスペース mm */
   sideStageMm?: number;
   floorRef: RefObject<HTMLElement | null>;
   editable: boolean;
   onChangeCurtains: (next: StageSleeveCurtain[]) => void;
 };
 
-type DragMode = "depth" | "length";
+/** depth=奥行 / inset=舞台端から内側 / wing=舞台端からそで側 */
+type DragMode = "depth" | "inset" | "wing";
 
-function formatInsetLabel(mm: number): string {
+function formatLen(mm: number): string {
+  if (mm <= 0) return "0";
   if (mm % 1000 === 0) return `${mm / 1000} m`;
   if (mm % 10 === 0) return `${(mm / 10).toFixed(0)} cm`;
   return `${mm} mm`;
 }
 
 /**
- * そで幕の表示。
- * - 本体ドラッグ: 奥行
- * - 内側端ハンドル: 横の長さ（そでスペースがあるときは外側へも伸ばせる）
- * 数字ラベルは出さず、右パネルで確認する。
+ * そで幕。基準は舞台端。
+ * - 内側ハンドル: 舞台へはみ出す長さ
+ * - 外側ハンドル: そでスペース側（一番奥）への長さ
+ * - 本体上下: 奥行
  */
 export function StageSleeveCurtainOverlay({
   marks,
@@ -48,14 +50,8 @@ export function StageSleeveCurtainOverlay({
   } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const sideOverflowPct =
-    sideStageMm > 0 && stageWidthMm > 0
-      ? (sideStageMm / stageWidthMm) * 100
-      : 0;
-  const maxInsetMm = Math.max(
-    100,
-    Math.round(sideStageMm + stageWidthMm * 0.5)
-  );
+  const maxInsetMm = Math.max(0, Math.round(stageWidthMm * 0.5));
+  const maxWingMm = Math.max(0, sideStageMm);
 
   const clientToPct = useCallback(
     (clientX: number, clientY: number) => {
@@ -99,25 +95,48 @@ export function StageSleeveCurtainOverlay({
     if (!d || d.pointerId !== e.pointerId) return;
     const p = clientToPct(e.clientX, e.clientY);
     if (!p) return;
+
     if (d.mode === "depth") {
-      const depthMm = Math.round(((100 - Math.max(0, Math.min(100, p.yPct))) / 100) * stageDepthMm);
+      const depthMm = Math.round(
+        ((100 - Math.max(0, Math.min(100, p.yPct))) / 100) * stageDepthMm
+      );
       const snapped = Math.round(depthMm / 50) * 50;
       patchCurtain(d.id, {
         depthMm: Math.max(100, Math.min(stageDepthMm - 50, snapped)),
       });
       return;
     }
-    // length: 内側端の位置から横長さを算出（そで側へは負の xPct まで含む）
-    let insetPct: number;
-    if (d.side === "left") {
-      insetPct = p.xPct + sideOverflowPct;
-    } else {
-      insetPct = 100 + sideOverflowPct - p.xPct;
+
+    // 基準: 舞台端（左=0% / 右=100%）
+    if (d.mode === "inset") {
+      // 内側へ（舞台上）
+      let ontoPct: number;
+      if (d.side === "left") {
+        ontoPct = Math.max(0, p.xPct);
+      } else {
+        ontoPct = Math.max(0, 100 - p.xPct);
+      }
+      const rawMm = (ontoPct / 100) * stageWidthMm;
+      const snapped = Math.round(rawMm / 50) * 50;
+      patchCurtain(d.id, {
+        insetMm: Math.max(0, Math.min(maxInsetMm, snapped)),
+      });
+      return;
     }
-    const rawMm = (insetPct / 100) * stageWidthMm;
+
+    // wing: そで側（一番奥）
+    if (maxWingMm <= 0) return;
+    let wingPct: number;
+    if (d.side === "left") {
+      // xPct < 0 がそで側
+      wingPct = Math.max(0, -p.xPct);
+    } else {
+      wingPct = Math.max(0, p.xPct - 100);
+    }
+    const rawMm = (wingPct / 100) * stageWidthMm;
     const snapped = Math.round(rawMm / 50) * 50;
     patchCurtain(d.id, {
-      insetMm: Math.max(100, Math.min(maxInsetMm, snapped)),
+      wingExtentMm: Math.max(0, Math.min(maxWingMm, snapped)),
     });
   };
 
@@ -151,15 +170,25 @@ export function StageSleeveCurtainOverlay({
         const showRight = m.side === "both" || m.side === "right";
         const active = activeId === m.id;
         const thicknessPct = 2.2;
+        // 見た目の幅がほぼ 0 でも掴めるよう最低幅を確保
+        const visualWidthPct = Math.max(m.wingPct + m.insetPct, 0.8);
+
         const bar = (side: "left" | "right") => (
           <div
             key={`${m.id}-${side}`}
             style={{
               position: "absolute",
-              left: side === "left" ? `${-sideOverflowPct}%` : undefined,
-              right: side === "right" ? `${-sideOverflowPct}%` : undefined,
+              // 舞台端を基準: そで側へ wingPct、内側へ insetPct
+              left:
+                side === "left"
+                  ? `${-m.wingPct}%`
+                  : undefined,
+              right:
+                side === "right"
+                  ? `${-m.wingPct}%`
+                  : undefined,
               top: `${m.yPct}%`,
-              width: `${m.insetPct}%`,
+              width: `${visualWidthPct}%`,
               height: `${thicknessPct}%`,
               minHeight: 12,
               transform: "translateY(-50%)",
@@ -174,10 +203,10 @@ export function StageSleeveCurtainOverlay({
               pointerEvents: "none",
             }}
           >
-            {/* 奥行ドラッグ（本体） */}
+            {/* 奥行 */}
             <button
               type="button"
-              aria-label={`${m.label}（${side === "left" ? "下手" : "上手"}）奥行 ${formatDepthMmLabel(m.depthMm)}。上下ドラッグで奥行`}
+              aria-label={`${m.label} 奥行 ${formatDepthMmLabel(m.depthMm)}`}
               disabled={!editable}
               onPointerDown={(e) => onPointerDown(e, m.id, "depth", side)}
               onPointerMove={onPointerMove}
@@ -195,30 +224,28 @@ export function StageSleeveCurtainOverlay({
                 touchAction: "none",
               }}
             />
-            {/* 横長さドラッグ（内側端） */}
+            {/* 内側＝舞台端から内側への長さ */}
             <button
               type="button"
-              aria-label={`${m.label} 横の長さ ${formatInsetLabel(m.insetMm)}。左右ドラッグで長さ`}
+              aria-label={`${m.label} 舞台端から内側 ${formatLen(m.insetMm)}`}
               disabled={!editable}
-              onPointerDown={(e) => onPointerDown(e, m.id, "length", side)}
+              onPointerDown={(e) => onPointerDown(e, m.id, "inset", side)}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
-              title={`横 ${formatInsetLabel(m.insetMm)}`}
+              title={`内側 ${formatLen(m.insetMm)}`}
               style={{
                 position: "absolute",
                 top: -4,
                 bottom: -4,
                 width: 10,
-                ...(side === "left"
-                  ? { right: -5 }
-                  : { left: -5 }),
+                ...(side === "left" ? { right: -5 } : { left: -5 }),
                 margin: 0,
                 padding: 0,
                 border: "none",
                 borderRadius: 4,
                 background: editable
-                  ? "rgba(251, 113, 133, 0.85)"
+                  ? "rgba(251, 113, 133, 0.95)"
                   : "rgba(251, 113, 133, 0.4)",
                 cursor: editable ? "ew-resize" : "default",
                 pointerEvents: editable ? "auto" : "none",
@@ -226,6 +253,37 @@ export function StageSleeveCurtainOverlay({
                 boxShadow: "0 0 0 1px rgba(15,23,42,0.5)",
               }}
             />
+            {/* 外側＝そで側（一番奥）。サイドがあるときだけ */}
+            {maxWingMm > 0 ? (
+              <button
+                type="button"
+                aria-label={`${m.label} そで側 ${formatLen(m.wingExtentMm)}`}
+                disabled={!editable}
+                onPointerDown={(e) => onPointerDown(e, m.id, "wing", side)}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
+                title={`そで側 ${formatLen(m.wingExtentMm)}`}
+                style={{
+                  position: "absolute",
+                  top: -4,
+                  bottom: -4,
+                  width: 10,
+                  ...(side === "left" ? { left: -5 } : { right: -5 }),
+                  margin: 0,
+                  padding: 0,
+                  border: "none",
+                  borderRadius: 4,
+                  background: editable
+                    ? "rgba(244, 114, 182, 0.95)"
+                    : "rgba(244, 114, 182, 0.4)",
+                  cursor: editable ? "ew-resize" : "default",
+                  pointerEvents: editable ? "auto" : "none",
+                  touchAction: "none",
+                  boxShadow: "0 0 0 1px rgba(15,23,42,0.5)",
+                }}
+              />
+            ) : null}
           </div>
         );
         return (
