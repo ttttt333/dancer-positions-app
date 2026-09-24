@@ -2929,7 +2929,6 @@ function EditorPageContent({
     cloudSaveDialogOpen,
     collabActive,
     commitFloorTextPlace,
-    commitStageGridCmInput,
     confirmAddSetPiece,
     cueById,
     cueListModalOpen,
