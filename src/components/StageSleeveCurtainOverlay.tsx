@@ -169,7 +169,7 @@ export function StageSleeveCurtainOverlay({
         const showLeft = m.side === "both" || m.side === "left";
         const showRight = m.side === "both" || m.side === "right";
         const active = activeId === m.id;
-        const thicknessPct = 2.2;
+        const thicknessPct = 1.1;
         // 見た目の幅がほぼ 0 でも掴めるよう最低幅を確保
         const visualWidthPct = Math.max(m.wingPct + m.insetPct, 0.8);
 
@@ -190,7 +190,7 @@ export function StageSleeveCurtainOverlay({
               top: `${m.yPct}%`,
               width: `${visualWidthPct}%`,
               height: `${thicknessPct}%`,
-              minHeight: 12,
+              minHeight: 6,
               transform: "translateY(-50%)",
               border: active
                 ? "2px solid rgba(251, 113, 133, 1)"
