@@ -85,12 +85,21 @@ function devOpenBrowserPlugin(): Plugin {
 }
 
 export default defineConfig({
+  define: {
+    /** 設定画面などでデプロイ差分を確認できるようにする */
+    "import.meta.env.VITE_APP_BUILD": JSON.stringify(
+      (process.env.VERCEL_GIT_COMMIT_SHA || process.env.CF_PAGES_COMMIT_SHA || "")
+        .slice(0, 7) || new Date().toISOString().slice(0, 10)
+    ),
+  },
   plugins: [
     react(),
     ffmpegCoreStaticPlugin(),
     devOpenBrowserPlugin(),
     VitePWA({
       registerType: "autoUpdate",
+      /** main.tsx で registerSW するため自動注入はオフ（二重登録防止） */
+      injectRegister: false,
       devOptions: {
         enabled: false,
       },
@@ -114,6 +123,10 @@ export default defineConfig({
         ],
       },
       workbox: {
+        /** Safari / Mac で古い SW が残りやすいので即時切り替え */
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,wasm}"],
         /** 大きめのチャンク（FFmpeg.wasm コア 等）もプリキャッシュ対象に含める */
         maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
@@ -123,11 +136,21 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
+            /** ナビ（HTML）は常にネットワーク優先で最新シェルを取る */
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "choreocore-html-v4",
+              networkTimeoutSeconds: 4,
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             /** デプロイ後の古い SW が存在しない JS チャンクを参照するのを防ぐ */
             urlPattern: /\/assets\/.*\.js$/,
             handler: "NetworkFirst",
             options: {
-              cacheName: "choreocore-assets-js-v2",
+              cacheName: "choreocore-assets-js-v4",
               expiration: {
                 maxEntries: 64,
                 maxAgeSeconds: 60 * 60 * 24 * 7,

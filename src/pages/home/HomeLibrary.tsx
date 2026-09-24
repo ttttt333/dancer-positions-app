@@ -121,7 +121,7 @@ type LibraryEntry =
 
 type Panel = "library" | "settings";
 
-const APP_VERSION = "β";
+const APP_VERSION = `β · ${import.meta.env.VITE_APP_BUILD || "dev"}`;
 
 /** ログイン後ホーム: ライブラリ + 設定（メニューは設定に1画面で統合） */
 export function HomeLibrary() {
