@@ -3,6 +3,7 @@ import {
   activeStageLightsAtTime,
   createDefaultStageLight,
   normalizeDepthMmList,
+  resolveLightAxes,
   yPctFromFrontMm,
 } from "./stageLighting";
 import {
@@ -75,5 +76,18 @@ describe("stageLighting / architecture guides", () => {
         focusCueId: "c1",
       }).map((L) => L.id)
     ).toEqual(["cueL", "g"]);
+  });
+
+  it("resolveLightAxes supports circle aspect correction", () => {
+    const L = {
+      ...createDefaultStageLight("pinSpot"),
+      shape: "circle" as const,
+      rxPct: 10,
+    };
+    const round = resolveLightAxes(L, 1);
+    expect(round.rx).toBe(10);
+    expect(round.ry).toBe(10);
+    const wide = resolveLightAxes(L, 2);
+    expect(wide.ry).toBe(20);
   });
 });

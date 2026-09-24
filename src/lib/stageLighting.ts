@@ -45,12 +45,19 @@ export const STAGE_LIGHT_KINDS = Object.keys(
   STAGE_LIGHT_KIND_LABELS
 ) as StageLightKind[];
 
+/** プロジェクトあたりの照明上限 */
+export const STAGE_LIGHTS_MAX = 80;
+
 function clampPct(v: number): number {
   return Math.max(0, Math.min(100, v));
 }
 
 function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v));
+}
+
+function clampAxis(v: number): number {
+  return Math.max(2, Math.min(60, v));
 }
 
 /** 種類ごとの既定ビーム半径（メイン床 %） */
@@ -68,11 +75,47 @@ export function defaultRadiusPctForKind(kind: StageLightKind): number {
   }
 }
 
+/** @deprecated resolveLightAxes を使う */
 export function resolveLightRadiusPct(L: StageLightFixture): number {
-  if (typeof L.radiusPct === "number" && Number.isFinite(L.radiusPct)) {
-    return Math.max(3, Math.min(55, L.radiusPct));
+  return resolveLightAxes(L).rx;
+}
+
+export function resolveLightShape(
+  L: StageLightFixture
+): "circle" | "ellipse" {
+  return L.shape === "circle" ? "circle" : "ellipse";
+}
+
+/**
+ * 描画用の横・縦半径（viewBox %）。
+ * circle かつ floorAspect(幅/高さ) があるとき、見た目が正円になるよう ry を補正する。
+ */
+export function resolveLightAxes(
+  L: StageLightFixture,
+  floorAspect?: number | null
+): { rx: number; ry: number; shape: "circle" | "ellipse" } {
+  const shape = resolveLightShape(L);
+  const legacy =
+    typeof L.radiusPct === "number" && Number.isFinite(L.radiusPct)
+      ? L.radiusPct
+      : defaultRadiusPctForKind(L.kind);
+  const rx = clampAxis(
+    typeof L.rxPct === "number" && Number.isFinite(L.rxPct) ? L.rxPct : legacy
+  );
+  if (shape === "circle") {
+    const aspect =
+      floorAspect != null && floorAspect > 0.15 && floorAspect < 8
+        ? floorAspect
+        : 1;
+    // preserveAspectRatio=none のため、画面上の正円は ry = rx * (W/H) = rx * aspect
+    return { rx, ry: clampAxis(rx * aspect), shape };
   }
-  return defaultRadiusPctForKind(L.kind);
+  const ry = clampAxis(
+    typeof L.ryPct === "number" && Number.isFinite(L.ryPct)
+      ? L.ryPct
+      : rx * 0.72
+  );
+  return { rx, ry, shape };
 }
 
 export function createDefaultStageLight(
@@ -89,6 +132,7 @@ export function createDefaultStageLight(
     pinSpot: { xPct: 50, yPct: 50, color: "#ffffff", intensity: 0.55 },
   };
   const p = presets[kind];
+  const r = defaultRadiusPctForKind(kind);
   return {
     id: crypto.randomUUID(),
     kind,
@@ -97,7 +141,9 @@ export function createDefaultStageLight(
     yPct: p.yPct,
     color: p.color,
     intensity: p.intensity,
-    radiusPct: defaultRadiusPctForKind(kind),
+    rxPct: r,
+    ryPct: Math.round(r * 0.72 * 10) / 10,
+    shape: "ellipse",
     cueId: null,
     tStartSec: null,
     tEndSec: null,
@@ -138,10 +184,19 @@ export function normalizeStageLights(raw: unknown): StageLightFixture[] {
       typeof o.intensity === "number" && Number.isFinite(o.intensity)
         ? clamp01(o.intensity)
         : 0.35;
-    const radiusPct =
+    const legacyR =
       typeof o.radiusPct === "number" && Number.isFinite(o.radiusPct)
-        ? Math.max(3, Math.min(55, o.radiusPct))
+        ? clampAxis(o.radiusPct)
         : undefined;
+    const rxPct =
+      typeof o.rxPct === "number" && Number.isFinite(o.rxPct)
+        ? clampAxis(o.rxPct)
+        : legacyR;
+    const ryPct =
+      typeof o.ryPct === "number" && Number.isFinite(o.ryPct)
+        ? clampAxis(o.ryPct)
+        : undefined;
+    const shape = o.shape === "circle" ? "circle" : "ellipse";
     const cueId =
       typeof o.cueId === "string" && o.cueId.trim()
         ? o.cueId.trim().slice(0, 64)
@@ -165,13 +220,15 @@ export function normalizeStageLights(raw: unknown): StageLightFixture[] {
       yPct,
       color,
       intensity,
-      ...(radiusPct != null ? { radiusPct } : {}),
+      ...(rxPct != null ? { rxPct } : legacyR != null ? { rxPct: legacyR } : {}),
+      ...(ryPct != null ? { ryPct } : {}),
+      shape,
       cueId,
       tStartSec,
       tEndSec,
       enabled: o.enabled === false ? false : true,
     });
-    if (out.length >= 40) break;
+    if (out.length >= STAGE_LIGHTS_MAX) break;
   }
   return out;
 }
@@ -210,7 +267,6 @@ export function activeStageLightsAtTime(
     if (L.cueId) {
       const cue = cueById?.get(L.cueId);
       if (!cue) {
-        // キュー一覧が無い／削除済み: フォーカス一致時のみ残す
         return focusCueId != null && focusCueId === L.cueId;
       }
       if (focusCueId != null && focusCueId === L.cueId) return true;
@@ -232,4 +288,15 @@ export function hexToRgba(hex: string, alpha: number): string {
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${clamp01(alpha)})`;
+}
+
+/** 同種照明の次の通し番号ラベル */
+export function nextLightLabel(
+  kind: StageLightKind,
+  existing: readonly StageLightFixture[]
+): string {
+  const base = STAGE_LIGHT_KIND_LABELS[kind];
+  const n =
+    existing.filter((L) => L.kind === kind).length + 1;
+  return n <= 1 ? base : `${base} ${n}`;
 }

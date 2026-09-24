@@ -8,9 +8,11 @@ import type {
 } from "../types/choreography";
 import {
   createDefaultStageLight,
-  resolveLightRadiusPct,
+  nextLightLabel,
+  resolveLightAxes,
   STAGE_LIGHT_KIND_LABELS,
   STAGE_LIGHT_KINDS,
+  STAGE_LIGHTS_MAX,
 } from "../lib/stageLighting";
 
 const COLOR_SWATCHES = [
@@ -93,39 +95,41 @@ export function StageLightingSettingsPanel({
   };
 
   const addLight = (kind: StageLightKind) => {
+    if (lights.length >= STAGE_LIGHTS_MAX) return;
     const L = createDefaultStageLight(kind);
-    // 既定は「このキュー」があればキュー、なければ全体
+    L.label = nextLightLabel(kind, lights);
     if (selectedCueId) {
       L.cueId = selectedCueId;
       L.tStartSec = null;
       L.tEndSec = null;
     }
     if (kind === "sideSpot") {
-      const right: StageLightFixture = {
-        ...createDefaultStageLight("sideSpot"),
-        xPct: 88,
-        label: "サイドスポット（上手）",
-        cueId: L.cueId ?? null,
-      };
-      L.label = "サイドスポット（下手）";
-      updateLights([...lights, L, right]);
-      setSelectedId(L.id);
-      return;
+      // 既存サイドの反対側寄りに置く（1灯ずつ追加）
+      const sides = lights.filter((x) => x.kind === "sideSpot");
+      L.xPct = sides.length % 2 === 0 ? 12 : 88;
+      L.yPct = 40 + (sides.length % 5) * 8;
     }
     if (kind === "footlight") {
+      const foots = lights.filter((x) => x.kind === "footlight");
       L.yPct = 90;
-      L.xPct = 50;
+      L.xPct = 20 + (foots.length % 5) * 15;
+    }
+    if (kind === "suspension" || kind === "backlight" || kind === "pinSpot") {
+      const same = lights.filter((x) => x.kind === kind);
+      L.xPct = Math.min(85, 25 + (same.length % 4) * 18);
+      L.yPct = Math.min(80, L.yPct + (same.length % 3) * 10);
     }
     updateLights([...lights, L]);
     setSelectedId(L.id);
   };
 
   const scopeIsCue = Boolean(selected?.cueId);
+  const axes = selected ? resolveLightAxes(selected) : null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", lineHeight: 1.45 }}>
-        照明は「全体」か「このキューだけ」を選べます。舞台上のハンドルで位置・大きさ（□）・濃さ（●）も調整できます（いま{" "}
+        種類ボタンで何度でも追加できます（最大 {STAGE_LIGHTS_MAX}）。舞台上は範囲ドラッグで移動、端の□で縦横サイズ、角の●で濃さ（いま{" "}
         {currentTimeSec.toFixed(1)}s
         {selectedCue
           ? ` / 選択キュー ${selectedCue.name?.trim() || `${selectedCue.tStartSec.toFixed(1)}–${selectedCue.tEndSec.toFixed(1)}s`}`
@@ -138,7 +142,7 @@ export function StageLightingSettingsPanel({
           <button
             key={kind}
             type="button"
-            disabled={disabled}
+            disabled={disabled || lights.length >= STAGE_LIGHTS_MAX}
             onClick={() => addLight(kind)}
             style={{
               padding: "6px 8px",
@@ -148,7 +152,10 @@ export function StageLightingSettingsPanel({
               color: "#e2e8f0",
               fontSize: 11,
               fontWeight: 600,
-              cursor: disabled ? "not-allowed" : "pointer",
+              cursor:
+                disabled || lights.length >= STAGE_LIGHTS_MAX
+                  ? "not-allowed"
+                  : "pointer",
             }}
           >
             ＋{STAGE_LIGHT_KIND_LABELS[kind]}
@@ -174,12 +181,20 @@ export function StageLightingSettingsPanel({
           lights.map((L) => {
             const on = L.id === selectedId;
             return (
-              <li key={L.id}>
+              <li
+                key={L.id}
+                style={{
+                  display: "flex",
+                  alignItems: "stretch",
+                  gap: 4,
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => setSelectedId(L.id)}
                   style={{
-                    width: "100%",
+                    flex: 1,
+                    minWidth: 0,
                     textAlign: "left",
                     padding: "8px 10px",
                     borderRadius: 8,
@@ -205,16 +220,52 @@ export function StageLightingSettingsPanel({
                       flexShrink: 0,
                     }}
                   />
-                  <span style={{ flex: 1, minWidth: 0 }}>
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {L.label || STAGE_LIGHT_KIND_LABELS[L.kind]}
                   </span>
-                  <span style={{ fontSize: 10, color: "#64748b" }}>
+                  <span style={{ fontSize: 10, color: "#64748b", flexShrink: 0 }}>
                     {L.cueId
                       ? cueLabel(cues, L.cueId)
                       : L.tStartSec != null || L.tEndSec != null
                         ? `${L.tStartSec ?? 0}–${L.tEndSec ?? "∞"}s`
                         : "全体"}
                   </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  title="削除"
+                  aria-label={`${L.label || STAGE_LIGHT_KIND_LABELS[L.kind]} を削除`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const next = lights.filter((x) => x.id !== L.id);
+                    updateLights(next);
+                    if (selectedId === L.id) {
+                      setSelectedId(next[0]?.id ?? null);
+                    }
+                  }}
+                  style={{
+                    flexShrink: 0,
+                    width: 32,
+                    borderRadius: 8,
+                    border: "1px solid rgba(248,113,113,0.45)",
+                    background: "rgba(127,29,29,0.28)",
+                    color: "#fecaca",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    padding: 0,
+                  }}
+                >
+                  ×
                 </button>
               </li>
             );
@@ -358,15 +409,16 @@ export function StageLightingSettingsPanel({
               value={selected.kind}
               onChange={(e) => {
                 const kind = e.target.value as StageLightKind;
+                const a = resolveLightAxes(selected);
                 updateLights(
                   patchLight(lights, selected.id, {
                     kind,
-                    label: STAGE_LIGHT_KIND_LABELS[kind],
-                    radiusPct: resolveLightRadiusPct({
-                      ...selected,
+                    label: nextLightLabel(
                       kind,
-                      radiusPct: undefined,
-                    }),
+                      lights.filter((x) => x.id !== selected.id)
+                    ),
+                    rxPct: a.rx,
+                    ryPct: selected.shape === "circle" ? undefined : a.ry,
                   })
                 );
               }}
@@ -449,6 +501,68 @@ export function StageLightingSettingsPanel({
           </div>
 
           <div>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
+              形
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(
+                [
+                  { id: "circle" as const, label: "正円" },
+                  { id: "ellipse" as const, label: "楕円" },
+                ] as const
+              ).map((opt) => {
+                const active =
+                  (selected.shape === "circle" ? "circle" : "ellipse") ===
+                  opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      const a = resolveLightAxes(selected);
+                      if (opt.id === "circle") {
+                        updateLights(
+                          patchLight(lights, selected.id, {
+                            shape: "circle",
+                            rxPct: a.rx,
+                            ryPct: undefined,
+                          })
+                        );
+                      } else {
+                        updateLights(
+                          patchLight(lights, selected.id, {
+                            shape: "ellipse",
+                            rxPct: a.rx,
+                            ryPct: a.ry,
+                          })
+                        );
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "7px 8px",
+                      borderRadius: 8,
+                      border: active
+                        ? "1px solid rgba(251,191,36,0.7)"
+                        : "1px solid #334155",
+                      background: active
+                        ? "rgba(251,191,36,0.14)"
+                        : "#0f172a",
+                      color: "#e2e8f0",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
             <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>色</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {COLOR_SWATCHES.map((hex) => (
@@ -477,25 +591,74 @@ export function StageLightingSettingsPanel({
             </div>
           </div>
 
-          <label style={{ fontSize: 11, color: "#94a3b8" }}>
-            大きさ {Math.round(resolveLightRadiusPct(selected))}%
-            <input
-              type="range"
-              disabled={disabled}
-              min={3}
-              max={55}
-              step={0.5}
-              value={resolveLightRadiusPct(selected)}
-              onChange={(e) =>
-                updateLights(
-                  patchLight(lights, selected.id, {
-                    radiusPct: Number(e.target.value),
-                  })
-                )
-              }
-              style={{ display: "block", width: "100%", marginTop: 6 }}
-            />
-          </label>
+          {axes && selected.shape === "circle" ? (
+            <label style={{ fontSize: 11, color: "#94a3b8" }}>
+              大きさ {Math.round(axes.rx)}%
+              <input
+                type="range"
+                disabled={disabled}
+                min={2}
+                max={60}
+                step={0.5}
+                value={axes.rx}
+                onChange={(e) =>
+                  updateLights(
+                    patchLight(lights, selected.id, {
+                      shape: "circle",
+                      rxPct: Number(e.target.value),
+                      ryPct: undefined,
+                    })
+                  )
+                }
+                style={{ display: "block", width: "100%", marginTop: 6 }}
+              />
+            </label>
+          ) : axes ? (
+            <>
+              <label style={{ fontSize: 11, color: "#94a3b8" }}>
+                横半径 {Math.round(axes.rx)}%
+                <input
+                  type="range"
+                  disabled={disabled}
+                  min={2}
+                  max={60}
+                  step={0.5}
+                  value={axes.rx}
+                  onChange={(e) =>
+                    updateLights(
+                      patchLight(lights, selected.id, {
+                        shape: "ellipse",
+                        rxPct: Number(e.target.value),
+                        ryPct: axes.ry,
+                      })
+                    )
+                  }
+                  style={{ display: "block", width: "100%", marginTop: 6 }}
+                />
+              </label>
+              <label style={{ fontSize: 11, color: "#94a3b8" }}>
+                縦半径 {Math.round(axes.ry)}%
+                <input
+                  type="range"
+                  disabled={disabled}
+                  min={2}
+                  max={60}
+                  step={0.5}
+                  value={axes.ry}
+                  onChange={(e) =>
+                    updateLights(
+                      patchLight(lights, selected.id, {
+                        shape: "ellipse",
+                        rxPct: axes.rx,
+                        ryPct: Number(e.target.value),
+                      })
+                    )
+                  }
+                  style={{ display: "block", width: "100%", marginTop: 6 }}
+                />
+              </label>
+            </>
+          ) : null}
 
           <label style={{ fontSize: 11, color: "#94a3b8" }}>
             濃さ {Math.round(selected.intensity * 100)}%

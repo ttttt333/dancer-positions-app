@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import type { StageFloorStageMarkupOverlayProps } from "./StageFloorStageMarkupOverlay";
 import { StageFloorStageMarkupOverlay } from "./StageFloorStageMarkupOverlay";
 import { StageMillimeterGridSvg } from "./StageMillimeterGridSvg";
@@ -21,6 +22,7 @@ export type StageMainFloorBaseOverlaysProps = {
   showStageFloorMarkup: boolean;
   stageHesoVisible?: boolean;
   activeStageLights?: readonly StageLightFixture[];
+  stageMainFloorRef?: RefObject<HTMLElement | null>;
 } & StageFloorStageMarkupOverlayProps;
 
 /**
@@ -41,6 +43,7 @@ export function StageMainFloorBaseOverlays({
   showStageFloorMarkup,
   stageHesoVisible = false,
   activeStageLights = [],
+  stageMainFloorRef,
   ...floorOverlay
 }: StageMainFloorBaseOverlaysProps) {
   return (
@@ -67,7 +70,10 @@ export function StageMainFloorBaseOverlays({
         alignY={alignGuides.y}
       />
       {activeStageLights.length > 0 ? (
-        <StageLightingOverlay lights={activeStageLights} />
+        <StageLightingOverlay
+          lights={activeStageLights}
+          floorRef={stageMainFloorRef}
+        />
       ) : null}
       {showStageFloorMarkup ? (
         <StageFloorStageMarkupOverlay {...floorOverlay} />

@@ -5364,6 +5364,7 @@ export function StageBoardBody({
         alignGuides,
         stageHesoVisible,
         activeStageLights,
+        stageMainFloorRef,
         displayFloorMarkup,
         globalFloorMarkup: globalFloorMarkup ?? undefined,
         onRemoveGlobalFloorMarkupById: removeGlobalFloorMarkupById,

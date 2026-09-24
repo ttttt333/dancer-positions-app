@@ -197,9 +197,22 @@ export type StageLightFixture = {
   /** 0〜1。床への色の濃さ */
   intensity: number;
   /**
-   * ビーム半径（メイン床幅に対する %）。未指定時は種類ごとの既定。
+   * ビーム横半径（メイン床幅に対する %）。未指定時は種類ごとの既定。
+   * 互換のため radiusPct も同義で読む。
    */
+  rxPct?: number;
+  /**
+   * ビーム縦半径（メイン床奥行に対する %）。
+   * 未指定かつ shape=ellipse のときは rx の 0.72 倍。
+   */
+  ryPct?: number;
+  /** @deprecated rxPct を使う。読み込み時に rxPct へ移行 */
   radiusPct?: number;
+  /**
+   * circle = 見た目の正円（舞台の縦横比を補正）。
+   * ellipse = 縦横を独立に調整。
+   */
+  shape?: "circle" | "ellipse";
   /**
    * 紐づくキュー ID。未指定／null = 全体（全キュー共通）。
    * 指定時はそのキュー区間でのみ点灯（全体の tStart/tEnd は使わない）。
