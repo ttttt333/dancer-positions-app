@@ -3486,8 +3486,16 @@ export function StageBoardBody({
         const el = stageMainFloorRef.current;
         if (!el) return;
         const r = el.getBoundingClientRect();
-        const curXPct = clamp(((e.clientX - r.left) / r.width) * 100, 0, 100);
-        const curYPct = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
+        const curXPct = clamp(
+          ((e.clientX - r.left) / r.width) * 100,
+          DANCER_STAGE_POSITION_PCT_LO,
+          DANCER_STAGE_POSITION_PCT_HI,
+        );
+        const curYPct = clamp(
+          ((e.clientY - r.top) / r.height) * 100,
+          DANCER_STAGE_POSITION_PCT_LO,
+          DANCER_STAGE_POSITION_PCT_HI,
+        );
         mq.movedPx = Math.max(
           mq.movedPx,
           Math.hypot(e.clientX - mq.startClientX, e.clientY - mq.startClientY),
@@ -3690,8 +3698,16 @@ export function StageBoardBody({
         const el = stageMainFloorRef.current;
         if (el) {
           const r = el.getBoundingClientRect();
-          const endXPct = clamp(((e.clientX - r.left) / r.width) * 100, 0, 100);
-          const endYPct = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
+          const endXPct = clamp(
+            ((e.clientX - r.left) / r.width) * 100,
+            DANCER_STAGE_POSITION_PCT_LO,
+            DANCER_STAGE_POSITION_PCT_HI,
+          );
+          const endYPct = clamp(
+            ((e.clientY - r.top) / r.height) * 100,
+            DANCER_STAGE_POSITION_PCT_LO,
+            DANCER_STAGE_POSITION_PCT_HI,
+          );
           const minX = Math.min(mq.startXPct, endXPct);
           const maxX = Math.max(mq.startXPct, endXPct);
           const minY = Math.min(mq.startYPct, endYPct);

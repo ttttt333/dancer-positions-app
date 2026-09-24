@@ -18,6 +18,7 @@ import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
 import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle";
 import { DancerGenderPicker } from "./DancerGenderPicker";
 import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
+import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
 
 export type BulkEditTabId = "basic" | "sort" | "formation" | "display";
 
@@ -342,6 +343,37 @@ export function StageDancerBulkEditPanel({
                   </ActionButton>
                 </>
               ) : null}
+            </div>
+          </div>
+
+          <div style={card}>
+            <div style={sectionTitle}>上手・下手に寄せる</div>
+            <p style={sectionHint}>
+              選んだメンバーだけを舞台の上手（右）または下手（左）へ寄せて並べ替えます。
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <ActionButton
+                disabled={menuInteractionDisabled || targetIds.length < 1}
+                title="選択メンバーを下手（左）へ寄せる"
+                onClick={() =>
+                  applyDancerArrange((dancers, t) =>
+                    gatherSelectedDancersToEdge(dancers, t, "shimote")
+                  )
+                }
+              >
+                下手に寄せる
+              </ActionButton>
+              <ActionButton
+                disabled={menuInteractionDisabled || targetIds.length < 1}
+                title="選択メンバーを上手（右）へ寄せる"
+                onClick={() =>
+                  applyDancerArrange((dancers, t) =>
+                    gatherSelectedDancersToEdge(dancers, t, "kamite")
+                  )
+                }
+              >
+                上手に寄せる
+              </ActionButton>
             </div>
           </div>
 

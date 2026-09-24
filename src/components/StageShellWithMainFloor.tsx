@@ -91,6 +91,7 @@ export function StageShellWithMainFloor({
       Wmm={Wmm}
       Smm={Smm}
       labelScreenKeepUpright={labelScreenKeepUpright}
+      onPointerDownStrip={onPointerDownFloor}
       center={
         <StageMainFloorGridCell
           cellStyle={{

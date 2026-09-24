@@ -25,6 +25,7 @@ import {
   tidyActionLabel,
   type StageTidyAction,
 } from "../lib/stageTidyActions";
+import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
 import { StageFormationShapeCards } from "./StageFormationShapeCards";
 import { StageFormationRanksPanel } from "./StageFormationRanksPanel";
 import { StageSelectionArrangePanel } from "./StageSelectionArrangePanel";
@@ -840,6 +841,43 @@ export function StageDancerContextToolbar({
                   </button>
                 ))}
               </div>
+              {onArrangeSelection ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 8,
+                    marginTop: 8,
+                  }}
+                >
+                  <button
+                    type="button"
+                    style={dockActionBtn}
+                    title="選択メンバーを下手（左）へ寄せる"
+                    onClick={() => {
+                      onArrangeSelection((dancers, ids) =>
+                        gatherSelectedDancersToEdge(dancers, ids, "shimote")
+                      );
+                      setOpen(null);
+                    }}
+                  >
+                    下手に寄せる
+                  </button>
+                  <button
+                    type="button"
+                    style={dockActionBtn}
+                    title="選択メンバーを上手（右）へ寄せる"
+                    onClick={() => {
+                      onArrangeSelection((dancers, ids) =>
+                        gatherSelectedDancersToEdge(dancers, ids, "kamite")
+                      );
+                      setOpen(null);
+                    }}
+                  >
+                    上手に寄せる
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}

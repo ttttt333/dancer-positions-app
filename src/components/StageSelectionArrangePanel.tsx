@@ -12,6 +12,7 @@ import {
 } from "../lib/stageSelectionArrange";
 import type { SelectionFlipAxis } from "../lib/stageSelectionTransform";
 import type { PositionRotationDir } from "../lib/stagePositionRotation";
+import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
 import {
   dockActionBtn,
   dockCard,
@@ -104,6 +105,7 @@ export function StageSelectionArrangePanel({
   );
   const dirLabels = positionSortDirectionLabels(axis);
   const canSort = selectedCount >= 2 && !disabled;
+  const canGather = selectedCount >= 1 && !disabled;
   const canSwapPair = selectedCount === 2 && !disabled;
   const canMinimizePrev =
     canSort && Boolean(prevCueDancers && prevCueDancers.length > 0);
@@ -111,6 +113,55 @@ export function StageSelectionArrangePanel({
   return (
     <div data-selection-arrange-panel>
       {ranksSlot}
+
+      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>
+          上手・下手に寄せる
+        </div>
+        <p style={{ ...dockSectionHint, marginBottom: 10 }}>
+          選んだメンバーだけを舞台の上手（右）または下手（左）へ寄せて並べ替えます。
+        </p>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 8,
+          }}
+        >
+          <button
+            type="button"
+            disabled={!canGather}
+            title="選択メンバーを下手（左）へ寄せる"
+            style={{
+              ...actionBtn,
+              opacity: canGather ? 1 : 0.55,
+            }}
+            onClick={() =>
+              onArrange((dancers, ids) =>
+                gatherSelectedDancersToEdge(dancers, ids, "shimote")
+              )
+            }
+          >
+            下手に寄せる
+          </button>
+          <button
+            type="button"
+            disabled={!canGather}
+            title="選択メンバーを上手（右）へ寄せる"
+            style={{
+              ...actionBtn,
+              opacity: canGather ? 1 : 0.55,
+            }}
+            onClick={() =>
+              onArrange((dancers, ids) =>
+                gatherSelectedDancersToEdge(dancers, ids, "kamite")
+              )
+            }
+          >
+            上手に寄せる
+          </button>
+        </div>
+      </div>
 
       <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
         <div style={{ ...dockSectionTitle, marginBottom: 6 }}>
