@@ -1213,7 +1213,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   ヘソ／センターマークを表示
                 </label>
                 <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 4 }}>
-                  舞台設定を開いているときだけステージ上でドラッグ移動できます（立ち位置編集の邪魔になりません）
+                  黄色い丸ハンドルをドラッグして移動（このパネルを開いている間のみ）
                 </div>
                 {stageAreaSettingsDraft.stageHesoVisible ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>

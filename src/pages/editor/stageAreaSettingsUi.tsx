@@ -45,6 +45,8 @@ export const StageAreaSettingsSheet = memo(function StageAreaSettingsSheet({
       zIndex={61}
       width="min(320px, calc(100vw - 16px))"
       onClose={onClose}
+      /** ステージ上でヘソ／そで幕をドラッグできるよう外側は透過 */
+      passThroughOutside
       ariaLabelledBy="stage-area-settings-title"
     >
       {children}

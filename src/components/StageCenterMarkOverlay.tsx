@@ -79,13 +79,14 @@ export function StageCenterMarkOverlay({
 
   return (
     <div
+      data-center-mark-overlay
       style={{
         position: "absolute",
         inset: 0,
         width: "100%",
         height: "100%",
         pointerEvents: "none",
-        zIndex: 6,
+        zIndex: 12,
       }}
       aria-hidden={!editable}
     >
@@ -95,7 +96,7 @@ export function StageCenterMarkOverlay({
           <button
             key={m.id}
             type="button"
-            title={m.label?.trim() || "センターマーク"}
+            title={m.label?.trim() || "センターマーク（ドラッグで移動）"}
             aria-label={
               m.label?.trim()
                 ? `${m.label.trim()}を移動`
@@ -110,20 +111,20 @@ export function StageCenterMarkOverlay({
               position: "absolute",
               left: `${m.xPct}%`,
               top: `${m.yPct}%`,
-              width: 28,
-              height: 28,
-              marginLeft: -14,
-              marginTop: -14,
+              width: 36,
+              height: 36,
+              marginLeft: -18,
+              marginTop: -18,
               borderRadius: "50%",
               border: active
                 ? "2px solid rgba(250, 204, 21, 0.95)"
-                : "1.5px solid rgba(248, 250, 252, 0.55)",
+                : "2px solid rgba(250, 204, 21, 0.75)",
               background: active
-                ? "rgba(250, 204, 21, 0.22)"
-                : "rgba(15, 23, 42, 0.35)",
+                ? "rgba(250, 204, 21, 0.35)"
+                : "rgba(250, 204, 21, 0.18)",
               boxShadow: active
-                ? "0 0 0 3px rgba(250, 204, 21, 0.25)"
-                : "none",
+                ? "0 0 0 4px rgba(250, 204, 21, 0.28)"
+                : "0 0 0 2px rgba(15, 23, 42, 0.45)",
               cursor: editable ? "grab" : "default",
               pointerEvents: editable ? "auto" : "none",
               padding: 0,

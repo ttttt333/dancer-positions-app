@@ -9,6 +9,11 @@ export type EditorSideSheetProps = {
   zIndex?: number;
   /** true のとき左側クリックでは閉じない（処理中など） */
   blockDismiss?: boolean;
+  /**
+   * true のとき左側（ステージ側）はポインターを通す。
+   * 舞台設定中にヘソ／そで幕をドラッグするため。閉じるのはパネル内ボタンのみ。
+   */
+  passThroughOutside?: boolean;
   /** `role="dialog"` の `aria-labelledby` */
   ariaLabelledBy?: string;
   /** モバイル CSS 上書き用（例: formation-preset-picker） */
@@ -29,7 +34,8 @@ function readShellMirror(): ShellMirror {
 
 /**
  * ステージを暗く覆わず、右からスライドする入力パネル。
- * 左側の透明領域クリックで閉じる（blockDismiss 時は無効）。
+ * 既定では左側の透明領域クリックで閉じる（blockDismiss / passThroughOutside 時は無効）。
+ * passThroughOutside 時はステージ操作（ヘソ・そで幕ドラッグ等）を妨げない。
  *
  * body に portal し、MobileShell のステージ stacking context や
  * メニューシート（z≈521）の下に潜らないようにする。
@@ -44,6 +50,7 @@ export function EditorSideSheet({
   width = "min(440px, 44vw)",
   zIndex = 64,
   blockDismiss = false,
+  passThroughOutside = false,
   ariaLabelledBy,
   sheetId,
   panelStyle,
@@ -66,7 +73,7 @@ export function EditorSideSheet({
 
   if (!open) return null;
 
-  const canDismiss = dismissArmed && !blockDismiss;
+  const canDismiss = dismissArmed && !blockDismiss && !passThroughOutside;
   const mobileWidth = shellMirror != null ? "100%" : width;
 
   const node = (
@@ -87,25 +94,27 @@ export function EditorSideSheet({
         } as React.CSSProperties
       }
     >
-      <button
-        type="button"
-        aria-label="パネルを閉じる"
-        tabIndex={-1}
-        disabled={!canDismiss}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (canDismiss) onClose();
-        }}
-        style={{
-          position: "absolute",
-          inset: 0,
-          right: "var(--ed-sheet-w)",
-          border: "none",
-          background: "transparent",
-          cursor: canDismiss ? "pointer" : "default",
-          pointerEvents: canDismiss ? "auto" : "none",
-        }}
-      />
+      {!passThroughOutside ? (
+        <button
+          type="button"
+          aria-label="パネルを閉じる"
+          tabIndex={-1}
+          disabled={!canDismiss}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (canDismiss) onClose();
+          }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            right: "var(--ed-sheet-w)",
+            border: "none",
+            background: "transparent",
+            cursor: canDismiss ? "pointer" : "default",
+            pointerEvents: canDismiss ? "auto" : "none",
+          }}
+        />
+      ) : null}
       <div
         role="dialog"
         aria-modal="true"
