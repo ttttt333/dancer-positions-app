@@ -33,12 +33,14 @@ export type StageLightingSettingsPanelProps = {
   project: ChoreographyProjectJson;
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
   currentTimeSec: number;
-  /** タイムラインで選中のキュー（「このキューだけ」用） */
+  /** タイムラインで選中のキュー（「このキュー」用） */
   selectedCueId?: string | null;
   selectedCue?: Cue | null;
   selectedLightId?: string | null;
   onSelectLightId?: (id: string | null) => void;
 };
+
+type ListFilter = "cue" | "global" | "all";
 
 function patchLight(
   lights: StageLightFixture[],
@@ -53,11 +55,19 @@ function cueLabel(cues: readonly Cue[], cueId: string | null | undefined): strin
   const c = cues.find((x) => x.id === cueId);
   if (!c) return "キュー（削除済）";
   if (c.name?.trim()) return c.name.trim();
-  return `${c.tStartSec.toFixed(1)}–${c.tEndSec.toFixed(1)}s`;
+  const idx = cues.findIndex((x) => x.id === cueId);
+  return `キュー ${idx >= 0 ? idx + 1 : "?"}（${c.tStartSec.toFixed(1)}–${c.tEndSec.toFixed(1)}s）`;
+}
+
+function sortedCues(cues: readonly Cue[]): Cue[] {
+  return [...cues].sort(
+    (a, b) => a.tStartSec - b.tStartSec || a.id.localeCompare(b.id)
+  );
 }
 
 /**
- * テキストシート内の照明タブ。全体／キュー単位・位置・色・濃さ・大きさを編集する。
+ * テキストシート内の照明タブ。
+ * 全体／キュー単位で一覧を切り替え、各灯をキューに割り当てられる。
  */
 export function StageLightingSettingsPanel({
   disabled,
@@ -70,10 +80,14 @@ export function StageLightingSettingsPanel({
   onSelectLightId,
 }: StageLightingSettingsPanelProps) {
   const lights = project.stageLights ?? [];
-  const cues = project.cues ?? [];
+  const cues = useMemo(() => sortedCues(project.cues ?? []), [project.cues]);
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(
     lights[0]?.id ?? null
   );
+  const [listFilter, setListFilter] = useState<ListFilter>(() =>
+    selectedCueId ? "cue" : "all"
+  );
+
   const selectedId = selectedLightId ?? localSelectedId;
 
   const setSelectedId = (id: string | null) => {
@@ -85,26 +99,57 @@ export function StageLightingSettingsPanel({
     if (selectedLightId != null) setLocalSelectedId(selectedLightId);
   }, [selectedLightId]);
 
-  const selected = useMemo(
-    () => lights.find((L) => L.id === selectedId) ?? null,
-    [lights, selectedId]
-  );
+  // タイムラインでキューを選んだら「このキュー」一覧へ自動切替
+  useEffect(() => {
+    if (selectedCueId) setListFilter("cue");
+  }, [selectedCueId]);
 
   const updateLights = (next: StageLightFixture[]) => {
     setProject((p) => ({ ...p, stageLights: next }));
   };
 
+  const filteredLights = useMemo(() => {
+    if (listFilter === "all") return lights;
+    if (listFilter === "global") {
+      return lights.filter((L) => !L.cueId);
+    }
+    if (!selectedCueId) return [];
+    return lights.filter((L) => L.cueId === selectedCueId);
+  }, [lights, listFilter, selectedCueId]);
+
+  // 絞り込みで選択灯が見えなくなったら先頭へ
+  useEffect(() => {
+    if (!selectedId) return;
+    if (filteredLights.some((L) => L.id === selectedId)) return;
+    setSelectedId(filteredLights[0]?.id ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-pick when filter membership changes
+  }, [filteredLights, selectedId]);
+
+  const selected = useMemo(
+    () => lights.find((L) => L.id === selectedId) ?? null,
+    [lights, selectedId]
+  );
+
   const addLight = (kind: StageLightKind) => {
     if (lights.length >= STAGE_LIGHTS_MAX) return;
     const L = createDefaultStageLight(kind);
     L.label = nextLightLabel(kind, lights);
-    if (selectedCueId) {
-      L.cueId = selectedCueId;
+
+    const bindToCue =
+      listFilter === "cue" && selectedCueId
+        ? selectedCueId
+        : listFilter === "global"
+          ? null
+          : selectedCueId;
+    if (bindToCue) {
+      L.cueId = bindToCue;
       L.tStartSec = null;
       L.tEndSec = null;
+    } else {
+      L.cueId = null;
     }
+
     if (kind === "sideSpot") {
-      // 既存サイドの反対側寄りに置く（1灯ずつ追加）
       const sides = lights.filter((x) => x.kind === "sideSpot");
       L.xPct = sides.length % 2 === 0 ? 12 : 88;
       L.yPct = 40 + (sides.length % 5) * 8;
@@ -123,18 +168,113 @@ export function StageLightingSettingsPanel({
     setSelectedId(L.id);
   };
 
+  const assignCue = (lightId: string, cueId: string | null) => {
+    updateLights(
+      patchLight(lights, lightId, {
+        cueId,
+        ...(cueId
+          ? { tStartSec: null, tEndSec: null }
+          : {}),
+      })
+    );
+  };
+
   const scopeIsCue = Boolean(selected?.cueId);
   const axes = selected ? resolveLightAxes(selected) : null;
+  const cueMissing = !selectedCueId;
+  const currentCueLabel = selectedCue
+    ? selectedCue.name?.trim() ||
+      `${selectedCue.tStartSec.toFixed(1)}–${selectedCue.tEndSec.toFixed(1)}s`
+    : null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", lineHeight: 1.45 }}>
-        種類ボタンで何度でも追加できます（最大 {STAGE_LIGHTS_MAX}）。舞台上は範囲ドラッグで移動、端の□で縦横サイズ、角の●で濃さ（いま{" "}
-        {currentTimeSec.toFixed(1)}s
-        {selectedCue
-          ? ` / 選択キュー ${selectedCue.name?.trim() || `${selectedCue.tStartSec.toFixed(1)}–${selectedCue.tEndSec.toFixed(1)}s`}`
-          : ""}
-        ）。
+      <div
+        style={{
+          padding: "8px 10px",
+          borderRadius: 8,
+          border: "1px solid #334155",
+          background: selectedCueId
+            ? "rgba(251,191,36,0.08)"
+            : "rgba(15,23,42,0.6)",
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0" }}>
+          {selectedCueId
+            ? `編集中のキュー: ${currentCueLabel}`
+            : "キュー未選択"}
+        </div>
+        <p style={{ margin: "4px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.4 }}>
+          {selectedCueId
+            ? "「このキュー」タブの照明だけが、そのキュー再生時に点灯します。全体は全キュー共通です。"
+            : "タイムラインでキューを選ぶと、キュー専用の照明を追加・編集できます。"}
+        </p>
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="照明の一覧"
+        style={{ display: "flex", gap: 4 }}
+      >
+        {(
+          [
+            {
+              id: "cue" as const,
+              label: selectedCueId ? "このキュー" : "このキュー",
+              disabled: cueMissing,
+            },
+            { id: "global" as const, label: "全体", disabled: false },
+            { id: "all" as const, label: "すべて", disabled: false },
+          ] as const
+        ).map((tab) => {
+          const active = listFilter === tab.id;
+          const count =
+            tab.id === "cue" && selectedCueId
+              ? lights.filter((L) => L.cueId === selectedCueId).length
+              : tab.id === "global"
+                ? lights.filter((L) => !L.cueId).length
+                : lights.length;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              disabled={tab.disabled}
+              title={
+                tab.disabled
+                  ? "タイムラインでキューを選んでください"
+                  : undefined
+              }
+              onClick={() => setListFilter(tab.id)}
+              style={{
+                flex: 1,
+                padding: "7px 6px",
+                borderRadius: 8,
+                border: active
+                  ? "1px solid rgba(251,191,36,0.7)"
+                  : "1px solid #334155",
+                background: active ? "rgba(251,191,36,0.14)" : "#0f172a",
+                color: tab.disabled ? "#64748b" : "#e2e8f0",
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: tab.disabled ? "not-allowed" : "pointer",
+              }}
+            >
+              {tab.label}
+              <span style={{ opacity: 0.7, fontWeight: 600 }}> ({count})</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>
+        種類を追加（最大 {STAGE_LIGHTS_MAX}）· いま {currentTimeSec.toFixed(1)}s
+        {listFilter === "cue" && selectedCueId
+          ? " · 追加分はこのキュー専用"
+          : listFilter === "global"
+            ? " · 追加分は全体（全キュー）"
+            : ""}
       </p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -142,7 +282,11 @@ export function StageLightingSettingsPanel({
           <button
             key={kind}
             type="button"
-            disabled={disabled || lights.length >= STAGE_LIGHTS_MAX}
+            disabled={
+              disabled ||
+              lights.length >= STAGE_LIGHTS_MAX ||
+              (listFilter === "cue" && cueMissing)
+            }
             onClick={() => addLight(kind)}
             style={{
               padding: "6px 8px",
@@ -153,7 +297,9 @@ export function StageLightingSettingsPanel({
               fontSize: 11,
               fontWeight: 600,
               cursor:
-                disabled || lights.length >= STAGE_LIGHTS_MAX
+                disabled ||
+                lights.length >= STAGE_LIGHTS_MAX ||
+                (listFilter === "cue" && cueMissing)
                   ? "not-allowed"
                   : "pointer",
             }}
@@ -171,14 +317,24 @@ export function StageLightingSettingsPanel({
           display: "flex",
           flexDirection: "column",
           gap: 4,
-          maxHeight: 160,
+          maxHeight: 180,
           overflow: "auto",
         }}
       >
-        {lights.length === 0 ? (
-          <li style={{ fontSize: 12, color: "#64748b" }}>照明はまだありません</li>
+        {listFilter === "cue" && cueMissing ? (
+          <li style={{ fontSize: 12, color: "#fbbf24" }}>
+            タイムラインでキューを選んでください
+          </li>
+        ) : filteredLights.length === 0 ? (
+          <li style={{ fontSize: 12, color: "#64748b" }}>
+            {listFilter === "cue"
+              ? "このキュー専用の照明はまだありません。上の＋で追加できます。"
+              : listFilter === "global"
+                ? "全体（全キュー共通）の照明はまだありません。"
+                : "照明はまだありません"}
+          </li>
         ) : (
-          lights.map((L) => {
+          filteredLights.map((L) => {
             const on = L.id === selectedId;
             return (
               <li
@@ -232,11 +388,7 @@ export function StageLightingSettingsPanel({
                     {L.label || STAGE_LIGHT_KIND_LABELS[L.kind]}
                   </span>
                   <span style={{ fontSize: 10, color: "#64748b", flexShrink: 0 }}>
-                    {L.cueId
-                      ? cueLabel(cues, L.cueId)
-                      : L.tStartSec != null || L.tEndSec != null
-                        ? `${L.tStartSec ?? 0}–${L.tEndSec ?? "∞"}s`
-                        : "全体"}
+                    {L.cueId ? cueLabel(cues, L.cueId) : "全体"}
                   </span>
                 </button>
                 <button
@@ -307,100 +459,161 @@ export function StageLightingSettingsPanel({
             有効
           </label>
 
-          <div>
-            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
-              適用範囲
-            </div>
+          <label style={{ fontSize: 11, color: "#94a3b8" }}>
+            適用キュー
+            <select
+              disabled={disabled || cues.length === 0}
+              value={selected.cueId ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                assignCue(selected.id, v === "" ? null : v);
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                marginTop: 4,
+                padding: 8,
+                borderRadius: 8,
+                border: "1px solid #334155",
+                background: "#0f172a",
+                color: "#e2e8f0",
+                fontSize: 12,
+              }}
+            >
+              <option value="">全体（全キュー共通）</option>
+              {cues.map((c, i) => (
+                <option key={c.id} value={c.id}>
+                  {c.name?.trim() ||
+                    `キュー ${i + 1}（${c.tStartSec.toFixed(1)}–${c.tEndSec.toFixed(1)}s）`}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {selectedCueId ? (
             <div style={{ display: "flex", gap: 6 }}>
-              {(
-                [
-                  { id: "global" as const, label: "全体" },
-                  { id: "cue" as const, label: "このキューだけ" },
-                ] as const
-              ).map((opt) => {
-                const active =
-                  opt.id === "cue" ? scopeIsCue : !scopeIsCue;
-                const cueMissing = opt.id === "cue" && !selectedCueId;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    disabled={disabled || cueMissing}
-                    title={
-                      cueMissing
-                        ? "タイムラインでキューを選んでください"
-                        : undefined
-                    }
-                    onClick={() => {
-                      if (opt.id === "global") {
-                        updateLights(
-                          patchLight(lights, selected.id, { cueId: null })
-                        );
-                      } else if (selectedCueId) {
-                        updateLights(
-                          patchLight(lights, selected.id, {
-                            cueId: selectedCueId,
-                            tStartSec: null,
-                            tEndSec: null,
-                          })
-                        );
-                      }
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: "7px 8px",
-                      borderRadius: 8,
-                      border: active
-                        ? "1px solid rgba(251,191,36,0.7)"
-                        : "1px solid #334155",
-                      background: active
-                        ? "rgba(251,191,36,0.14)"
-                        : "#0f172a",
-                      color: cueMissing ? "#64748b" : "#e2e8f0",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      cursor:
-                        disabled || cueMissing ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
+              <button
+                type="button"
+                disabled={disabled || selected.cueId === selectedCueId}
+                onClick={() => assignCue(selected.id, selectedCueId)}
+                style={{
+                  flex: 1,
+                  padding: "7px 8px",
+                  borderRadius: 8,
+                  border:
+                    selected.cueId === selectedCueId
+                      ? "1px solid rgba(251,191,36,0.7)"
+                      : "1px solid #334155",
+                  background:
+                    selected.cueId === selectedCueId
+                      ? "rgba(251,191,36,0.14)"
+                      : "#0f172a",
+                  color: "#e2e8f0",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor:
+                    disabled || selected.cueId === selectedCueId
+                      ? "default"
+                      : "pointer",
+                }}
+              >
+                このキューだけ
+              </button>
+              <button
+                type="button"
+                disabled={disabled || !selected.cueId}
+                onClick={() => assignCue(selected.id, null)}
+                style={{
+                  flex: 1,
+                  padding: "7px 8px",
+                  borderRadius: 8,
+                  border: !selected.cueId
+                    ? "1px solid rgba(251,191,36,0.7)"
+                    : "1px solid #334155",
+                  background: !selected.cueId
+                    ? "rgba(251,191,36,0.14)"
+                    : "#0f172a",
+                  color: "#e2e8f0",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor:
+                    disabled || !selected.cueId ? "default" : "pointer",
+                }}
+              >
+                全体にする
+              </button>
             </div>
-            {scopeIsCue ? (
-              <div style={{ marginTop: 6, fontSize: 10, color: "#94a3b8" }}>
-                紐づけ: {cueLabel(cues, selected.cueId)}
-                {selectedCueId && selected.cueId !== selectedCueId ? (
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() =>
-                      updateLights(
-                        patchLight(lights, selected.id, {
-                          cueId: selectedCueId,
-                          tStartSec: null,
-                          tEndSec: null,
-                        })
-                      )
-                    }
-                    style={{
-                      marginLeft: 8,
-                      padding: "2px 6px",
-                      borderRadius: 4,
-                      border: "1px solid #475569",
-                      background: "#0f172a",
-                      color: "#cbd5e1",
-                      fontSize: 10,
-                      cursor: disabled ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    今のキューに付け替え
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          ) : null}
+
+          {!scopeIsCue ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <label style={{ fontSize: 11, color: "#94a3b8" }}>
+                開始秒（空＝先頭）
+                <input
+                  type="number"
+                  disabled={disabled}
+                  min={0}
+                  step={0.1}
+                  value={selected.tStartSec ?? ""}
+                  placeholder="常時"
+                  onChange={(e) => {
+                    const raw = e.target.value.trim();
+                    updateLights(
+                      patchLight(lights, selected.id, {
+                        tStartSec:
+                          raw === "" ? null : Math.max(0, Number(raw) || 0),
+                      })
+                    );
+                  }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    marginTop: 4,
+                    padding: 8,
+                    borderRadius: 8,
+                    border: "1px solid #334155",
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                  }}
+                />
+              </label>
+              <label style={{ fontSize: 11, color: "#94a3b8" }}>
+                終了秒（空＝末尾）
+                <input
+                  type="number"
+                  disabled={disabled}
+                  min={0}
+                  step={0.1}
+                  value={selected.tEndSec ?? ""}
+                  placeholder="常時"
+                  onChange={(e) => {
+                    const raw = e.target.value.trim();
+                    updateLights(
+                      patchLight(lights, selected.id, {
+                        tEndSec:
+                          raw === "" ? null : Math.max(0, Number(raw) || 0),
+                      })
+                    );
+                  }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    marginTop: 4,
+                    padding: 8,
+                    borderRadius: 8,
+                    border: "1px solid #334155",
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                  }}
+                />
+              </label>
+            </div>
+          ) : (
+            <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>
+              紐づけキュー（{cueLabel(cues, selected.cueId)}
+              ）の時間帯に合わせて点灯します。
+            </p>
+          )}
 
           <label style={{ fontSize: 11, color: "#94a3b8" }}>
             種類
@@ -679,75 +892,6 @@ export function StageLightingSettingsPanel({
               style={{ display: "block", width: "100%", marginTop: 6 }}
             />
           </label>
-
-          {!scopeIsCue ? (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <label style={{ fontSize: 11, color: "#94a3b8" }}>
-                開始秒（空＝先頭）
-                <input
-                  type="number"
-                  disabled={disabled}
-                  min={0}
-                  step={0.1}
-                  value={selected.tStartSec ?? ""}
-                  placeholder="常時"
-                  onChange={(e) => {
-                    const raw = e.target.value.trim();
-                    updateLights(
-                      patchLight(lights, selected.id, {
-                        tStartSec:
-                          raw === "" ? null : Math.max(0, Number(raw) || 0),
-                      })
-                    );
-                  }}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    marginTop: 4,
-                    padding: 8,
-                    borderRadius: 8,
-                    border: "1px solid #334155",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                  }}
-                />
-              </label>
-              <label style={{ fontSize: 11, color: "#94a3b8" }}>
-                終了秒（空＝末尾）
-                <input
-                  type="number"
-                  disabled={disabled}
-                  min={0}
-                  step={0.1}
-                  value={selected.tEndSec ?? ""}
-                  placeholder="常時"
-                  onChange={(e) => {
-                    const raw = e.target.value.trim();
-                    updateLights(
-                      patchLight(lights, selected.id, {
-                        tEndSec:
-                          raw === "" ? null : Math.max(0, Number(raw) || 0),
-                      })
-                    );
-                  }}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    marginTop: 4,
-                    padding: 8,
-                    borderRadius: 8,
-                    border: "1px solid #334155",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                  }}
-                />
-              </label>
-            </div>
-          ) : (
-            <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>
-              このキューの時間帯に合わせて自動で点灯します。
-            </p>
-          )}
 
           <button
             type="button"

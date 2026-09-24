@@ -3964,9 +3964,16 @@ export function StageBoardBody({
     () =>
       activeStageLightsAtTime(project.stageLights, currentTimeSec, {
         cues: project.cues,
-        focusCueId: editCueId,
+        // 編集中のみ選択キューの照明を優先表示。再生中はキュー時間帯どおり。
+        focusCueId: playbackOrPreview ? null : editCueId,
       }),
-    [project.stageLights, project.cues, currentTimeSec, editCueId]
+    [
+      project.stageLights,
+      project.cues,
+      currentTimeSec,
+      editCueId,
+      playbackOrPreview,
+    ]
   );
   const stageHesoVisible = project.stageHesoVisible === true;
   const sleeveEditable =

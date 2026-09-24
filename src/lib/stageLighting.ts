@@ -246,7 +246,8 @@ export type ActiveStageLightsOptions = {
 
 /**
  * 現在時刻（と任意でフォーカス中キュー）で点灯中の照明。
- * - cueId あり → そのキュー区間内、または focusCueId 一致時
+ * - cueId あり + focusCueId あり → そのキューの灯だけ（他キューは時間内でも出さない）
+ * - cueId あり + focus なし → キューの時間帯内
  * - cueId なし → tStart/tEnd（全体）
  */
 export function activeStageLightsAtTime(
@@ -265,11 +266,12 @@ export function activeStageLightsAtTime(
     if (L.enabled === false) return false;
 
     if (L.cueId) {
-      const cue = cueById?.get(L.cueId);
-      if (!cue) {
-        return focusCueId != null && focusCueId === L.cueId;
+      // 編集フォーカス中は「選択キューの灯」だけ（全体は別扱い）
+      if (focusCueId != null) {
+        return L.cueId === focusCueId;
       }
-      if (focusCueId != null && focusCueId === L.cueId) return true;
+      const cue = cueById?.get(L.cueId);
+      if (!cue) return false;
       return tSec + 1e-9 >= cue.tStartSec && tSec - 1e-9 <= cue.tEndSec;
     }
 

@@ -59,23 +59,33 @@ describe("stageLighting / architecture guides", () => {
       id: "cueL",
       cueId: "c1",
     };
+    const cue2 = {
+      ...createDefaultStageLight("pinSpot"),
+      id: "cue2L",
+      cueId: "c2",
+    };
     const global = {
       ...createDefaultStageLight("backlight"),
       id: "g",
       cueId: null,
     };
     expect(
-      activeStageLightsAtTime([cueLight, global], 5, { cues }).map((L) => L.id)
+      activeStageLightsAtTime([cueLight, cue2, global], 5, { cues }).map(
+        (L) => L.id
+      )
     ).toEqual(["cueL", "g"]);
     expect(
-      activeStageLightsAtTime([cueLight, global], 15, { cues }).map((L) => L.id)
-    ).toEqual(["g"]);
+      activeStageLightsAtTime([cueLight, cue2, global], 15, { cues }).map(
+        (L) => L.id
+      )
+    ).toEqual(["cue2L", "g"]);
+    // フォーカス中は選択キューの灯＋全体のみ（他キューは時間内でも出さない）
     expect(
-      activeStageLightsAtTime([cueLight, global], 15, {
+      activeStageLightsAtTime([cueLight, cue2, global], 5, {
         cues,
-        focusCueId: "c1",
+        focusCueId: "c2",
       }).map((L) => L.id)
-    ).toEqual(["cueL", "g"]);
+    ).toEqual(["cue2L", "g"]);
   });
 
   it("resolveLightAxes supports circle aspect correction", () => {
