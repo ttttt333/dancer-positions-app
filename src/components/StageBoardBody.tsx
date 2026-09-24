@@ -57,6 +57,7 @@ import {
   normalizeStageSleeveCurtains,
 } from "../lib/stageSleeveCurtains";
 import { StageSleeveCurtainOverlay } from "./StageSleeveCurtainOverlay";
+import { StageLightingOverlay } from "./StageLightingOverlay";
 import { activeStageLightsAtTime } from "../lib/stageLighting";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import {
@@ -236,6 +237,9 @@ export function StageBoardBody({
   onCreateNextCue,
   editCueId = null,
   onSleeveCurtainsChange,
+  onStageLightsChange,
+  selectedStageLightId = null,
+  onSelectStageLightId,
 }: StageBoardBodyProps) {
   const {
     isPlaying,
@@ -3957,8 +3961,12 @@ export function StageBoardBody({
     [sleeveCurtains, stageDepthMm, stageWidthMm, sideStageMm]
   );
   const activeStageLights = useMemo(
-    () => activeStageLightsAtTime(project.stageLights, currentTimeSec),
-    [project.stageLights, currentTimeSec]
+    () =>
+      activeStageLightsAtTime(project.stageLights, currentTimeSec, {
+        cues: project.cues,
+        focusCueId: editCueId,
+      }),
+    [project.stageLights, project.cues, currentTimeSec, editCueId]
   );
   const stageHesoVisible = project.stageHesoVisible === true;
   const sleeveEditable =
@@ -3967,6 +3975,10 @@ export function StageBoardBody({
     Boolean(onSleeveCurtainsChange) &&
     typeof stageDepthMm === "number" &&
     stageDepthMm > 0;
+  const stageLightsEditable =
+    viewMode !== "view" &&
+    !playbackOrPreview &&
+    Boolean(onStageLightsChange);
 
   const mainFloorStyle: CSSProperties = useMemo(
     () => ({
@@ -5413,21 +5425,49 @@ export function StageBoardBody({
         depthRankSelectedB: rankPickB,
         onDepthRankSelect: toggleRankPick,
       },
-      architectureInteractiveOverlay:
-        sleeveMarks.length > 0 &&
-        typeof stageDepthMm === "number" &&
-        typeof stageWidthMm === "number" ? (
-          <StageSleeveCurtainOverlay
-            marks={sleeveMarks}
-            curtains={sleeveCurtains}
-            stageDepthMm={stageDepthMm}
-            stageWidthMm={stageWidthMm}
-            sideStageMm={typeof sideStageMm === "number" ? sideStageMm : 0}
-            floorRef={stageMainFloorRef}
-            editable={sleeveEditable}
-            onChangeCurtains={(next) => onSleeveCurtainsChange?.(next)}
-          />
-        ) : null,
+      architectureInteractiveOverlay: (() => {
+        const sleeve =
+          sleeveMarks.length > 0 &&
+          typeof stageDepthMm === "number" &&
+          typeof stageWidthMm === "number" ? (
+            <StageSleeveCurtainOverlay
+              marks={sleeveMarks}
+              curtains={sleeveCurtains}
+              stageDepthMm={stageDepthMm}
+              stageWidthMm={stageWidthMm}
+              sideStageMm={typeof sideStageMm === "number" ? sideStageMm : 0}
+              floorRef={stageMainFloorRef}
+              editable={sleeveEditable}
+              onChangeCurtains={(next) => onSleeveCurtainsChange?.(next)}
+            />
+          ) : null;
+        const lightsEdit =
+          stageLightsEditable && activeStageLights.length > 0 ? (
+            <StageLightingOverlay
+              lights={activeStageLights}
+              handlesOnly
+              editable
+              selectedId={selectedStageLightId}
+              onSelectId={onSelectStageLightId}
+              onChangeLights={(nextActive) => {
+                if (!onStageLightsChange) return;
+                const byId = new Map(nextActive.map((L) => [L.id, L]));
+                const merged = (project.stageLights ?? []).map(
+                  (L) => byId.get(L.id) ?? L
+                );
+                onStageLightsChange(merged);
+              }}
+              floorRef={stageMainFloorRef}
+            />
+          ) : null;
+        if (!sleeve && !lightsEdit) return null;
+        return (
+          <>
+            {sleeve}
+            {lightsEdit}
+          </>
+        );
+      })(),
     } satisfies BuildStageBoardExportColumnInput);
 
   // 移動軌跡: 動線表示トグル ON のときのみ（選択中の自動点線は出さない）

@@ -10,6 +10,7 @@ import type {
   Formation,
   SetPiece,
   StageFloorMarkup,
+  StageLightFixture,
   StageSleeveCurtain,
 } from "../types/choreography";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
@@ -167,6 +168,10 @@ export type StageBoardBodyProps = {
   enablePinchViewport?: boolean;
   /** そで幕の奥行をステージ上ドラッグで変えたとき */
   onSleeveCurtainsChange?: (curtains: StageSleeveCurtain[]) => void;
+  /** 照明をステージ上で動かした／大きさを変えたとき */
+  onStageLightsChange?: (lights: StageLightFixture[]) => void;
+  selectedStageLightId?: string | null;
+  onSelectStageLightId?: (id: string | null) => void;
 };
 
 export type { BuildStageBoardExportColumnInput } from "../lib/buildStageBoardExportColumnProps";

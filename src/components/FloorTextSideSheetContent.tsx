@@ -41,6 +41,9 @@ export type FloorTextSideSheetContentProps = {
   setProject?: Dispatch<SetStateAction<ChoreographyProjectJson>>;
   currentTimeSec?: number;
   viewOnly?: boolean;
+  selectedCueId?: string | null;
+  selectedLightId?: string | null;
+  onSelectLightId?: (id: string | null) => void;
 };
 
 export function FloorTextSideSheetContent({
@@ -56,6 +59,9 @@ export function FloorTextSideSheetContent({
   setProject,
   currentTimeSec = 0,
   viewOnly = false,
+  selectedCueId = null,
+  selectedLightId = null,
+  onSelectLightId,
 }: FloorTextSideSheetContentProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -207,6 +213,14 @@ export function FloorTextSideSheetContent({
             project={project}
             setProject={setProject}
             currentTimeSec={currentTimeSec}
+            selectedCueId={selectedCueId}
+            selectedCue={
+              selectedCueId
+                ? (project.cues.find((c) => c.id === selectedCueId) ?? null)
+                : null
+            }
+            selectedLightId={selectedLightId}
+            onSelectLightId={onSelectLightId}
           />
         ) : (
           <>

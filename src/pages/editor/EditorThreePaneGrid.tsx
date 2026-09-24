@@ -114,6 +114,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const onSplitPointerDown = props.onSplitPointerDown as never;
   const onSplitPointerMove = props.onSplitPointerMove as never;
   const onSleeveCurtainsChange = props.onSleeveCurtainsChange as never;
+  const onStageLightsChange = props.onStageLightsChange as never;
+  const selectedStageLightId = props.selectedStageLightId as never;
+  const setSelectedStageLightId = props.setSelectedStageLightId as never;
   const onTopDockResizeDoubleClick = props.onTopDockResizeDoubleClick as never;
   const onTopDockResizeDown = props.onTopDockResizeDown as never;
   const onTopDockResizeMove = props.onTopDockResizeMove as never;
@@ -1136,6 +1139,21 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       choreoPublicView || project.viewMode === "view"
                         ? undefined
                         : onSleeveCurtainsChange
+                    }
+                    onStageLightsChange={
+                      choreoPublicView || project.viewMode === "view"
+                        ? undefined
+                        : onStageLightsChange
+                    }
+                    selectedStageLightId={
+                      typeof selectedStageLightId === "string"
+                        ? selectedStageLightId
+                        : null
+                    }
+                    onSelectStageLightId={
+                      typeof setSelectedStageLightId === "function"
+                        ? setSelectedStageLightId
+                        : undefined
                     }
                   />
                 )}

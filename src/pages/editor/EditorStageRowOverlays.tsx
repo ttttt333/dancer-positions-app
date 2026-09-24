@@ -206,6 +206,13 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const scale = props.scale as never;
   const selectedCue = props.selectedCue as never;
   const selectedCueId = props.selectedCueId as never;
+  const selectedStageLightId = props.selectedStageLightId as
+    | string
+    | null
+    | undefined;
+  const setSelectedStageLightId = props.setSelectedStageLightId as
+    | ((id: string | null) => void)
+    | undefined;
   const serverId = props.serverId as never;
   const setAddCueDialogOpen = props.setAddCueDialogOpen as never;
   const setAiSuggestOpen = props.setAiSuggestOpen as never;
@@ -2140,6 +2147,15 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             setProject={setProjectSafe}
             currentTimeSec={currentTime}
             viewOnly={project?.viewMode === "view"}
+            selectedCueId={
+              typeof selectedCueId === "string" ? selectedCueId : null
+            }
+            selectedLightId={
+              typeof selectedStageLightId === "string"
+                ? selectedStageLightId
+                : null
+            }
+            onSelectLightId={setSelectedStageLightId}
           />
         </EditorSideSheet>
       ) : null}

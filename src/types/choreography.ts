@@ -183,7 +183,7 @@ export type StageLightKind =
 
 /**
  * 舞台上の照明フィクスチャ。
- * 時間帯（tStart〜tEnd）内だけ指定色・濃さで床に重ね表示する。
+ * 時間帯（tStart〜tEnd）内、または紐づくキューの区間内だけ色・濃さを床に重ねる。
  */
 export type StageLightFixture = {
   id: string;
@@ -196,9 +196,18 @@ export type StageLightFixture = {
   color: string;
   /** 0〜1。床への色の濃さ */
   intensity: number;
-  /** 有効開始秒。null/省略 = 先頭から */
+  /**
+   * ビーム半径（メイン床幅に対する %）。未指定時は種類ごとの既定。
+   */
+  radiusPct?: number;
+  /**
+   * 紐づくキュー ID。未指定／null = 全体（全キュー共通）。
+   * 指定時はそのキュー区間でのみ点灯（全体の tStart/tEnd は使わない）。
+   */
+  cueId?: string | null;
+  /** 有効開始秒。null/省略 = 先頭から（全体スコープ時） */
   tStartSec?: number | null;
-  /** 有効終了秒。null/省略 = 末尾まで */
+  /** 有効終了秒。null/省略 = 末尾まで（全体スコープ時） */
   tEndSec?: number | null;
   enabled?: boolean;
 };

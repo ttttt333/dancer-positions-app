@@ -1,4 +1,4 @@
-import type { StageLightFixture, StageLightKind } from "../types/choreography";
+import type { Cue, StageLightFixture, StageLightKind } from "../types/choreography";
 
 /** 客席側（y=100）からの距離 mm → メイン床 yPct（下が客席の正規座標） */
 export function yPctFromFrontMm(
@@ -53,6 +53,28 @@ function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v));
 }
 
+/** 種類ごとの既定ビーム半径（メイン床 %） */
+export function defaultRadiusPctForKind(kind: StageLightKind): number {
+  switch (kind) {
+    case "pinSpot":
+      return 8;
+    case "suspension":
+      return 22;
+    case "footlight":
+    case "backlight":
+      return 28;
+    default:
+      return 16;
+  }
+}
+
+export function resolveLightRadiusPct(L: StageLightFixture): number {
+  if (typeof L.radiusPct === "number" && Number.isFinite(L.radiusPct)) {
+    return Math.max(3, Math.min(55, L.radiusPct));
+  }
+  return defaultRadiusPctForKind(L.kind);
+}
+
 export function createDefaultStageLight(
   kind: StageLightKind = "sideSpot"
 ): StageLightFixture {
@@ -75,6 +97,8 @@ export function createDefaultStageLight(
     yPct: p.yPct,
     color: p.color,
     intensity: p.intensity,
+    radiusPct: defaultRadiusPctForKind(kind),
+    cueId: null,
     tStartSec: null,
     tEndSec: null,
     enabled: true,
@@ -114,6 +138,14 @@ export function normalizeStageLights(raw: unknown): StageLightFixture[] {
       typeof o.intensity === "number" && Number.isFinite(o.intensity)
         ? clamp01(o.intensity)
         : 0.35;
+    const radiusPct =
+      typeof o.radiusPct === "number" && Number.isFinite(o.radiusPct)
+        ? Math.max(3, Math.min(55, o.radiusPct))
+        : undefined;
+    const cueId =
+      typeof o.cueId === "string" && o.cueId.trim()
+        ? o.cueId.trim().slice(0, 64)
+        : null;
     const tStartSec =
       typeof o.tStartSec === "number" && Number.isFinite(o.tStartSec)
         ? Math.max(0, o.tStartSec)
@@ -133,6 +165,8 @@ export function normalizeStageLights(raw: unknown): StageLightFixture[] {
       yPct,
       color,
       intensity,
+      ...(radiusPct != null ? { radiusPct } : {}),
+      cueId,
       tStartSec,
       tEndSec,
       enabled: o.enabled === false ? false : true,
@@ -142,14 +176,47 @@ export function normalizeStageLights(raw: unknown): StageLightFixture[] {
   return out;
 }
 
-/** 現在時刻で点灯中の照明 */
+export type StageLightCueBound = Pick<Cue, "id" | "tStartSec" | "tEndSec">;
+
+export type ActiveStageLightsOptions = {
+  /** キュー紐づけ照明の判定用 */
+  cues?: readonly StageLightCueBound[] | null;
+  /**
+   * 編集中のキュー。指定時はそのキュー紐づけ照明を時間外でも表示する。
+   */
+  focusCueId?: string | null;
+};
+
+/**
+ * 現在時刻（と任意でフォーカス中キュー）で点灯中の照明。
+ * - cueId あり → そのキュー区間内、または focusCueId 一致時
+ * - cueId なし → tStart/tEnd（全体）
+ */
 export function activeStageLightsAtTime(
   lights: readonly StageLightFixture[] | null | undefined,
-  tSec: number
+  tSec: number,
+  options?: ActiveStageLightsOptions
 ): StageLightFixture[] {
   if (!lights?.length || !Number.isFinite(tSec)) return [];
+  const cues = options?.cues ?? null;
+  const cueById = cues
+    ? new Map(cues.map((c) => [c.id, c] as const))
+    : null;
+  const focusCueId = options?.focusCueId ?? null;
+
   return lights.filter((L) => {
     if (L.enabled === false) return false;
+
+    if (L.cueId) {
+      const cue = cueById?.get(L.cueId);
+      if (!cue) {
+        // キュー一覧が無い／削除済み: フォーカス一致時のみ残す
+        return focusCueId != null && focusCueId === L.cueId;
+      }
+      if (focusCueId != null && focusCueId === L.cueId) return true;
+      return tSec + 1e-9 >= cue.tStartSec && tSec - 1e-9 <= cue.tEndSec;
+    }
+
     const a = L.tStartSec;
     const b = L.tEndSec;
     if (a != null && tSec + 1e-9 < a) return false;

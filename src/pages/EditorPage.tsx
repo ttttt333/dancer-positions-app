@@ -209,7 +209,7 @@ import {
   type StageAreaSettingsDraft,
 } from "./editor/stageAreaSettingsDraft";
 import { sleeveCurtainsToDepthsMm } from "../lib/stageSleeveCurtains";
-import type { StageSleeveCurtain } from "../types/choreography";
+import type { StageLightFixture, StageSleeveCurtain } from "../types/choreography";
 import { useEditorProjectLoader } from "../hooks/useEditorProjectLoader";
 import { useEditorHistory } from "../hooks/useEditorHistory";
 import { useEditorCloudSave } from "../hooks/useEditorCloudSave";
@@ -1588,6 +1588,18 @@ function EditorPageContent({
       }));
     },
     [project, setProjectSafe, stageAreaSettingsOpen]
+  );
+
+  const [selectedStageLightId, setSelectedStageLightId] = useState<
+    string | null
+  >(null);
+
+  const onStageLightsChange = useCallback(
+    (lights: StageLightFixture[]) => {
+      if (!project || project.viewMode === "view") return;
+      setProjectSafe((p) => ({ ...p, stageLights: lights }));
+    },
+    [project, setProjectSafe]
   );
 
   useEffect(() => {
@@ -2976,6 +2988,9 @@ function EditorPageContent({
     onSplitPointerDown,
     onSplitPointerMove,
     onSleeveCurtainsChange,
+    onStageLightsChange,
+    selectedStageLightId,
+    setSelectedStageLightId,
     onTopDockResizeDoubleClick,
     onTopDockResizeDown,
     onTopDockResizeMove,
