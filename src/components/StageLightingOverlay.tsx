@@ -22,7 +22,27 @@ export type StageLightingOverlayProps = {
   floorRef?: RefObject<HTMLElement | null>;
 };
 
+const LIGHT_COLOR_SWATCHES = [
+  "#ffffff",
+  "#fef08a",
+  "#fb923c",
+  "#f87171",
+  "#f472b6",
+  "#c084fc",
+  "#60a5fa",
+  "#34d399",
+  "#a3e635",
+  "#fcd34d",
+] as const;
+
 type DragMode = "move" | "rx" | "ry" | "intensity";
+
+type LightContextMenu = {
+  id: string;
+  /** メニュー左上の床 % */
+  xPct: number;
+  yPct: number;
+};
 
 /**
  * 点灯中の照明を床に重ねる。
@@ -49,6 +69,9 @@ export function StageLightingOverlay({
   } | null>(null);
   const [localSelected, setLocalSelected] = useState<string | null>(null);
   const [floorAspect, setFloorAspect] = useState(1);
+  const [contextMenu, setContextMenu] = useState<LightContextMenu | null>(
+    null
+  );
 
   useLayoutEffect(() => {
     const el = floorRef?.current;
@@ -73,6 +96,7 @@ export function StageLightingOverlay({
     (id: string | null) => {
       setLocalSelected(id);
       onSelectId?.(id);
+      if (id == null) setContextMenu(null);
     },
     [onSelectId]
   );
@@ -131,6 +155,7 @@ export function StageLightingOverlay({
         };
       })();
       if (!p) {
+        setContextMenu(null);
         select(null);
         return;
       }
@@ -141,7 +166,10 @@ export function StageLightingOverlay({
         const dy = (p.yPct - L.yPct) / ry;
         return dx * dx + dy * dy <= 1;
       });
-      if (!inside) select(null);
+      if (!inside) {
+        setContextMenu(null);
+        select(null);
+      }
     };
     floor.addEventListener("pointerdown", onDown, true);
     return () => floor.removeEventListener("pointerdown", onDown, true);
@@ -245,17 +273,20 @@ export function StageLightingOverlay({
     }
   };
 
-  const deleteSelected = () => {
-    if (!resolvedSelected) return;
-    const next = fullList.filter((L) => L.id !== resolvedSelected);
+  const deleteSelected = (id?: string) => {
+    const target = id ?? resolvedSelected;
+    if (!target) return;
+    const next = fullList.filter((L) => L.id !== target);
     replaceAll([...next]);
+    setContextMenu(null);
     select(null);
   };
 
-  const duplicateSelected = () => {
-    if (!resolvedSelected) return;
+  const duplicateSelected = (id?: string) => {
+    const target = id ?? resolvedSelected;
+    if (!target) return;
     if (fullList.length >= STAGE_LIGHTS_MAX) return;
-    const src = fullList.find((L) => L.id === resolvedSelected);
+    const src = fullList.find((L) => L.id === target);
     if (!src) return;
     const copy: StageLightFixture = {
       ...src,
@@ -265,7 +296,24 @@ export function StageLightingOverlay({
       yPct: Math.min(95, src.yPct + 4),
     };
     replaceAll([...fullList, copy]);
+    setContextMenu(null);
     select(copy.id);
+  };
+
+  const openContextMenu = (
+    e: React.MouseEvent,
+    id: string
+  ) => {
+    if (!editable && !handlesOnly) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const p = clientToPct(e.clientX, e.clientY);
+    select(id);
+    setContextMenu({
+      id,
+      xPct: p ? Math.min(78, Math.max(2, p.xPct)) : 50,
+      yPct: p ? Math.min(78, Math.max(2, p.yPct)) : 50,
+    });
   };
 
   if (!lights.length && !handlesOnly) return null;
@@ -349,8 +397,17 @@ export function StageLightingOverlay({
                   role="button"
                   tabIndex={-1}
                   aria-label={`${L.label ?? "照明"} を選択`}
-                  title={selected ? "ドラッグで移動" : "クリックで編集"}
-                  onPointerDown={(e) => onPointerDown(e, L.id, "move")}
+                  title={
+                    selected
+                      ? "ドラッグで移動 · 右クリックでメニュー"
+                      : "クリックで編集 · 右クリックでメニュー"
+                  }
+                  onPointerDown={(e) => {
+                    if (e.button === 2) return;
+                    setContextMenu(null);
+                    onPointerDown(e, L.id, "move");
+                  }}
+                  onContextMenu={(e) => openContextMenu(e, L.id)}
                   onPointerMove={onPointerMove}
                   onPointerUp={onPointerUp}
                   onPointerCancel={onPointerUp}
@@ -464,48 +521,117 @@ export function StageLightingOverlay({
                         position: "absolute",
                         left: `${L.xPct}%`,
                         top: `${L.yPct}%`,
-                        transform: "translate(-50%, calc(-50% - 28px))",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        padding: "3px 5px",
-                        borderRadius: 6,
-                        background: "rgba(15,23,42,0.92)",
-                        border: "1px solid #475569",
-                        pointerEvents: "auto",
-                        zIndex: 3,
+                        transform: "translate(-50%, calc(-50% - 22px))",
+                        padding: "2px 6px",
+                        borderRadius: 4,
+                        background: "rgba(15,23,42,0.85)",
+                        color: "#e2e8f0",
+                        fontSize: 9,
+                        fontWeight: 600,
                         whiteSpace: "nowrap",
+                        pointerEvents: "none",
+                        border: "1px solid #475569",
+                        zIndex: 2,
                       }}
-                      onPointerDown={(e) => e.stopPropagation()}
                     >
-                      <span
-                        style={{
-                          fontSize: 9,
-                          fontWeight: 600,
-                          color: "#e2e8f0",
-                          padding: "0 4px",
-                        }}
-                      >
-                        {L.shape === "circle" ? "丸" : "楕円"} {Math.round(rx)}×
-                        {Math.round(ry)} · {Math.round(L.intensity * 100)}%
-                      </span>
+                      {L.shape === "circle" ? "丸" : "楕円"} {Math.round(rx)}×
+                      {Math.round(ry)} · {Math.round(L.intensity * 100)}%
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            );
+          })}
+
+          {contextMenu
+            ? (() => {
+                const menuLight =
+                  lights.find((x) => x.id === contextMenu.id) ??
+                  fullList.find((x) => x.id === contextMenu.id) ??
+                  null;
+                if (!menuLight) return null;
+                return (
+                  <div
+                    data-stage-light-ui
+                    role="menu"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onContextMenu={(e) => e.preventDefault()}
+                    style={{
+                      position: "absolute",
+                      left: `${contextMenu.xPct}%`,
+                      top: `${contextMenu.yPct}%`,
+                      transform: "translate(4px, 4px)",
+                      minWidth: 168,
+                      padding: 8,
+                      borderRadius: 8,
+                      background: "rgba(15,23,42,0.96)",
+                      border: "1px solid #475569",
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+                      pointerEvents: "auto",
+                      zIndex: 20,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: "#94a3b8",
+                        marginBottom: 6,
+                      }}
+                    >
+                      色
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 5,
+                        marginBottom: 8,
+                      }}
+                    >
+                      {LIGHT_COLOR_SWATCHES.map((hex) => (
+                        <button
+                          key={hex}
+                          type="button"
+                          title={hex}
+                          aria-label={`色 ${hex}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            patch(menuLight.id, { color: hex });
+                          }}
+                          style={{
+                            width: 18,
+                            height: 18,
+                            margin: 0,
+                            padding: 0,
+                            borderRadius: 4,
+                            border:
+                              menuLight.color === hex
+                                ? "2px solid #fde68a"
+                                : "1px solid #475569",
+                            background: hex,
+                            cursor: "pointer",
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
                       <button
                         type="button"
-                        title="複製"
-                        aria-label="照明を複製"
                         disabled={fullList.length >= STAGE_LIGHTS_MAX}
                         onClick={(e) => {
                           e.stopPropagation();
-                          duplicateSelected();
+                          duplicateSelected(menuLight.id);
                         }}
                         style={{
+                          flex: 1,
                           margin: 0,
-                          padding: "2px 7px",
-                          borderRadius: 4,
+                          padding: "6px 8px",
+                          borderRadius: 6,
                           border: "1px solid #475569",
                           background: "#1e293b",
                           color: "#e2e8f0",
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: 700,
                           cursor:
                             fullList.length >= STAGE_LIGHTS_MAX
@@ -517,20 +643,19 @@ export function StageLightingOverlay({
                       </button>
                       <button
                         type="button"
-                        title="削除"
-                        aria-label="照明を削除"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteSelected();
+                          deleteSelected(menuLight.id);
                         }}
                         style={{
+                          flex: 1,
                           margin: 0,
-                          padding: "2px 7px",
-                          borderRadius: 4,
+                          padding: "6px 8px",
+                          borderRadius: 6,
                           border: "1px solid rgba(248,113,113,0.5)",
                           background: "rgba(127,29,29,0.45)",
                           color: "#fecaca",
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: 700,
                           cursor: "pointer",
                         }}
@@ -538,11 +663,10 @@ export function StageLightingOverlay({
                         削除
                       </button>
                     </div>
-                  </>
-                ) : null}
-              </div>
-            );
-          })}
+                  </div>
+                );
+              })()
+            : null}
         </>
       ) : null}
     </div>
