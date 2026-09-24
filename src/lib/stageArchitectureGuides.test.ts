@@ -28,19 +28,19 @@ describe("stageSleeveCurtains", () => {
     expect(curtains.map((c) => c.depthMm)).toEqual([2000, 4000]);
   });
 
-  it("buildSleeveCurtainMarksFromCurtains extends to configured inset length", () => {
+  it("buildSleeveCurtainMarksFromCurtains extends into side space", () => {
     const curtains = [
-      { ...createDefaultSleeveCurtain(2000, "袖"), insetMm: 2000 },
+      { ...createDefaultSleeveCurtain(2000, "袖"), insetMm: 3000 },
     ];
-    const marks = buildSleeveCurtainMarksFromCurtains(curtains, 10_000, 16_000);
-    expect(marks).toHaveLength(1);
-    // 2m / 16m = 12.5%（旧 18% 上限では切り捨てられなかったが、長い設定でも伸びる）
-    expect(marks[0]!.insetPct).toBeCloseTo(12.5, 1);
-    const long = buildSleeveCurtainMarksFromCurtains(
-      [{ ...curtains[0]!, insetMm: 4000 }],
+    // main 16m + side 2m → 3m inset = 18.75% of main width, overflow 12.5%
+    const marks = buildSleeveCurtainMarksFromCurtains(
+      curtains,
       10_000,
-      16_000
+      16_000,
+      2000
     );
-    expect(long[0]!.insetPct).toBeCloseTo(25, 1);
+    expect(marks).toHaveLength(1);
+    expect(marks[0]!.insetPct).toBeCloseTo(18.75, 1);
+    expect(marks[0]!.sideOverflowPct).toBeCloseTo(12.5, 1);
   });
 });

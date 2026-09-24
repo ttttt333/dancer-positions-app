@@ -89,25 +89,31 @@ export type SleeveCurtainMark = {
   depthMm: number;
   label: string;
   side: StageSleeveCurtainSide;
-  /** 端からの横長さ（ステージ幅に対する %） */
+  /** 端（そで外側を含む）からの横長さをメイン幅に対する % で表したもの */
   insetPct: number;
   insetMm: number;
+  /** メイン床端から外側へはみ出す量（メイン幅に対する %） */
+  sideOverflowPct: number;
 };
 
 export function buildSleeveCurtainMarksFromCurtains(
   curtains: readonly StageSleeveCurtain[] | null | undefined,
   stageDepthMm: number | null | undefined,
-  stageWidthMm: number | null | undefined
+  stageWidthMm: number | null | undefined,
+  sideStageMm: number | null | undefined = null
 ): SleeveCurtainMark[] {
   if (!curtains?.length || !(stageDepthMm && stageDepthMm > 0)) return [];
   const W = stageWidthMm && stageWidthMm > 0 ? stageWidthMm : 10_000;
+  const side = sideStageMm && sideStageMm > 0 ? sideStageMm : 0;
+  const sideOverflowPct = side > 0 ? (side / W) * 100 : 0;
+  // そでスペース＋メイン半幅まで伸ばせる
+  const maxInsetMm = side + W * 0.5;
   const out: SleeveCurtainMark[] = [];
   for (const c of curtains) {
     const yPct = yPctFromFrontMm(c.depthMm, stageDepthMm);
     if (yPct == null) continue;
-    const insetMm = c.insetMm ?? 450;
-    // 設定した横長さまで伸ばす（ステージ半分まで）。以前の 18% 上限は短すぎて見た目が伸びなかった。
-    const insetPct = Math.min(48, Math.max(1.2, (insetMm / W) * 100));
+    const insetMm = Math.min(maxInsetMm, Math.max(50, c.insetMm ?? 450));
+    const insetPct = Math.max(1.2, (insetMm / W) * 100);
     out.push({
       id: c.id,
       yPct,
@@ -116,6 +122,7 @@ export function buildSleeveCurtainMarksFromCurtains(
       side: c.side ?? "both",
       insetPct,
       insetMm,
+      sideOverflowPct,
     });
   }
   return out;

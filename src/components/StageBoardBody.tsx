@@ -3951,9 +3951,10 @@ export function StageBoardBody({
       buildSleeveCurtainMarksFromCurtains(
         sleeveCurtains,
         stageDepthMm,
-        stageWidthMm
+        stageWidthMm,
+        sideStageMm
       ),
-    [sleeveCurtains, stageDepthMm, stageWidthMm]
+    [sleeveCurtains, stageDepthMm, stageWidthMm, sideStageMm]
   );
   const activeStageLights = useMemo(
     () => activeStageLightsAtTime(project.stageLights, currentTimeSec),
@@ -5413,14 +5414,17 @@ export function StageBoardBody({
         onDepthRankSelect: toggleRankPick,
       },
       architectureInteractiveOverlay:
-        sleeveMarks.length > 0 && typeof stageDepthMm === "number" ? (
+        sleeveMarks.length > 0 &&
+        typeof stageDepthMm === "number" &&
+        typeof stageWidthMm === "number" ? (
           <StageSleeveCurtainOverlay
             marks={sleeveMarks}
             curtains={sleeveCurtains}
             stageDepthMm={stageDepthMm}
+            stageWidthMm={stageWidthMm}
+            sideStageMm={typeof sideStageMm === "number" ? sideStageMm : 0}
             floorRef={stageMainFloorRef}
             editable={sleeveEditable}
-            rot={rot}
             onChangeCurtains={(next) => onSleeveCurtainsChange?.(next)}
           />
         ) : null,

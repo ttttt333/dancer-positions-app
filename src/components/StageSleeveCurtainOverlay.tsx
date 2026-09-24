@@ -8,12 +8,15 @@ export type StageSleeveCurtainOverlayProps = {
   marks: readonly SleeveCurtainMark[];
   curtains: readonly StageSleeveCurtain[];
   stageDepthMm: number;
+  stageWidthMm: number;
+  /** 片側そでスペース mm。0 ならメイン床端から */
+  sideStageMm?: number;
   floorRef: RefObject<HTMLElement | null>;
   editable: boolean;
-  /** ステージ回転角（正立ラベル用） */
-  rot?: number;
   onChangeCurtains: (next: StageSleeveCurtain[]) => void;
 };
+
+type DragMode = "depth" | "length";
 
 function formatInsetLabel(mm: number): string {
   if (mm % 1000 === 0) return `${mm / 1000} m`;
@@ -22,69 +25,100 @@ function formatInsetLabel(mm: number): string {
 }
 
 /**
- * そで幕の表示＋奥行ドラッグ。左右袖を掴んで前後に動かせる。
- * ラベルは下手側に出し、横長さ（inset）は設定どおり端から伸ばす。
+ * そで幕の表示。
+ * - 本体ドラッグ: 奥行
+ * - 内側端ハンドル: 横の長さ（そでスペースがあるときは外側へも伸ばせる）
+ * 数字ラベルは出さず、右パネルで確認する。
  */
 export function StageSleeveCurtainOverlay({
   marks,
   curtains,
   stageDepthMm,
+  stageWidthMm,
+  sideStageMm = 0,
   floorRef,
   editable,
-  rot = 0,
   onChangeCurtains,
 }: StageSleeveCurtainOverlayProps) {
   const dragRef = useRef<{
     id: string;
     pointerId: number;
+    mode: DragMode;
+    side: "left" | "right";
   } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const yPctToDepthMm = useCallback(
-    (yPct: number) => {
-      const clamped = Math.max(0, Math.min(100, yPct));
-      return Math.round(((100 - clamped) / 100) * stageDepthMm);
-    },
-    [stageDepthMm]
+  const sideOverflowPct =
+    sideStageMm > 0 && stageWidthMm > 0
+      ? (sideStageMm / stageWidthMm) * 100
+      : 0;
+  const maxInsetMm = Math.max(
+    100,
+    Math.round(sideStageMm + stageWidthMm * 0.5)
   );
 
-  const clientToYPct = useCallback(
-    (clientY: number) => {
+  const clientToPct = useCallback(
+    (clientX: number, clientY: number) => {
       const el = floorRef.current;
       if (!el) return null;
       const r = el.getBoundingClientRect();
-      if (r.height < 1e-6) return null;
-      return ((clientY - r.top) / r.height) * 100;
+      if (r.width < 1e-6 || r.height < 1e-6) return null;
+      return {
+        xPct: ((clientX - r.left) / r.width) * 100,
+        yPct: ((clientY - r.top) / r.height) * 100,
+      };
     },
     [floorRef]
   );
 
-  const updateDepth = useCallback(
-    (id: string, depthMm: number) => {
-      const snapped = Math.round(depthMm / 50) * 50;
-      const nextMm = Math.max(100, Math.min(stageDepthMm - 50, snapped));
+  const patchCurtain = useCallback(
+    (id: string, patch: Partial<StageSleeveCurtain>) => {
       onChangeCurtains(
-        curtains.map((c) => (c.id === id ? { ...c, depthMm: nextMm } : c))
+        curtains.map((c) => (c.id === id ? { ...c, ...patch } : c))
       );
     },
-    [curtains, onChangeCurtains, stageDepthMm]
+    [curtains, onChangeCurtains]
   );
 
-  const onPointerDown = (e: React.PointerEvent, id: string) => {
+  const onPointerDown = (
+    e: React.PointerEvent,
+    id: string,
+    mode: DragMode,
+    side: "left" | "right"
+  ) => {
     if (!editable || e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = { id, pointerId: e.pointerId };
+    dragRef.current = { id, pointerId: e.pointerId, mode, side };
     setActiveId(id);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) return;
-    const yPct = clientToYPct(e.clientY);
-    if (yPct == null) return;
-    updateDepth(d.id, yPctToDepthMm(yPct));
+    const p = clientToPct(e.clientX, e.clientY);
+    if (!p) return;
+    if (d.mode === "depth") {
+      const depthMm = Math.round(((100 - Math.max(0, Math.min(100, p.yPct))) / 100) * stageDepthMm);
+      const snapped = Math.round(depthMm / 50) * 50;
+      patchCurtain(d.id, {
+        depthMm: Math.max(100, Math.min(stageDepthMm - 50, snapped)),
+      });
+      return;
+    }
+    // length: 内側端の位置から横長さを算出（そで側へは負の xPct まで含む）
+    let insetPct: number;
+    if (d.side === "left") {
+      insetPct = p.xPct + sideOverflowPct;
+    } else {
+      insetPct = 100 + sideOverflowPct - p.xPct;
+    }
+    const rawMm = (insetPct / 100) * stageWidthMm;
+    const snapped = Math.round(rawMm / 50) * 50;
+    patchCurtain(d.id, {
+      insetMm: Math.max(100, Math.min(maxInsetMm, snapped)),
+    });
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
@@ -100,7 +134,6 @@ export function StageSleeveCurtainOverlay({
   };
 
   if (marks.length === 0) return null;
-  const upright = ((rot % 360) + 360) % 360;
 
   return (
     <div
@@ -110,34 +143,26 @@ export function StageSleeveCurtainOverlay({
         inset: 0,
         pointerEvents: "none",
         zIndex: 3,
+        overflow: "visible",
       }}
     >
       {marks.map((m) => {
         const showLeft = m.side === "both" || m.side === "left";
         const showRight = m.side === "both" || m.side === "right";
         const active = activeId === m.id;
-        const thicknessPct = Math.max(1.4, Math.min(3.2, 2.2));
-        const handle = (side: "left" | "right") => (
-          <button
+        const thicknessPct = 2.2;
+        const bar = (side: "left" | "right") => (
+          <div
             key={`${m.id}-${side}`}
-            type="button"
-            aria-label={`${m.label}（${side === "left" ? "下手" : "上手"}） ${formatDepthMmLabel(m.depthMm)}・横 ${formatInsetLabel(m.insetMm)}。ドラッグで奥行調整`}
-            disabled={!editable}
-            onPointerDown={(e) => onPointerDown(e, m.id)}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
             style={{
               position: "absolute",
-              left: side === "left" ? 0 : undefined,
-              right: side === "right" ? 0 : undefined,
+              left: side === "left" ? `${-sideOverflowPct}%` : undefined,
+              right: side === "right" ? `${-sideOverflowPct}%` : undefined,
               top: `${m.yPct}%`,
               width: `${m.insetPct}%`,
               height: `${thicknessPct}%`,
               minHeight: 12,
               transform: "translateY(-50%)",
-              margin: 0,
-              padding: 0,
               border: active
                 ? "2px solid rgba(251, 113, 133, 1)"
                 : "1px solid rgba(251, 113, 133, 0.85)",
@@ -145,46 +170,68 @@ export function StageSleeveCurtainOverlay({
               background: active
                 ? "rgba(251, 113, 133, 0.55)"
                 : "rgba(251, 113, 133, 0.32)",
-              cursor: editable ? "ns-resize" : "default",
-              pointerEvents: editable ? "auto" : "none",
               boxShadow: active ? "0 0 12px rgba(251, 113, 133, 0.45)" : "none",
-              touchAction: "none",
+              pointerEvents: "none",
             }}
-          />
-        );
-        // ラベルは下手側（左端付近）。右袖のみのときは上手側へ。
-        const labelOnLeft = showLeft || !showRight;
-        return (
-          <div key={m.id}>
-            {showLeft ? handle("left") : null}
-            {showRight ? handle("right") : null}
-            <div
+          >
+            {/* 奥行ドラッグ（本体） */}
+            <button
+              type="button"
+              aria-label={`${m.label}（${side === "left" ? "下手" : "上手"}）奥行 ${formatDepthMmLabel(m.depthMm)}。上下ドラッグで奥行`}
+              disabled={!editable}
+              onPointerDown={(e) => onPointerDown(e, m.id, "depth", side)}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
               style={{
                 position: "absolute",
-                left: labelOnLeft ? "0.6%" : undefined,
-                right: labelOnLeft ? undefined : "0.6%",
-                top: `${m.yPct}%`,
-                transform: `translateY(-50%) rotate(${-upright}deg)`,
-                transformOrigin: labelOnLeft ? "left center" : "right center",
-                pointerEvents: "none",
-                fontSize: 9,
-                fontWeight: 700,
-                color: "#fda4af",
-                background: "rgba(15, 23, 42, 0.82)",
-                padding: "1px 5px",
-                borderRadius: 3,
-                whiteSpace: "nowrap",
-                border: "1px solid rgba(251, 113, 133, 0.4)",
-                maxWidth: "28%",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                zIndex: 4,
+                inset: 0,
+                margin: 0,
+                padding: 0,
+                border: "none",
+                background: "transparent",
+                cursor: editable ? "ns-resize" : "default",
+                pointerEvents: editable ? "auto" : "none",
+                touchAction: "none",
               }}
-              title={`${m.label} · ${formatDepthMmLabel(m.depthMm)} · 横 ${formatInsetLabel(m.insetMm)}`}
-            >
-              {m.label} ·{" "}
-              {formatDepthMmLabel(m.depthMm).replace(/^前から\s*/, "")}
-            </div>
+            />
+            {/* 横長さドラッグ（内側端） */}
+            <button
+              type="button"
+              aria-label={`${m.label} 横の長さ ${formatInsetLabel(m.insetMm)}。左右ドラッグで長さ`}
+              disabled={!editable}
+              onPointerDown={(e) => onPointerDown(e, m.id, "length", side)}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              title={`横 ${formatInsetLabel(m.insetMm)}`}
+              style={{
+                position: "absolute",
+                top: -4,
+                bottom: -4,
+                width: 10,
+                ...(side === "left"
+                  ? { right: -5 }
+                  : { left: -5 }),
+                margin: 0,
+                padding: 0,
+                border: "none",
+                borderRadius: 4,
+                background: editable
+                  ? "rgba(251, 113, 133, 0.85)"
+                  : "rgba(251, 113, 133, 0.4)",
+                cursor: editable ? "ew-resize" : "default",
+                pointerEvents: editable ? "auto" : "none",
+                touchAction: "none",
+                boxShadow: "0 0 0 1px rgba(15,23,42,0.5)",
+              }}
+            />
+          </div>
+        );
+        return (
+          <div key={m.id}>
+            {showLeft ? bar("left") : null}
+            {showRight ? bar("right") : null}
           </div>
         );
       })}

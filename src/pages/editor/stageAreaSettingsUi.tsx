@@ -18,12 +18,12 @@ import {
 import { useI18n } from "../../i18n/I18nContext";
 
 export const STAGE_AREA_SHEET_SECTION: CSSProperties = {
-  borderRadius: "10px",
+  borderRadius: "8px",
   border: "1px solid rgba(99,102,241,0.15)",
   background: "linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.5) 100%)",
   backdropFilter: "blur(6px)",
-  padding: "8px 10px",
-  marginBottom: "6px",
+  padding: "6px 8px",
+  marginBottom: "4px",
 };
 
 
@@ -62,12 +62,12 @@ const M_OPTIONS = Array.from({ length: 100 }, (_, i) => i); // 0..99
 const CM_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
 
 const selectStyle: CSSProperties = {
-  padding: "5px 4px",
-  borderRadius: "6px",
+  padding: "3px 2px",
+  borderRadius: "5px",
   border: "1px solid rgba(51,65,85,0.8)",
   background: "#0f172a",
   color: "#e2e8f0",
-  fontSize: "12px",
+  fontSize: "11px",
   outline: "none",
   cursor: "pointer",
 };
@@ -78,15 +78,15 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
   onChangeDraft,
 }: StageAreaDimensionRowsProps) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 8px", marginBottom: "6px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 6px", marginBottom: 0 }}>
       {STAGE_AREA_DIM_ROWS.map((row) => {
         const hasVal = draft[row.key].m !== "" || draft[row.key].cm !== "";
         return (
           <div key={row.key} style={row.key === "guide" ? { gridColumn: "1 / -1" } : {}}>
-            <div style={{ fontSize: "10px", color: "rgba(148,163,184,0.8)", marginBottom: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ fontSize: "9px", color: "rgba(148,163,184,0.8)", marginBottom: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {row.title}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "3px", minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "2px", minWidth: 0 }}>
               <select
                 disabled={disabled}
                 className="stage-area-dim-select"
@@ -101,8 +101,7 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                 style={{
                   ...selectStyle,
                   flex: "0 0 auto",
-                  width: "48px",
-                  padding: "5px 2px",
+                  width: "44px",
                   border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
                 }}
               >
@@ -111,7 +110,7 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                   <option key={v} value={String(v)}>{v}</option>
                 ))}
               </select>
-              <span style={{ fontSize: "10px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>m</span>
+              <span style={{ fontSize: "9px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>m</span>
               <select
                 disabled={disabled}
                 className="stage-area-dim-select"
@@ -126,8 +125,7 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                 style={{
                   ...selectStyle,
                   flex: "0 0 auto",
-                  width: "48px",
-                  padding: "5px 2px",
+                  width: "44px",
                   border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
                 }}
               >
@@ -136,7 +134,7 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                   <option key={v} value={String(v)}>{v}</option>
                 ))}
               </select>
-              <span style={{ fontSize: "10px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>cm</span>
+              <span style={{ fontSize: "9px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>cm</span>
             </div>
           </div>
         );
@@ -307,16 +305,14 @@ export const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingCo
     {
       key: "gridWidth" as const,
       title: "幅方向（センターから）",
-      hint: "縦グリッド線の間隔",
     },
     {
       key: "gridDepth" as const,
       title: "奥行方向（前から）",
-      hint: "前からの横グリッド線の間隔",
     },
   ];
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 6 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 6px", marginBottom: 0 }}>
       {rows.map((row) => {
         const val = draft[row.key];
         const hasVal = val.m !== "" || val.cm !== "";
@@ -324,14 +320,14 @@ export const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingCo
           <div key={row.key}>
             <div
               style={{
-                fontSize: 10,
+                fontSize: 9,
                 color: "rgba(148,163,184,0.8)",
-                marginBottom: 4,
+                marginBottom: 2,
               }}
             >
               {row.title}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 3, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 2, minWidth: 0 }}>
               <select
                 disabled={disabled}
                 className="stage-area-dim-select"
@@ -346,8 +342,7 @@ export const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingCo
                 style={{
                   ...selectStyle,
                   flex: "0 0 auto",
-                  width: 48,
-                  padding: "5px 2px",
+                  width: 44,
                   border: hasVal
                     ? "1px solid rgba(99,102,241,0.5)"
                     : "1px solid rgba(51,65,85,0.8)",
@@ -360,7 +355,7 @@ export const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingCo
                   </option>
                 ))}
               </select>
-              <span style={{ fontSize: 10, color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>
+              <span style={{ fontSize: 9, color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>
                 m
               </span>
               <select
@@ -377,8 +372,7 @@ export const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingCo
                 style={{
                   ...selectStyle,
                   flex: "0 0 auto",
-                  width: 48,
-                  padding: "5px 2px",
+                  width: 44,
                   border: hasVal
                     ? "1px solid rgba(99,102,241,0.5)"
                     : "1px solid rgba(51,65,85,0.8)",
@@ -391,11 +385,10 @@ export const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingCo
                   </option>
                 ))}
               </select>
-              <span style={{ fontSize: 10, color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>
+              <span style={{ fontSize: 9, color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>
                 cm
               </span>
             </div>
-            <div style={{ fontSize: 9, color: "#64748b", marginTop: 3 }}>{row.hint}</div>
           </div>
         );
       })}
@@ -440,13 +433,13 @@ export const StageAreaGridVisibilityToggles = memo(function StageAreaGridVisibil
     opacity: hasMainFloor ? 1 : 0.45,
   });
   return (
-    <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+    <div style={{ display: "flex", gap: "4px", marginTop: 0 }}>
       <button
         type="button"
         disabled={!canToggle}
         onClick={() => onChangeDraft((d) => ({ ...d, stageGridLinesVerticalEnabled: !verticalEnabled }))}
         title={t("editor.layout.gridVerticalTitle")}
-        style={toggleStyle(verticalEnabled)}
+        style={{ ...toggleStyle(verticalEnabled), padding: "5px 6px", fontSize: 10 }}
       >
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="12" y1="3" x2="12" y2="21" />
@@ -460,7 +453,7 @@ export const StageAreaGridVisibilityToggles = memo(function StageAreaGridVisibil
         disabled={!canToggle}
         onClick={() => onChangeDraft((d) => ({ ...d, stageGridLinesHorizontalEnabled: !horizontalEnabled }))}
         title={t("editor.layout.gridHorizontalTitle")}
-        style={toggleStyle(horizontalEnabled)}
+        style={{ ...toggleStyle(horizontalEnabled), padding: "5px 6px", fontSize: 10 }}
       >
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="3" y1="12" x2="21" y2="12" />

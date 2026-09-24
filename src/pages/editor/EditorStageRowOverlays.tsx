@@ -1006,16 +1006,16 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
           stageAreaSettingsOpen={stageAreaSettingsOpen}
           onClose={() => closeStageAreaSettings()}
         >
-          <div style={{ padding: "8px 12px 10px", display: "flex", flexDirection: "column", gap: 0 }}>
+          <div style={{ padding: "6px 10px 8px", display: "flex", flexDirection: "column", gap: 0 }}>
             {/* ── Header ── */}
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: 8, marginBottom: 8, paddingBottom: 8,
+              gap: 6, marginBottom: 4, paddingBottom: 4,
               borderBottom: "1px solid rgba(99,102,241,0.2)",
             }}>
               <h3 id="stage-area-settings-title" style={{
-                margin: 0, fontSize: 14, fontWeight: 700, color: "#e2e8f0",
-                display: "flex", alignItems: "center", gap: 8,
+                margin: 0, fontSize: 13, fontWeight: 700, color: "#e2e8f0",
+                display: "flex", alignItems: "center", gap: 6,
               }}>
                 <span style={{ color: "rgba(129,140,248,0.9)", display: "flex" }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1033,8 +1033,8 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             </div>
 
             {/* ── CARD A: ステージ寸法 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ ...STAGE_AREA_SHEET_SECTION }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 20L20 2M7 20l1.5-1.5M12 20l1.5-1.5M17 20l1.5-1.5M2 7l1.5-1.5M2 12l1.5-1.5M2 17l1.5-1.5"/></svg>
                 ステージ寸法
               </div>
@@ -1082,8 +1082,8 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             </div>
 
             {/* ── CARD B: グリッド・表示設定 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ ...STAGE_AREA_SHEET_SECTION }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
                 グリッド・表示
               </div>
@@ -1120,13 +1120,13 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 <div style={{ display: "flex", gap: 6 }} title={t("editor.layout.labelPickerHint")}>
                   {([
                     { val: "inside", label: "○の中", icon: (
-                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                      <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
                         <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="2"/>
                         <text x="16" y="21" textAnchor="middle" fontSize="13" fill="currentColor" fontWeight="700">A</text>
                       </svg>
                     )},
                     { val: "below", label: "○の外", icon: (
-                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                      <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
                         <circle cx="16" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
                         <text x="16" y="29" textAnchor="middle" fontSize="12" fill="currentColor" fontWeight="700">A</text>
                       </svg>
@@ -1147,15 +1147,13 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                           );
                         }}
                         style={{
-                          flex: 1, padding: "6px 8px", borderRadius: 8,
+                          flex: 1, padding: "4px 6px", borderRadius: 6,
                           border: active ? "1px solid rgba(99,102,241,0.8)" : "1px solid rgba(51,65,85,0.7)",
                           background: active ? "rgba(99,102,241,0.2)" : "rgba(15,23,42,0.5)",
                           color: active ? "#a5b4fc" : "rgba(148,163,184,0.6)",
-                          fontSize: 11, fontWeight: active ? 700 : 400,
+                          fontSize: 10, fontWeight: active ? 700 : 400,
                           cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
-                          display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                          transition: "all 0.15s",
-                          boxShadow: active ? "0 0 10px rgba(99,102,241,0.25)" : "none",
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
                         }}
                       >
                         {icon}
@@ -1167,21 +1165,15 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               </div>
 
               {/* ヘソ・そで幕 */}
-              <div style={{ borderTop: "1px solid rgba(51,65,85,0.6)", paddingTop: 8 }}>
-                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 6 }}>
-                  ヘソ・そで幕
-                </div>
-                <p style={{ margin: "0 0 8px", fontSize: 9, color: "#64748b", lineHeight: 1.4 }}>
-                  前からのグリッド線は上の「奥行方向（前から）」の間隔と、横線の表示で設定します。
-                </p>
+              <div style={{ borderTop: "1px solid rgba(51,65,85,0.5)", paddingTop: 4 }}>
                 <label
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 8,
-                    fontSize: 12,
+                    gap: 6,
+                    fontSize: 11,
                     color: "#e2e8f0",
-                    marginBottom: 10,
+                    marginBottom: 4,
                     cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
                   }}
                 >
@@ -1199,24 +1191,21 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   ヘソ（中央）を表示
                 </label>
 
-                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
-                  そで幕
+                <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 2 }}>
+                  そで幕 <span style={{ color: "#64748b" }}>（上で奥行／内側の点で横長さ。数字はパネルで確認）</span>
                 </div>
-                <p style={{ margin: "0 0 6px", fontSize: 9, color: "#64748b", lineHeight: 1.4 }}>
-                  追加したそで幕はステージ上でドラッグして奥行を調整できます。横の長さは端から設定どおり伸ばします。
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {stageAreaSettingsDraft.stageSleeves.map((sl, idx) => (
                     <div
                       key={sl.id}
                       style={{
-                        padding: 8,
-                        borderRadius: 8,
-                        border: "1px solid rgba(251,113,133,0.35)",
-                        background: "rgba(251,113,133,0.06)",
+                        padding: "5px 6px",
+                        borderRadius: 6,
+                        border: "1px solid rgba(251,113,133,0.3)",
+                        background: "rgba(251,113,133,0.05)",
                       }}
                     >
-                      <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                      <div style={{ display: "flex", gap: 4, marginBottom: 3, alignItems: "center" }}>
                         <input
                           type="text"
                           disabled={project.viewMode === "view"}
@@ -1233,8 +1222,8 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                           style={{
                             flex: 1,
                             minWidth: 0,
-                            padding: "4px 8px",
-                            borderRadius: 6,
+                            padding: "2px 6px",
+                            borderRadius: 4,
                             border: "1px solid #334155",
                             background: "#0f172a",
                             color: "#e2e8f0",
@@ -1252,12 +1241,12 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                           }
                           style={{
                             ...btnSecondary,
-                            padding: "4px 8px",
-                            fontSize: 11,
+                            padding: "2px 6px",
+                            fontSize: 10,
                           }}
                           title="削除"
                         >
-                          削除
+                          ×
                         </button>
                       </div>
                       <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 3 }}>
@@ -1466,10 +1455,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   }
                   style={{
                     ...btnSecondary,
-                    marginTop: 8,
+                    marginTop: 4,
                     width: "100%",
-                    padding: "7px 10px",
-                    fontSize: 11,
+                    padding: "5px 8px",
+                    fontSize: 10,
                     fontWeight: 600,
                   }}
                 >
@@ -1479,8 +1468,8 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             </div>
 
             {/* ── CARD C: プリセット・共有 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ ...STAGE_AREA_SHEET_SECTION }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                 プリセット・共有
               </div>
