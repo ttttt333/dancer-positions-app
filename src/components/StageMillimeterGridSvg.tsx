@@ -83,41 +83,24 @@ export function StageMillimeterGridSvg({
             }
           }
           if (stageGridLinesHorizontal) {
+            // 客席側（y=100%）から奥へ等間隔＝「前からのグリッド線」
             for (let k = 1; k <= MAX; k++) {
-              const off = k * stepY;
-              const b = 50 + off;
-              const t = 50 - off;
-              if (b > 100 + 1e-6 && t < -1e-6) break;
-              if (b <= 100 + 1e-6 && Math.abs(b - 50) > 0.02) {
-                const g = round2(Math.min(100, b));
-                nodes.push(
-                  <line
-                    key={`h+${k}-${sy}`}
-                    x1="0%"
-                    y1={`${g}%`}
-                    x2="100%"
-                    y2={`${g}%`}
-                    stroke="#475569"
-                    strokeWidth="0.42"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                );
-              }
-              if (t >= -1e-6 && Math.abs(t - 50) > 0.02) {
-                const g = round2(Math.max(0, t));
-                nodes.push(
-                  <line
-                    key={`h-${k}-${sy}`}
-                    x1="0%"
-                    y1={`${g}%`}
-                    x2="100%"
-                    y2={`${g}%`}
-                    stroke="#475569"
-                    strokeWidth="0.42"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                );
-              }
+              const y = 100 - k * stepY;
+              if (y < -1e-6) break;
+              if (y > 100 - 0.02) continue;
+              const g = round2(Math.max(0, Math.min(100, y)));
+              nodes.push(
+                <line
+                  key={`hf-${k}-${sy}`}
+                  x1="0%"
+                  y1={`${g}%`}
+                  x2="100%"
+                  y2={`${g}%`}
+                  stroke="#475569"
+                  strokeWidth="0.42"
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
             }
           }
           return nodes;

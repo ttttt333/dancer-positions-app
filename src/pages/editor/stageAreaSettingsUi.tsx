@@ -2,7 +2,6 @@ import {
   memo,
   type CSSProperties,
   type Dispatch,
-  type MutableRefObject,
   type ReactNode,
   type SetStateAction,
 } from "react";
@@ -295,139 +294,111 @@ export const StageAreaGridStepControl = memo(function StageAreaGridStepControl({
 
 type StageAreaGridSpacingControlsProps = {
   disabled: boolean;
-  gridWidthCmInput: string;
-  gridDepthCmInput: string;
-  onStageGridCmInput: (axis: "width" | "depth", raw: string) => void;
-  commitStageGridCmInput: (axis: "width" | "depth") => void;
-  startGridNudgeRepeat: (axis: "width" | "depth", delta: number) => void;
-  stopGridNudgeRepeat: () => void;
-  nudgeStageGridCm: (axis: "width" | "depth", delta: number) => void;
-  gridNudgeDidRepeatRef: MutableRefObject<boolean>;
+  draft: StageAreaSettingsDraft;
+  onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
 };
 
 export const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingControls({
   disabled,
-  gridWidthCmInput,
-  gridDepthCmInput,
-  onStageGridCmInput,
-  commitStageGridCmInput,
-  startGridNudgeRepeat,
-  stopGridNudgeRepeat,
-  nudgeStageGridCm,
-  gridNudgeDidRepeatRef,
+  draft,
+  onChangeDraft,
 }: StageAreaGridSpacingControlsProps) {
-  const { t } = useI18n();
-  const renderInput = (axis: "width" | "depth", label: string, value: string) => (
-    <label style={{ fontSize: "10px", color: "#94a3b8" }}>
-      {label}
-      <div
-        style={{
-          marginTop: "3px",
-          display: "grid",
-          gridTemplateColumns: "1fr 28px 28px",
-          gap: "4px",
-          alignItems: "center",
-        }}
-      >
-        <input
-          type="text"
-          className="stage-area-grid-input"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={value}
-          disabled={disabled}
-          onChange={(e) => onStageGridCmInput(axis, e.target.value)}
-          onBlur={() => commitStageGridCmInput(axis)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commitStageGridCmInput(axis);
-            }
-          }}
-          aria-label={`${label}（センチ）`}
-          style={{
-            width: "100%",
-            padding: "4px 8px",
-            borderRadius: "5px",
-            border: "1px solid #334155",
-            background: "#020617",
-            color: "#e2e8f0",
-            fontSize: "11px",
-            textAlign: "center",
-          }}
-        />
-        <button
-          type="button"
-          disabled={disabled}
-          onPointerDown={(e) => {
-            if (disabled) return;
-            e.preventDefault();
-            startGridNudgeRepeat(axis, -1);
-          }}
-          onPointerUp={stopGridNudgeRepeat}
-          onPointerCancel={stopGridNudgeRepeat}
-          onPointerLeave={stopGridNudgeRepeat}
-          onClick={() => {
-            if (disabled) return;
-            if (gridNudgeDidRepeatRef.current) {
-              gridNudgeDidRepeatRef.current = false;
-              return;
-            }
-            nudgeStageGridCm(axis, -1);
-          }}
-          style={{
-            ...btnSecondary,
-            padding: "3px 0",
-            fontSize: "12px",
-            fontWeight: 700,
-            lineHeight: 1.1,
-          }}
-        >
-          −
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          onPointerDown={(e) => {
-            if (disabled) return;
-            e.preventDefault();
-            startGridNudgeRepeat(axis, 1);
-          }}
-          onPointerUp={stopGridNudgeRepeat}
-          onPointerCancel={stopGridNudgeRepeat}
-          onPointerLeave={stopGridNudgeRepeat}
-          onClick={() => {
-            if (disabled) return;
-            if (gridNudgeDidRepeatRef.current) {
-              gridNudgeDidRepeatRef.current = false;
-              return;
-            }
-            nudgeStageGridCm(axis, 1);
-          }}
-          style={{
-            ...btnSecondary,
-            padding: "3px 0",
-            fontSize: "12px",
-            fontWeight: 700,
-            lineHeight: 1.1,
-          }}
-        >
-          ＋
-        </button>
-      </div>
-    </label>
-  );
+  const rows = [
+    {
+      key: "gridWidth" as const,
+      title: "幅方向（センターから）",
+      hint: "縦グリッド線の間隔",
+    },
+    {
+      key: "gridDepth" as const,
+      title: "奥行方向（前から）",
+      hint: "前からの横グリッド線の間隔",
+    },
+  ];
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: "6px",
-        marginBottom: "6px",
-      }}
-    >
-      {renderInput("width", t("editor.layout.gridWidthCm"), gridWidthCmInput)}
-      {renderInput("depth", t("editor.layout.gridDepthCm"), gridDepthCmInput)}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 6 }}>
+      {rows.map((row) => {
+        const val = draft[row.key];
+        const hasVal = val.m !== "" || val.cm !== "";
+        return (
+          <div key={row.key}>
+            <div
+              style={{
+                fontSize: 10,
+                color: "rgba(148,163,184,0.8)",
+                marginBottom: 4,
+              }}
+            >
+              {row.title}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 3, minWidth: 0 }}>
+              <select
+                disabled={disabled}
+                className="stage-area-dim-select"
+                value={val.m}
+                onChange={(e) =>
+                  onChangeDraft((d) => ({
+                    ...d,
+                    [row.key]: { ...d[row.key], m: e.target.value },
+                  }))
+                }
+                aria-label={`${row.title} m`}
+                style={{
+                  ...selectStyle,
+                  flex: "0 0 auto",
+                  width: 48,
+                  padding: "5px 2px",
+                  border: hasVal
+                    ? "1px solid rgba(99,102,241,0.5)"
+                    : "1px solid rgba(51,65,85,0.8)",
+                }}
+              >
+                <option value="">-</option>
+                {M_OPTIONS.map((v) => (
+                  <option key={v} value={String(v)}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              <span style={{ fontSize: 10, color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>
+                m
+              </span>
+              <select
+                disabled={disabled}
+                className="stage-area-dim-select"
+                value={val.cm || "0"}
+                onChange={(e) =>
+                  onChangeDraft((d) => ({
+                    ...d,
+                    [row.key]: { ...d[row.key], cm: e.target.value },
+                  }))
+                }
+                aria-label={`${row.title} cm`}
+                style={{
+                  ...selectStyle,
+                  flex: "0 0 auto",
+                  width: 48,
+                  padding: "5px 2px",
+                  border: hasVal
+                    ? "1px solid rgba(99,102,241,0.5)"
+                    : "1px solid rgba(51,65,85,0.8)",
+                }}
+              >
+                <option value="0">0</option>
+                {CM_OPTIONS.filter((v) => v > 0).map((v) => (
+                  <option key={v} value={String(v)}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              <span style={{ fontSize: 10, color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>
+                cm
+              </span>
+            </div>
+            <div style={{ fontSize: 9, color: "#64748b", marginTop: 3 }}>{row.hint}</div>
+          </div>
+        );
+      })}
     </div>
   );
 });

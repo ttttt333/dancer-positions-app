@@ -199,14 +199,17 @@ import { useEditorViewport, resolveWideEditorLayout, subscribeWideEditorLayout }
 import { EditorPageLayout } from "./editor/EditorPageLayout";
 import type { EditorLayoutProps } from "./editor/editorLayoutProps";
 import {
-  clampGridSpacingCm,
   clampGuideIntervalToWidth,
   emptyStageAreaSettingsDraft,
-  parseGridSpacingInput,
+  parseGridMeterCmDraftToMm,
   parseMeterCmDraftToMm,
   projectToStageAreaDraft,
+  sleeveDraftToCurtain,
+  sleeveToDraft,
   type StageAreaSettingsDraft,
 } from "./editor/stageAreaSettingsDraft";
+import { sleeveCurtainsToDepthsMm } from "../lib/stageSleeveCurtains";
+import type { StageSleeveCurtain } from "../types/choreography";
 import { useEditorProjectLoader } from "../hooks/useEditorProjectLoader";
 import { useEditorHistory } from "../hooks/useEditorHistory";
 import { useEditorCloudSave } from "../hooks/useEditorCloudSave";
@@ -361,8 +364,6 @@ function EditorPageContent({
   const [stageAreaSettingsOpen, setStageAreaSettingsOpen] = useState(false);
   const [stageAreaSettingsDraft, setStageAreaSettingsDraft] =
     useState<StageAreaSettingsDraft>(emptyStageAreaSettingsDraft);
-  const [gridWidthCmInput, setGridWidthCmInput] = useState<string>("1");
-  const [gridDepthCmInput, setGridDepthCmInput] = useState<string>("1");
   const stageAreaSettingsDraftRef = useRef(stageAreaSettingsDraft);
   stageAreaSettingsDraftRef.current = stageAreaSettingsDraft;
   const [stageAreaPresetList, setStageAreaPresetList] = useState<StagePresetItem[]>([]);
@@ -1470,23 +1471,16 @@ function EditorPageContent({
   const applyStageAreaSettingsDraft = useCallback(() => {
     if (!project || project.viewMode === "view") return;
     const d = stageAreaSettingsDraftRef.current;
-    const gridWidthCm = clampGridSpacingCm(parseGridSpacingInput(gridWidthCmInput));
-    const gridDepthCm = clampGridSpacingCm(parseGridSpacingInput(gridDepthCmInput));
     const w = parseMeterCmDraftToMm(d.width);
     const depthMm = parseMeterCmDraftToMm(d.depth);
     const s = parseMeterCmDraftToMm(d.side);
     const b = parseMeterCmDraftToMm(d.back);
     const gRaw = parseMeterCmDraftToMm(d.guide);
     const g = clampGuideIntervalToWidth(w, gRaw);
-    const gw = gridWidthCm * 10;
-    const gd = gridDepthCm * 10;
-    setStageAreaSettingsDraft((prev) => ({
-      ...prev,
-      gridWidthCm,
-      gridDepthCm,
-    }));
-    setGridWidthCmInput(String(gridWidthCm));
-    setGridDepthCmInput(String(gridDepthCm));
+    const hasMain = w != null && depthMm != null;
+    const gw = hasMain ? parseGridMeterCmDraftToMm(d.gridWidth) : 10;
+    const gd = hasMain ? parseGridMeterCmDraftToMm(d.gridDepth) : 10;
+    const curtains = d.stageSleeves.map(sleeveDraftToCurtain);
     setProjectSafe((p) =>
       stripFormationStageSnapshots({
         ...p,
@@ -1507,95 +1501,18 @@ function EditorPageContent({
         stageGridSpacingDepthMm: gd,
         dancerLabelPosition: d.dancerLabelPosition,
         stageHesoVisible: d.stageHesoVisible,
-        stageFrontGridLinesMm: [
-          ...new Set(
-            d.stageFrontGridMeters
-              .filter((m) => Number.isFinite(m) && m > 0)
-              .map((m) => Math.round(m * 1000))
-          ),
-        ].sort((a, b) => a - b),
-        stageSleeveCurtainDepthsMm: [
-          ...new Set(
-            d.stageSleeveCurtainMeters
-              .filter((m) => Number.isFinite(m) && m > 0)
-              .map((m) => Math.round(m * 1000))
-          ),
-        ].sort((a, b) => a - b),
+        stageFrontGridLinesMm: [],
+        stageSleeveCurtains: curtains,
+        stageSleeveCurtainDepthsMm: sleeveCurtainsToDepthsMm(curtains),
       })
     );
-  }, [project, setProjectSafe, gridWidthCmInput, gridDepthCmInput]);
+  }, [project, setProjectSafe]);
 
   const stageAreaDraftHasMainFloor = useMemo(() => {
     const w = parseMeterCmDraftToMm(stageAreaSettingsDraft.width);
     const d = parseMeterCmDraftToMm(stageAreaSettingsDraft.depth);
     return w != null && w > 0 && d != null && d > 0;
   }, [stageAreaSettingsDraft.width, stageAreaSettingsDraft.depth]);
-
-  const onStageGridCmInput = useCallback((axis: "width" | "depth", raw: string) => {
-    if (axis === "width") setGridWidthCmInput(raw);
-    else setGridDepthCmInput(raw);
-  }, []);
-
-  const commitStageGridCmInput = useCallback(
-    (axis: "width" | "depth") => {
-      if (axis === "width") {
-        const next = clampGridSpacingCm(parseGridSpacingInput(gridWidthCmInput));
-        setStageAreaSettingsDraft((d) => ({ ...d, gridWidthCm: next }));
-        setGridWidthCmInput(String(next));
-        return;
-      }
-      const next = clampGridSpacingCm(parseGridSpacingInput(gridDepthCmInput));
-      setStageAreaSettingsDraft((d) => ({ ...d, gridDepthCm: next }));
-      setGridDepthCmInput(String(next));
-    },
-    [gridDepthCmInput, gridWidthCmInput]
-  );
-
-  const nudgeStageGridCm = useCallback((axis: "width" | "depth", delta: number) => {
-    setStageAreaSettingsDraft((d) => {
-      const base = axis === "width" ? d.gridWidthCm : d.gridDepthCm;
-      const next = clampGridSpacingCm(base + delta);
-      if (axis === "width") setGridWidthCmInput(String(next));
-      else setGridDepthCmInput(String(next));
-      return axis === "width" ? { ...d, gridWidthCm: next } : { ...d, gridDepthCm: next };
-    });
-  }, []);
-
-  const gridNudgeTimeoutRef = useRef<number | null>(null);
-  const gridNudgeIntervalRef = useRef<number | null>(null);
-  const gridNudgeDidRepeatRef = useRef(false);
-
-  const stopGridNudgeRepeat = useCallback(() => {
-    if (gridNudgeTimeoutRef.current != null) {
-      window.clearTimeout(gridNudgeTimeoutRef.current);
-      gridNudgeTimeoutRef.current = null;
-    }
-    if (gridNudgeIntervalRef.current != null) {
-      window.clearInterval(gridNudgeIntervalRef.current);
-      gridNudgeIntervalRef.current = null;
-    }
-  }, []);
-
-  const startGridNudgeRepeat = useCallback(
-    (axis: "width" | "depth", delta: number) => {
-      stopGridNudgeRepeat();
-      gridNudgeDidRepeatRef.current = false;
-      gridNudgeTimeoutRef.current = window.setTimeout(() => {
-        gridNudgeDidRepeatRef.current = true;
-        nudgeStageGridCm(axis, delta);
-        gridNudgeIntervalRef.current = window.setInterval(() => {
-          nudgeStageGridCm(axis, delta);
-        }, 70);
-      }, 260);
-    },
-    [nudgeStageGridCm, stopGridNudgeRepeat]
-  );
-
-  useEffect(() => stopGridNudgeRepeat, [stopGridNudgeRepeat]);
-  useEffect(() => {
-    setGridWidthCmInput(String(stageAreaSettingsDraft.gridWidthCm));
-    setGridDepthCmInput(String(stageAreaSettingsDraft.gridDepthCm));
-  }, [stageAreaSettingsDraft.gridWidthCm, stageAreaSettingsDraft.gridDepthCm]);
 
   /** 舞台設定を開いたときに現在のプロジェクト値をドラフトへ反映 */
   useEffect(() => {
@@ -1625,10 +1542,10 @@ function EditorPageContent({
     const b = parseMeterCmDraftToMm(d.back);
     const gRaw = parseMeterCmDraftToMm(d.guide);
     const g = clampGuideIntervalToWidth(w, gRaw);
-    const gridWidthCm = clampGridSpacingCm(parseGridSpacingInput(gridWidthCmInput));
-    const gridDepthCm = clampGridSpacingCm(parseGridSpacingInput(gridDepthCmInput));
-    const gw = gridWidthCm * 10;
-    const gd = gridDepthCm * 10;
+    const hasMain = w != null && depthMm != null;
+    const gw = hasMain ? parseGridMeterCmDraftToMm(d.gridWidth) : 10;
+    const gd = hasMain ? parseGridMeterCmDraftToMm(d.gridDepth) : 10;
+    const curtains = d.stageSleeves.map(sleeveDraftToCurtain);
     return {
       ...project,
       audienceEdge: d.audienceEdge,
@@ -1648,28 +1565,30 @@ function EditorPageContent({
       stageGridSpacingDepthMm: gd,
       dancerLabelPosition: d.dancerLabelPosition,
       stageHesoVisible: d.stageHesoVisible,
-      stageFrontGridLinesMm: [
-        ...new Set(
-          d.stageFrontGridMeters
-            .filter((m) => Number.isFinite(m) && m > 0)
-            .map((m) => Math.round(m * 1000))
-        ),
-      ].sort((a, b) => a - b),
-      stageSleeveCurtainDepthsMm: [
-        ...new Set(
-          d.stageSleeveCurtainMeters
-            .filter((m) => Number.isFinite(m) && m > 0)
-            .map((m) => Math.round(m * 1000))
-        ),
-      ].sort((a, b) => a - b),
+      stageFrontGridLinesMm: [],
+      stageSleeveCurtains: curtains,
+      stageSleeveCurtainDepthsMm: sleeveCurtainsToDepthsMm(curtains),
     };
-  }, [
-    project,
-    stageAreaSettingsOpen,
-    stageAreaSettingsDraft,
-    gridWidthCmInput,
-    gridDepthCmInput,
-  ]);
+  }, [project, stageAreaSettingsOpen, stageAreaSettingsDraft]);
+
+  const onSleeveCurtainsChange = useCallback(
+    (curtains: StageSleeveCurtain[]) => {
+      if (!project || project.viewMode === "view") return;
+      if (stageAreaSettingsOpen) {
+        setStageAreaSettingsDraft((d) => ({
+          ...d,
+          stageSleeves: curtains.map(sleeveToDraft),
+        }));
+        return;
+      }
+      setProjectSafe((p) => ({
+        ...p,
+        stageSleeveCurtains: curtains,
+        stageSleeveCurtainDepthsMm: sleeveCurtainsToDepthsMm(curtains),
+      }));
+    },
+    [project, setProjectSafe, stageAreaSettingsOpen]
+  );
 
   useEffect(() => {
     if (!wideEditorLayout) setFloorMarkupTool(null);
@@ -2448,10 +2367,7 @@ function EditorPageContent({
           applyStageAreaSettingsDraft();
         }
       } else {
-        const fresh = projectToStageAreaDraft(project);
-        setStageAreaSettingsDraft(fresh);
-        setGridWidthCmInput(String(fresh.gridWidthCm));
-        setGridDepthCmInput(String(fresh.gridDepthCm));
+        setStageAreaSettingsDraft(projectToStageAreaDraft(project));
       }
       setStageAreaSettingsOpen(false);
     },
@@ -3044,9 +2960,6 @@ function EditorPageContent({
     setFormationPresetPickerOpen,
     formationById,
     getWavePeaksSnapshot,
-    gridDepthCmInput,
-    gridNudgeDidRepeatRef,
-    gridWidthCmInput,
     hasRosterMembers,
     importCrewCsvFromStageToolbar,
     isPlaying,
@@ -3058,13 +2971,12 @@ function EditorPageContent({
     mobileEditorToolsExpanded,
     mobileEditorWaveExpanded,
     mobileStackEditor,
-    nudgeStageGridCm,
     onFloorTextPlaceSessionChange,
     onRosterConfirmReturnToTimeline,
     onSplitLostCapture,
     onSplitPointerDown,
     onSplitPointerMove,
-    onStageGridCmInput,
+    onSleeveCurtainsChange,
     onTopDockResizeDoubleClick,
     onTopDockResizeDown,
     onTopDockResizeMove,
@@ -3167,8 +3079,6 @@ function EditorPageContent({
     stageWorkbenchProps,
     stageView,
     stageZenLayout,
-    startGridNudgeRepeat,
-    stopGridNudgeRepeat,
     studentViewerFocusForStage,
     t,
     textPanelPortalEl,

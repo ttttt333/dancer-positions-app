@@ -48,6 +48,8 @@ export type StageShellWithMainFloorProps = {
   setPieceElements?: ReactNode;
   baseOverlays: StageMainFloorBaseOverlaysProps;
   interaction: StageMainFloorInteractionLayerProps;
+  /** そで幕など、床上でドラッグ可能な建築ガイド */
+  architectureInteractiveOverlay?: ReactNode;
   /** 動線矢印SVGオーバーレイ（ダンサー印の上に重ねる） */
   motionArrowsOverlay?: ReactNode;
 };
@@ -68,6 +70,7 @@ export function StageShellWithMainFloor({
   setPieceElements,
   baseOverlays,
   interaction,
+  architectureInteractiveOverlay,
   motionArrowsOverlay,
 }: StageShellWithMainFloorProps) {
   const {
@@ -142,6 +145,7 @@ export function StageShellWithMainFloor({
               {setPieceElements}
               <StageMainFloorBaseOverlays {...baseOverlays} />
               <StageMainFloorInteractionLayer {...interaction} />
+              {architectureInteractiveOverlay}
               {motionArrowsOverlay}
             </StageMainFloorPanel>
           }

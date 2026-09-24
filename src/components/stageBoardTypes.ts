@@ -10,6 +10,7 @@ import type {
   Formation,
   SetPiece,
   StageFloorMarkup,
+  StageSleeveCurtain,
 } from "../types/choreography";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
 import type { FloorTextDraftPayload } from "./FloorTextMarkupBlock";
@@ -164,6 +165,8 @@ export type StageBoardBodyProps = {
   editCueId?: string | null;
   /** スマホ編集／閲覧: ステージをピンチで拡大縮小する */
   enablePinchViewport?: boolean;
+  /** そで幕の奥行をステージ上ドラッグで変えたとき */
+  onSleeveCurtainsChange?: (curtains: StageSleeveCurtain[]) => void;
 };
 
 export type { BuildStageBoardExportColumnInput } from "../lib/buildStageBoardExportColumnProps";

@@ -3,7 +3,6 @@ import { StageFloorStageMarkupOverlay } from "./StageFloorStageMarkupOverlay";
 import { StageMillimeterGridSvg } from "./StageMillimeterGridSvg";
 import { StageShapeMaskSvg } from "./StageShapeMaskSvg";
 import type { StageGuideMark } from "./StageGuideAndAlignLines";
-import type { StageDepthGuideMark } from "../lib/stageArchitectureGuides";
 import type { StageLightFixture } from "../types/choreography";
 import { StageArchitectureGuidesSvg } from "./StageArchitectureGuidesSvg";
 import { StageLightingOverlay } from "./StageLightingOverlay";
@@ -21,8 +20,6 @@ export type StageMainFloorBaseOverlaysProps = {
   alignGuides: { x: number | null; y: number | null };
   showStageFloorMarkup: boolean;
   stageHesoVisible?: boolean;
-  frontGridMarks?: readonly StageDepthGuideMark[];
-  sleeveMarks?: readonly StageDepthGuideMark[];
   activeStageLights?: readonly StageLightFixture[];
 } & StageFloorStageMarkupOverlayProps;
 
@@ -43,8 +40,6 @@ export function StageMainFloorBaseOverlays({
   alignGuides,
   showStageFloorMarkup,
   stageHesoVisible = false,
-  frontGridMarks = [],
-  sleeveMarks = [],
   activeStageLights = [],
   ...floorOverlay
 }: StageMainFloorBaseOverlaysProps) {
@@ -67,8 +62,6 @@ export function StageMainFloorBaseOverlays({
       ) : null}
       <StageArchitectureGuidesSvg
         hesoVisible={stageHesoVisible}
-        frontGridMarks={frontGridMarks}
-        sleeveMarks={sleeveMarks}
         verticalGuideMarks={guideLineDrawMarks}
         alignX={alignGuides.x}
         alignY={alignGuides.y}

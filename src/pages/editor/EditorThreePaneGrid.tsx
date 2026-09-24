@@ -113,7 +113,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const onSplitLostCapture = props.onSplitLostCapture as never;
   const onSplitPointerDown = props.onSplitPointerDown as never;
   const onSplitPointerMove = props.onSplitPointerMove as never;
-  const onStageGridCmInput = props.onStageGridCmInput as never;
+  const onSleeveCurtainsChange = props.onSleeveCurtainsChange as never;
   const onTopDockResizeDoubleClick = props.onTopDockResizeDoubleClick as never;
   const onTopDockResizeDown = props.onTopDockResizeDown as never;
   const onTopDockResizeMove = props.onTopDockResizeMove as never;
@@ -1131,6 +1131,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     }
                     editCueId={
                       typeof selectedCueId === "string" ? selectedCueId : null
+                    }
+                    onSleeveCurtainsChange={
+                      choreoPublicView || project.viewMode === "view"
+                        ? undefined
+                        : onSleeveCurtainsChange
                     }
                   />
                 )}

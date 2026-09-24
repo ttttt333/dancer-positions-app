@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { useSafeElementRef } from "./useSafeElementRef";
 import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoGridLogo";
@@ -48,7 +48,7 @@ import { dancerMarkerDiameterAfterRosterImport } from "../../lib/projectDefaults
 import { getViewRosterEntries } from "../../lib/viewRoster";
 import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
 import { stripFormationStageSnapshots } from "../../lib/savedSpotStageSnapshot";
-import { parseMeterCmDraftToMm } from "./stageAreaSettingsDraft";
+import { createEmptySleeveDraft, parseMeterCmDraftToMm, type StageAreaSettingsDraft } from "./stageAreaSettingsDraft";
 import {
   StageAreaDimensionRows,
   StageAreaGridSpacingControls,
@@ -236,7 +236,6 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const setShowMotionArrows = props.setShowMotionArrows as never;
   const setStageAreaPresetList = props.setStageAreaPresetList as never;
   const setStageAreaPresetSelectNonce = props.setStageAreaPresetSelectNonce as never;
-  const setStageAreaSettingsDraft = props.setStageAreaSettingsDraft as never;
   const setStageAreaSettingsOpen = props.setStageAreaSettingsOpen as never;
   const setStagePreviewDancers = props.setStagePreviewDancers as never;
   const setStageSettingsOpen = props.setStageSettingsOpen as never;
@@ -253,7 +252,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const stageAreaDraftHasMainFloor = props.stageAreaDraftHasMainFloor as never;
   const stageAreaPresetList = props.stageAreaPresetList as never;
   const stageAreaPresetSelectNonce = props.stageAreaPresetSelectNonce as never;
-  const stageAreaSettingsDraft = props.stageAreaSettingsDraft as never;
+  const stageAreaSettingsDraft = props.stageAreaSettingsDraft as unknown as StageAreaSettingsDraft;
+  const setStageAreaSettingsDraft = props.setStageAreaSettingsDraft as Dispatch<
+    SetStateAction<StageAreaSettingsDraft>
+  >;
   const stageAreaSettingsDraftRef = props.stageAreaSettingsDraftRef as never;
   const stageAreaSettingsOpen = props.stageAreaSettingsOpen as never;
   const stageBoardProject = props.stageBoardProject as never;
@@ -1086,7 +1088,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 グリッド・表示
               </div>
 
-              {/* グリッド間隔 */}
+              {/* グリッド間隔（場ミリと同じ m/cm） */}
               {stageAreaDraftHasMainFloor && (
                 <div style={{ marginBottom: 6 }}>
                   <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
@@ -1094,14 +1096,8 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   </div>
                   <StageAreaGridSpacingControls
                     disabled={project.viewMode === "view"}
-                    gridWidthCmInput={gridWidthCmInput}
-                    gridDepthCmInput={gridDepthCmInput}
-                    onStageGridCmInput={onStageGridCmInput}
-                    commitStageGridCmInput={commitStageGridCmInput}
-                    startGridNudgeRepeat={startGridNudgeRepeat}
-                    stopGridNudgeRepeat={stopGridNudgeRepeat}
-                    nudgeStageGridCm={nudgeStageGridCm}
-                    gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
+                    draft={stageAreaSettingsDraft}
+                    onChangeDraft={setStageAreaSettingsDraft}
                   />
                 </div>
               )}
@@ -1170,11 +1166,14 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 </div>
               </div>
 
-              {/* ヘソ・前グリッド・そで幕 */}
+              {/* ヘソ・そで幕 */}
               <div style={{ borderTop: "1px solid rgba(51,65,85,0.6)", paddingTop: 8 }}>
                 <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 6 }}>
-                  ヘソ・前からの線・そで幕
+                  ヘソ・そで幕
                 </div>
+                <p style={{ margin: "0 0 8px", fontSize: 9, color: "#64748b", lineHeight: 1.4 }}>
+                  前からのグリッド線は上の「奥行方向（前から）」の間隔と、横線の表示で設定します。
+                </p>
                 <label
                   style={{
                     display: "flex",
@@ -1182,7 +1181,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                     gap: 8,
                     fontSize: 12,
                     color: "#e2e8f0",
-                    marginBottom: 8,
+                    marginBottom: 10,
                     cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
                   }}
                 >
@@ -1199,88 +1198,283 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   />
                   ヘソ（中央）を表示
                 </label>
-                {(
-                  [
-                    {
-                      key: "stageFrontGridMeters" as const,
-                      title: "前からのグリッド線（m）",
-                      hint: "例: 2 / 4",
-                    },
-                    {
-                      key: "stageSleeveCurtainMeters" as const,
-                      title: "そで幕の位置（前から・m）",
-                      hint: "例: 2 / 4",
-                    },
-                  ] as const
-                ).map((row) => (
-                  <div key={row.key} style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
-                      {row.title}
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
-                      {stageAreaSettingsDraft[row.key].map((m) => (
+
+                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
+                  そで幕
+                </div>
+                <p style={{ margin: "0 0 6px", fontSize: 9, color: "#64748b", lineHeight: 1.4 }}>
+                  追加したそで幕はステージ上でドラッグして奥行を調整できます。
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {stageAreaSettingsDraft.stageSleeves.map((sl, idx) => (
+                    <div
+                      key={sl.id}
+                      style={{
+                        padding: 8,
+                        borderRadius: 8,
+                        border: "1px solid rgba(251,113,133,0.35)",
+                        background: "rgba(251,113,133,0.06)",
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                        <input
+                          type="text"
+                          disabled={project.viewMode === "view"}
+                          value={sl.label}
+                          placeholder={`そで幕 ${idx + 1}`}
+                          onChange={(e) =>
+                            setStageAreaSettingsDraft((d) => ({
+                              ...d,
+                              stageSleeves: d.stageSleeves.map((x) =>
+                                x.id === sl.id ? { ...x, label: e.target.value } : x
+                              ),
+                            }))
+                          }
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            border: "1px solid #334155",
+                            background: "#0f172a",
+                            color: "#e2e8f0",
+                            fontSize: 11,
+                          }}
+                        />
                         <button
-                          key={`${row.key}-${m}`}
                           type="button"
                           disabled={project.viewMode === "view"}
                           onClick={() =>
                             setStageAreaSettingsDraft((d) => ({
                               ...d,
-                              [row.key]: d[row.key].filter((x) => x !== m),
+                              stageSleeves: d.stageSleeves.filter((x) => x.id !== sl.id),
                             }))
                           }
                           style={{
-                            padding: "3px 8px",
-                            borderRadius: 999,
-                            border: "1px solid rgba(251,191,36,0.45)",
-                            background: "rgba(251,191,36,0.12)",
-                            color: "#fde68a",
+                            ...btnSecondary,
+                            padding: "4px 8px",
                             fontSize: 11,
-                            cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
                           }}
-                          title="クリックで削除"
+                          title="削除"
                         >
-                          {m}m ×
+                          削除
                         </button>
-                      ))}
-                    </div>
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                      {[1, 2, 3, 4, 5, 6, 8].map((m) => {
-                        const on = stageAreaSettingsDraft[row.key].includes(m);
-                        return (
-                          <button
-                            key={`add-${row.key}-${m}`}
-                            type="button"
-                            disabled={project.viewMode === "view" || on}
-                            onClick={() =>
+                      </div>
+                      <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 3 }}>
+                        前からの位置
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 6 }}>
+                        <select
+                          disabled={project.viewMode === "view"}
+                          value={sl.depth.m}
+                          onChange={(e) =>
+                            setStageAreaSettingsDraft((d) => ({
+                              ...d,
+                              stageSleeves: d.stageSleeves.map((x) =>
+                                x.id === sl.id
+                                  ? { ...x, depth: { ...x.depth, m: e.target.value } }
+                                  : x
+                              ),
+                            }))
+                          }
+                          style={{
+                            width: 48,
+                            padding: "4px 2px",
+                            borderRadius: 6,
+                            border: "1px solid #334155",
+                            background: "#0f172a",
+                            color: "#e2e8f0",
+                            fontSize: 11,
+                          }}
+                        >
+                          <option value="">-</option>
+                          {Array.from({ length: 40 }, (_, i) => i).map((v) => (
+                            <option key={v} value={String(v)}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                        <span style={{ fontSize: 10, color: "#64748b" }}>m</span>
+                        <select
+                          disabled={project.viewMode === "view"}
+                          value={sl.depth.cm || "0"}
+                          onChange={(e) =>
+                            setStageAreaSettingsDraft((d) => ({
+                              ...d,
+                              stageSleeves: d.stageSleeves.map((x) =>
+                                x.id === sl.id
+                                  ? { ...x, depth: { ...x.depth, cm: e.target.value } }
+                                  : x
+                              ),
+                            }))
+                          }
+                          style={{
+                            width: 48,
+                            padding: "4px 2px",
+                            borderRadius: 6,
+                            border: "1px solid #334155",
+                            background: "#0f172a",
+                            color: "#e2e8f0",
+                            fontSize: 11,
+                          }}
+                        >
+                          {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95].map(
+                            (v) => (
+                              <option key={v} value={String(v)}>
+                                {v}
+                              </option>
+                            )
+                          )}
+                        </select>
+                        <span style={{ fontSize: 10, color: "#64748b" }}>cm</span>
+                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 6,
+                        }}
+                      >
+                        <label style={{ fontSize: 9, color: "#94a3b8" }}>
+                          左右
+                          <select
+                            disabled={project.viewMode === "view"}
+                            value={sl.side}
+                            onChange={(e) =>
                               setStageAreaSettingsDraft((d) => ({
                                 ...d,
-                                [row.key]: [...d[row.key], m].sort((a, b) => a - b),
+                                stageSleeves: d.stageSleeves.map((x) =>
+                                  x.id === sl.id
+                                    ? {
+                                        ...x,
+                                        side: e.target.value as "both" | "left" | "right",
+                                      }
+                                    : x
+                                ),
                               }))
                             }
                             style={{
-                              padding: "4px 8px",
+                              display: "block",
+                              width: "100%",
+                              marginTop: 3,
+                              padding: "4px 6px",
                               borderRadius: 6,
                               border: "1px solid #334155",
-                              background: on ? "rgba(51,65,85,0.5)" : "#0f172a",
-                              color: on ? "#64748b" : "#cbd5e1",
+                              background: "#0f172a",
+                              color: "#e2e8f0",
                               fontSize: 11,
-                              cursor:
-                                project.viewMode === "view" || on
-                                  ? "not-allowed"
-                                  : "pointer",
                             }}
                           >
-                            +{m}m
-                          </button>
-                        );
-                      })}
+                            <option value="both">左右</option>
+                            <option value="left">下手のみ</option>
+                            <option value="right">上手のみ</option>
+                          </select>
+                        </label>
+                        <label style={{ fontSize: 9, color: "#94a3b8" }}>
+                          入り込み幅
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 3,
+                              marginTop: 3,
+                            }}
+                          >
+                            <select
+                              disabled={project.viewMode === "view"}
+                              value={sl.inset.m}
+                              onChange={(e) =>
+                                setStageAreaSettingsDraft((d) => ({
+                                  ...d,
+                                  stageSleeves: d.stageSleeves.map((x) =>
+                                    x.id === sl.id
+                                      ? { ...x, inset: { ...x.inset, m: e.target.value } }
+                                      : x
+                                  ),
+                                }))
+                              }
+                              style={{
+                                width: 40,
+                                padding: "4px 2px",
+                                borderRadius: 6,
+                                border: "1px solid #334155",
+                                background: "#0f172a",
+                                color: "#e2e8f0",
+                                fontSize: 11,
+                              }}
+                            >
+                              <option value="">-</option>
+                              {[0, 1, 2, 3, 4, 5].map((v) => (
+                                <option key={v} value={String(v)}>
+                                  {v}
+                                </option>
+                              ))}
+                            </select>
+                            <span style={{ fontSize: 9, color: "#64748b" }}>m</span>
+                            <select
+                              disabled={project.viewMode === "view"}
+                              value={sl.inset.cm || "0"}
+                              onChange={(e) =>
+                                setStageAreaSettingsDraft((d) => ({
+                                  ...d,
+                                  stageSleeves: d.stageSleeves.map((x) =>
+                                    x.id === sl.id
+                                      ? { ...x, inset: { ...x.inset, cm: e.target.value } }
+                                      : x
+                                  ),
+                                }))
+                              }
+                              style={{
+                                width: 40,
+                                padding: "4px 2px",
+                                borderRadius: 6,
+                                border: "1px solid #334155",
+                                background: "#0f172a",
+                                color: "#e2e8f0",
+                                fontSize: 11,
+                              }}
+                            >
+                              {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 75, 90].map(
+                                (v) => (
+                                  <option key={v} value={String(v)}>
+                                    {v}
+                                  </option>
+                                )
+                              )}
+                            </select>
+                            <span style={{ fontSize: 9, color: "#64748b" }}>cm</span>
+                          </div>
+                        </label>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 9, color: "#64748b", marginTop: 3 }}>
-                      {row.hint}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  disabled={
+                    project.viewMode === "view" ||
+                    stageAreaSettingsDraft.stageSleeves.length >= 24
+                  }
+                  onClick={() =>
+                    setStageAreaSettingsDraft((d) => ({
+                      ...d,
+                      stageSleeves: [
+                        ...d.stageSleeves,
+                        createEmptySleeveDraft(d.stageSleeves.length + 1),
+                      ],
+                    }))
+                  }
+                  style={{
+                    ...btnSecondary,
+                    marginTop: 8,
+                    width: "100%",
+                    padding: "7px 10px",
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  ＋ そで幕を追加
+                </button>
               </div>
             </div>
 

@@ -1,22 +1,19 @@
-import type { StageDepthGuideMark } from "../lib/stageArchitectureGuides";
 import type { StageGuideMark } from "./StageGuideAndAlignLines";
 
 export type StageArchitectureGuidesSvgProps = {
   hesoVisible?: boolean;
-  frontGridMarks?: readonly StageDepthGuideMark[];
-  sleeveMarks?: readonly StageDepthGuideMark[];
   verticalGuideMarks?: readonly StageGuideMark[];
   alignX?: number | null;
   alignY?: number | null;
 };
 
 /**
- * ヘソ・前からの横グリッド・そで幕・場ミリ縦ガイド・スナップ補助線。
+ * ヘソ・場ミリ縦ガイド・スナップ補助線。
+ * 前からの横グリッドは StageMillimeterGridSvg（奥行間隔）に統合。
+ * そで幕は StageSleeveCurtainOverlay でドラッグ可能に描画。
  */
 export function StageArchitectureGuidesSvg({
   hesoVisible = false,
-  frontGridMarks = [],
-  sleeveMarks = [],
   verticalGuideMarks = [],
   alignX = null,
   alignY = null,
@@ -35,56 +32,6 @@ export function StageArchitectureGuidesSvg({
       }}
       aria-hidden
     >
-      {frontGridMarks.map((m) => (
-        <g key={m.id}>
-          <line
-            x1="0"
-            y1={m.yPct}
-            x2="100"
-            y2={m.yPct}
-            stroke="rgba(148, 163, 184, 0.55)"
-            strokeWidth="0.35"
-            strokeDasharray="1.2 1.4"
-            vectorEffect="non-scaling-stroke"
-          />
-        </g>
-      ))}
-      {sleeveMarks.map((m) => (
-        <g key={m.id}>
-          {/* 下手袖 */}
-          <rect
-            x="0"
-            y={m.yPct - 1.2}
-            width="4.5"
-            height="2.4"
-            fill="rgba(251, 113, 133, 0.35)"
-            stroke="rgba(251, 113, 133, 0.85)"
-            strokeWidth="0.25"
-            vectorEffect="non-scaling-stroke"
-          />
-          {/* 上手袖 */}
-          <rect
-            x="95.5"
-            y={m.yPct - 1.2}
-            width="4.5"
-            height="2.4"
-            fill="rgba(251, 113, 133, 0.35)"
-            stroke="rgba(251, 113, 133, 0.85)"
-            strokeWidth="0.25"
-            vectorEffect="non-scaling-stroke"
-          />
-          <line
-            x1="0"
-            y1={m.yPct}
-            x2="100"
-            y2={m.yPct}
-            stroke="rgba(251, 113, 133, 0.35)"
-            strokeWidth="0.2"
-            strokeDasharray="0.8 1.6"
-            vectorEffect="non-scaling-stroke"
-          />
-        </g>
-      ))}
       {verticalGuideMarks.map(({ xp, k }, i) => (
         <line
           key={`gm-${i}-${k}-${xp}`}

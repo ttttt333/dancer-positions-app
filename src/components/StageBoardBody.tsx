@@ -53,9 +53,10 @@ import {
 } from "../lib/stageNameBelowFontSizing";
 import { resolveArrangeTargetIds, swapTwoDancerPositions } from "../lib/stageSelectionArrange";
 import {
-  buildFrontGridMarks,
-  buildSleeveCurtainMarks,
-} from "../lib/stageArchitectureGuides";
+  buildSleeveCurtainMarksFromCurtains,
+  normalizeStageSleeveCurtains,
+} from "../lib/stageSleeveCurtains";
+import { StageSleeveCurtainOverlay } from "./StageSleeveCurtainOverlay";
 import { activeStageLightsAtTime } from "../lib/stageLighting";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import {
@@ -234,6 +235,7 @@ export function StageBoardBody({
   enablePinchViewport = false,
   onCreateNextCue,
   editCueId = null,
+  onSleeveCurtainsChange,
 }: StageBoardBodyProps) {
   const {
     isPlaying,
@@ -3936,20 +3938,34 @@ export function StageBoardBody({
   }, [centerFieldGuideIntervalMm, Wmm]);
 
   const currentTimeSec = usePlaybackUiStore((s) => s.currentTimeSec);
-  const frontGridMarks = useMemo(
-    () => buildFrontGridMarks(project.stageFrontGridLinesMm, stageDepthMm),
-    [project.stageFrontGridLinesMm, stageDepthMm]
+  const sleeveCurtains = useMemo(
+    () =>
+      normalizeStageSleeveCurtains(
+        project.stageSleeveCurtains,
+        project.stageSleeveCurtainDepthsMm
+      ),
+    [project.stageSleeveCurtains, project.stageSleeveCurtainDepthsMm]
   );
   const sleeveMarks = useMemo(
     () =>
-      buildSleeveCurtainMarks(project.stageSleeveCurtainDepthsMm, stageDepthMm),
-    [project.stageSleeveCurtainDepthsMm, stageDepthMm]
+      buildSleeveCurtainMarksFromCurtains(
+        sleeveCurtains,
+        stageDepthMm,
+        stageWidthMm
+      ),
+    [sleeveCurtains, stageDepthMm, stageWidthMm]
   );
   const activeStageLights = useMemo(
     () => activeStageLightsAtTime(project.stageLights, currentTimeSec),
     [project.stageLights, currentTimeSec]
   );
   const stageHesoVisible = project.stageHesoVisible === true;
+  const sleeveEditable =
+    viewMode !== "view" &&
+    !playbackOrPreview &&
+    Boolean(onSleeveCurtainsChange) &&
+    typeof stageDepthMm === "number" &&
+    stageDepthMm > 0;
 
   const mainFloorStyle: CSSProperties = useMemo(
     () => ({
@@ -5334,8 +5350,6 @@ export function StageBoardBody({
         guideLineDrawMarks,
         alignGuides,
         stageHesoVisible,
-        frontGridMarks,
-        sleeveMarks,
         activeStageLights,
         displayFloorMarkup,
         globalFloorMarkup: globalFloorMarkup ?? undefined,
@@ -5398,6 +5412,18 @@ export function StageBoardBody({
         depthRankSelectedB: rankPickB,
         onDepthRankSelect: toggleRankPick,
       },
+      architectureInteractiveOverlay:
+        sleeveMarks.length > 0 && typeof stageDepthMm === "number" ? (
+          <StageSleeveCurtainOverlay
+            marks={sleeveMarks}
+            curtains={sleeveCurtains}
+            stageDepthMm={stageDepthMm}
+            floorRef={stageMainFloorRef}
+            editable={sleeveEditable}
+            rot={rot}
+            onChangeCurtains={(next) => onSleeveCurtainsChange?.(next)}
+          />
+        ) : null,
     } satisfies BuildStageBoardExportColumnInput);
 
   // 移動軌跡: 動線表示トグル ON のときのみ（選択中の自動点線は出さない）

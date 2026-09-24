@@ -68,9 +68,9 @@ export function createEmptyProject(): ChoreographyProjectJson {
     stageGridLinesHorizontalEnabled: false,
     /** 旧単一フィールド互換：縦線間隔（幅方向）と同じ値を入れる */
     stageGridLineSpacingMm: 10,
-    /** 縦に引くグリッド線の間隔＝幅方向の実寸（mm）。1〜100 cm */
+    /** 縦に引くグリッド線の間隔＝幅方向の実寸（mm） */
     stageGridSpacingWidthMm: 10,
-    /** 横に引くグリッド線の間隔＝奥行方向の実寸（mm）。1〜100 cm */
+    /** 横に引くグリッド線（前から）の間隔＝奥行方向の実寸（mm） */
     stageGridSpacingDepthMm: 10,
     /**
      * 場ミリ規格の既定は 1.5 m（割センター 75 cm）。stageWidthMm が未設定の
@@ -83,6 +83,7 @@ export function createEmptyProject(): ChoreographyProjectJson {
     stageHesoVisible: false,
     stageFrontGridLinesMm: [],
     stageSleeveCurtainDepthsMm: [],
+    stageSleeveCurtains: [],
     stageLights: [],
     viewMode: "edit",
     crews: [],
@@ -117,9 +118,9 @@ export function tryMigrateFromLocalStorage(): ChoreographyProjectJson | null {
   }
 }
 
-/** グリッド線・実寸スナップの軸ごと間隔（mm）：1 cm〜100 cm */
+/** グリッド線・実寸スナップの軸ごと間隔（mm）：1 cm〜20 m（前からの線にも使う） */
 export const STAGE_GRID_AXIS_MM_MIN = 10;
-export const STAGE_GRID_AXIS_MM_MAX = 1000;
+export const STAGE_GRID_AXIS_MM_MAX = 20_000;
 
 export function clampStageGridAxisMm(raw: unknown, fallback: number): number {
   if (typeof raw !== "number" || !Number.isFinite(raw)) return fallback;

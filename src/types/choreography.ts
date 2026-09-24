@@ -149,6 +149,25 @@ export type StageFloorLineMarkup = {
 
 export type StageFloorMarkup = StageFloorTextMarkup | StageFloorLineMarkup;
 
+/** そで幕の表示側 */
+export type StageSleeveCurtainSide = "both" | "left" | "right";
+
+/**
+ * そで幕1枚分。客席側からの奥行で位置を決め、ステージ上でドラッグ調整できる。
+ */
+export type StageSleeveCurtain = {
+  id: string;
+  /** 客席側（手前）からの距離 mm */
+  depthMm: number;
+  label?: string;
+  /** 左右どちらに出す。省略時 both */
+  side?: StageSleeveCurtainSide;
+  /**
+   * 袖の横方向の入り込み（端からの幅 mm）。未指定は見た目の既定。
+   */
+  insetMm?: number;
+};
+
 /** ステージ照明の種類 */
 export type StageLightKind =
   | "suspension"
@@ -477,13 +496,19 @@ export type ChoreographyProjectJson = {
    */
   stageHesoVisible?: boolean;
   /**
-   * 客席側（手前）からの距離で引く横グリッド線（mm）。例: [2000, 4000] = 前から 2m・4m。
+   * @deprecated 奥行グリッド間隔 `stageGridSpacingDepthMm` に統合。読み込み時のみ互換。
+   * 客席側（手前）からの距離で引く横グリッド線（mm）。
    */
   stageFrontGridLinesMm?: number[];
   /**
-   * そで幕の奥行位置（手前からの mm）。左右袖に同じ奥行で印を出す。
+   * @deprecated `stageSleeveCurtains` に移行。読み込み時のみ互換。
+   * そで幕の奥行位置（手前からの mm）。
    */
   stageSleeveCurtainDepthsMm?: number[];
+  /**
+   * そで幕（複数可）。ステージ上でドラッグして奥行を調整できる。
+   */
+  stageSleeveCurtains?: StageSleeveCurtain[];
   /**
    * ステージ照明フィクスチャ（テキスト／照明シートで編集）。
    * 時間帯内だけ床に色を重ねる。

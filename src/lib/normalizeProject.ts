@@ -28,9 +28,13 @@ import {
   migrateAudienceEdge,
 } from "./projectDefaults";
 import {
-  normalizeDepthMmList,
   normalizeStageLights,
 } from "./stageLighting";
+import {
+  normalizeStageSleeveCurtains,
+  sleeveCurtainsToDepthsMm,
+} from "./stageSleeveCurtains";
+import { inferFrontGridIntervalMm } from "./stageArchitectureGuides";
 import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
@@ -704,7 +708,11 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       const fb = defaults.stageGridLineSpacingMm ?? 10;
       const legacy = clampStageGridAxisMm(po.stageGridLineSpacingMm, fb);
       const w = clampStageGridAxisMm(po.stageGridSpacingWidthMm, legacy);
-      const d = clampStageGridAxisMm(po.stageGridSpacingDepthMm, legacy);
+      let d = clampStageGridAxisMm(po.stageGridSpacingDepthMm, legacy);
+      const inferred = inferFrontGridIntervalMm(po.stageFrontGridLinesMm);
+      if (inferred != null && d <= 10) {
+        d = clampStageGridAxisMm(inferred, d);
+      }
       return {
         stageGridSpacingWidthMm: w,
         stageGridSpacingDepthMm: d,
@@ -761,12 +769,22 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       "boolean"
         ? Boolean((o as Partial<ChoreographyProjectJson>).stageHesoVisible)
         : false,
-    stageFrontGridLinesMm: normalizeDepthMmList(
-      (o as Partial<ChoreographyProjectJson>).stageFrontGridLinesMm
-    ),
-    stageSleeveCurtainDepthsMm: normalizeDepthMmList(
-      (o as Partial<ChoreographyProjectJson>).stageSleeveCurtainDepthsMm
-    ),
+    stageFrontGridLinesMm: [],
+    stageSleeveCurtains: (() => {
+      const po = o as Partial<ChoreographyProjectJson>;
+      return normalizeStageSleeveCurtains(
+        po.stageSleeveCurtains,
+        po.stageSleeveCurtainDepthsMm
+      );
+    })(),
+    stageSleeveCurtainDepthsMm: (() => {
+      const po = o as Partial<ChoreographyProjectJson>;
+      const curtains = normalizeStageSleeveCurtains(
+        po.stageSleeveCurtains,
+        po.stageSleeveCurtainDepthsMm
+      );
+      return sleeveCurtainsToDepthsMm(curtains);
+    })(),
     stageLights: normalizeStageLights(
       (o as Partial<ChoreographyProjectJson>).stageLights
     ),

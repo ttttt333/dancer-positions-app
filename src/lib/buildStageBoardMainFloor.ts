@@ -33,6 +33,7 @@ export type BuildStageBoardMainFloorParams = {
   /** 大道具ブロック群（最背面に描画） */
   setPieceElements: ReactNode;
   interaction: StageMainFloorInteractionLayerProps;
+  architectureInteractiveOverlay?: ReactNode;
 };
 
 /** @see モジュール先頭 `@file` */
@@ -57,5 +58,6 @@ export function buildStageBoardMainFloor(
       showStageFloorMarkup: p.showStageFloorMarkup,
     },
     interaction: p.interaction,
+    architectureInteractiveOverlay: p.architectureInteractiveOverlay,
   };
 }
