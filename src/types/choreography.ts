@@ -149,6 +149,36 @@ export type StageFloorLineMarkup = {
 
 export type StageFloorMarkup = StageFloorTextMarkup | StageFloorLineMarkup;
 
+/** ステージ照明の種類 */
+export type StageLightKind =
+  | "suspension"
+  | "sideSpot"
+  | "backlight"
+  | "footlight"
+  | "pinSpot";
+
+/**
+ * 舞台上の照明フィクスチャ。
+ * 時間帯（tStart〜tEnd）内だけ指定色・濃さで床に重ね表示する。
+ */
+export type StageLightFixture = {
+  id: string;
+  kind: StageLightKind;
+  label?: string;
+  /** メイン床 %（0–100） */
+  xPct: number;
+  yPct: number;
+  /** #rrggbb */
+  color: string;
+  /** 0〜1。床への色の濃さ */
+  intensity: number;
+  /** 有効開始秒。null/省略 = 先頭から */
+  tStartSec?: number | null;
+  /** 有効終了秒。null/省略 = 末尾まで */
+  tEndSec?: number | null;
+  enabled?: boolean;
+};
+
 /** ヘッダ「テキスト」から床へ置く前のプレビュー（親が状態を持つ） */
 export type FloorTextPlaceSession = {
   body: string;
@@ -442,6 +472,23 @@ export type ChoreographyProjectJson = {
    * - "below"  : ○の下に名前を表示（人物が視認しやすい・色印を活かしたい場合）
    */
   dancerLabelPosition?: "inside" | "below";
+  /**
+   * ヘソ（舞台中央）マークを表示する。
+   */
+  stageHesoVisible?: boolean;
+  /**
+   * 客席側（手前）からの距離で引く横グリッド線（mm）。例: [2000, 4000] = 前から 2m・4m。
+   */
+  stageFrontGridLinesMm?: number[];
+  /**
+   * そで幕の奥行位置（手前からの mm）。左右袖に同じ奥行で印を出す。
+   */
+  stageSleeveCurtainDepthsMm?: number[];
+  /**
+   * ステージ照明フィクスチャ（テキスト／照明シートで編集）。
+   * 時間帯内だけ床に色を重ねる。
+   */
+  stageLights?: StageLightFixture[];
   viewMode: "edit" | "view";
   crews: Crew[];
   /** サーバに保存した楽曲アセット ID（未ログイン時は null） */

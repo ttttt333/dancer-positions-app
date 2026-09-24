@@ -28,6 +28,10 @@ import {
   migrateAudienceEdge,
 } from "./projectDefaults";
 import {
+  normalizeDepthMmList,
+  normalizeStageLights,
+} from "./stageLighting";
+import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
 } from "./dancerSpacing";
@@ -752,6 +756,20 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       const po = o as Partial<ChoreographyProjectJson>;
       return po.dancerLabelPosition === "below" ? "below" : "inside";
     })(),
+    stageHesoVisible:
+      typeof (o as Partial<ChoreographyProjectJson>).stageHesoVisible ===
+      "boolean"
+        ? Boolean((o as Partial<ChoreographyProjectJson>).stageHesoVisible)
+        : false,
+    stageFrontGridLinesMm: normalizeDepthMmList(
+      (o as Partial<ChoreographyProjectJson>).stageFrontGridLinesMm
+    ),
+    stageSleeveCurtainDepthsMm: normalizeDepthMmList(
+      (o as Partial<ChoreographyProjectJson>).stageSleeveCurtainDepthsMm
+    ),
+    stageLights: normalizeStageLights(
+      (o as Partial<ChoreographyProjectJson>).stageLights
+    ),
     waveformAmplitudeScale: (() => {
       const po = o as Partial<ChoreographyProjectJson>;
       const raw = po.waveformAmplitudeScale;

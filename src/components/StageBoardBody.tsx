@@ -53,6 +53,12 @@ import {
 } from "../lib/stageNameBelowFontSizing";
 import { resolveArrangeTargetIds, swapTwoDancerPositions } from "../lib/stageSelectionArrange";
 import {
+  buildFrontGridMarks,
+  buildSleeveCurtainMarks,
+} from "../lib/stageArchitectureGuides";
+import { activeStageLightsAtTime } from "../lib/stageLighting";
+import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import {
   alignSelectedDancers,
   distributeSelectedDancers,
   flipSelectedDancers,
@@ -3929,6 +3935,22 @@ export function StageBoardBody({
     return marks;
   }, [centerFieldGuideIntervalMm, Wmm]);
 
+  const currentTimeSec = usePlaybackUiStore((s) => s.currentTimeSec);
+  const frontGridMarks = useMemo(
+    () => buildFrontGridMarks(project.stageFrontGridLinesMm, stageDepthMm),
+    [project.stageFrontGridLinesMm, stageDepthMm]
+  );
+  const sleeveMarks = useMemo(
+    () =>
+      buildSleeveCurtainMarks(project.stageSleeveCurtainDepthsMm, stageDepthMm),
+    [project.stageSleeveCurtainDepthsMm, stageDepthMm]
+  );
+  const activeStageLights = useMemo(
+    () => activeStageLightsAtTime(project.stageLights, currentTimeSec),
+    [project.stageLights, currentTimeSec]
+  );
+  const stageHesoVisible = project.stageHesoVisible === true;
+
   const mainFloorStyle: CSSProperties = useMemo(
     () => ({
       position: "relative",
@@ -5311,6 +5333,10 @@ export function StageBoardBody({
         stageGridLinesHorizontal,
         guideLineDrawMarks,
         alignGuides,
+        stageHesoVisible,
+        frontGridMarks,
+        sleeveMarks,
+        activeStageLights,
         displayFloorMarkup,
         globalFloorMarkup: globalFloorMarkup ?? undefined,
         onRemoveGlobalFloorMarkupById: removeGlobalFloorMarkupById,

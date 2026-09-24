@@ -1119,7 +1119,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               </div>
 
               {/* 名前の位置 — アイコン付きセグメント */}
-              <div>
+              <div style={{ marginBottom: 8 }}>
                 <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>{t("editor.layout.dancerLabelPosition")}</div>
                 <div style={{ display: "flex", gap: 6 }} title={t("editor.layout.labelPickerHint")}>
                   {([
@@ -1168,6 +1168,119 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* ヘソ・前グリッド・そで幕 */}
+              <div style={{ borderTop: "1px solid rgba(51,65,85,0.6)", paddingTop: 8 }}>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 6 }}>
+                  ヘソ・前からの線・そで幕
+                </div>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 12,
+                    color: "#e2e8f0",
+                    marginBottom: 8,
+                    cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    disabled={project.viewMode === "view"}
+                    checked={stageAreaSettingsDraft.stageHesoVisible}
+                    onChange={(e) =>
+                      setStageAreaSettingsDraft((d) => ({
+                        ...d,
+                        stageHesoVisible: e.target.checked,
+                      }))
+                    }
+                  />
+                  ヘソ（中央）を表示
+                </label>
+                {(
+                  [
+                    {
+                      key: "stageFrontGridMeters" as const,
+                      title: "前からのグリッド線（m）",
+                      hint: "例: 2 / 4",
+                    },
+                    {
+                      key: "stageSleeveCurtainMeters" as const,
+                      title: "そで幕の位置（前から・m）",
+                      hint: "例: 2 / 4",
+                    },
+                  ] as const
+                ).map((row) => (
+                  <div key={row.key} style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
+                      {row.title}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+                      {stageAreaSettingsDraft[row.key].map((m) => (
+                        <button
+                          key={`${row.key}-${m}`}
+                          type="button"
+                          disabled={project.viewMode === "view"}
+                          onClick={() =>
+                            setStageAreaSettingsDraft((d) => ({
+                              ...d,
+                              [row.key]: d[row.key].filter((x) => x !== m),
+                            }))
+                          }
+                          style={{
+                            padding: "3px 8px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(251,191,36,0.45)",
+                            background: "rgba(251,191,36,0.12)",
+                            color: "#fde68a",
+                            fontSize: 11,
+                            cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                          }}
+                          title="クリックで削除"
+                        >
+                          {m}m ×
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                      {[1, 2, 3, 4, 5, 6, 8].map((m) => {
+                        const on = stageAreaSettingsDraft[row.key].includes(m);
+                        return (
+                          <button
+                            key={`add-${row.key}-${m}`}
+                            type="button"
+                            disabled={project.viewMode === "view" || on}
+                            onClick={() =>
+                              setStageAreaSettingsDraft((d) => ({
+                                ...d,
+                                [row.key]: [...d[row.key], m].sort((a, b) => a - b),
+                              }))
+                            }
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              border: "1px solid #334155",
+                              background: on ? "rgba(51,65,85,0.5)" : "#0f172a",
+                              color: on ? "#64748b" : "#cbd5e1",
+                              fontSize: 11,
+                              cursor:
+                                project.viewMode === "view" || on
+                                  ? "not-allowed"
+                                  : "pointer",
+                            }}
+                          >
+                            +{m}m
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ fontSize: 9, color: "#64748b", marginTop: 3 }}>
+                      {row.hint}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -1709,6 +1822,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             }}
             onCommitted={() => setFloorTextSideSheetOpen(false)}
             t={t}
+            project={project}
+            setProject={setProjectSafe}
+            currentTimeSec={currentTime}
+            viewOnly={project?.viewMode === "view"}
           />
         </EditorSideSheet>
       ) : null}

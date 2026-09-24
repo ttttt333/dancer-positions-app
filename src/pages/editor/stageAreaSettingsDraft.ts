@@ -20,6 +20,11 @@ export type StageAreaSettingsDraft = {
   gridWidthCm: number;
   gridDepthCm: number;
   dancerLabelPosition: "inside" | "below";
+  stageHesoVisible: boolean;
+  /** 前からの横グリッド（m）。UI ではメートル単位で編集 */
+  stageFrontGridMeters: number[];
+  /** そで幕の奥行（m） */
+  stageSleeveCurtainMeters: number[];
 };
 
 export const STAGE_AREA_AUDIENCE_OPTIONS: {
@@ -88,6 +93,9 @@ export function emptyStageAreaSettingsDraft(): StageAreaSettingsDraft {
     gridWidthCm: 1,
     gridDepthCm: 1,
     dancerLabelPosition: "inside",
+    stageHesoVisible: false,
+    stageFrontGridMeters: [],
+    stageSleeveCurtainMeters: [],
   };
 }
 
@@ -123,6 +131,13 @@ export function projectToStageAreaDraft(
     gridWidthCm: clampGridSpacingCm(gridWmm / 10),
     gridDepthCm: clampGridSpacingCm(gridDmm / 10),
     dancerLabelPosition: p.dancerLabelPosition ?? "inside",
+    stageHesoVisible: p.stageHesoVisible === true,
+    stageFrontGridMeters: (p.stageFrontGridLinesMm ?? []).map((mm) =>
+      Math.round((mm / 1000) * 100) / 100
+    ),
+    stageSleeveCurtainMeters: (p.stageSleeveCurtainDepthsMm ?? []).map((mm) =>
+      Math.round((mm / 1000) * 100) / 100
+    ),
   };
 }
 
@@ -149,10 +164,19 @@ export function stageAreaDraftToProjectPatch(
   | "stageGridSpacingWidthMm"
   | "stageGridSpacingDepthMm"
   | "dancerLabelPosition"
+  | "stageHesoVisible"
+  | "stageFrontGridLinesMm"
+  | "stageSleeveCurtainDepthsMm"
 > {
   const widthMm = parseMeterCmDraftToMm(draft.width);
   const guideRaw = parseMeterCmDraftToMm(draft.guide);
   const hasMain = widthMm != null && parseMeterCmDraftToMm(draft.depth) != null;
+  const metersToMmList = (meters: number[]) =>
+    [...new Set(
+      meters
+        .filter((m) => Number.isFinite(m) && m > 0)
+        .map((m) => Math.round(m * 1000))
+    )].sort((a, b) => a - b);
   return {
     audienceEdge: draft.audienceEdge,
     stageWidthMm: widthMm,
@@ -166,5 +190,8 @@ export function stageAreaDraftToProjectPatch(
     stageGridSpacingWidthMm: hasMain ? clampGridSpacingCm(draft.gridWidthCm) * 10 : null,
     stageGridSpacingDepthMm: hasMain ? clampGridSpacingCm(draft.gridDepthCm) * 10 : null,
     dancerLabelPosition: draft.dancerLabelPosition,
+    stageHesoVisible: draft.stageHesoVisible,
+    stageFrontGridLinesMm: metersToMmList(draft.stageFrontGridMeters),
+    stageSleeveCurtainDepthsMm: metersToMmList(draft.stageSleeveCurtainMeters),
   };
 }

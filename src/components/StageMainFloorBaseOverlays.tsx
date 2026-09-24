@@ -1,9 +1,12 @@
 import type { StageFloorStageMarkupOverlayProps } from "./StageFloorStageMarkupOverlay";
 import { StageFloorStageMarkupOverlay } from "./StageFloorStageMarkupOverlay";
-import { StageGuideAndAlignLines } from "./StageGuideAndAlignLines";
 import { StageMillimeterGridSvg } from "./StageMillimeterGridSvg";
 import { StageShapeMaskSvg } from "./StageShapeMaskSvg";
 import type { StageGuideMark } from "./StageGuideAndAlignLines";
+import type { StageDepthGuideMark } from "../lib/stageArchitectureGuides";
+import type { StageLightFixture } from "../types/choreography";
+import { StageArchitectureGuidesSvg } from "./StageArchitectureGuidesSvg";
+import { StageLightingOverlay } from "./StageLightingOverlay";
 
 export type StageMainFloorBaseOverlaysProps = {
   stageShapeActive: boolean;
@@ -17,10 +20,14 @@ export type StageMainFloorBaseOverlaysProps = {
   guideLineDrawMarks: readonly StageGuideMark[];
   alignGuides: { x: number | null; y: number | null };
   showStageFloorMarkup: boolean;
+  stageHesoVisible?: boolean;
+  frontGridMarks?: readonly StageDepthGuideMark[];
+  sleeveMarks?: readonly StageDepthGuideMark[];
+  activeStageLights?: readonly StageLightFixture[];
 } & StageFloorStageMarkupOverlayProps;
 
 /**
- * メイン床の「下層」オーバーレイ: カスタム形状・寸法格子・ガイド線・床線／テキスト。
+ * メイン床の「下層」オーバーレイ: カスタム形状・寸法格子・ガイド線・照明・床線／テキスト。
  * 大道具・ダンサー印より下に置く想定で親から順に並べる。
  */
 export function StageMainFloorBaseOverlays({
@@ -35,6 +42,10 @@ export function StageMainFloorBaseOverlays({
   guideLineDrawMarks,
   alignGuides,
   showStageFloorMarkup,
+  stageHesoVisible = false,
+  frontGridMarks = [],
+  sleeveMarks = [],
+  activeStageLights = [],
   ...floorOverlay
 }: StageMainFloorBaseOverlaysProps) {
   return (
@@ -54,25 +65,17 @@ export function StageMainFloorBaseOverlays({
           stageGridLinesHorizontal={stageGridLinesHorizontal}
         />
       ) : null}
-      <svg
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          pointerEvents: "none",
-          zIndex: 2,
-        }}
-        aria-hidden
-      >
-        <StageGuideAndAlignLines
-          verticalGuideMarks={guideLineDrawMarks}
-          alignX={alignGuides.x}
-          alignY={alignGuides.y}
-        />
-      </svg>
+      <StageArchitectureGuidesSvg
+        hesoVisible={stageHesoVisible}
+        frontGridMarks={frontGridMarks}
+        sleeveMarks={sleeveMarks}
+        verticalGuideMarks={guideLineDrawMarks}
+        alignX={alignGuides.x}
+        alignY={alignGuides.y}
+      />
+      {activeStageLights.length > 0 ? (
+        <StageLightingOverlay lights={activeStageLights} />
+      ) : null}
       {showStageFloorMarkup ? (
         <StageFloorStageMarkupOverlay {...floorOverlay} />
       ) : null}

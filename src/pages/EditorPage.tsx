@@ -1506,6 +1506,21 @@ function EditorPageContent({
         stageGridLineSpacingMm: gw,
         stageGridSpacingDepthMm: gd,
         dancerLabelPosition: d.dancerLabelPosition,
+        stageHesoVisible: d.stageHesoVisible,
+        stageFrontGridLinesMm: [
+          ...new Set(
+            d.stageFrontGridMeters
+              .filter((m) => Number.isFinite(m) && m > 0)
+              .map((m) => Math.round(m * 1000))
+          ),
+        ].sort((a, b) => a - b),
+        stageSleeveCurtainDepthsMm: [
+          ...new Set(
+            d.stageSleeveCurtainMeters
+              .filter((m) => Number.isFinite(m) && m > 0)
+              .map((m) => Math.round(m * 1000))
+          ),
+        ].sort((a, b) => a - b),
       })
     );
   }, [project, setProjectSafe, gridWidthCmInput, gridDepthCmInput]);
@@ -1632,6 +1647,21 @@ function EditorPageContent({
       stageGridLineSpacingMm: gw,
       stageGridSpacingDepthMm: gd,
       dancerLabelPosition: d.dancerLabelPosition,
+      stageHesoVisible: d.stageHesoVisible,
+      stageFrontGridLinesMm: [
+        ...new Set(
+          d.stageFrontGridMeters
+            .filter((m) => Number.isFinite(m) && m > 0)
+            .map((m) => Math.round(m * 1000))
+        ),
+      ].sort((a, b) => a - b),
+      stageSleeveCurtainDepthsMm: [
+        ...new Set(
+          d.stageSleeveCurtainMeters
+            .filter((m) => Number.isFinite(m) && m > 0)
+            .map((m) => Math.round(m * 1000))
+        ),
+      ].sort((a, b) => a - b),
     };
   }, [
     project,
