@@ -5446,6 +5446,7 @@ export function StageBoardBody({
           stageLightsEditable && activeStageLights.length > 0 ? (
             <StageLightingOverlay
               lights={activeStageLights}
+              allLights={project.stageLights ?? []}
               handlesOnly
               editable
               selectedId={selectedStageLightId}
@@ -5458,6 +5459,7 @@ export function StageBoardBody({
                 );
                 onStageLightsChange(merged);
               }}
+              onChangeAllLights={(next) => onStageLightsChange?.(next)}
               floorRef={stageMainFloorRef}
             />
           ) : null;
