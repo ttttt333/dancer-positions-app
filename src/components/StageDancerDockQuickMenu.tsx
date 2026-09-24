@@ -59,7 +59,15 @@ export function StageDancerDockQuickMenu({
   onAddLight,
 }: StageDancerDockQuickMenuProps) {
   const [dupOpen, setDupOpen] = useState(false);
-  const [lightOpen, setLightOpen] = useState(false);
+  const [lightOpen, setLightOpen] = useState(
+    () =>
+      !showShape &&
+      !showDisplay &&
+      !showSort &&
+      !onDuplicate &&
+      !onDelete &&
+      !onSwapPair
+  );
   const entries: { id: StageDockQuickSection; label: string; hint: string }[] =
     [];
   if (showShape) {
