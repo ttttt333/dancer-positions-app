@@ -1,4 +1,6 @@
 import { useState, type CSSProperties } from "react";
+import type { GatherToward } from "../lib/gatherDancers";
+import { STAGE_GATHER_EDGE_ACTIONS } from "./StageGatherToEdgeButtons";
 
 export type StageDockQuickSection = "shape" | "display" | "sort";
 export type StageDuplicatePlacement = "end" | "after";
@@ -11,6 +13,10 @@ export type StageDancerDockQuickMenuProps = {
   onDuplicate?: (placement: StageDuplicatePlacement) => void;
   /** ちょうど2人選択時: 立ち位置を入れ替え */
   onSwapPair?: () => void;
+  /** 選択メンバーを辺へ寄せる */
+  onGatherToEdge?: (
+    toward: Extract<GatherToward, "shimote" | "kamite" | "back">
+  ) => void;
   onOpenLegacyMore?: () => void;
   onDelete?: () => void;
   /** 照明を追加（種類ごと） */
@@ -23,13 +29,13 @@ const itemBtn: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
-  padding: "10px 12px",
+  gap: 8,
+  padding: "7px 10px",
   border: "none",
-  borderRadius: 8,
+  borderRadius: 6,
   background: "transparent",
   color: "#e2e8f0",
-  fontSize: 13,
+  fontSize: 12,
   fontWeight: 700,
   cursor: "pointer",
   textAlign: "left",
@@ -37,14 +43,14 @@ const itemBtn: CSSProperties = {
 
 const subItemBtn: CSSProperties = {
   ...itemBtn,
-  padding: "8px 12px 8px 18px",
-  fontSize: 12,
+  padding: "5px 10px 5px 16px",
+  fontSize: 11,
   fontWeight: 600,
   color: "#cbd5e1",
 };
 
 /**
- * 選択中の右クリック用。右ドックの 雛形 / 表示 / 並べ替え / 複製 をすぐ選ぶ一覧。
+ * 選択中の右クリック／ダブルクリック用。右ドックの操作をすぐ選ぶ一覧。
  */
 export function StageDancerDockQuickMenu({
   showShape,
@@ -53,12 +59,14 @@ export function StageDancerDockQuickMenu({
   onPick,
   onDuplicate,
   onSwapPair,
+  onGatherToEdge,
   onOpenLegacyMore,
   onDelete,
   lightAddOptions,
   onAddLight,
 }: StageDancerDockQuickMenuProps) {
   const [dupOpen, setDupOpen] = useState(false);
+  const [gatherOpen, setGatherOpen] = useState(true);
   const [lightOpen, setLightOpen] = useState(
     () =>
       !showShape &&
@@ -66,7 +74,8 @@ export function StageDancerDockQuickMenu({
       !showSort &&
       !onDuplicate &&
       !onDelete &&
-      !onSwapPair
+      !onSwapPair &&
+      !onGatherToEdge
   );
   const entries: { id: StageDockQuickSection; label: string; hint: string }[] =
     [];
@@ -84,11 +93,11 @@ export function StageDancerDockQuickMenu({
     <div data-dancer-dock-quick-menu role="menu" aria-label="ステージ操作">
       <div
         style={{
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: 800,
           letterSpacing: "0.06em",
           color: "#94a3b8",
-          padding: "2px 8px 6px",
+          padding: "1px 6px 4px",
         }}
       >
         クイック操作
@@ -108,11 +117,57 @@ export function StageDancerDockQuickMenu({
           onClick={() => onPick(entry.id)}
         >
           <span>{entry.label}</span>
-          <span style={{ color: "#64748b", fontSize: 11, fontWeight: 600 }}>
+          <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
             {entry.hint}
           </span>
         </button>
       ))}
+      {onGatherToEdge ? (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            aria-expanded={gatherOpen}
+            style={itemBtn}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+            onClick={() => setGatherOpen((v) => !v)}
+          >
+            <span>辺に寄せる</span>
+            <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
+              {gatherOpen ? "▾" : "▸"}
+            </span>
+          </button>
+          {gatherOpen
+            ? STAGE_GATHER_EDGE_ACTIONS.map((a) => (
+                <button
+                  key={a.toward}
+                  type="button"
+                  role="menuitem"
+                  style={subItemBtn}
+                  title={a.title}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(251,191,36,0.14)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                  onClick={() => onGatherToEdge(a.toward)}
+                >
+                  <span>
+                    {a.toward === "back"
+                      ? "舞台後ろに寄せる"
+                      : `${a.label}に寄せる`}
+                  </span>
+                </button>
+              ))
+            : null}
+        </>
+      ) : null}
       {onSwapPair ? (
         <button
           type="button"
@@ -127,7 +182,7 @@ export function StageDancerDockQuickMenu({
           onClick={onSwapPair}
         >
           <span>二人を入れ替え</span>
-          <span style={{ color: "#64748b", fontSize: 11, fontWeight: 600 }}>
+          <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
             立ち位置を交換
           </span>
         </button>
@@ -148,7 +203,7 @@ export function StageDancerDockQuickMenu({
             onClick={() => setDupOpen((v) => !v)}
           >
             <span>複製</span>
-            <span style={{ color: "#64748b", fontSize: 11, fontWeight: 600 }}>
+            <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
               {dupOpen ? "▾" : "▸"}
             </span>
           </button>
@@ -192,7 +247,7 @@ export function StageDancerDockQuickMenu({
             style={{
               height: 1,
               background: "#334155",
-              margin: "4px 6px",
+              margin: "3px 6px",
             }}
           />
           <button
@@ -209,7 +264,7 @@ export function StageDancerDockQuickMenu({
             onClick={() => setLightOpen((v) => !v)}
           >
             <span>照明を追加</span>
-            <span style={{ color: "#64748b", fontSize: 11, fontWeight: 600 }}>
+            <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
               {lightOpen ? "▾" : "▸"}
             </span>
           </button>
@@ -239,7 +294,7 @@ export function StageDancerDockQuickMenu({
           style={{
             height: 1,
             background: "#334155",
-            margin: "4px 6px",
+            margin: "3px 6px",
           }}
         />
       ) : null}

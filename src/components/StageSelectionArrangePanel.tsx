@@ -19,6 +19,7 @@ import {
   dockSectionHint,
   dockSectionTitle,
 } from "./stageDockPanelStyles";
+import { StageGatherToEdgeButtons } from "./StageGatherToEdgeButtons";
 
 function Segment<T extends string>({
   value,
@@ -35,7 +36,7 @@ function Segment<T extends string>({
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      style={{ display: "flex", gap: 6, flexWrap: "wrap" }}
+      style={{ display: "flex", gap: 4, flexWrap: "wrap" }}
     >
       {options.map((opt) => {
         const on = opt.id === value;
@@ -49,12 +50,12 @@ function Segment<T extends string>({
             style={{
               flex: "1 1 0",
               minWidth: 0,
-              padding: "8px 6px",
-              borderRadius: 8,
+              padding: "5px 4px",
+              borderRadius: 6,
               border: on ? "1px solid rgba(251,191,36,0.9)" : "1px solid #334155",
               background: on ? "rgba(251,191,36,0.16)" : "#020617",
               color: on ? "#fde68a" : "#94a3b8",
-              fontSize: 12,
+              fontSize: 10,
               fontWeight: 600,
               cursor: "pointer",
             }}
@@ -114,68 +115,25 @@ export function StageSelectionArrangePanel({
     <div data-selection-arrange-panel>
       {ranksSlot}
 
-      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
-        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>
-          上手・下手に寄せる
-        </div>
-        <p style={{ ...dockSectionHint, marginBottom: 10 }}>
-          選んだメンバーだけを舞台の上手（右）または下手（左）へ寄せて並べ替えます。
+      <div style={{ ...dockCard, marginBottom: 6 }}>
+        <div style={dockSectionTitle}>辺に寄せる</div>
+        <p style={dockSectionHint}>
+          選択メンバーを下手／上手／舞台後ろへ寄せて並べ替え
         </p>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 8,
-          }}
-        >
-          <button
-            type="button"
-            disabled={!canGather}
-            title="選択メンバーを下手（左）へ寄せる"
-            style={{
-              ...actionBtn,
-              opacity: canGather ? 1 : 0.55,
-            }}
-            onClick={() =>
-              onArrange((dancers, ids) =>
-                gatherSelectedDancersToEdge(dancers, ids, "shimote")
-              )
-            }
-          >
-            下手に寄せる
-          </button>
-          <button
-            type="button"
-            disabled={!canGather}
-            title="選択メンバーを上手（右）へ寄せる"
-            style={{
-              ...actionBtn,
-              opacity: canGather ? 1 : 0.55,
-            }}
-            onClick={() =>
-              onArrange((dancers, ids) =>
-                gatherSelectedDancersToEdge(dancers, ids, "kamite")
-              )
-            }
-          >
-            上手に寄せる
-          </button>
-        </div>
+        <StageGatherToEdgeButtons
+          disabled={!canGather}
+          onGather={(toward) =>
+            onArrange((dancers, ids) =>
+              gatherSelectedDancersToEdge(dancers, ids, toward)
+            )
+          }
+        />
       </div>
 
-      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
-        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>
-          前の立ち位置から最短距離
-        </div>
-        <p
-          style={{
-            margin: "0 0 8px",
-            color: "#94a3b8",
-            fontSize: 11,
-            lineHeight: 1.4,
-          }}
-        >
-          いまの隊形の位置はそのままに、直前のキューからの移動が全体で最短になるよう入れ替えます。
+      <div style={{ ...dockCard, marginBottom: 6 }}>
+        <div style={dockSectionTitle}>前の立ち位置から最短距離</div>
+        <p style={dockSectionHint}>
+          位置はそのまま、直前キューからの移動が最短になるよう入れ替え
         </p>
         <button
           type="button"
@@ -203,17 +161,17 @@ export function StageSelectionArrangePanel({
             )
           }
         >
-          前の立ち位置から最短距離に並び替え
+          最短距離に並び替え
         </button>
       </div>
 
-      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+      <div style={dockCard}>
         <div style={{ ...dockSectionTitle, marginBottom: 4 }}>属性で並べ替え</div>
-        <p style={{ ...dockSectionHint, marginBottom: 10 }}>
-          身長・学年・スキルの順で、選んだ範囲の立ち位置を入れ替えます。
+        <p style={dockSectionHint}>
+          身長・学年・スキルの順で立ち位置を入れ替え
         </p>
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ ...dockSectionTitle, marginBottom: 6 }}>何で並べる？</div>
+        <div style={{ marginBottom: 6 }}>
+          <div style={dockSectionTitle}>何で並べる？</div>
           <Segment
             ariaLabel="並べ替えの軸"
             value={axis}
@@ -225,8 +183,8 @@ export function StageSelectionArrangePanel({
             ]}
           />
         </div>
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ ...dockSectionTitle, marginBottom: 6 }}>どこで？</div>
+        <div style={{ marginBottom: 6 }}>
+          <div style={dockSectionTitle}>どこで？</div>
           <Segment
             ariaLabel="並べ替えの範囲"
             value={scope}
@@ -238,8 +196,8 @@ export function StageSelectionArrangePanel({
             ]}
           />
         </div>
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ ...dockSectionTitle, marginBottom: 6 }}>順番</div>
+        <div style={{ marginBottom: 6 }}>
+          <div style={dockSectionTitle}>順番</div>
           <Segment
             ariaLabel="並べ替えの方向"
             value={direction}
@@ -283,7 +241,7 @@ export function StageSelectionArrangePanel({
         </button>
       </div>
 
-      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+      <div style={dockCard}>
         <div style={{ ...dockSectionTitle, marginBottom: 6 }}>二人を入れ替え</div>
         <p
           style={{
@@ -322,7 +280,7 @@ export function StageSelectionArrangePanel({
       </div>
 
       {onFlip ? (
-        <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={dockCard}>
           <div style={{ ...dockSectionTitle, marginBottom: 8 }}>反転</div>
           <div style={{ display: "flex", gap: 6 }}>
             <button
@@ -344,7 +302,7 @@ export function StageSelectionArrangePanel({
       ) : null}
 
       {onBeginRotationPreview ? (
-        <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 0 }}>
+        <div style={{ ...dockCard, marginBottom: 0 }}>
           <div style={{ ...dockSectionTitle, marginBottom: 8 }}>位置の入れ替え</div>
           <div style={{ display: "flex", gap: 6 }}>
             <button

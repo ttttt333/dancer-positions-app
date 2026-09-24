@@ -26,6 +26,7 @@ import {
   type StageTidyAction,
 } from "../lib/stageTidyActions";
 import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
+import { StageGatherToEdgeButtons } from "./StageGatherToEdgeButtons";
 import { StageFormationShapeCards } from "./StageFormationShapeCards";
 import { StageFormationRanksPanel } from "./StageFormationRanksPanel";
 import { StageSelectionArrangePanel } from "./StageSelectionArrangePanel";
@@ -842,40 +843,18 @@ export function StageDancerContextToolbar({
                 ))}
               </div>
               {onArrangeSelection ? (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 8,
-                    marginTop: 8,
-                  }}
-                >
-                  <button
-                    type="button"
-                    style={dockActionBtn}
-                    title="選択メンバーを下手（左）へ寄せる"
-                    onClick={() => {
+                <div style={{ marginTop: 6 }}>
+                  <div style={{ ...dockSectionTitle, marginBottom: 4 }}>
+                    辺に寄せる
+                  </div>
+                  <StageGatherToEdgeButtons
+                    onGather={(toward) => {
                       onArrangeSelection((dancers, ids) =>
-                        gatherSelectedDancersToEdge(dancers, ids, "shimote")
+                        gatherSelectedDancersToEdge(dancers, ids, toward)
                       );
                       setOpen(null);
                     }}
-                  >
-                    下手に寄せる
-                  </button>
-                  <button
-                    type="button"
-                    style={dockActionBtn}
-                    title="選択メンバーを上手（右）へ寄せる"
-                    onClick={() => {
-                      onArrangeSelection((dancers, ids) =>
-                        gatherSelectedDancersToEdge(dancers, ids, "kamite")
-                      );
-                      setOpen(null);
-                    }}
-                  >
-                    上手に寄せる
-                  </button>
+                  />
                 </div>
               ) : null}
             </div>

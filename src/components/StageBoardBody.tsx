@@ -74,6 +74,7 @@ import {
   distributeSelectedDancers,
   flipSelectedDancers,
 } from "../lib/stageSelectionTransform";
+import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
 import {
   resolveStageEditMode,
   retainDancerIdsInFormation,
@@ -5880,6 +5881,14 @@ export function StageBoardBody({
                       stageContextMenu.kind === "dancerDock" &&
                       selectedDancerIds.length === 2
                         ? () => handleSwapSelectedPair()
+                        : undefined,
+                    onGatherToEdge:
+                      stageContextMenu.kind === "dancerDock" &&
+                      selectedDancerIds.length >= 1
+                        ? (toward) =>
+                            applySelectedArrange((dancers, ids) =>
+                              gatherSelectedDancersToEdge(dancers, ids, toward)
+                            )
                         : undefined,
                     onDelete:
                       stageContextMenu.kind === "dancerDock"

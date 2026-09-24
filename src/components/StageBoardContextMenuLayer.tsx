@@ -11,6 +11,7 @@ import {
 } from "./StageDancerContextMenu";
 import {
   StageDancerDockQuickMenu,
+  type StageDancerDockQuickMenuProps,
   type StageDockQuickSection,
   type StageDuplicatePlacement,
 } from "./StageDancerDockQuickMenu";
@@ -46,6 +47,7 @@ export type StageBoardContextMenuLayerProps = {
     onPick: (section: StageDockQuickSection) => void;
     onDuplicate?: (placement: StageDuplicatePlacement) => void;
     onSwapPair?: () => void;
+    onGatherToEdge?: StageDancerDockQuickMenuProps["onGatherToEdge"];
     onOpenLegacyMore?: () => void;
     onDelete?: () => void;
     lightAddOptions?: { kind: string; label: string }[];
@@ -108,6 +110,14 @@ export function StageBoardContextMenuLayer({
             dockQuickMenu.onSwapPair
               ? () => {
                   dockQuickMenu.onSwapPair?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onGatherToEdge={
+            dockQuickMenu.onGatherToEdge
+              ? (toward) => {
+                  dockQuickMenu.onGatherToEdge?.(toward);
                   onCloseMenu();
                 }
               : undefined

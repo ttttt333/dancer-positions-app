@@ -19,6 +19,7 @@ import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle
 import { DancerGenderPicker } from "./DancerGenderPicker";
 import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
 import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
+import { StageGatherToEdgeButtons } from "./StageGatherToEdgeButtons";
 
 export type BulkEditTabId = "basic" | "sort" | "formation" | "display";
 
@@ -32,24 +33,24 @@ export const BULK_EDIT_TABS: { id: BulkEditTabId; label: string }[] = [
 const PRIMARY_COLOR_COUNT = 8;
 
 const sectionTitle: CSSProperties = {
-  fontSize: 12,
-  fontWeight: 600,
+  fontSize: 10,
+  fontWeight: 700,
   color: "#94a3b8",
-  margin: "0 0 6px",
+  margin: "0 0 4px",
 };
 
 const sectionHint: CSSProperties = {
-  fontSize: 11,
+  fontSize: 9,
   color: "#64748b",
-  margin: "0 0 8px",
-  lineHeight: 1.45,
+  margin: "0 0 5px",
+  lineHeight: 1.35,
 };
 
 const card: CSSProperties = {
   border: "1px solid #1e293b",
-  borderRadius: 10,
-  padding: "10px 10px 12px",
-  marginBottom: 12,
+  borderRadius: 8,
+  padding: "7px 8px 8px",
+  marginBottom: 6,
   background: "#080b12",
 };
 
@@ -81,13 +82,13 @@ function Segment<T extends string>({
             onClick={() => onChange(opt.id)}
             style={{
               flex: "1 1 0",
-              minWidth: 72,
-              padding: "9px 10px",
-              borderRadius: 8,
+              minWidth: 56,
+              padding: "5px 4px",
+              borderRadius: 6,
               border: on ? "1px solid rgba(99,102,241,0.9)" : "1px solid #334155",
               background: on ? "rgba(99,102,241,0.22)" : "#020617",
               color: on ? "#e0e7ff" : "#94a3b8",
-              fontSize: 13,
+              fontSize: 10,
               fontWeight: 600,
               cursor: "pointer",
             }}
@@ -124,10 +125,11 @@ function ActionButton({
       style={{
         ...btnSecondary,
         width: "100%",
-        padding: "10px 12px",
-        fontSize: 13,
+        padding: "6px 8px",
+        fontSize: 11,
         fontWeight: 600,
-        minHeight: 44,
+        minHeight: 30,
+        borderRadius: 7,
         gridColumn: wide ? "1 / -1" : undefined,
         borderColor: danger ? "#7f1d1d" : btnSecondary.borderColor,
         color: danger ? "#fecaca" : btnSecondary.color,
@@ -347,34 +349,18 @@ export function StageDancerBulkEditPanel({
           </div>
 
           <div style={card}>
-            <div style={sectionTitle}>上手・下手に寄せる</div>
+            <div style={sectionTitle}>辺に寄せる</div>
             <p style={sectionHint}>
-              選んだメンバーだけを舞台の上手（右）または下手（左）へ寄せて並べ替えます。
+              選択メンバーを下手／上手／舞台後ろへ寄せて並べ替え
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <ActionButton
-                disabled={menuInteractionDisabled || targetIds.length < 1}
-                title="選択メンバーを下手（左）へ寄せる"
-                onClick={() =>
-                  applyDancerArrange((dancers, t) =>
-                    gatherSelectedDancersToEdge(dancers, t, "shimote")
-                  )
-                }
-              >
-                下手に寄せる
-              </ActionButton>
-              <ActionButton
-                disabled={menuInteractionDisabled || targetIds.length < 1}
-                title="選択メンバーを上手（右）へ寄せる"
-                onClick={() =>
-                  applyDancerArrange((dancers, t) =>
-                    gatherSelectedDancersToEdge(dancers, t, "kamite")
-                  )
-                }
-              >
-                上手に寄せる
-              </ActionButton>
-            </div>
+            <StageGatherToEdgeButtons
+              disabled={menuInteractionDisabled || targetIds.length < 1}
+              onGather={(toward) =>
+                applyDancerArrange((dancers, t) =>
+                  gatherSelectedDancersToEdge(dancers, t, toward)
+                )
+              }
+            />
           </div>
 
           <div style={card}>

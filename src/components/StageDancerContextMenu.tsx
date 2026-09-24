@@ -25,8 +25,10 @@ import {
   swapSelectionColumnsDepth,
   swapSelectionKamiteShimote,
 } from "../lib/stageColumnSwap";
+import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
 import { btnSecondary } from "./stageButtonStyles";
 import { withDancerLabelPosition } from "../lib/withDancerLabelPosition";
+import { StageGatherToEdgeButtons } from "./StageGatherToEdgeButtons";
 
 export type StageDancerContextMenuProps = {
   anchorDancerId: string;
@@ -771,6 +773,27 @@ menuInteractionDisabled
         </button>
       </>
     ) : null}
+  </div>
+  <div
+    style={{
+      fontSize: "9px",
+      fontWeight: 600,
+      color: "#94a3b8",
+      margin: "2px 0 1px",
+    }}
+  >
+    辺に寄せる
+  </div>
+  <div style={{ marginBottom: "5px" }}>
+    <StageGatherToEdgeButtons
+      disabled={menuInteractionDisabled || arrangeTargetIds.length < 1}
+      onGather={(toward) => {
+        applyDancerArrange((dancers, t) =>
+          gatherSelectedDancersToEdge(dancers, t, toward)
+        );
+        onCloseMenu();
+      }}
+    />
   </div>
   <div
     style={{

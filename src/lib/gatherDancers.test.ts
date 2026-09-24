@@ -42,9 +42,12 @@ describe("gatherSelectedDancersToEdge", () => {
     }
   });
 
-  it("no-op when selection empty", () => {
-    const dancers = [spot("a", 50, 50)];
-    expect(gatherSelectedDancersToEdge(dancers, [], "kamite")).toEqual(dancers);
+  it("packs selected to back (small y)", () => {
+    const dancers = [spot("a", 20, 80), spot("b", 80, 90)];
+    const next = gatherSelectedDancersToEdge(dancers, ["a", "b"], "back");
+    for (const d of next) {
+      expect(d.yPct).toBeLessThan(20);
+    }
   });
 });
 
