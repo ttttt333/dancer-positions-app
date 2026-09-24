@@ -1,22 +1,37 @@
 import type { StageCenterMark } from "../types/choreography";
+import { resolveCenterMarkAxes } from "../lib/stageCenterMarks";
 import type { StageGuideMark } from "./StageGuideAndAlignLines";
 
 export type StageArchitectureGuidesSvgProps = {
   /** @deprecated centerMarks を使う */
   hesoVisible?: boolean;
   centerMarks?: readonly StageCenterMark[];
+  /** 床の CSS 幅/高さ。正円補正に使う */
+  floorAspect?: number | null;
   verticalGuideMarks?: readonly StageGuideMark[];
   alignX?: number | null;
   alignY?: number | null;
 };
 
-function CenterMarkGlyph({ x, y }: { x: number; y: number }) {
+function CenterMarkGlyph({
+  mark,
+  floorAspect,
+}: {
+  mark: StageCenterMark;
+  floorAspect?: number | null;
+}) {
+  const { rx, ry } = resolveCenterMarkAxes(mark, floorAspect);
+  const x = mark.xPct;
+  const y = mark.yPct;
+  const armX = Math.max(rx * 1.35, 1.2);
+  const armY = Math.max(ry * 1.35, 1.2);
   return (
     <g>
-      <circle
+      <ellipse
         cx={x}
         cy={y}
-        r="1.6"
+        rx={rx}
+        ry={ry}
         fill="none"
         stroke="rgba(248, 250, 252, 0.9)"
         strokeWidth="0.35"
@@ -24,17 +39,17 @@ function CenterMarkGlyph({ x, y }: { x: number; y: number }) {
       />
       <line
         x1={x}
-        y1={y - 3.5}
+        y1={y - armY}
         x2={x}
-        y2={y + 3.5}
+        y2={y + armY}
         stroke="rgba(248, 250, 252, 0.85)"
         strokeWidth="0.3"
         vectorEffect="non-scaling-stroke"
       />
       <line
-        x1={x - 3.5}
+        x1={x - armX}
         y1={y}
-        x2={x + 3.5}
+        x2={x + armX}
         y2={y}
         stroke="rgba(248, 250, 252, 0.85)"
         strokeWidth="0.3"
@@ -53,6 +68,7 @@ function CenterMarkGlyph({ x, y }: { x: number; y: number }) {
 export function StageArchitectureGuidesSvg({
   hesoVisible = false,
   centerMarks,
+  floorAspect = null,
   verticalGuideMarks = [],
   alignX = null,
   alignY = null,
@@ -61,7 +77,7 @@ export function StageArchitectureGuidesSvg({
     centerMarks && centerMarks.length > 0
       ? centerMarks
       : hesoVisible
-        ? [{ id: "legacy-heso", xPct: 50, yPct: 50 }]
+        ? [{ id: "legacy-heso", xPct: 50, yPct: 50, shape: "circle", rxPct: 2.5 }]
         : [];
 
   return (
@@ -92,7 +108,7 @@ export function StageArchitectureGuidesSvg({
         />
       ))}
       {marks.map((m) => (
-        <CenterMarkGlyph key={m.id} x={m.xPct} y={m.yPct} />
+        <CenterMarkGlyph key={m.id} mark={m} floorAspect={floorAspect} />
       ))}
       {alignX != null && (
         <line

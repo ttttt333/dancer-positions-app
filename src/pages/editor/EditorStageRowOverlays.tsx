@@ -1213,7 +1213,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   ヘソ／センターマークを表示
                 </label>
                 <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 4 }}>
-                  黄色い丸ハンドルをドラッグして移動（このパネルを開いている間のみ）
+                  マークを選んでドラッグ移動。端の黄色い点でサイズ変更（正円／楕円は下で切替）
                 </div>
                 {stageAreaSettingsDraft.stageHesoVisible ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
@@ -1297,8 +1297,202 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                             削除
                           </button>
                         </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 4,
+                            marginBottom: 4,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {(
+                            [
+                              { value: "circle" as const, label: "正円" },
+                              { value: "ellipse" as const, label: "楕円" },
+                            ] as const
+                          ).map(({ value, label }) => {
+                            const active =
+                              (mk.shape === "ellipse" ? "ellipse" : "circle") ===
+                              value;
+                            return (
+                              <button
+                                key={value}
+                                type="button"
+                                disabled={project.viewMode === "view"}
+                                onClick={() =>
+                                  setStageAreaSettingsDraft((d) => ({
+                                    ...d,
+                                    stageCenterMarks: d.stageCenterMarks.map(
+                                      (x) => {
+                                        if (x.id !== mk.id) return x;
+                                        if (value === "circle") {
+                                          return {
+                                            ...x,
+                                            shape: "circle",
+                                            ryPct: undefined,
+                                          };
+                                        }
+                                        const rx =
+                                          typeof x.rxPct === "number"
+                                            ? x.rxPct
+                                            : 2.5;
+                                        return {
+                                          ...x,
+                                          shape: "ellipse",
+                                          ryPct:
+                                            typeof x.ryPct === "number"
+                                              ? x.ryPct
+                                              : Math.round(rx * 0.72 * 10) / 10,
+                                        };
+                                      }
+                                    ),
+                                  }))
+                                }
+                                style={{
+                                  padding: "2px 8px",
+                                  borderRadius: 4,
+                                  border: active
+                                    ? "1px solid rgba(250,204,21,0.7)"
+                                    : "1px solid #334155",
+                                  background: active
+                                    ? "rgba(250,204,21,0.15)"
+                                    : "#0f172a",
+                                  color: active ? "#fde68a" : "#94a3b8",
+                                  fontSize: 10,
+                                  cursor:
+                                    project.viewMode === "view"
+                                      ? "not-allowed"
+                                      : "pointer",
+                                }}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              mk.shape === "ellipse" ? "1fr 1fr" : "1fr",
+                            gap: 4,
+                            marginBottom: 3,
+                          }}
+                        >
+                          <label
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 2,
+                              fontSize: 9,
+                              color: "#94a3b8",
+                            }}
+                          >
+                            {mk.shape === "ellipse" ? "横半径 %" : "半径 %"}
+                            <input
+                              type="number"
+                              min={0.5}
+                              max={40}
+                              step={0.5}
+                              disabled={project.viewMode === "view"}
+                              value={
+                                typeof mk.rxPct === "number" ? mk.rxPct : 2.5
+                              }
+                              onChange={(e) => {
+                                const n = parseFloat(e.target.value);
+                                if (!Number.isFinite(n)) return;
+                                setStageAreaSettingsDraft((d) => ({
+                                  ...d,
+                                  stageCenterMarks: d.stageCenterMarks.map(
+                                    (x) =>
+                                      x.id === mk.id
+                                        ? {
+                                            ...x,
+                                            rxPct: Math.max(
+                                              0.5,
+                                              Math.min(40, Math.round(n * 10) / 10)
+                                            ),
+                                          }
+                                        : x
+                                  ),
+                                }));
+                              }}
+                              style={{
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                                border: "1px solid #334155",
+                                background: "#0f172a",
+                                color: "#e2e8f0",
+                                fontSize: 11,
+                              }}
+                            />
+                          </label>
+                          {mk.shape === "ellipse" ? (
+                            <label
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 2,
+                                fontSize: 9,
+                                color: "#94a3b8",
+                              }}
+                            >
+                              縦半径 %
+                              <input
+                                type="number"
+                                min={0.5}
+                                max={40}
+                                step={0.5}
+                                disabled={project.viewMode === "view"}
+                                value={
+                                  typeof mk.ryPct === "number"
+                                    ? mk.ryPct
+                                    : Math.round(
+                                        (typeof mk.rxPct === "number"
+                                          ? mk.rxPct
+                                          : 2.5) *
+                                          0.72 *
+                                          10
+                                      ) / 10
+                                }
+                                onChange={(e) => {
+                                  const n = parseFloat(e.target.value);
+                                  if (!Number.isFinite(n)) return;
+                                  setStageAreaSettingsDraft((d) => ({
+                                    ...d,
+                                    stageCenterMarks: d.stageCenterMarks.map(
+                                      (x) =>
+                                        x.id === mk.id
+                                          ? {
+                                              ...x,
+                                              shape: "ellipse",
+                                              ryPct: Math.max(
+                                                0.5,
+                                                Math.min(
+                                                  40,
+                                                  Math.round(n * 10) / 10
+                                                )
+                                              ),
+                                            }
+                                          : x
+                                    ),
+                                  }));
+                                }}
+                                style={{
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
+                                  border: "1px solid #334155",
+                                  background: "#0f172a",
+                                  color: "#e2e8f0",
+                                  fontSize: 11,
+                                }}
+                              />
+                            </label>
+                          ) : null}
+                        </div>
                         <div style={{ fontSize: 9, color: "#64748b" }}>
-                          位置 {mk.xPct.toFixed(1)}% × {mk.yPct.toFixed(1)}%（ステージ上でドラッグ）
+                          位置 {mk.xPct.toFixed(1)}% × {mk.yPct.toFixed(1)}% ·
+                          ステージ上でドラッグ／端の点でサイズ
                         </div>
                       </div>
                     ))}

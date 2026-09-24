@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { useLayoutEffect, useState, type RefObject } from "react";
 import type { StageFloorStageMarkupOverlayProps } from "./StageFloorStageMarkupOverlay";
 import { StageFloorStageMarkupOverlay } from "./StageFloorStageMarkupOverlay";
 import { StageMillimeterGridSvg } from "./StageMillimeterGridSvg";
@@ -48,6 +48,23 @@ export function StageMainFloorBaseOverlays({
   stageMainFloorRef,
   ...floorOverlay
 }: StageMainFloorBaseOverlaysProps) {
+  const [floorAspect, setFloorAspect] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const el = stageMainFloorRef?.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 1 && r.height > 1) {
+        setFloorAspect(r.width / r.height);
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [stageMainFloorRef]);
+
   return (
     <>
       {stageShapeActive && stageShapeMaskPath ? (
@@ -72,6 +89,7 @@ export function StageMainFloorBaseOverlays({
             ? stageCenterMarks
             : undefined
         }
+        floorAspect={floorAspect}
         verticalGuideMarks={guideLineDrawMarks}
         alignX={alignGuides.x}
         alignY={alignGuides.y}

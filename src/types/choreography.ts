@@ -158,6 +158,20 @@ export type StageCenterMark = {
   xPct: number;
   yPct: number;
   label?: string;
+  /**
+   * 横半径（メイン床幅に対する %）。未指定時は既定サイズ。
+   */
+  rxPct?: number;
+  /**
+   * 縦半径（メイン床奥行に対する %）。
+   * shape=ellipse のとき使用。circle のときは見た目正円になるよう自動補正。
+   */
+  ryPct?: number;
+  /**
+   * circle = 見た目の正円（舞台の縦横比を補正）。
+   * ellipse = 縦横を独立に調整。
+   */
+  shape?: "circle" | "ellipse";
 };
 
 /** そで幕の表示側 */
