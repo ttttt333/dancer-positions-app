@@ -23,6 +23,11 @@ export type StageBoardContextMenuState =
       clientY: number;
       dancerId: string;
     }
+  | {
+      kind: "floor";
+      clientX: number;
+      clientY: number;
+    }
   | { kind: "setPiece"; clientX: number; clientY: number; pieceId: string }
   | { kind: "floorText"; clientX: number; clientY: number; markupId: string }
   | null;
@@ -43,6 +48,8 @@ export type StageBoardContextMenuLayerProps = {
     onSwapPair?: () => void;
     onOpenLegacyMore?: () => void;
     onDelete?: () => void;
+    lightAddOptions?: { kind: string; label: string }[];
+    onAddLight?: (kind: string) => void;
   };
   viewMode: "edit" | "view";
   setPiecesEditable: boolean;
@@ -117,6 +124,31 @@ export function StageBoardContextMenuLayer({
             dockQuickMenu.onOpenLegacyMore
               ? () => {
                   dockQuickMenu.onOpenLegacyMore?.();
+                }
+              : undefined
+          }
+          lightAddOptions={dockQuickMenu.lightAddOptions}
+          onAddLight={
+            dockQuickMenu.onAddLight
+              ? (kind) => {
+                  dockQuickMenu.onAddLight?.(kind);
+                  onCloseMenu();
+                }
+              : undefined
+          }
+        />
+      ) : menu.kind === "floor" && dockQuickMenu ? (
+        <StageDancerDockQuickMenu
+          showShape={false}
+          showDisplay={false}
+          showSort={false}
+          onPick={() => {}}
+          lightAddOptions={dockQuickMenu.lightAddOptions}
+          onAddLight={
+            dockQuickMenu.onAddLight
+              ? (kind) => {
+                  dockQuickMenu.onAddLight?.(kind);
+                  onCloseMenu();
                 }
               : undefined
           }

@@ -12,6 +12,7 @@ import type {
   SetPiece,
   StageFloorMarkup,
   StageFloorTextMarkup,
+  StageLightKind,
 } from "../types/choreography";
 import { useStageBoardController } from "../hooks/useStageBoardController";
 import { useStageBoardStageResize } from "../hooks/useStageBoardStageResize";
@@ -58,7 +59,14 @@ import {
 } from "../lib/stageSleeveCurtains";
 import { StageSleeveCurtainOverlay } from "./StageSleeveCurtainOverlay";
 import { StageLightingOverlay } from "./StageLightingOverlay";
-import { activeStageLightsAtTime } from "../lib/stageLighting";
+import {
+  activeStageLightsAtTime,
+  createDefaultStageLight,
+  nextLightLabel,
+  STAGE_LIGHT_KIND_LABELS,
+  STAGE_LIGHT_KINDS,
+  STAGE_LIGHTS_MAX,
+} from "../lib/stageLighting";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import {
   alignSelectedDancers,
@@ -5181,11 +5189,10 @@ export function StageBoardBody({
     []
   );
 
-  /** 選択中のステージ床右クリック → 右ドック相当のクイック一覧 */
+  /** ステージ床右クリック → クイック一覧（照明追加含む）。色バーは出さない。 */
   const handleContextMenuFloor = useCallback(
     (e: ReactMouseEvent<HTMLDivElement>) => {
       if (dancerMenuInteractionDisabled) return;
-      if (selectedDancerIds.length < 1) return;
       const target = e.target as HTMLElement | null;
       if (target?.closest?.("button, a, input, textarea, [data-set-piece]")) {
         return;
@@ -5194,19 +5201,71 @@ export function StageBoardBody({
       e.stopPropagation();
       const anchorId =
         primarySelectedDancer?.id ?? selectedDancerIds[0] ?? null;
-      if (!anchorId) return;
-      setShowStageDancerColorToolbar(true);
+      if (anchorId && selectedDancerIds.length >= 1) {
+        setStageContextMenu({
+          kind: "dancerDock",
+          clientX: e.clientX,
+          clientY: e.clientY,
+          dancerId: anchorId,
+        });
+        return;
+      }
       setStageContextMenu({
-        kind: "dancerDock",
+        kind: "floor",
         clientX: e.clientX,
         clientY: e.clientY,
-        dancerId: anchorId,
       });
     },
     [
       dancerMenuInteractionDisabled,
       selectedDancerIds,
       primarySelectedDancer?.id,
+    ]
+  );
+
+  const handleAddLightFromContextMenu = useCallback(
+    (kindRaw: string) => {
+      if (!onStageLightsChange || viewMode === "view" || playbackOrPreview) {
+        return;
+      }
+      const kind = kindRaw as StageLightKind;
+      if (!STAGE_LIGHT_KINDS.includes(kind)) return;
+      const existing = project.stageLights ?? [];
+      if (existing.length >= STAGE_LIGHTS_MAX) return;
+      const L = createDefaultStageLight(kind);
+      L.label = nextLightLabel(kind, existing);
+      if (editCueId) {
+        L.cueId = editCueId;
+        L.tStartSec = null;
+        L.tEndSec = null;
+      }
+      const menu = stageContextMenu;
+      const floor = stageMainFloorRef.current;
+      if (menu && floor) {
+        const r = floor.getBoundingClientRect();
+        if (r.width > 1 && r.height > 1) {
+          L.xPct = Math.max(
+            5,
+            Math.min(95, ((menu.clientX - r.left) / r.width) * 100)
+          );
+          L.yPct = Math.max(
+            5,
+            Math.min(95, ((menu.clientY - r.top) / r.height) * 100)
+          );
+        }
+      }
+      onStageLightsChange([...existing, L]);
+      onSelectStageLightId?.(L.id);
+    },
+    [
+      onStageLightsChange,
+      onSelectStageLightId,
+      viewMode,
+      playbackOrPreview,
+      project.stageLights,
+      editCueId,
+      stageContextMenu,
+      stageMainFloorRef,
     ]
   );
 
@@ -5757,34 +5816,64 @@ export function StageBoardBody({
             onCloseMenu={() => setStageContextMenu(null)}
             dancerMenu={dancerContextMenuShared}
             dockQuickMenu={
-              stageContextMenu.kind === "dancerDock"
+              stageContextMenu.kind === "dancerDock" ||
+              stageContextMenu.kind === "floor"
                 ? {
                     showShape:
+                      stageContextMenu.kind === "dancerDock" &&
                       (stageEditMode === "formation" ||
                         stageEditMode === "group") &&
                       selectedDancerIds.length >= 2,
-                    showDisplay: selectedDancerIds.length >= 1,
+                    showDisplay:
+                      stageContextMenu.kind === "dancerDock" &&
+                      selectedDancerIds.length >= 1,
                     showSort:
+                      stageContextMenu.kind === "dancerDock" &&
                       (stageEditMode === "formation" ||
                         stageEditMode === "group") &&
                       selectedDancerIds.length >= 2,
                     onPick: handlePickDockQuickSection,
-                    onDuplicate: (placement) =>
-                      duplicateDancerIds(selectedDancerIds, placement),
+                    onDuplicate:
+                      stageContextMenu.kind === "dancerDock"
+                        ? (placement) =>
+                            duplicateDancerIds(selectedDancerIds, placement)
+                        : undefined,
                     onSwapPair:
+                      stageContextMenu.kind === "dancerDock" &&
                       selectedDancerIds.length === 2
                         ? () => handleSwapSelectedPair()
                         : undefined,
-                    onDelete: handleDeleteSelectedDancers,
-                    onOpenLegacyMore: () => {
-                      const m = stageContextMenu;
-                      setStageContextMenu({
-                        kind: "dancer",
-                        clientX: m.clientX,
-                        clientY: m.clientY,
-                        dancerId: m.dancerId,
-                      });
-                    },
+                    onDelete:
+                      stageContextMenu.kind === "dancerDock"
+                        ? handleDeleteSelectedDancers
+                        : undefined,
+                    onOpenLegacyMore:
+                      stageContextMenu.kind === "dancerDock"
+                        ? () => {
+                            const m = stageContextMenu;
+                            setStageContextMenu({
+                              kind: "dancer",
+                              clientX: m.clientX,
+                              clientY: m.clientY,
+                              dancerId: m.dancerId,
+                            });
+                          }
+                        : undefined,
+                    lightAddOptions:
+                      viewMode !== "view" &&
+                      !playbackOrPreview &&
+                      Boolean(onStageLightsChange)
+                        ? STAGE_LIGHT_KINDS.map((kind) => ({
+                            kind,
+                            label: STAGE_LIGHT_KIND_LABELS[kind],
+                          }))
+                        : undefined,
+                    onAddLight:
+                      viewMode !== "view" &&
+                      !playbackOrPreview &&
+                      Boolean(onStageLightsChange)
+                        ? handleAddLightFromContextMenu
+                        : undefined,
                   }
                 : undefined
             }

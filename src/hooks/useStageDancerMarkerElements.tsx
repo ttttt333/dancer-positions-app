@@ -223,7 +223,6 @@ export function useStageDancerMarkerElements(
               if (!selectedDancerIds.includes(d.id)) {
                 setSelectedDancerIds?.([d.id]);
               }
-              setShowStageDancerColorToolbar(true);
               setStageContextMenu({
                 kind: "dancerDock",
                 clientX: e.clientX,
@@ -241,7 +240,6 @@ export function useStageDancerMarkerElements(
                   setDancerQuickEditId(d.id);
                   return;
                 }
-                setShowStageDancerColorToolbar(true);
                 setStageContextMenu({
                   kind: "dancerDock",
                   clientX: e.clientX,

@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { readLayoutViewportSize } from "./viewportLayoutMetrics";
 
 export type StageContextMenuAnchor = {
-  kind: "dancer" | "dancerDock" | "floorText" | "setPiece";
+  kind: "dancer" | "dancerDock" | "floor" | "floorText" | "setPiece";
   clientX: number;
   clientY: number;
 };
@@ -39,10 +39,11 @@ export function computeStageContextMenuStyle(
     };
   }
 
+  const isDockLike = menu.kind === "dancerDock" || menu.kind === "floor";
   const mw =
-    menu.kind === "dancerDock" ? 220 : menu.kind === "floorText" ? 168 : 132;
+    isDockLike ? 220 : menu.kind === "floorText" ? 168 : 132;
   const mh =
-    menu.kind === "dancerDock" ? 320 : menu.kind === "floorText" ? 88 : 52;
+    isDockLike ? 360 : menu.kind === "floorText" ? 88 : 52;
   const { width: vw, height: vh } =
     typeof window !== "undefined"
       ? readLayoutViewportSize()
@@ -55,13 +56,12 @@ export function computeStageContextMenuStyle(
     top: Math.max(pad, Math.min(menu.clientY, maxT)),
     zIndex: 10000,
     minWidth: `${mw}px`,
-    padding: menu.kind === "dancerDock" ? "6px" : "5px",
-    borderRadius: menu.kind === "dancerDock" ? 10 : 8,
+    padding: isDockLike ? "6px" : "5px",
+    borderRadius: isDockLike ? 10 : 8,
     border: "1px solid #475569",
     background: "#0f172a",
-    boxShadow:
-      menu.kind === "dancerDock"
-        ? "0 16px 48px rgba(0,0,0,0.55)"
-        : "0 12px 40px rgba(0,0,0,0.45)",
+    boxShadow: isDockLike
+      ? "0 16px 48px rgba(0,0,0,0.55)"
+      : "0 12px 40px rgba(0,0,0,0.45)",
   };
 }

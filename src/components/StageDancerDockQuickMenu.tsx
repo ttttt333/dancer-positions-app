@@ -13,6 +13,9 @@ export type StageDancerDockQuickMenuProps = {
   onSwapPair?: () => void;
   onOpenLegacyMore?: () => void;
   onDelete?: () => void;
+  /** 照明を追加（種類ごと） */
+  lightAddOptions?: { kind: string; label: string }[];
+  onAddLight?: (kind: string) => void;
 };
 
 const itemBtn: CSSProperties = {
@@ -52,8 +55,11 @@ export function StageDancerDockQuickMenu({
   onSwapPair,
   onOpenLegacyMore,
   onDelete,
+  lightAddOptions,
+  onAddLight,
 }: StageDancerDockQuickMenuProps) {
   const [dupOpen, setDupOpen] = useState(false);
+  const [lightOpen, setLightOpen] = useState(false);
   const entries: { id: StageDockQuickSection; label: string; hint: string }[] =
     [];
   if (showShape) {
@@ -170,6 +176,54 @@ export function StageDancerDockQuickMenu({
               </button>
             </>
           ) : null}
+        </>
+      ) : null}
+      {onAddLight && lightAddOptions && lightAddOptions.length > 0 ? (
+        <>
+          <div
+            style={{
+              height: 1,
+              background: "#334155",
+              margin: "4px 6px",
+            }}
+          />
+          <button
+            type="button"
+            role="menuitem"
+            aria-expanded={lightOpen}
+            style={itemBtn}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+            onClick={() => setLightOpen((v) => !v)}
+          >
+            <span>照明を追加</span>
+            <span style={{ color: "#64748b", fontSize: 11, fontWeight: 600 }}>
+              {lightOpen ? "▾" : "▸"}
+            </span>
+          </button>
+          {lightOpen
+            ? lightAddOptions.map((opt) => (
+                <button
+                  key={opt.kind}
+                  type="button"
+                  role="menuitem"
+                  style={subItemBtn}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(251,191,36,0.14)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                  onClick={() => onAddLight(opt.kind)}
+                >
+                  <span>＋{opt.label}</span>
+                </button>
+              ))
+            : null}
         </>
       ) : null}
       {onDelete || onOpenLegacyMore ? (
