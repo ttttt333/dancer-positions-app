@@ -50,10 +50,15 @@ import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
 import { stripFormationStageSnapshots } from "../../lib/savedSpotStageSnapshot";
 import {
   createEmptySleeveDraft,
+  ensureCenterMarksWhenVisible,
   mmToMeterCmDraft,
   parseMeterCmDraftToMm,
   type StageAreaSettingsDraft,
 } from "./stageAreaSettingsDraft";
+import {
+  createDefaultCenterMark,
+  nextCenterMarkOffset,
+} from "../../lib/stageCenterMarks";
 import {
   StageAreaDimensionRows,
   StageAreaGridSpacingControls,
@@ -1176,7 +1181,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 </div>
               </div>
 
-              {/* ヘソ・そで幕 */}
+              {/* ヘソ・センターマーク・そで幕 */}
               <div style={{ borderTop: "1px solid rgba(51,65,85,0.5)", paddingTop: 4 }}>
                 <label
                   style={{
@@ -1193,15 +1198,149 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                     type="checkbox"
                     disabled={project.viewMode === "view"}
                     checked={stageAreaSettingsDraft.stageHesoVisible}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const checked = e.target.checked;
                       setStageAreaSettingsDraft((d) => ({
                         ...d,
-                        stageHesoVisible: e.target.checked,
-                      }))
-                    }
+                        stageHesoVisible: checked,
+                        stageCenterMarks: ensureCenterMarksWhenVisible(
+                          checked,
+                          d.stageCenterMarks
+                        ),
+                      }));
+                    }}
                   />
-                  ヘソ（中央）を表示
+                  ヘソ／センターマークを表示
                 </label>
+                <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 4 }}>
+                  舞台設定を開いているときだけステージ上でドラッグ移動できます（立ち位置編集の邪魔になりません）
+                </div>
+                {stageAreaSettingsDraft.stageHesoVisible ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                    {stageAreaSettingsDraft.stageCenterMarks.map((mk, idx) => (
+                      <div
+                        key={mk.id}
+                        style={{
+                          padding: "5px 6px",
+                          borderRadius: 6,
+                          border: "1px solid rgba(148,163,184,0.35)",
+                          background: "rgba(148,163,184,0.06)",
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: 4, marginBottom: 3, alignItems: "center" }}>
+                          <input
+                            type="text"
+                            disabled={project.viewMode === "view"}
+                            value={mk.label ?? ""}
+                            placeholder={idx === 0 ? "ヘソ" : `マーク ${idx + 1}`}
+                            onChange={(e) =>
+                              setStageAreaSettingsDraft((d) => ({
+                                ...d,
+                                stageCenterMarks: d.stageCenterMarks.map((x) =>
+                                  x.id === mk.id
+                                    ? {
+                                        ...x,
+                                        label: e.target.value.slice(0, 48),
+                                      }
+                                    : x
+                                ),
+                              }))
+                            }
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              border: "1px solid #334155",
+                              background: "#0f172a",
+                              color: "#e2e8f0",
+                              fontSize: 11,
+                            }}
+                          />
+                          <button
+                            type="button"
+                            disabled={
+                              project.viewMode === "view" ||
+                              stageAreaSettingsDraft.stageCenterMarks.length <= 1
+                            }
+                            onClick={() =>
+                              setStageAreaSettingsDraft((d) => {
+                                const next = d.stageCenterMarks.filter(
+                                  (x) => x.id !== mk.id
+                                );
+                                return {
+                                  ...d,
+                                  stageCenterMarks: next,
+                                  stageHesoVisible: next.length > 0,
+                                };
+                              })
+                            }
+                            style={{
+                              flexShrink: 0,
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              border: "1px solid #475569",
+                              background: "transparent",
+                              color: "#94a3b8",
+                              fontSize: 10,
+                              cursor:
+                                project.viewMode === "view" ||
+                                stageAreaSettingsDraft.stageCenterMarks.length <= 1
+                                  ? "not-allowed"
+                                  : "pointer",
+                              opacity:
+                                stageAreaSettingsDraft.stageCenterMarks.length <= 1
+                                  ? 0.4
+                                  : 1,
+                            }}
+                          >
+                            削除
+                          </button>
+                        </div>
+                        <div style={{ fontSize: 9, color: "#64748b" }}>
+                          位置 {mk.xPct.toFixed(1)}% × {mk.yPct.toFixed(1)}%（ステージ上でドラッグ）
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={
+                        project.viewMode === "view" ||
+                        stageAreaSettingsDraft.stageCenterMarks.length >= 24
+                      }
+                      onClick={() =>
+                        setStageAreaSettingsDraft((d) => {
+                          const pos = nextCenterMarkOffset(d.stageCenterMarks);
+                          return {
+                            ...d,
+                            stageHesoVisible: true,
+                            stageCenterMarks: [
+                              ...d.stageCenterMarks,
+                              createDefaultCenterMark(
+                                pos.xPct,
+                                pos.yPct,
+                                `マーク ${d.stageCenterMarks.length + 1}`
+                              ),
+                            ],
+                          };
+                        })
+                      }
+                      style={{
+                        alignSelf: "flex-start",
+                        padding: "3px 8px",
+                        borderRadius: 4,
+                        border: "1px solid #475569",
+                        background: "rgba(51,65,85,0.4)",
+                        color: "#e2e8f0",
+                        fontSize: 10,
+                        cursor:
+                          project.viewMode === "view" ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      ＋ マークを追加
+                    </button>
+                  </div>
+                ) : null}
 
                 <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 2 }}>
                   そで幕 <span style={{ color: "#64748b" }}>（基準＝舞台端。内側の点＝舞台へ／外側の点＝そで奥）</span>

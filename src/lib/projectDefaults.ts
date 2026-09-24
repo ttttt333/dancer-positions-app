@@ -81,6 +81,7 @@ export function createEmptyProject(): ChoreographyProjectJson {
     dancerMarkerDiameterPx: DEFAULT_DANCER_MARKER_DIAMETER_PX,
     dancerLabelPosition: "inside",
     stageHesoVisible: false,
+    stageCenterMarks: [],
     stageFrontGridLinesMm: [],
     stageSleeveCurtainDepthsMm: [],
     stageSleeveCurtains: [],

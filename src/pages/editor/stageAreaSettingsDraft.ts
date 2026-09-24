@@ -1,5 +1,6 @@
 import type {
   ChoreographyProjectJson,
+  StageCenterMark,
   StageSleeveCurtain,
   StageSleeveCurtainSide,
 } from "../../types/choreography";
@@ -18,6 +19,10 @@ import {
   normalizeStageSleeveCurtains,
   sleeveCurtainsToDepthsMm,
 } from "../../lib/stageSleeveCurtains";
+import {
+  createDefaultCenterMark,
+  normalizeStageCenterMarks,
+} from "../../lib/stageCenterMarks";
 
 export type StageAreaMeterCmDraft = { m: string; cm: string };
 
@@ -47,6 +52,7 @@ export type StageAreaSettingsDraft = {
   gridDepth: StageAreaMeterCmDraft;
   dancerLabelPosition: "inside" | "below";
   stageHesoVisible: boolean;
+  stageCenterMarks: StageCenterMark[];
   stageSleeves: StageAreaSleeveDraft[];
 };
 
@@ -117,6 +123,7 @@ export function emptyStageAreaSettingsDraft(): StageAreaSettingsDraft {
     gridDepth: { m: "0", cm: "1" },
     dancerLabelPosition: "inside",
     stageHesoVisible: false,
+    stageCenterMarks: [],
     stageSleeves: [],
   };
 }
@@ -208,6 +215,10 @@ export function projectToStageAreaDraft(
     p.stageSleeveCurtains,
     p.stageSleeveCurtainDepthsMm
   );
+  const hesoVisible = p.stageHesoVisible === true;
+  const centerMarks = normalizeStageCenterMarks(p.stageCenterMarks, {
+    seedCenterIfEmpty: hesoVisible,
+  });
   return {
     audienceEdge: p.audienceEdge,
     width: mmToMeterCmDraft(p.stageWidthMm),
@@ -223,7 +234,8 @@ export function projectToStageAreaDraft(
     gridWidth: mmToMeterCmDraft(gridWmm),
     gridDepth: mmToMeterCmDraft(gridDmm),
     dancerLabelPosition: p.dancerLabelPosition ?? "inside",
-    stageHesoVisible: p.stageHesoVisible === true,
+    stageHesoVisible: hesoVisible,
+    stageCenterMarks: centerMarks,
     stageSleeves: sleeves.map(sleeveToDraft),
   };
 }
@@ -252,6 +264,7 @@ export function stageAreaDraftToProjectPatch(
   | "stageGridSpacingDepthMm"
   | "dancerLabelPosition"
   | "stageHesoVisible"
+  | "stageCenterMarks"
   | "stageFrontGridLinesMm"
   | "stageSleeveCurtainDepthsMm"
   | "stageSleeveCurtains"
@@ -278,8 +291,23 @@ export function stageAreaDraftToProjectPatch(
       : undefined,
     dancerLabelPosition: draft.dancerLabelPosition,
     stageHesoVisible: draft.stageHesoVisible,
+    stageCenterMarks: draft.stageHesoVisible
+      ? normalizeStageCenterMarks(draft.stageCenterMarks, {
+          seedCenterIfEmpty: true,
+        })
+      : draft.stageCenterMarks,
     stageFrontGridLinesMm: [],
     stageSleeveCurtains: curtains,
     stageSleeveCurtainDepthsMm: sleeveCurtainsToDepthsMm(curtains),
   };
+}
+
+/** 表示 ON 時にマークが空なら中央ヘソを 1 点追加 */
+export function ensureCenterMarksWhenVisible(
+  visible: boolean,
+  marks: readonly StageCenterMark[]
+): StageCenterMark[] {
+  if (!visible) return [...marks];
+  if (marks.length > 0) return [...marks];
+  return [createDefaultCenterMark(50, 50, "ヘソ")];
 }

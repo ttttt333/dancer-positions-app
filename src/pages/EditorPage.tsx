@@ -209,7 +209,7 @@ import {
   type StageAreaSettingsDraft,
 } from "./editor/stageAreaSettingsDraft";
 import { sleeveCurtainsToDepthsMm } from "../lib/stageSleeveCurtains";
-import type { StageLightFixture, StageSleeveCurtain } from "../types/choreography";
+import type { StageCenterMark, StageLightFixture, StageSleeveCurtain } from "../types/choreography";
 import { useEditorProjectLoader } from "../hooks/useEditorProjectLoader";
 import { useEditorHistory } from "../hooks/useEditorHistory";
 import { useEditorCloudSave } from "../hooks/useEditorCloudSave";
@@ -1501,6 +1501,7 @@ function EditorPageContent({
         stageGridSpacingDepthMm: gd,
         dancerLabelPosition: d.dancerLabelPosition,
         stageHesoVisible: d.stageHesoVisible,
+        stageCenterMarks: d.stageCenterMarks,
         stageFrontGridLinesMm: [],
         stageSleeveCurtains: curtains,
         stageSleeveCurtainDepthsMm: sleeveCurtainsToDepthsMm(curtains),
@@ -1565,6 +1566,7 @@ function EditorPageContent({
       stageGridSpacingDepthMm: gd,
       dancerLabelPosition: d.dancerLabelPosition,
       stageHesoVisible: d.stageHesoVisible,
+      stageCenterMarks: d.stageCenterMarks,
       stageFrontGridLinesMm: [],
       stageSleeveCurtains: curtains,
       stageSleeveCurtainDepthsMm: sleeveCurtainsToDepthsMm(curtains),
@@ -1585,6 +1587,26 @@ function EditorPageContent({
         ...p,
         stageSleeveCurtains: curtains,
         stageSleeveCurtainDepthsMm: sleeveCurtainsToDepthsMm(curtains),
+      }));
+    },
+    [project, setProjectSafe, stageAreaSettingsOpen]
+  );
+
+  const onCenterMarksChange = useCallback(
+    (marks: StageCenterMark[]) => {
+      if (!project || project.viewMode === "view") return;
+      if (stageAreaSettingsOpen) {
+        setStageAreaSettingsDraft((d) => ({
+          ...d,
+          stageCenterMarks: marks,
+          stageHesoVisible: true,
+        }));
+        return;
+      }
+      setProjectSafe((p) => ({
+        ...p,
+        stageCenterMarks: marks,
+        stageHesoVisible: true,
       }));
     },
     [project, setProjectSafe, stageAreaSettingsOpen]
@@ -2988,6 +3010,7 @@ function EditorPageContent({
     onSplitPointerDown,
     onSplitPointerMove,
     onSleeveCurtainsChange,
+    onCenterMarksChange,
     onStageLightsChange,
     selectedStageLightId,
     setSelectedStageLightId,

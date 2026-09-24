@@ -114,6 +114,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const onSplitPointerDown = props.onSplitPointerDown as never;
   const onSplitPointerMove = props.onSplitPointerMove as never;
   const onSleeveCurtainsChange = props.onSleeveCurtainsChange as never;
+  const onCenterMarksChange = props.onCenterMarksChange as never;
   const onStageLightsChange = props.onStageLightsChange as never;
   const selectedStageLightId = props.selectedStageLightId as never;
   const setSelectedStageLightId = props.setSelectedStageLightId as never;
@@ -1140,6 +1141,12 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         ? undefined
                         : onSleeveCurtainsChange
                     }
+                    onCenterMarksChange={
+                      choreoPublicView || project.viewMode === "view"
+                        ? undefined
+                        : onCenterMarksChange
+                    }
+                    stageArchitectureEditActive={Boolean(stageAreaSettingsOpen)}
                     onStageLightsChange={
                       choreoPublicView || project.viewMode === "view"
                         ? undefined

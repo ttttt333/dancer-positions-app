@@ -9,6 +9,7 @@ import type {
   FloorTextPlaceSession,
   Formation,
   SetPiece,
+  StageCenterMark,
   StageFloorMarkup,
   StageLightFixture,
   StageSleeveCurtain,
@@ -168,6 +169,13 @@ export type StageBoardBodyProps = {
   enablePinchViewport?: boolean;
   /** そで幕の奥行をステージ上ドラッグで変えたとき */
   onSleeveCurtainsChange?: (curtains: StageSleeveCurtain[]) => void;
+  /**
+   * ヘソ／センターマークをステージ上ドラッグで動かしたとき。
+   * 舞台設定パネル表示中のみ interactive（`stageArchitectureEditActive`）。
+   */
+  onCenterMarksChange?: (marks: StageCenterMark[]) => void;
+  /** 舞台設定パネルが開いているとき true → センターマークをドラッグ可能 */
+  stageArchitectureEditActive?: boolean;
   /** 照明をステージ上で動かした／大きさを変えたとき */
   onStageLightsChange?: (lights: StageLightFixture[]) => void;
   selectedStageLightId?: string | null;

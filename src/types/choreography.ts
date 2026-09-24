@@ -149,6 +149,17 @@ export type StageFloorLineMarkup = {
 
 export type StageFloorMarkup = StageFloorTextMarkup | StageFloorLineMarkup;
 
+/**
+ * ヘソと同じ見た目のセンターマーク（位置可変・複数可）。
+ * メイン床上の %（0–100）。舞台設定中のみドラッグ。
+ */
+export type StageCenterMark = {
+  id: string;
+  xPct: number;
+  yPct: number;
+  label?: string;
+};
+
 /** そで幕の表示側 */
 export type StageSleeveCurtainSide = "both" | "left" | "right";
 
@@ -519,9 +530,15 @@ export type ChoreographyProjectJson = {
    */
   dancerLabelPosition?: "inside" | "below";
   /**
-   * ヘソ（舞台中央）マークを表示する。
+   * ヘソ／センターマーク群を表示する。
+   * 位置は `stageCenterMarks`。旧データで marks が空かつ true のときは中央 1 点を補う。
    */
   stageHesoVisible?: boolean;
+  /**
+   * ヘソと同じ見た目のセンターマーク（複数可）。メイン床 %（0–100）。
+   * 舞台設定パネル表示中のみドラッグ移動可能（立ち位置編集を邪魔しない）。
+   */
+  stageCenterMarks?: StageCenterMark[];
   /**
    * @deprecated 奥行グリッド間隔 `stageGridSpacingDepthMm` に統合。読み込み時のみ互換。
    * 客席側（手前）からの距離で引く横グリッド線（mm）。

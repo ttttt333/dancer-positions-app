@@ -58,6 +58,7 @@ import {
   normalizeStageSleeveCurtains,
 } from "../lib/stageSleeveCurtains";
 import { StageSleeveCurtainOverlay } from "./StageSleeveCurtainOverlay";
+import { StageCenterMarkOverlay } from "./StageCenterMarkOverlay";
 import { StageLightingOverlay } from "./StageLightingOverlay";
 import {
   activeStageLightsAtTime,
@@ -245,6 +246,8 @@ export function StageBoardBody({
   onCreateNextCue,
   editCueId = null,
   onSleeveCurtainsChange,
+  onCenterMarksChange,
+  stageArchitectureEditActive = false,
   onStageLightsChange,
   selectedStageLightId = null,
   onSelectStageLightId,
@@ -3984,12 +3987,20 @@ export function StageBoardBody({
     ]
   );
   const stageHesoVisible = project.stageHesoVisible === true;
+  const stageCenterMarks = project.stageCenterMarks ?? [];
   const sleeveEditable =
     viewMode !== "view" &&
     !playbackOrPreview &&
     Boolean(onSleeveCurtainsChange) &&
     typeof stageDepthMm === "number" &&
     stageDepthMm > 0;
+  const centerMarksEditable =
+    stageArchitectureEditActive &&
+    viewMode !== "view" &&
+    !playbackOrPreview &&
+    Boolean(onCenterMarksChange) &&
+    stageHesoVisible &&
+    stageCenterMarks.length > 0;
   const stageLightsEditable =
     viewMode !== "view" &&
     !playbackOrPreview &&
@@ -5429,6 +5440,7 @@ export function StageBoardBody({
         guideLineDrawMarks,
         alignGuides,
         stageHesoVisible,
+        stageCenterMarks,
         activeStageLights,
         stageMainFloorRef,
         displayFloorMarkup,
@@ -5508,6 +5520,15 @@ export function StageBoardBody({
               onChangeCurtains={(next) => onSleeveCurtainsChange?.(next)}
             />
           ) : null;
+        const centerMarksEdit =
+          centerMarksEditable && stageCenterMarks.length > 0 ? (
+            <StageCenterMarkOverlay
+              marks={stageCenterMarks}
+              floorRef={stageMainFloorRef}
+              editable
+              onChangeMarks={(next) => onCenterMarksChange?.(next)}
+            />
+          ) : null;
         const lightsEdit =
           stageLightsEditable && activeStageLights.length > 0 ? (
             <StageLightingOverlay
@@ -5529,10 +5550,11 @@ export function StageBoardBody({
               floorRef={stageMainFloorRef}
             />
           ) : null;
-        if (!sleeve && !lightsEdit) return null;
+        if (!sleeve && !centerMarksEdit && !lightsEdit) return null;
         return (
           <>
             {sleeve}
+            {centerMarksEdit}
             {lightsEdit}
           </>
         );

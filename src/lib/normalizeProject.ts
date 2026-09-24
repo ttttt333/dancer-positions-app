@@ -35,6 +35,7 @@ import {
   sleeveCurtainsToDepthsMm,
 } from "./stageSleeveCurtains";
 import { inferFrontGridIntervalMm } from "./stageArchitectureGuides";
+import { normalizeStageCenterMarks } from "./stageCenterMarks";
 import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
@@ -769,6 +770,16 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       "boolean"
         ? Boolean((o as Partial<ChoreographyProjectJson>).stageHesoVisible)
         : false,
+    stageCenterMarks: (() => {
+      const po = o as Partial<ChoreographyProjectJson>;
+      const visible =
+        typeof po.stageHesoVisible === "boolean"
+          ? Boolean(po.stageHesoVisible)
+          : false;
+      return normalizeStageCenterMarks(po.stageCenterMarks, {
+        seedCenterIfEmpty: visible,
+      });
+    })(),
     stageFrontGridLinesMm: [],
     stageSleeveCurtains: (() => {
       const po = o as Partial<ChoreographyProjectJson>;

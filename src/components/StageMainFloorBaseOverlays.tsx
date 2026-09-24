@@ -4,7 +4,7 @@ import { StageFloorStageMarkupOverlay } from "./StageFloorStageMarkupOverlay";
 import { StageMillimeterGridSvg } from "./StageMillimeterGridSvg";
 import { StageShapeMaskSvg } from "./StageShapeMaskSvg";
 import type { StageGuideMark } from "./StageGuideAndAlignLines";
-import type { StageLightFixture } from "../types/choreography";
+import type { StageCenterMark, StageLightFixture } from "../types/choreography";
 import { StageArchitectureGuidesSvg } from "./StageArchitectureGuidesSvg";
 import { StageLightingOverlay } from "./StageLightingOverlay";
 
@@ -21,6 +21,7 @@ export type StageMainFloorBaseOverlaysProps = {
   alignGuides: { x: number | null; y: number | null };
   showStageFloorMarkup: boolean;
   stageHesoVisible?: boolean;
+  stageCenterMarks?: readonly StageCenterMark[];
   activeStageLights?: readonly StageLightFixture[];
   stageMainFloorRef?: RefObject<HTMLElement | null>;
 } & StageFloorStageMarkupOverlayProps;
@@ -42,6 +43,7 @@ export function StageMainFloorBaseOverlays({
   alignGuides,
   showStageFloorMarkup,
   stageHesoVisible = false,
+  stageCenterMarks = [],
   activeStageLights = [],
   stageMainFloorRef,
   ...floorOverlay
@@ -64,7 +66,12 @@ export function StageMainFloorBaseOverlays({
         />
       ) : null}
       <StageArchitectureGuidesSvg
-        hesoVisible={stageHesoVisible}
+        hesoVisible={stageHesoVisible && stageCenterMarks.length === 0}
+        centerMarks={
+          stageHesoVisible && stageCenterMarks.length > 0
+            ? stageCenterMarks
+            : undefined
+        }
         verticalGuideMarks={guideLineDrawMarks}
         alignX={alignGuides.x}
         alignY={alignGuides.y}
