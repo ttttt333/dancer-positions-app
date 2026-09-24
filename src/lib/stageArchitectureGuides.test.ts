@@ -4,6 +4,7 @@ import {
   inferFrontGridIntervalMm,
 } from "./stageArchitectureGuides";
 import {
+  buildSleeveCurtainMarksFromCurtains,
   createDefaultSleeveCurtain,
   normalizeStageSleeveCurtains,
 } from "./stageSleeveCurtains";
@@ -27,10 +28,19 @@ describe("stageSleeveCurtains", () => {
     expect(curtains.map((c) => c.depthMm)).toEqual([2000, 4000]);
   });
 
-  it("createDefaultSleeveCurtain has both sides", () => {
-    const c = createDefaultSleeveCurtain(1500, "袖A");
-    expect(c.side).toBe("both");
-    expect(c.depthMm).toBe(1500);
-    expect(c.label).toBe("袖A");
+  it("buildSleeveCurtainMarksFromCurtains extends to configured inset length", () => {
+    const curtains = [
+      { ...createDefaultSleeveCurtain(2000, "袖"), insetMm: 2000 },
+    ];
+    const marks = buildSleeveCurtainMarksFromCurtains(curtains, 10_000, 16_000);
+    expect(marks).toHaveLength(1);
+    // 2m / 16m = 12.5%（旧 18% 上限では切り捨てられなかったが、長い設定でも伸びる）
+    expect(marks[0]!.insetPct).toBeCloseTo(12.5, 1);
+    const long = buildSleeveCurtainMarksFromCurtains(
+      [{ ...curtains[0]!, insetMm: 4000 }],
+      10_000,
+      16_000
+    );
+    expect(long[0]!.insetPct).toBeCloseTo(25, 1);
   });
 });

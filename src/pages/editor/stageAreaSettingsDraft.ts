@@ -158,7 +158,7 @@ export function sleeveDraftToCurtain(d: StageAreaSleeveDraft): StageSleeveCurtai
     depthMm: Math.max(100, Math.min(50_000, depthMm)),
     label: d.label.trim().slice(0, 48) || "そで幕",
     side: d.side,
-    insetMm: Math.max(50, Math.min(5000, insetMm)),
+    insetMm: Math.max(50, Math.min(20_000, insetMm)),
   };
 }
 

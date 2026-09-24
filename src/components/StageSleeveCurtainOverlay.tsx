@@ -15,8 +15,15 @@ export type StageSleeveCurtainOverlayProps = {
   onChangeCurtains: (next: StageSleeveCurtain[]) => void;
 };
 
+function formatInsetLabel(mm: number): string {
+  if (mm % 1000 === 0) return `${mm / 1000} m`;
+  if (mm % 10 === 0) return `${(mm / 10).toFixed(0)} cm`;
+  return `${mm} mm`;
+}
+
 /**
  * そで幕の表示＋奥行ドラッグ。左右袖を掴んで前後に動かせる。
+ * ラベルは下手側に出し、横長さ（inset）は設定どおり端から伸ばす。
  */
 export function StageSleeveCurtainOverlay({
   marks,
@@ -63,10 +70,7 @@ export function StageSleeveCurtainOverlay({
     [curtains, onChangeCurtains, stageDepthMm]
   );
 
-  const onPointerDown = (
-    e: React.PointerEvent,
-    id: string
-  ) => {
+  const onPointerDown = (e: React.PointerEvent, id: string) => {
     if (!editable || e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
@@ -112,12 +116,12 @@ export function StageSleeveCurtainOverlay({
         const showLeft = m.side === "both" || m.side === "left";
         const showRight = m.side === "both" || m.side === "right";
         const active = activeId === m.id;
-        const thicknessPct = Math.max(1.6, Math.min(4, m.insetPct * 0.35));
+        const thicknessPct = Math.max(1.4, Math.min(3.2, 2.2));
         const handle = (side: "left" | "right") => (
           <button
             key={`${m.id}-${side}`}
             type="button"
-            aria-label={`${m.label}（${side === "left" ? "下手" : "上手"}） ${formatDepthMmLabel(m.depthMm)}。ドラッグで奥行調整`}
+            aria-label={`${m.label}（${side === "left" ? "下手" : "上手"}） ${formatDepthMmLabel(m.depthMm)}・横 ${formatInsetLabel(m.insetMm)}。ドラッグで奥行調整`}
             disabled={!editable}
             onPointerDown={(e) => onPointerDown(e, m.id)}
             onPointerMove={onPointerMove}
@@ -130,7 +134,7 @@ export function StageSleeveCurtainOverlay({
               top: `${m.yPct}%`,
               width: `${m.insetPct}%`,
               height: `${thicknessPct}%`,
-              minHeight: 14,
+              minHeight: 12,
               transform: "translateY(-50%)",
               margin: 0,
               padding: 0,
@@ -148,6 +152,8 @@ export function StageSleeveCurtainOverlay({
             }}
           />
         );
+        // ラベルは下手側（左端付近）。右袖のみのときは上手側へ。
+        const labelOnLeft = showLeft || !showRight;
         return (
           <div key={m.id}>
             {showLeft ? handle("left") : null}
@@ -155,33 +161,30 @@ export function StageSleeveCurtainOverlay({
             <div
               style={{
                 position: "absolute",
-                left: "50%",
+                left: labelOnLeft ? "0.6%" : undefined,
+                right: labelOnLeft ? undefined : "0.6%",
                 top: `${m.yPct}%`,
-                transform: `translate(-50%, -120%) rotate(${-upright}deg)`,
+                transform: `translateY(-50%) rotate(${-upright}deg)`,
+                transformOrigin: labelOnLeft ? "left center" : "right center",
                 pointerEvents: "none",
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: 700,
                 color: "#fda4af",
-                background: "rgba(15, 23, 42, 0.75)",
-                padding: "2px 6px",
-                borderRadius: 4,
+                background: "rgba(15, 23, 42, 0.82)",
+                padding: "1px 5px",
+                borderRadius: 3,
                 whiteSpace: "nowrap",
-                border: "1px solid rgba(251, 113, 133, 0.35)",
+                border: "1px solid rgba(251, 113, 133, 0.4)",
+                maxWidth: "28%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                zIndex: 4,
               }}
+              title={`${m.label} · ${formatDepthMmLabel(m.depthMm)} · 横 ${formatInsetLabel(m.insetMm)}`}
             >
-              {m.label} · {formatDepthMmLabel(m.depthMm).replace(/^前から\s*/, "")}
+              {m.label} ·{" "}
+              {formatDepthMmLabel(m.depthMm).replace(/^前から\s*/, "")}
             </div>
-            <div
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                top: `${m.yPct}%`,
-                height: 0,
-                borderTop: "1px dashed rgba(251, 113, 133, 0.35)",
-                pointerEvents: "none",
-              }}
-            />
           </div>
         );
       })}

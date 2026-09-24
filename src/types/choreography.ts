@@ -163,7 +163,8 @@ export type StageSleeveCurtain = {
   /** 左右どちらに出す。省略時 both */
   side?: StageSleeveCurtainSide;
   /**
-   * 袖の横方向の入り込み（端からの幅 mm）。未指定は見た目の既定。
+   * 袖の横方向の長さ（端からの入り込み mm）。
+   * 設定した長さまでステージ内側へ伸ばして描画する。
    */
   insetMm?: number;
 };

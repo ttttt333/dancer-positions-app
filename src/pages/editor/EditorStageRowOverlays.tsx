@@ -1203,7 +1203,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   そで幕
                 </div>
                 <p style={{ margin: "0 0 6px", fontSize: 9, color: "#64748b", lineHeight: 1.4 }}>
-                  追加したそで幕はステージ上でドラッグして奥行を調整できます。
+                  追加したそで幕はステージ上でドラッグして奥行を調整できます。横の長さは端から設定どおり伸ばします。
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {stageAreaSettingsDraft.stageSleeves.map((sl, idx) => (
@@ -1371,7 +1371,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                           </select>
                         </label>
                         <label style={{ fontSize: 9, color: "#94a3b8" }}>
-                          入り込み幅
+                          横の長さ（端から）
                           <div
                             style={{
                               display: "flex",
@@ -1404,7 +1404,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                               }}
                             >
                               <option value="">-</option>
-                              {[0, 1, 2, 3, 4, 5].map((v) => (
+                              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((v) => (
                                 <option key={v} value={String(v)}>
                                   {v}
                                 </option>

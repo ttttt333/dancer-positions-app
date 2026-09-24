@@ -54,7 +54,7 @@ export function normalizeStageSleeveCurtains(
           : undefined;
       const insetMm =
         typeof o.insetMm === "number" && Number.isFinite(o.insetMm) && o.insetMm > 0
-          ? Math.max(50, Math.min(5000, Math.round(o.insetMm)))
+          ? Math.max(50, Math.min(20_000, Math.round(o.insetMm)))
           : undefined;
       out.push({
         id,
@@ -89,7 +89,9 @@ export type SleeveCurtainMark = {
   depthMm: number;
   label: string;
   side: StageSleeveCurtainSide;
+  /** 端からの横長さ（ステージ幅に対する %） */
   insetPct: number;
+  insetMm: number;
 };
 
 export function buildSleeveCurtainMarksFromCurtains(
@@ -104,7 +106,8 @@ export function buildSleeveCurtainMarksFromCurtains(
     const yPct = yPctFromFrontMm(c.depthMm, stageDepthMm);
     if (yPct == null) continue;
     const insetMm = c.insetMm ?? 450;
-    const insetPct = Math.min(18, Math.max(2, (insetMm / W) * 100));
+    // 設定した横長さまで伸ばす（ステージ半分まで）。以前の 18% 上限は短すぎて見た目が伸びなかった。
+    const insetPct = Math.min(48, Math.max(1.2, (insetMm / W) * 100));
     out.push({
       id: c.id,
       yPct,
@@ -112,6 +115,7 @@ export function buildSleeveCurtainMarksFromCurtains(
       label: c.label?.trim() || "そで幕",
       side: c.side ?? "both",
       insetPct,
+      insetMm,
     });
   }
   return out;
