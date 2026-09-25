@@ -105,22 +105,28 @@ export function useEditorCloudSave({
           const latest = await projectApi.get(serverId);
           const known = knownServerUpdatedAtRef.current;
 
-          // 基準未学習: サーバー時刻を覚え、内容が違うときだけ手動保存で警告
+          // 基準未学習: サーバー時刻を覚え、内容が違うときは
+          // - 手動保存: 競合ダイアログ
+          // - 自動保存: 学習してそのまま上書き（初回自動保存が永遠に止まるのを防ぐ）
           if (!known) {
             setKnownServerUpdatedAt(latest.updated_at);
             knownServerUpdatedAtRef.current = latest.updated_at;
             const serverJson = normalizeProject(latest.json);
             if (projectJsonDiffers(body, serverJson)) {
-              const conflict: CloudSaveConflict = {
-                kind: "save-stale",
-                serverUpdatedAt: latest.updated_at,
-                serverJson,
-                serverName: latest.name,
-              };
-              if (!opts?.quietConflict) onSaveConflict?.(conflict);
-              return { id: serverId, conflict };
+              if (opts?.quietConflict) {
+                // 自動保存はローカル編集を正として続行
+              } else {
+                const conflict: CloudSaveConflict = {
+                  kind: "save-stale",
+                  serverUpdatedAt: latest.updated_at,
+                  serverJson,
+                  serverName: latest.name,
+                };
+                onSaveConflict?.(conflict);
+                return { id: serverId, conflict };
+              }
             }
-            // 同内容ならそのまま下の update へ
+            // 同内容／自動保存の差分 → 下の update へ
           } else if (isServerNewerThanKnown(known, latest.updated_at)) {
             const conflict: CloudSaveConflict = {
               kind: "save-stale",

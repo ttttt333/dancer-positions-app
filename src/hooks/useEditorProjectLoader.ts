@@ -93,6 +93,10 @@ export function useEditorProjectLoader({
     projectSaveRef.current = null;
   }
 
+  /** 同一 user + project ではクラウド再取得しない（トークン更新で編集が消えるのを防ぐ） */
+  const loadedKeyRef = useRef<string | null>(null);
+  const meUserId = me?.user?.id ?? null;
+
   useEffect(() => {
     if (choreoPublicView && shareTokenParam) {
       let cancelled = false;
@@ -125,6 +129,7 @@ export function useEditorProjectLoader({
     }
 
     if (projectId === "new" || !projectId) {
+      loadedKeyRef.current = null;
       const search = new URLSearchParams(location.search);
       const flowId = search.get("flow")?.trim();
       if (flowId) {
@@ -199,14 +204,18 @@ export function useEditorProjectLoader({
 
     const id = Number(projectId);
     if (!Number.isFinite(id)) {
+      loadedKeyRef.current = null;
       setPlainProject(null);
       setLoadError("無効な ID");
       return;
     }
 
     if (!authReady) {
-      setPlainProject(null);
-      setLoadError(null);
+      // 初回ハイドレーション中は既存画面を消さない（ちらつき・巻き戻り防止）
+      if (loadedKeyRef.current == null) {
+        setPlainProject(null);
+        setLoadError(null);
+      }
       return;
     }
 
@@ -219,13 +228,22 @@ export function useEditorProjectLoader({
     }
 
     if (isSupabaseBackend() && !me && !choreoPublicView) {
-      setPlainProject(null);
-      setLoadError("ログインが必要です");
+      // セッション確立直後の一瞬だけ me が空でも、既に開いている作品は維持
+      if (loadedKeyRef.current == null) {
+        setPlainProject(null);
+        setLoadError("ログインが必要です");
+      }
       return;
     }
 
     if (skipNextProjectFetchRef.current === id) {
       skipNextProjectFetchRef.current = null;
+      return;
+    }
+
+    const loadKey = `${meUserId ?? "anon"}:${id}`;
+    if (loadedKeyRef.current === loadKey && projectSaveRef.current != null) {
+      // 同一作品を保持中 → me 参照更新や課金マージでは再取得しない
       return;
     }
 
@@ -241,6 +259,7 @@ export function useEditorProjectLoader({
       const title = seeded.pieceTitle?.trim() || "無題の作品";
       setProjectName(title);
       setLoadError(null);
+      loadedKeyRef.current = loadKey;
       skipNextProjectFetchRef.current = id;
       navigate(
         { pathname: location.pathname, search: location.search },
@@ -251,21 +270,34 @@ export function useEditorProjectLoader({
 
     let cancelled = false;
     (async () => {
-      setPlainProject(null);
+      // 既に編集中の同一 ID なら画面を消さない（再取得中の巻き戻り防止）
+      const keepingLive =
+        (serverId === id && projectSaveRef.current != null) ||
+        loadedKeyRef.current === loadKey;
+      if (!keepingLive) {
+        setPlainProject(null);
+      }
       setLoadError(null);
       try {
         const row = await projectApi.get(id);
         if (cancelled) return;
         setServerId(row.id);
         setServerShareToken(row.share_token ?? null);
-        setProjectName(row.name);
         setKnownServerUpdatedAt(row.updated_at);
         const baseJson = normalizeProject(row.json);
         const draft = loadEditorDraft(id);
         let loadedJson = baseJson;
+        let nameToSet: string | null = row.name;
 
-        // 下書きがあり内容が違う場合は、新しい方を無言で採用（毎回の確認ダイアログを出さない）
-        if (
+        // 編集中のメモリ内容がクラウドと違う場合はメモリを優先（巻き戻り防止）
+        const live = projectSaveRef.current;
+        const liveDiffers =
+          keepingLive && live != null && projectJsonDiffers(live, baseJson);
+
+        if (liveDiffers && live) {
+          loadedJson = live;
+          nameToSet = null;
+        } else if (
           !choreoPublicView &&
           draft &&
           draft.serverId === id &&
@@ -274,14 +306,16 @@ export function useEditorProjectLoader({
           if (projectJsonDiffers(draft.project, baseJson)) {
             if (shouldPreferLocalDraft(draft.savedAt, row.updated_at)) {
               loadedJson = normalizeProject(draft.project);
-              const draftName =
+              nameToSet =
                 draft.projectName?.trim() ||
                 draft.project.pieceTitle?.trim() ||
                 row.name;
-              if (draftName) setProjectName(draftName);
-            } else {
+            } else if (!keepingLive) {
               clearEditorDraft(id);
               loadedJson = baseJson;
+            } else {
+              loadedJson = live ?? normalizeProject(draft.project);
+              nameToSet = null;
             }
           } else {
             clearEditorDraft(id);
@@ -315,14 +349,18 @@ export function useEditorProjectLoader({
 
         if (collabParam && me) {
           setPlainProject(null);
+        } else if (liveDiffers && live) {
+          // 編集中はそのまま維持
         } else {
           setPlainProject(
             choreoPublicView ? { ...loadedJson, viewMode: "view" } : loadedJson
           );
+          if (nameToSet) setProjectName(nameToSet);
         }
+        loadedKeyRef.current = loadKey;
         setPendingLoadConflict(null);
         setLoadError(null);
-        onHistoryReset();
+        if (!keepingLive) onHistoryReset();
       } catch (e) {
         if (!cancelled) {
           setLoadError(e instanceof Error ? e.message : "読み込み失敗");
@@ -336,6 +374,7 @@ export function useEditorProjectLoader({
     projectId,
     shareTokenParam,
     collabParam,
+    meUserId,
     me,
     authReady,
     location.state,

@@ -122,6 +122,8 @@ export function useEditorAutoSave({
   }, [flushCloudSave]);
 
   const scheduleLocalDraft = useCallback(() => {
+    // 端末草稿はすぐ書く（再読込・トークン更新とレースしない）
+    persistLocalDraft();
     if (localTimerRef.current != null) {
       window.clearTimeout(localTimerRef.current);
     }
