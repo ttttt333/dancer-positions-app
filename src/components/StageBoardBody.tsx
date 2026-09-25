@@ -12,6 +12,7 @@ import type {
   SetPiece,
   StageFloorMarkup,
   StageFloorTextMarkup,
+  StageLightFixture,
   StageLightKind,
 } from "../types/choreography";
 import { useStageBoardController } from "../hooks/useStageBoardController";
@@ -707,6 +708,8 @@ export function StageBoardBody({
     section: "shape" | "display" | "sort";
   } | null>(null);
   const dockSectionRequestIdRef = useRef(0);
+  /** コンテキストメニューから追加した直近の照明（一つ前の照明を追加用） */
+  const lastStageLightTemplateRef = useRef<StageLightFixture | null>(null);
   const stageEditDockHost = useSyncExternalStore(
     subscribeStageEditDockHost,
     getStageEditDockHost,
@@ -5282,6 +5285,7 @@ export function StageBoardBody({
           );
         }
       }
+      lastStageLightTemplateRef.current = L;
       onStageLightsChange([...existing, L]);
       onSelectStageLightId?.(L.id);
     },
@@ -5296,6 +5300,80 @@ export function StageBoardBody({
       stageMainFloorRef,
     ]
   );
+
+  /** 直近に追加／選択した照明と同じ設定で、クリック位置に追加 */
+  const handleAddPreviousLightFromContextMenu = useCallback(() => {
+    if (!onStageLightsChange || viewMode === "view" || playbackOrPreview) {
+      return;
+    }
+    const existing = project.stageLights ?? [];
+    if (existing.length >= STAGE_LIGHTS_MAX) return;
+
+    const fromTemplate = lastStageLightTemplateRef.current;
+    const fromSelected =
+      selectedStageLightId != null
+        ? existing.find((x) => x.id === selectedStageLightId)
+        : undefined;
+    const src = fromTemplate ?? fromSelected ?? existing[existing.length - 1];
+    if (!src) return;
+
+    const L: StageLightFixture = {
+      ...src,
+      id: crypto.randomUUID(),
+      label: `${(src.label ?? STAGE_LIGHT_KIND_LABELS[src.kind]).replace(
+        /\s*コピー\d*$/,
+        ""
+      )}`,
+    };
+    if (editCueId) {
+      L.cueId = editCueId;
+      L.tStartSec = null;
+      L.tEndSec = null;
+    }
+    const menu = stageContextMenu;
+    const floor = stageMainFloorRef.current;
+    if (menu && floor) {
+      const r = floor.getBoundingClientRect();
+      if (r.width > 1 && r.height > 1) {
+        L.xPct = Math.max(
+          5,
+          Math.min(95, ((menu.clientX - r.left) / r.width) * 100)
+        );
+        L.yPct = Math.max(
+          5,
+          Math.min(95, ((menu.clientY - r.top) / r.height) * 100)
+        );
+      }
+    } else {
+      L.xPct = Math.min(95, src.xPct + 4);
+      L.yPct = Math.min(95, src.yPct + 4);
+    }
+    lastStageLightTemplateRef.current = L;
+    onStageLightsChange([...existing, L]);
+    onSelectStageLightId?.(L.id);
+  }, [
+    onStageLightsChange,
+    onSelectStageLightId,
+    viewMode,
+    playbackOrPreview,
+    project.stageLights,
+    selectedStageLightId,
+    editCueId,
+    stageContextMenu,
+    stageMainFloorRef,
+  ]);
+
+  const previousLightAddHint = useMemo(() => {
+    const existing = project.stageLights ?? [];
+    const fromTemplate = lastStageLightTemplateRef.current;
+    const fromSelected =
+      selectedStageLightId != null
+        ? existing.find((x) => x.id === selectedStageLightId)
+        : undefined;
+    const src = fromTemplate ?? fromSelected ?? existing[existing.length - 1];
+    if (!src) return null;
+    return src.label?.trim() || STAGE_LIGHT_KIND_LABELS[src.kind];
+  }, [project.stageLights, selectedStageLightId, stageContextMenu]);
 
   useEffect(() => {
     if (selectedDancerIds.length < 2) {
@@ -5921,6 +5999,14 @@ export function StageBoardBody({
                       Boolean(onStageLightsChange)
                         ? handleAddLightFromContextMenu
                         : undefined,
+                    onAddPreviousLight:
+                      viewMode !== "view" &&
+                      !playbackOrPreview &&
+                      Boolean(onStageLightsChange) &&
+                      Boolean(previousLightAddHint)
+                        ? handleAddPreviousLightFromContextMenu
+                        : undefined,
+                    previousLightHint: previousLightAddHint,
                   }
                 : undefined
             }

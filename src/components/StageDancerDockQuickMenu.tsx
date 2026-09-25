@@ -22,6 +22,9 @@ export type StageDancerDockQuickMenuProps = {
   /** 照明を追加（種類ごと） */
   lightAddOptions?: { kind: string; label: string }[];
   onAddLight?: (kind: string) => void;
+  /** 一つ前（直近）の照明を同じ設定で追加 */
+  onAddPreviousLight?: () => void;
+  previousLightHint?: string | null;
 };
 
 const itemBtn: CSSProperties = {
@@ -64,6 +67,8 @@ export function StageDancerDockQuickMenu({
   onDelete,
   lightAddOptions,
   onAddLight,
+  onAddPreviousLight,
+  previousLightHint,
 }: StageDancerDockQuickMenuProps) {
   const [dupOpen, setDupOpen] = useState(false);
   const [gatherOpen, setGatherOpen] = useState(true);
@@ -75,7 +80,8 @@ export function StageDancerDockQuickMenu({
       !onDuplicate &&
       !onDelete &&
       !onSwapPair &&
-      !onGatherToEdge
+      !onGatherToEdge &&
+      !onAddPreviousLight
   );
   const entries: { id: StageDockQuickSection; label: string; hint: string }[] =
     [];
@@ -250,6 +256,36 @@ export function StageDancerDockQuickMenu({
               margin: "3px 6px",
             }}
           />
+          {onAddPreviousLight && previousLightHint ? (
+            <button
+              type="button"
+              role="menuitem"
+              style={itemBtn}
+              title={`「${previousLightHint}」と同じ設定で追加`}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onClick={() => onAddPreviousLight()}
+            >
+              <span>一つ前の照明を追加</span>
+              <span
+                style={{
+                  color: "#64748b",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  maxWidth: 88,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {previousLightHint}
+              </span>
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"

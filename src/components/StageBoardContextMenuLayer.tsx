@@ -52,6 +52,8 @@ export type StageBoardContextMenuLayerProps = {
     onDelete?: () => void;
     lightAddOptions?: { kind: string; label: string }[];
     onAddLight?: (kind: string) => void;
+    onAddPreviousLight?: () => void;
+    previousLightHint?: string | null;
   };
   viewMode: "edit" | "view";
   setPiecesEditable: boolean;
@@ -146,6 +148,15 @@ export function StageBoardContextMenuLayer({
                 }
               : undefined
           }
+          onAddPreviousLight={
+            dockQuickMenu.onAddPreviousLight
+              ? () => {
+                  dockQuickMenu.onAddPreviousLight?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          previousLightHint={dockQuickMenu.previousLightHint}
         />
       ) : menu.kind === "floor" && dockQuickMenu ? (
         <StageDancerDockQuickMenu
@@ -162,6 +173,15 @@ export function StageBoardContextMenuLayer({
                 }
               : undefined
           }
+          onAddPreviousLight={
+            dockQuickMenu.onAddPreviousLight
+              ? () => {
+                  dockQuickMenu.onAddPreviousLight?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          previousLightHint={dockQuickMenu.previousLightHint}
         />
       ) : menu.kind === "dancer" ? (
         <StageDancerContextMenu
