@@ -168,6 +168,8 @@ export function TimelineWaveMenus({
       ...p,
       stageLights: replaceCueWithBasicStageLights(p.stageLights ?? [], cueId),
     }));
+    // 追加結果がすぐ分かるよう照明パネルも開く
+    onOpenLightingSettings?.(cueId);
   };
 
   const applyLightingPresetToCue = (cueId: string) => {
@@ -400,11 +402,14 @@ export function TimelineWaveMenus({
             style={menuBtnBase(!!waveCueMenu.fullscreen)}
             onClick={() => {
               if (viewMode === "view") return;
-              copyPrevCueLights(waveCueMenu.cueId);
+              const id = waveCueMenu.cueId;
+              onFocusCueForLighting?.(id);
+              copyPrevCueLights(id);
               closeCueMenu();
+              onOpenLightingSettings?.(id);
             }}
           >
-            一つ前の照明をコピー
+            前の照明を適応
           </button>
           <button
             type="button"
@@ -590,7 +595,7 @@ export function TimelineWaveMenus({
               onOpenGapLightingSettings?.(nextId);
             }}
           >
-            前の照明をここに適応
+            前の照明を適応
           </button>
           <button
             type="button"

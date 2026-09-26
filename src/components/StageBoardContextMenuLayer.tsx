@@ -52,8 +52,11 @@ export type StageBoardContextMenuLayerProps = {
     onDelete?: () => void;
     lightAddOptions?: { kind: string; label: string }[];
     onAddLight?: (kind: string) => void;
+    onAddBasicLights?: () => void;
+    onApplyPreviousCueLights?: () => void;
     onAddPreviousLight?: () => void;
     previousLightHint?: string | null;
+    defaultLightOpen?: boolean;
   };
   viewMode: "edit" | "view";
   setPiecesEditable: boolean;
@@ -148,6 +151,22 @@ export function StageBoardContextMenuLayer({
                 }
               : undefined
           }
+          onAddBasicLights={
+            dockQuickMenu.onAddBasicLights
+              ? () => {
+                  dockQuickMenu.onAddBasicLights?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onApplyPreviousCueLights={
+            dockQuickMenu.onApplyPreviousCueLights
+              ? () => {
+                  dockQuickMenu.onApplyPreviousCueLights?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
           onAddPreviousLight={
             dockQuickMenu.onAddPreviousLight
               ? () => {
@@ -157,6 +176,7 @@ export function StageBoardContextMenuLayer({
               : undefined
           }
           previousLightHint={dockQuickMenu.previousLightHint}
+          defaultLightOpen={dockQuickMenu.defaultLightOpen}
         />
       ) : menu.kind === "floor" && dockQuickMenu ? (
         <StageDancerDockQuickMenu
@@ -173,6 +193,22 @@ export function StageBoardContextMenuLayer({
                 }
               : undefined
           }
+          onAddBasicLights={
+            dockQuickMenu.onAddBasicLights
+              ? () => {
+                  dockQuickMenu.onAddBasicLights?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onApplyPreviousCueLights={
+            dockQuickMenu.onApplyPreviousCueLights
+              ? () => {
+                  dockQuickMenu.onApplyPreviousCueLights?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
           onAddPreviousLight={
             dockQuickMenu.onAddPreviousLight
               ? () => {
@@ -182,6 +218,7 @@ export function StageBoardContextMenuLayer({
               : undefined
           }
           previousLightHint={dockQuickMenu.previousLightHint}
+          defaultLightOpen={dockQuickMenu.defaultLightOpen ?? true}
         />
       ) : menu.kind === "dancer" ? (
         <StageDancerContextMenu

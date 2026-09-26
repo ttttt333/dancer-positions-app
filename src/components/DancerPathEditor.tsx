@@ -536,6 +536,7 @@ export function DancerPathEditor({
         <button
           type="button"
           role="menuitem"
+          aria-pressed={showAllPaths}
           style={{
             ...btnSecondary,
             display: "block",
@@ -543,12 +544,18 @@ export function DancerPathEditor({
             textAlign: "left",
             marginBottom: 6,
             fontSize: 13,
-            padding: "9px 10px",
-            fontWeight: 700,
-            borderColor: showAllPaths
-              ? "rgba(52, 211, 153, 0.7)"
-              : undefined,
-            color: showAllPaths ? "#a7f3d0" : undefined,
+            padding: "10px 12px",
+            fontWeight: 800,
+            color: showAllPaths ? "#ecfdf5" : "#e2e8f0",
+            background: showAllPaths
+              ? "rgba(16, 185, 129, 0.28)"
+              : "rgba(51, 65, 85, 0.55)",
+            border: showAllPaths
+              ? "1.5px solid rgba(52, 211, 153, 0.95)"
+              : "1.5px solid rgba(148, 163, 184, 0.55)",
+            boxShadow: showAllPaths
+              ? "0 0 0 1px rgba(52, 211, 153, 0.35), 0 0 14px rgba(16, 185, 129, 0.55)"
+              : "0 0 0 1px rgba(148, 163, 184, 0.15)",
           }}
           onClick={() => {
             setShowAllPaths((v) => !v);
@@ -556,7 +563,7 @@ export function DancerPathEditor({
             setCtxMenu(null);
           }}
         >
-          {showAllPaths ? "一括表示をオフ" : "一括表示"}
+          {showAllPaths ? "一括表示：オン" : "一括表示：オフ"}
         </button>
         <div
           style={{

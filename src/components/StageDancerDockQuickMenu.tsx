@@ -22,9 +22,15 @@ export type StageDancerDockQuickMenuProps = {
   /** 照明を追加（種類ごと） */
   lightAddOptions?: { kind: string; label: string }[];
   onAddLight?: (kind: string) => void;
+  /** 基本照明一式をこのキューへ */
+  onAddBasicLights?: () => void;
+  /** 直前キューの照明をこのキューへ適用 */
+  onApplyPreviousCueLights?: () => void;
   /** 一つ前（直近）の照明を同じ設定で追加 */
   onAddPreviousLight?: () => void;
   previousLightHint?: string | null;
+  /** 照明種類一覧を最初から開く */
+  defaultLightOpen?: boolean;
 };
 
 const itemBtn: CSSProperties = {
@@ -67,21 +73,24 @@ export function StageDancerDockQuickMenu({
   onDelete,
   lightAddOptions,
   onAddLight,
+  onAddBasicLights,
+  onApplyPreviousCueLights,
   onAddPreviousLight,
   previousLightHint,
+  defaultLightOpen = false,
 }: StageDancerDockQuickMenuProps) {
   const [dupOpen, setDupOpen] = useState(false);
   const [gatherOpen, setGatherOpen] = useState(true);
   const [lightOpen, setLightOpen] = useState(
     () =>
-      !showShape &&
-      !showDisplay &&
-      !showSort &&
-      !onDuplicate &&
-      !onDelete &&
-      !onSwapPair &&
-      !onGatherToEdge &&
-      !onAddPreviousLight
+      defaultLightOpen ||
+      (!showShape &&
+        !showDisplay &&
+        !showSort &&
+        !onDuplicate &&
+        !onDelete &&
+        !onSwapPair &&
+        !onGatherToEdge)
   );
   const entries: { id: StageDockQuickSection; label: string; hint: string }[] =
     [];
@@ -256,6 +265,40 @@ export function StageDancerDockQuickMenu({
               margin: "3px 6px",
             }}
           />
+          {onApplyPreviousCueLights ? (
+            <button
+              type="button"
+              role="menuitem"
+              style={itemBtn}
+              title="直前のキューの照明を、いまのキューへ適用します"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onClick={() => onApplyPreviousCueLights()}
+            >
+              <span>前の照明を適応</span>
+            </button>
+          ) : null}
+          {onAddBasicLights ? (
+            <button
+              type="button"
+              role="menuitem"
+              style={itemBtn}
+              title="基本照明一式をいまのキューへ置きます"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onClick={() => onAddBasicLights()}
+            >
+              <span>基本の照明を追加</span>
+            </button>
+          ) : null}
           {onAddPreviousLight && previousLightHint ? (
             <button
               type="button"
@@ -270,7 +313,7 @@ export function StageDancerDockQuickMenu({
               }}
               onClick={() => onAddPreviousLight()}
             >
-              <span>一つ前の照明を追加</span>
+              <span>同じ照明を追加</span>
               <span
                 style={{
                   color: "#64748b",

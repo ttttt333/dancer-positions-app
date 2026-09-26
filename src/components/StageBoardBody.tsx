@@ -67,10 +67,13 @@ import {
   activeStageLightsAtTime,
   createDefaultStageLight,
   nextLightLabel,
+  replaceCueLightsFromPreviousCue,
+  replaceCueWithBasicStageLights,
   STAGE_LIGHT_KIND_LABELS,
   STAGE_LIGHT_KINDS,
   STAGE_LIGHTS_MAX,
 } from "../lib/stageLighting";
+import { sortCuesByStart } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import {
   alignSelectedDancers,
@@ -1106,6 +1109,8 @@ export function StageBoardBody({
   }, [displayFloorMarkup, floorTextInlineRect?.id]);
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
+  /** 再生中のみ照明編集を止める（雛形プレビュー中は追加・表示を許可） */
+  const lightsLockedByPlayback = Boolean(playbackDancers);
   const prevCueCompareAvailable = Boolean(prevCueDancers && !playbackOrPreview);
   const prevCueOverlayOn =
     prevCueCompareAvailable && (prevCueCompareOn || prevCueMotionViewOn);
@@ -4087,15 +4092,15 @@ export function StageBoardBody({
     () =>
       activeStageLightsAtTime(project.stageLights, currentTimeSec, {
         cues: project.cues,
-        // 編集中のみ選択キューの照明を優先表示。再生中はキュー時間帯どおり。
-        focusCueId: playbackOrPreview ? null : editCueId,
+        // 再生中は時間帯どおり。停止中は選択キューの照明を優先表示。
+        focusCueId: lightsLockedByPlayback ? null : editCueId,
       }),
     [
       project.stageLights,
       project.cues,
       currentTimeSec,
       editCueId,
-      playbackOrPreview,
+      lightsLockedByPlayback,
     ]
   );
   const stageHesoVisible = project.stageHesoVisible === true;
@@ -4115,7 +4120,7 @@ export function StageBoardBody({
     stageCenterMarks.length > 0;
   const stageLightsEditable =
     viewMode !== "view" &&
-    !playbackOrPreview &&
+    !lightsLockedByPlayback &&
     Boolean(onStageLightsChange);
 
   const mainFloorStyle: CSSProperties = useMemo(
@@ -5348,7 +5353,7 @@ export function StageBoardBody({
 
   const handleAddLightFromContextMenu = useCallback(
     (kindRaw: string) => {
-      if (!onStageLightsChange || viewMode === "view" || playbackOrPreview) {
+      if (!onStageLightsChange || viewMode === "view" || lightsLockedByPlayback) {
         return;
       }
       const kind = kindRaw as StageLightKind;
@@ -5385,7 +5390,7 @@ export function StageBoardBody({
       onStageLightsChange,
       onSelectStageLightId,
       viewMode,
-      playbackOrPreview,
+      lightsLockedByPlayback,
       project.stageLights,
       editCueId,
       stageContextMenu,
@@ -5393,9 +5398,60 @@ export function StageBoardBody({
     ]
   );
 
+  /** 直前キューの照明を、いま選択中のキューへ適用 */
+  const handleApplyPreviousCueLightsFromContextMenu = useCallback(() => {
+    if (!onStageLightsChange || viewMode === "view" || lightsLockedByPlayback) {
+      return;
+    }
+    if (!editCueId) {
+      window.alert("キューを選択してから実行してください。");
+      return;
+    }
+    const sorted = sortCuesByStart(project.cues);
+    const i = sorted.findIndex((c) => c.id === editCueId);
+    if (i <= 0) {
+      window.alert("直前のキューがありません。");
+      return;
+    }
+    const prevId = sorted[i - 1]!.id;
+    const next = replaceCueLightsFromPreviousCue(
+      project.stageLights ?? [],
+      prevId,
+      editCueId
+    );
+    onStageLightsChange(next);
+  }, [
+    onStageLightsChange,
+    viewMode,
+    lightsLockedByPlayback,
+    editCueId,
+    project.cues,
+    project.stageLights,
+  ]);
+
+  /** 基本照明一式をいまのキューへ置く */
+  const handleAddBasicLightsFromContextMenu = useCallback(() => {
+    if (!onStageLightsChange || viewMode === "view" || lightsLockedByPlayback) {
+      return;
+    }
+    if (!editCueId) {
+      window.alert("キューを選択してから実行してください。");
+      return;
+    }
+    onStageLightsChange(
+      replaceCueWithBasicStageLights(project.stageLights ?? [], editCueId)
+    );
+  }, [
+    onStageLightsChange,
+    viewMode,
+    lightsLockedByPlayback,
+    editCueId,
+    project.stageLights,
+  ]);
+
   /** 直近に追加／選択した照明と同じ設定で、クリック位置に追加 */
   const handleAddPreviousLightFromContextMenu = useCallback(() => {
-    if (!onStageLightsChange || viewMode === "view" || playbackOrPreview) {
+    if (!onStageLightsChange || viewMode === "view" || lightsLockedByPlayback) {
       return;
     }
     const existing = project.stageLights ?? [];
@@ -5447,13 +5503,20 @@ export function StageBoardBody({
     onStageLightsChange,
     onSelectStageLightId,
     viewMode,
-    playbackOrPreview,
+    lightsLockedByPlayback,
     project.stageLights,
     selectedStageLightId,
     editCueId,
     stageContextMenu,
     stageMainFloorRef,
   ]);
+
+  const canApplyPrevCueLights = useMemo(() => {
+    if (!editCueId) return false;
+    const sorted = sortCuesByStart(project.cues);
+    const i = sorted.findIndex((c) => c.id === editCueId);
+    return i > 0;
+  }, [editCueId, project.cues]);
 
   const previousLightAddHint = useMemo(() => {
     const existing = project.stageLights ?? [];
@@ -6080,7 +6143,7 @@ export function StageBoardBody({
                         : undefined,
                     lightAddOptions:
                       viewMode !== "view" &&
-                      !playbackOrPreview &&
+                      !lightsLockedByPlayback &&
                       Boolean(onStageLightsChange)
                         ? STAGE_LIGHT_KINDS.map((kind) => ({
                             kind,
@@ -6089,18 +6152,33 @@ export function StageBoardBody({
                         : undefined,
                     onAddLight:
                       viewMode !== "view" &&
-                      !playbackOrPreview &&
+                      !lightsLockedByPlayback &&
                       Boolean(onStageLightsChange)
                         ? handleAddLightFromContextMenu
                         : undefined,
+                    onAddBasicLights:
+                      viewMode !== "view" &&
+                      !lightsLockedByPlayback &&
+                      Boolean(onStageLightsChange) &&
+                      Boolean(editCueId)
+                        ? handleAddBasicLightsFromContextMenu
+                        : undefined,
+                    onApplyPreviousCueLights:
+                      viewMode !== "view" &&
+                      !lightsLockedByPlayback &&
+                      Boolean(onStageLightsChange) &&
+                      canApplyPrevCueLights
+                        ? handleApplyPreviousCueLightsFromContextMenu
+                        : undefined,
                     onAddPreviousLight:
                       viewMode !== "view" &&
-                      !playbackOrPreview &&
+                      !lightsLockedByPlayback &&
                       Boolean(onStageLightsChange) &&
                       Boolean(previousLightAddHint)
                         ? handleAddPreviousLightFromContextMenu
                         : undefined,
                     previousLightHint: previousLightAddHint,
+                    defaultLightOpen: stageContextMenu.kind === "floor",
                   }
                 : undefined
             }
