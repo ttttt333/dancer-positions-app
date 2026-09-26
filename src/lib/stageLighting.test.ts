@@ -103,16 +103,21 @@ describe("stageLighting / architecture guides", () => {
     expect(wide.ry).toBe(20);
   });
 
-  it("createBasicStageLights places white presets for a cue", () => {
+  it("createBasicStageLights colors each part distinctly", () => {
     const lights = createBasicStageLights("cue-a");
     expect(lights).toHaveLength(15);
-    expect(lights.every((L) => L.color === "#ffffff")).toBe(true);
     expect(lights.every((L) => L.cueId === "cue-a")).toBe(true);
     expect(lights.filter((L) => L.kind === "sideSpot")).toHaveLength(6);
     expect(lights.filter((L) => L.kind === "suspension")).toHaveLength(2);
     expect(lights.filter((L) => L.kind === "pinSpot")).toHaveLength(1);
     expect(lights.filter((L) => L.kind === "footlight")).toHaveLength(3);
     expect(lights.filter((L) => L.kind === "backlight")).toHaveLength(3);
+    const byKind = Object.fromEntries(
+      (["backlight", "sideSpot", "suspension", "footlight", "pinSpot"] as const).map(
+        (k) => [k, lights.find((L) => L.kind === k)!.color]
+      )
+    );
+    expect(new Set(Object.values(byKind)).size).toBe(5);
     const pin = lights.find((L) => L.kind === "pinSpot")!;
     expect(pin.xPct).toBe(50);
     expect(pin.yPct).toBe(50);

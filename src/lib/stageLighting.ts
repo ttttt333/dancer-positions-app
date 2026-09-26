@@ -303,7 +303,16 @@ export function nextLightLabel(
   return n <= 1 ? base : `${base} ${n}`;
 }
 
-function whiteLightAt(
+/** 基本照明セットのパート色（まとまりごとに識別しやすくする） */
+export const BASIC_STAGE_LIGHT_COLORS: Record<StageLightKind, string> = {
+  backlight: "#60a5fa", // 青系
+  sideSpot: "#fb923c", // オレンジ系
+  suspension: "#fef08a", // 黄系
+  footlight: "#f472b6", // ピンク系
+  pinSpot: "#ffffff", // 白（ヘソ強調）
+};
+
+function basicLightAt(
   kind: StageLightKind,
   xPct: number,
   yPct: number,
@@ -317,7 +326,7 @@ function whiteLightAt(
     label: label ?? STAGE_LIGHT_KIND_LABELS[kind],
     xPct: clampPct(xPct),
     yPct: clampPct(yPct),
-    color: "#ffffff",
+    color: BASIC_STAGE_LIGHT_COLORS[kind],
     intensity: kind === "pinSpot" ? 0.55 : 0.4,
     rxPct: r,
     ryPct: Math.round(r * 0.72 * 10) / 10,
@@ -330,7 +339,7 @@ function whiteLightAt(
 }
 
 /**
- * 基本照明一式（白）。
+ * 基本照明一式（パートごとに色分け）。
  * サイドスポット左右3・サスペンション上手/下手各1・ピンスポ（ヘソ）・
  * フットライト3・バックライト3。
  */
@@ -340,22 +349,22 @@ export function createBasicStageLights(
   const L = cueId;
   const sideYs = [28, 50, 72];
   const sideLeft = sideYs.map((y, i) =>
-    whiteLightAt("sideSpot", 10, y, L, `サイドスポット 下手${i + 1}`)
+    basicLightAt("sideSpot", 10, y, L, `サイドスポット 下手${i + 1}`)
   );
   const sideRight = sideYs.map((y, i) =>
-    whiteLightAt("sideSpot", 90, y, L, `サイドスポット 上手${i + 1}`)
+    basicLightAt("sideSpot", 90, y, L, `サイドスポット 上手${i + 1}`)
   );
   const suspension = [
-    whiteLightAt("suspension", 18, 50, L, "サスペンション 下手"),
-    whiteLightAt("suspension", 82, 50, L, "サスペンション 上手"),
+    basicLightAt("suspension", 18, 50, L, "サスペンション 下手"),
+    basicLightAt("suspension", 82, 50, L, "サスペンション 上手"),
   ];
-  const pin = [whiteLightAt("pinSpot", 50, 50, L, "ピンスポ ヘソ")];
+  const pin = [basicLightAt("pinSpot", 50, 50, L, "ピンスポ ヘソ")];
   const footXs = [25, 50, 75];
   const foot = footXs.map((x, i) =>
-    whiteLightAt("footlight", x, 92, L, `フットライト ${i + 1}`)
+    basicLightAt("footlight", x, 92, L, `フットライト ${i + 1}`)
   );
   const back = footXs.map((x, i) =>
-    whiteLightAt("backlight", x, 8, L, `バックライト ${i + 1}`)
+    basicLightAt("backlight", x, 8, L, `バックライト ${i + 1}`)
   );
   return [...sideLeft, ...sideRight, ...suspension, ...pin, ...foot, ...back];
 }
