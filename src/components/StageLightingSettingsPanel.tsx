@@ -15,6 +15,13 @@ import {
   STAGE_LIGHT_KINDS,
   STAGE_LIGHTS_MAX,
 } from "../lib/stageLighting";
+import {
+  deleteLightingPreset,
+  listLightingPresets,
+  replaceLightsFromPreset,
+  saveLightingPreset,
+  type LightingPresetItem,
+} from "../lib/lightingPresets";
 
 export type StageLightingSettingsPanelProps = {
   disabled?: boolean;
@@ -75,6 +82,11 @@ export function StageLightingSettingsPanel({
   const [listFilter, setListFilter] = useState<ListFilter>(() =>
     selectedCueId ? "cue" : "all"
   );
+  const [presets, setPresets] = useState<LightingPresetItem[]>(() =>
+    listLightingPresets()
+  );
+
+  const refreshPresets = () => setPresets(listLightingPresets());
 
   const selectedId = selectedLightId ?? localSelectedId;
 
@@ -270,6 +282,183 @@ export function StageLightingSettingsPanel({
             このキューの照明を消す
           </button>
         ) : null}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          padding: "8px 10px",
+          borderRadius: 8,
+          border: "1px solid #334155",
+          background: "rgba(15,23,42,0.7)",
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0" }}>
+          照明プリセット
+        </div>
+        <p style={{ margin: 0, fontSize: 10, color: "#94a3b8", lineHeight: 1.4 }}>
+          いま表示中の照明を保存し、どのキューからも呼び出せます。
+        </p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <button
+            type="button"
+            disabled={disabled || filteredLights.length === 0}
+            onClick={() => {
+              const name = window.prompt(
+                "プリセット名",
+                `照明 ${filteredLights.length}灯`
+              );
+              if (name == null) return;
+              const res = saveLightingPreset(name, filteredLights);
+              if (!res.ok) {
+                window.alert(res.message);
+                return;
+              }
+              refreshPresets();
+            }}
+            style={{
+              flex: "1 1 auto",
+              minWidth: 110,
+              padding: "7px 10px",
+              borderRadius: 8,
+              border: "1px solid rgba(52,211,153,0.55)",
+              background: "rgba(6,78,59,0.35)",
+              color: "#a7f3d0",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor:
+                disabled || filteredLights.length === 0
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+          >
+            プリセットに保存
+          </button>
+        </div>
+        {presets.length === 0 ? (
+          <p style={{ margin: 0, fontSize: 11, color: "#64748b" }}>
+            保存済みプリセットはまだありません。
+          </p>
+        ) : (
+          <ul
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              maxHeight: 140,
+              overflowY: "auto",
+            }}
+          >
+            {presets.map((preset) => (
+              <li
+                key={preset.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  minWidth: 0,
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={
+                    disabled ||
+                    (listFilter === "cue" && !selectedCueId)
+                  }
+                  title={`${preset.lights.length} 灯を適用（現在の対象を置き換え）`}
+                  onClick={() => {
+                    const targetCueId =
+                      listFilter === "cue"
+                        ? selectedCueId
+                        : listFilter === "global"
+                          ? null
+                          : selectedCueId;
+                    if (listFilter === "cue" && !selectedCueId) {
+                      window.alert("先にキューを選んでください。");
+                      return;
+                    }
+                    if (listFilter === "all") {
+                      const ok = window.confirm(
+                        `「${preset.name}」を${
+                          selectedCueId
+                            ? "このキュー"
+                            : "全体（キュー未選択時は全体灯）"
+                        }に適用しますか？\n対象の照明は置き換わります。`
+                      );
+                      if (!ok) return;
+                    } else {
+                      const ok = window.confirm(
+                        `「${preset.name}」を適用しますか？\nいまの${
+                          listFilter === "cue" ? "このキュー" : "全体"
+                        }の照明は置き換わります。`
+                      );
+                      if (!ok) return;
+                    }
+                    const bindCue =
+                      listFilter === "global"
+                        ? null
+                        : selectedCueId ?? null;
+                    updateLights(
+                      replaceLightsFromPreset(lights, bindCue, preset)
+                    );
+                  }}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    textAlign: "left",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    border: "1px solid #334155",
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {preset.name}
+                  <span style={{ opacity: 0.65, fontWeight: 500 }}>
+                    {" "}
+                    · {preset.lights.length}灯
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  title="削除"
+                  aria-label={`${preset.name} を削除`}
+                  onClick={() => {
+                    if (!window.confirm(`「${preset.name}」を削除しますか？`)) {
+                      return;
+                    }
+                    deleteLightingPreset(preset.id);
+                    refreshPresets();
+                  }}
+                  style={{
+                    flex: "0 0 auto",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    border: "1px solid rgba(248,113,113,0.4)",
+                    background: "transparent",
+                    color: "#fca5a5",
+                    fontSize: 11,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                  }}
+                >
+                  削除
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div

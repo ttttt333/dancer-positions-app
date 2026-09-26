@@ -10,6 +10,10 @@ import {
   replaceCueLightsFromPreviousCue,
   cloneCueLightsIntoGapWindow,
 } from "../lib/stageLighting";
+import {
+  listLightingPresets,
+  replaceLightsFromPreset,
+} from "../lib/lightingPresets";
 import { resolvePreviousCueDancers } from "../lib/stagePrevCueCompare";
 import { permuteSlotsMinimizeTravelFromPrev } from "../lib/stageSelectionArrange";
 import { btnSecondary } from "./stageButtonStyles";
@@ -154,6 +158,37 @@ export function TimelineWaveMenus({
     setProject((p) => ({
       ...p,
       stageLights: appendBasicStageLights(p.stageLights ?? [], cueId),
+    }));
+  };
+
+  const applyLightingPresetToCue = (cueId: string) => {
+    const presets = listLightingPresets();
+    if (presets.length === 0) {
+      window.alert(
+        "保存済みの照明プリセットがありません。照明設定から「プリセットに保存」してください。"
+      );
+      return;
+    }
+    const lines = presets
+      .map((p, i) => `${i + 1}. ${p.name}（${p.lights.length}灯）`)
+      .join("\n");
+    const raw = window.prompt(
+      `適用するプリセット番号を入力してください。\n\n${lines}\n\n※このキューの照明は置き換わります。`
+    );
+    if (raw == null) return;
+    const idx = Math.floor(Number(raw)) - 1;
+    const preset = presets[idx];
+    if (!preset) {
+      window.alert("番号が正しくありません。");
+      return;
+    }
+    setProject((p) => ({
+      ...p,
+      stageLights: replaceLightsFromPreset(
+        p.stageLights ?? [],
+        cueId,
+        preset
+      ),
     }));
   };
 
@@ -349,9 +384,6 @@ export function TimelineWaveMenus({
             type="button"
             role="menuitem"
             disabled={viewMode === "view"}
-            style={menuBtnBase(!!waveCueMenu.fullscreen, {
-              marginBottom: 0,
-            })}
             onClick={() => {
               if (viewMode === "view") return;
               addBasicLights(waveCueMenu.cueId);
@@ -359,6 +391,21 @@ export function TimelineWaveMenus({
             }}
           >
             基本の照明を追加
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={viewMode === "view"}
+            style={menuBtnBase(!!waveCueMenu.fullscreen, {
+              marginBottom: 0,
+            })}
+            onClick={() => {
+              if (viewMode === "view") return;
+              applyLightingPresetToCue(waveCueMenu.cueId);
+              closeCueMenu();
+            }}
+          >
+            プリセットから適用
           </button>
           </div>
         </div>
