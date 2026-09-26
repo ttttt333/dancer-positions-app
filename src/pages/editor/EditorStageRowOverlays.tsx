@@ -2465,6 +2465,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
         <EditorSideSheet
           open={floorTextSideSheetOpen}
           onClose={() => {
+            setFloorTextPlaceSession(null);
             setFloorTextSideSheetOpen(false);
             setFloorTextPreferredTab?.(null);
           }}
@@ -2479,6 +2480,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             setFloorTextPlaceSession={setFloorTextPlaceSession}
             commitFloorTextPlace={commitFloorTextPlace}
             onClose={() => {
+              setFloorTextPlaceSession(null);
               setFloorTextSideSheetOpen(false);
               setFloorTextPreferredTab?.(null);
             }}
@@ -2488,6 +2490,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               setFloorTextPreferredTab?.(null);
             }}
             onCommitted={() => {
+              setFloorTextPlaceSession(null);
               setFloorTextSideSheetOpen(false);
               setFloorTextPreferredTab?.(null);
             }}

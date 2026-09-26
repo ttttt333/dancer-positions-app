@@ -82,15 +82,29 @@ export function FloorTextSideSheetContent({
     } else if (preferredTab === "text") {
       setTab("text");
     }
+  }, [open, preferredTab, lightsEnabled]);
+
+  /** テキストタブのみ配置セッションを用意。照明タブで立てると舞台の範囲選択を奪う */
+  useEffect(() => {
+    if (!open) return;
+    if (tab === "lights") {
+      if (
+        floorTextPlaceSession &&
+        !floorTextPlaceSession.editTargetId &&
+        !(floorTextPlaceSession.body ?? "").trim()
+      ) {
+        setFloorTextPlaceSession(null);
+      }
+      return;
+    }
     if (!floorTextPlaceSession) {
       setFloorTextPlaceSession(createDefaultFloorTextPlaceSession());
     }
   }, [
     open,
+    tab,
     floorTextPlaceSession,
     setFloorTextPlaceSession,
-    preferredTab,
-    lightsEnabled,
   ]);
 
   useEffect(() => {

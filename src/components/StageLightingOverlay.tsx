@@ -36,7 +36,7 @@ type LightContextMenu = {
 
 /**
  * 点灯中の照明を床に重ねる。
- * 編集印は範囲クリック時のみ表示。範囲外クリックで非表示。舞台上で削除・複製可。
+ * 操作は中央の小さなチップ（＋選択時のハンドル）のみ。範囲全体はヒットさせず立ち位置編集を妨げない。
  */
 export function StageLightingOverlay({
   lights,
@@ -388,11 +388,32 @@ export function StageLightingOverlay({
             const selected = resolvedSelected === L.id;
             return (
               <div key={`hit-${L.id}`} style={{ pointerEvents: "none" }}>
-                {/* 常時: 透明ヒットのみ（印は出さない） */}
-                <div
+                {/*
+                  範囲全体の透明ヒットは舞台の範囲選択・ダブルクリックを奪うため使わない。
+                  選択枠は見た目のみ。操作は中央チップ＋選択時ハンドルに限定する。
+                */}
+                {selected ? (
+                  <div
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      left: `${L.xPct}%`,
+                      top: `${L.yPct}%`,
+                      width: `${rx * 2}%`,
+                      height: `${ry * 2}%`,
+                      transform: "translate(-50%, -50%)",
+                      borderRadius: "50%",
+                      border: "1.5px solid rgba(253,230,138,0.9)",
+                      background: "transparent",
+                      pointerEvents: "none",
+                      zIndex: 1,
+                    }}
+                  />
+                ) : null}
+
+                <button
+                  type="button"
                   data-stage-light-ui
-                  role="button"
-                  tabIndex={-1}
                   aria-label={`${L.label ?? "照明"} を選択`}
                   title={
                     selected
@@ -412,18 +433,25 @@ export function StageLightingOverlay({
                     position: "absolute",
                     left: `${L.xPct}%`,
                     top: `${L.yPct}%`,
-                    width: `${rx * 2}%`,
-                    height: `${ry * 2}%`,
+                    width: selected ? 18 : 14,
+                    height: selected ? 18 : 14,
+                    margin: 0,
+                    padding: 0,
                     transform: "translate(-50%, -50%)",
-                    borderRadius: "50%",
+                    borderRadius: 999,
                     border: selected
-                      ? "1.5px solid rgba(253,230,138,0.9)"
-                      : "none",
-                    background: "transparent",
+                      ? "2px solid #fde68a"
+                      : "1.5px solid rgba(253,230,138,0.75)",
+                    background: selected
+                      ? "rgba(251,191,36,0.95)"
+                      : "rgba(15,23,42,0.55)",
+                    boxShadow: selected
+                      ? "0 0 0 1px rgba(15,23,42,0.5)"
+                      : "0 0 0 1px rgba(15,23,42,0.35)",
                     cursor: selected ? "move" : "pointer",
                     pointerEvents: "auto",
                     touchAction: "none",
-                    zIndex: 1,
+                    zIndex: 2,
                   }}
                 />
 
