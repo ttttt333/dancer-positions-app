@@ -53,6 +53,7 @@ import { playbackEngine } from "../core/playbackEngine";
 import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
 import type { ViewerChromeInsets } from "../components/ChoreoViewerControlBars";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { useStageLightsViewStore } from "../store/stageLightsViewStore";
 import {
   clampViewerMarkerScale,
   clampViewerNameScale,
@@ -2925,6 +2926,7 @@ function EditorPageContent({
       onPickAudio={editorAudioSession.onPickAudio}
       onOpenPathEditor={(cueId) => setPathEditorCueId(cueId)}
       onOpenLightingSettings={(cueId) => {
+        useStageLightsViewStore.getState().setVisibleOnStage(true);
         if (cueId) {
           const cue = project?.cues.find((c) => c.id === cueId);
           if (cue) {
@@ -2944,6 +2946,7 @@ function EditorPageContent({
         setFloorTextSideSheetOpen(true);
       }}
       onFocusCueForLighting={(cueId) => {
+        useStageLightsViewStore.getState().setVisibleOnStage(true);
         const cue = project?.cues.find((c) => c.id === cueId);
         if (!cue) return;
         const mid = (cue.tStartSec + cue.tEndSec) / 2;

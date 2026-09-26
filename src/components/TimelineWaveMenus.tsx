@@ -8,15 +8,17 @@ import {
   replaceCueWithBasicStageLights,
   replaceCueLightsFromPreviousCue,
   cloneCueLightsIntoGapWindow,
+  STAGE_LIGHTS_MAX,
 } from "../lib/stageLighting";
 import {
   listLightingPresets,
-  replaceLightsFromPreset,
+  replaceLightsFromPresetDetailed,
 } from "../lib/lightingPresets";
 import { resolvePreviousCueDancers } from "../lib/stagePrevCueCompare";
 import { permuteSlotsMinimizeTravelFromPrev } from "../lib/stageSelectionArrange";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
+import { useStageLightsViewStore } from "../store/stageLightsViewStore";
 
 export type WaveCueMenuState = {
   cueId: string;
@@ -146,29 +148,50 @@ export function TimelineWaveMenus({
   };
 
   const copyPrevCueLights = (cueId: string) => {
+    useStageLightsViewStore.getState().setVisibleOnStage(true);
+    let error: string | null = null;
     setProject((p) => {
       const sorted = sortCuesByStart(p.cues);
       const i = sorted.findIndex((c) => c.id === cueId);
-      if (i <= 0) return p;
+      if (i <= 0) {
+        error = "直前のキューがありません。";
+        return p;
+      }
       const prevId = sorted[i - 1]!.id;
-      return {
-        ...p,
-        stageLights: replaceCueLightsFromPreviousCue(
-          p.stageLights ?? [],
-          prevId,
-          cueId
-        ),
-      };
+      const existing = p.stageLights ?? [];
+      const prevCount = existing.filter((L) => L.cueId === prevId).length;
+      if (prevCount === 0) {
+        error = "直前のキューに照明がありません。";
+        return p;
+      }
+      const next = replaceCueLightsFromPreviousCue(existing, prevId, cueId);
+      const added = next.filter((L) => L.cueId === cueId).length;
+      if (added === 0) {
+        error = `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため適用できません。`;
+        return p;
+      }
+      return { ...p, stageLights: next };
     });
+    if (error) window.alert(error);
   };
 
   const addBasicLights = (cueId: string) => {
+    useStageLightsViewStore.getState().setVisibleOnStage(true);
     onFocusCueForLighting?.(cueId);
-    setProject((p) => ({
-      ...p,
-      stageLights: replaceCueWithBasicStageLights(p.stageLights ?? [], cueId),
-    }));
-    // 追加結果がすぐ分かるよう照明パネルも開く
+    let error: string | null = null;
+    setProject((p) => {
+      const next = replaceCueWithBasicStageLights(p.stageLights ?? [], cueId);
+      const added = next.filter((L) => L.cueId === cueId).length;
+      if (added === 0) {
+        error = `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため基本照明を追加できません。不要な照明を消してからもう一度お試しください。`;
+        return p;
+      }
+      return { ...p, stageLights: next };
+    });
+    if (error) {
+      window.alert(error);
+      return;
+    }
     onOpenLightingSettings?.(cueId);
   };
 
@@ -193,14 +216,26 @@ export function TimelineWaveMenus({
       window.alert("番号が正しくありません。");
       return;
     }
-    setProject((p) => ({
-      ...p,
-      stageLights: replaceLightsFromPreset(
+    useStageLightsViewStore.getState().setVisibleOnStage(true);
+    onFocusCueForLighting?.(cueId);
+    let error: string | null = null;
+    setProject((p) => {
+      const result = replaceLightsFromPresetDetailed(
         p.stageLights ?? [],
         cueId,
         preset
-      ),
-    }));
+      );
+      if (result.roomWasZero || result.added === 0) {
+        error = `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため適用できません。不要な照明を消してからもう一度お試しください。`;
+        return p;
+      }
+      return { ...p, stageLights: result.lights };
+    });
+    if (error) {
+      window.alert(error);
+      return;
+    }
+    onOpenLightingSettings?.(cueId);
   };
 
   const waveCueMenuPanel =
@@ -583,6 +618,7 @@ export function TimelineWaveMenus({
               const next = i >= 0 ? sorted[i] : null;
               setGapRouteMenu(null);
               if (!prev || !next) return;
+              useStageLightsViewStore.getState().setVisibleOnStage(true);
               setProject((p) => ({
                 ...p,
                 stageLights: cloneCueLightsIntoGapWindow(

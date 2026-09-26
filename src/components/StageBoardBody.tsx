@@ -5511,16 +5511,22 @@ export function StageBoardBody({
       return;
     }
     const prevId = sorted[i - 1]!.id;
+    const existing = project.stageLights ?? [];
+    if (!existing.some((L) => L.cueId === prevId)) {
+      window.alert("直前のキューに照明がありません。");
+      return;
+    }
+    const next = replaceCueLightsFromPreviousCue(existing, prevId, editCueId);
+    const added = next.filter((L) => L.cueId === editCueId).length;
+    if (added === 0) {
+      window.alert(
+        `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため適用できません。`
+      );
+      return;
+    }
     setProject((p) => {
       if (!p || p.viewMode === "view") return p;
-      return {
-        ...p,
-        stageLights: replaceCueLightsFromPreviousCue(
-          p.stageLights ?? [],
-          prevId,
-          editCueId
-        ),
-      };
+      return { ...p, stageLights: next };
     });
     setStageLightsVisibleOnStage(true);
     focusEditCueForLighting();
@@ -5530,6 +5536,7 @@ export function StageBoardBody({
     lightsLockedByPlayback,
     editCueId,
     project.cues,
+    project.stageLights,
     focusEditCueForLighting,
     setStageLightsVisibleOnStage,
   ]);
@@ -5541,15 +5548,18 @@ export function StageBoardBody({
       window.alert("キューを選択してから実行してください。");
       return;
     }
+    const existing = project.stageLights ?? [];
+    const next = replaceCueWithBasicStageLights(existing, editCueId);
+    const added = next.filter((L) => L.cueId === editCueId).length;
+    if (added === 0) {
+      window.alert(
+        `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため基本照明を追加できません。不要な照明を消してからもう一度お試しください。`
+      );
+      return;
+    }
     setProject((p) => {
       if (!p || p.viewMode === "view") return p;
-      return {
-        ...p,
-        stageLights: replaceCueWithBasicStageLights(
-          p.stageLights ?? [],
-          editCueId
-        ),
-      };
+      return { ...p, stageLights: next };
     });
     setStageLightsVisibleOnStage(true);
     focusEditCueForLighting();
@@ -5558,6 +5568,7 @@ export function StageBoardBody({
     viewMode,
     lightsLockedByPlayback,
     editCueId,
+    project.stageLights,
     focusEditCueForLighting,
     setStageLightsVisibleOnStage,
   ]);
@@ -5644,13 +5655,6 @@ export function StageBoardBody({
     focusEditCueForLighting,
     setStageLightsVisibleOnStage,
   ]);
-
-  const canApplyPrevCueLights = useMemo(() => {
-    if (!editCueId) return false;
-    const sorted = sortCuesByStart(project.cues);
-    const i = sorted.findIndex((c) => c.id === editCueId);
-    return i > 0;
-  }, [editCueId, project.cues]);
 
   const previousLightAddHint = useMemo(() => {
     const existing = project.stageLights ?? [];
@@ -6323,15 +6327,13 @@ export function StageBoardBody({
                     onAddBasicLights:
                       viewMode !== "view" &&
                       !lightsLockedByPlayback &&
-                      Boolean(onStageLightsChange) &&
-                      Boolean(editCueId)
+                      Boolean(onStageLightsChange)
                         ? handleAddBasicLightsFromContextMenu
                         : undefined,
                     onApplyPreviousCueLights:
                       viewMode !== "view" &&
                       !lightsLockedByPlayback &&
-                      Boolean(onStageLightsChange) &&
-                      canApplyPrevCueLights
+                      Boolean(onStageLightsChange)
                         ? handleApplyPreviousCueLightsFromContextMenu
                         : undefined,
                     onAddPreviousLight:

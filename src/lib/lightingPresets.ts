@@ -176,12 +176,17 @@ class LightingPresetQuotaError extends Error {
 }
 
 function writeAll(items: LightingPresetItem[]): void {
-  if (typeof localStorage === "undefined") return;
+  if (typeof localStorage === "undefined") {
+    throw new Error("localStorage unavailable");
+  }
   try {
-    localStorage.setItem(
-      LIGHTING_PRESETS_STORAGE_KEY,
-      JSON.stringify(items.slice(0, MAX_PRESETS))
-    );
+    const payload = JSON.stringify(items.slice(0, MAX_PRESETS));
+    localStorage.setItem(LIGHTING_PRESETS_STORAGE_KEY, payload);
+    // 書き込み検証（プライベートモード等で失敗を握りつぶさない）
+    const verify = localStorage.getItem(LIGHTING_PRESETS_STORAGE_KEY);
+    if (verify !== payload) {
+      throw new Error("localStorage write verify failed");
+    }
   } catch (e) {
     if (
       typeof DOMException !== "undefined" &&
@@ -191,7 +196,10 @@ function writeAll(items: LightingPresetItem[]): void {
     ) {
       throw new LightingPresetQuotaError();
     }
-    throw new LightingPresetQuotaError();
+    if (e instanceof LightingPresetQuotaError) throw e;
+    throw e instanceof Error
+      ? e
+      : new Error("localStorage write failed");
   }
 }
 
@@ -245,7 +253,8 @@ export function saveLightingPreset(
     return {
       ok: false,
       reason: "unknown",
-      message: "保存中に想定外のエラーが発生しました。",
+      message:
+        "照明プリセットを保存できませんでした。ブラウザの保存領域を確認してからもう一度お試しください。",
     };
   }
 }
@@ -327,17 +336,32 @@ export function materializeLightingPreset(
  * 対象キューの照明を消してプリセットを適用。
  * cueId が null のときは全体灯だけ置き換える。
  */
-export function replaceLightsFromPreset(
+export function replaceLightsFromPresetDetailed(
   existing: readonly StageLightFixture[],
   cueId: string | null,
   preset: LightingPresetItem
-): StageLightFixture[] {
+): { lights: StageLightFixture[]; added: number; roomWasZero: boolean } {
   const without =
     cueId == null
       ? existing.filter((L) => L.cueId)
       : existing.filter((L) => L.cueId !== cueId);
   const room = STAGE_LIGHTS_MAX - without.length;
-  if (room <= 0) return without;
+  if (room <= 0) {
+    return { lights: [...without], added: 0, roomWasZero: true };
+  }
   const added = materializeLightingPreset(preset, cueId).slice(0, room);
-  return [...without, ...added];
+  return {
+    lights: [...without, ...added],
+    added: added.length,
+    roomWasZero: false,
+  };
+}
+
+/** @see replaceLightsFromPresetDetailed */
+export function replaceLightsFromPreset(
+  existing: readonly StageLightFixture[],
+  cueId: string | null,
+  preset: LightingPresetItem
+): StageLightFixture[] {
+  return replaceLightsFromPresetDetailed(existing, cueId, preset).lights;
 }

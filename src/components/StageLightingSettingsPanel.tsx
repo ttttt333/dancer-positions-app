@@ -18,11 +18,13 @@ import {
 import {
   deleteLightingPreset,
   listLightingPresets,
-  replaceLightsFromPreset,
+  replaceLightsFromPresetDetailed,
   saveLightingPreset,
   type LightingPresetItem,
 } from "../lib/lightingPresets";
 import { useStageLightsViewStore } from "../store/stageLightsViewStore";
+import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { playbackEngine } from "../core/playbackEngine";
 
 export type StageLightingSettingsPanelProps = {
   disabled?: boolean;
@@ -123,6 +125,19 @@ export function StageLightingSettingsPanel({
     if (!selectedCueId) return [];
     return lights.filter((L) => L.cueId === selectedCueId);
   }, [lights, listFilter, selectedCueId]);
+
+  /** プリセット保存用: 絞り込みが空なら全体から取る（「保存できない」を防ぐ） */
+  const lightsForPresetSave = useMemo(() => {
+    const enabled = (list: StageLightFixture[]) =>
+      list.filter((L) => L.enabled !== false);
+    const fromFilter = enabled(filteredLights);
+    if (fromFilter.length > 0) return fromFilter;
+    return enabled(lights);
+  }, [filteredLights, lights]);
+
+  const revealStageLights = () => {
+    setStageLightsVisibleOnStage(true);
+  };
 
   // 絞り込みで選択灯が見えなくなったら先頭へ
   useEffect(() => {
@@ -346,24 +361,27 @@ export function StageLightingSettingsPanel({
           照明プリセット
         </div>
         <p style={{ margin: 0, fontSize: 10, color: "#94a3b8", lineHeight: 1.4 }}>
-          いま表示中の照明を保存し、どのキューからも呼び出せます。
+          いまの一覧（空なら作品内の全照明）を保存し、どのキューからも呼び出せます。
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           <button
             type="button"
-            disabled={disabled || filteredLights.length === 0}
+            disabled={disabled || lightsForPresetSave.length === 0}
             onClick={() => {
               const name = window.prompt(
                 "プリセット名",
-                `照明 ${filteredLights.length}灯`
+                `照明 ${lightsForPresetSave.length}灯`
               );
               if (name == null) return;
-              const res = saveLightingPreset(name, filteredLights);
+              const res = saveLightingPreset(name, lightsForPresetSave);
               if (!res.ok) {
                 window.alert(res.message);
                 return;
               }
               refreshPresets();
+              window.alert(
+                `「${res.item.name}」を保存しました（${res.item.lights.length}灯）。`
+              );
             }}
             style={{
               flex: "1 1 auto",
@@ -376,7 +394,7 @@ export function StageLightingSettingsPanel({
               fontSize: 12,
               fontWeight: 700,
               cursor:
-                disabled || filteredLights.length === 0
+                disabled || lightsForPresetSave.length === 0
                   ? "not-allowed"
                   : "pointer",
             }}
@@ -419,12 +437,6 @@ export function StageLightingSettingsPanel({
                   }
                   title={`${preset.lights.length} 灯を適用（現在の対象を置き換え）`}
                   onClick={() => {
-                    const targetCueId =
-                      listFilter === "cue"
-                        ? selectedCueId
-                        : listFilter === "global"
-                          ? null
-                          : selectedCueId;
                     if (listFilter === "cue" && !selectedCueId) {
                       window.alert("先にキューを選んでください。");
                       return;
@@ -450,9 +462,33 @@ export function StageLightingSettingsPanel({
                       listFilter === "global"
                         ? null
                         : selectedCueId ?? null;
-                    updateLights(
-                      replaceLightsFromPreset(lights, bindCue, preset)
+                    const result = replaceLightsFromPresetDetailed(
+                      lights,
+                      bindCue,
+                      preset
                     );
+                    if (result.roomWasZero || result.added === 0) {
+                      window.alert(
+                        `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため適用できません。不要な照明を消してからもう一度お試しください。`
+                      );
+                      return;
+                    }
+                    updateLights(result.lights);
+                    revealStageLights();
+                    if (bindCue) {
+                      const cue = project.cues.find((c) => c.id === bindCue);
+                      if (cue) {
+                        const mid = (cue.tStartSec + cue.tEndSec) / 2;
+                        usePlaybackUiStore.getState().setIsPlaying(false);
+                        usePlaybackUiStore.getState().setCurrentTimeSec(mid);
+                        try {
+                          playbackEngine.pause();
+                          playbackEngine.seek(mid);
+                        } catch {
+                          /* ignore */
+                        }
+                      }
+                    }
                   }}
                   style={{
                     flex: 1,
