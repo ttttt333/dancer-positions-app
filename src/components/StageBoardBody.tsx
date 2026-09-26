@@ -72,7 +72,6 @@ import {
   BASIC_STAGE_LIGHT_COLORS,
   STAGE_LIGHT_KIND_LABELS,
   STAGE_LIGHT_KINDS,
-  STAGE_LIGHTS_MAX,
 } from "../lib/stageLighting";
 import { sortCuesByStart } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
@@ -5419,13 +5418,6 @@ export function StageBoardBody({
       setProject((p) => {
         if (!p || p.viewMode === "view") return p;
         const existing = p.stageLights ?? [];
-        if (existing.length >= STAGE_LIGHTS_MAX) {
-          window.alert(
-            `照明は最大 ${STAGE_LIGHTS_MAX} 件までです（現在 ${existing.length} 件）。不要な照明を消してから追加してください。`
-          );
-          return p;
-        }
-
         const L = createDefaultStageLight(kind);
         L.label = nextLightLabel(kind, existing);
         L.color = BASIC_STAGE_LIGHT_COLORS[kind] ?? L.color;
@@ -5517,13 +5509,6 @@ export function StageBoardBody({
       return;
     }
     const next = replaceCueLightsFromPreviousCue(existing, prevId, editCueId);
-    const added = next.filter((L) => L.cueId === editCueId).length;
-    if (added === 0) {
-      window.alert(
-        `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため適用できません。`
-      );
-      return;
-    }
     setProject((p) => {
       if (!p || p.viewMode === "view") return p;
       return { ...p, stageLights: next };
@@ -5550,13 +5535,6 @@ export function StageBoardBody({
     }
     const existing = project.stageLights ?? [];
     const next = replaceCueWithBasicStageLights(existing, editCueId);
-    const added = next.filter((L) => L.cueId === editCueId).length;
-    if (added === 0) {
-      window.alert(
-        `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため基本照明を追加できません。不要な照明を消してからもう一度お試しください。`
-      );
-      return;
-    }
     setProject((p) => {
       if (!p || p.viewMode === "view") return p;
       return { ...p, stageLights: next };
@@ -5581,13 +5559,6 @@ export function StageBoardBody({
     setProject((p) => {
       if (!p || p.viewMode === "view") return p;
       const existing = p.stageLights ?? [];
-      if (existing.length >= STAGE_LIGHTS_MAX) {
-        window.alert(
-          `照明は最大 ${STAGE_LIGHTS_MAX} 件までです（現在 ${existing.length} 件）。`
-        );
-        return p;
-      }
-
       const fromTemplate = lastStageLightTemplateRef.current;
       const fromSelected =
         selectedStageLightId != null

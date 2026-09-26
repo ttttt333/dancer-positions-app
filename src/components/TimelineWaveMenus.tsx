@@ -8,7 +8,6 @@ import {
   replaceCueWithBasicStageLights,
   replaceCueLightsFromPreviousCue,
   cloneCueLightsIntoGapWindow,
-  STAGE_LIGHTS_MAX,
 } from "../lib/stageLighting";
 import {
   listLightingPresets,
@@ -164,13 +163,10 @@ export function TimelineWaveMenus({
         error = "直前のキューに照明がありません。";
         return p;
       }
-      const next = replaceCueLightsFromPreviousCue(existing, prevId, cueId);
-      const added = next.filter((L) => L.cueId === cueId).length;
-      if (added === 0) {
-        error = `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため適用できません。`;
-        return p;
-      }
-      return { ...p, stageLights: next };
+      return {
+        ...p,
+        stageLights: replaceCueLightsFromPreviousCue(existing, prevId, cueId),
+      };
     });
     if (error) window.alert(error);
   };
@@ -178,20 +174,10 @@ export function TimelineWaveMenus({
   const addBasicLights = (cueId: string) => {
     useStageLightsViewStore.getState().setVisibleOnStage(true);
     onFocusCueForLighting?.(cueId);
-    let error: string | null = null;
-    setProject((p) => {
-      const next = replaceCueWithBasicStageLights(p.stageLights ?? [], cueId);
-      const added = next.filter((L) => L.cueId === cueId).length;
-      if (added === 0) {
-        error = `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため基本照明を追加できません。不要な照明を消してからもう一度お試しください。`;
-        return p;
-      }
-      return { ...p, stageLights: next };
-    });
-    if (error) {
-      window.alert(error);
-      return;
-    }
+    setProject((p) => ({
+      ...p,
+      stageLights: replaceCueWithBasicStageLights(p.stageLights ?? [], cueId),
+    }));
     onOpenLightingSettings?.(cueId);
   };
 
@@ -218,23 +204,14 @@ export function TimelineWaveMenus({
     }
     useStageLightsViewStore.getState().setVisibleOnStage(true);
     onFocusCueForLighting?.(cueId);
-    let error: string | null = null;
     setProject((p) => {
       const result = replaceLightsFromPresetDetailed(
         p.stageLights ?? [],
         cueId,
         preset
       );
-      if (result.roomWasZero || result.added === 0) {
-        error = `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため適用できません。不要な照明を消してからもう一度お試しください。`;
-        return p;
-      }
       return { ...p, stageLights: result.lights };
     });
-    if (error) {
-      window.alert(error);
-      return;
-    }
     onOpenLightingSettings?.(cueId);
   };
 

@@ -7,7 +7,6 @@ import type { StageLightFixture, StageLightKind } from "../types/choreography";
 import {
   STAGE_LIGHT_KIND_LABELS,
   STAGE_LIGHT_KINDS,
-  STAGE_LIGHTS_MAX,
 } from "./stageLighting";
 
 export const LIGHTING_PRESETS_STORAGE_KEY = "choreogrid_lighting_presets_v1";
@@ -154,8 +153,7 @@ function readAll(): LightingPresetItem[] {
         name: (item.name || "").slice(0, MAX_NAME_LEN),
         lights: item.lights
           .map(normalizeFixture)
-          .filter((x): x is LightingPresetFixture => x != null)
-          .slice(0, STAGE_LIGHTS_MAX),
+          .filter((x): x is LightingPresetFixture => x != null),
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
       }))
@@ -221,8 +219,7 @@ export function saveLightingPreset(
 ): LightingPresetSaveResult {
   const fixtures = lights
     .filter((L) => L.enabled !== false)
-    .map(toLightingPresetFixture)
-    .slice(0, STAGE_LIGHTS_MAX);
+    .map(toLightingPresetFixture);
   if (fixtures.length === 0) {
     return {
       ok: false,
@@ -340,20 +337,15 @@ export function replaceLightsFromPresetDetailed(
   existing: readonly StageLightFixture[],
   cueId: string | null,
   preset: LightingPresetItem
-): { lights: StageLightFixture[]; added: number; roomWasZero: boolean } {
+): { lights: StageLightFixture[]; added: number } {
   const without =
     cueId == null
       ? existing.filter((L) => L.cueId)
       : existing.filter((L) => L.cueId !== cueId);
-  const room = STAGE_LIGHTS_MAX - without.length;
-  if (room <= 0) {
-    return { lights: [...without], added: 0, roomWasZero: true };
-  }
-  const added = materializeLightingPreset(preset, cueId).slice(0, room);
+  const added = materializeLightingPreset(preset, cueId);
   return {
     lights: [...without, ...added],
     added: added.length,
-    roomWasZero: false,
   };
 }
 

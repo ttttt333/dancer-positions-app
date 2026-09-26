@@ -168,7 +168,7 @@ describe("stageLighting / architecture guides", () => {
     expect(lights.find((L) => L.kind === "pinSpot")!.rxPct).toBe(9);
   });
 
-  it("appendBasicStageLights respects STAGE_LIGHTS_MAX room", () => {
+  it("appendBasicStageLights appends the basic set", () => {
     const next = appendBasicStageLights([], "c1");
     expect(next).toHaveLength(14);
   });

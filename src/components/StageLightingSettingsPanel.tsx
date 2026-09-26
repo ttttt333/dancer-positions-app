@@ -13,7 +13,6 @@ import {
   STAGE_LIGHT_COLOR_SWATCHES,
   STAGE_LIGHT_KIND_LABELS,
   STAGE_LIGHT_KINDS,
-  STAGE_LIGHTS_MAX,
 } from "../lib/stageLighting";
 import {
   deleteLightingPreset,
@@ -153,7 +152,6 @@ export function StageLightingSettingsPanel({
   );
 
   const addLight = (kind: StageLightKind) => {
-    if (lights.length >= STAGE_LIGHTS_MAX) return;
     const L = createDefaultStageLight(kind);
     L.label = nextLightLabel(kind, lights);
 
@@ -467,12 +465,6 @@ export function StageLightingSettingsPanel({
                       bindCue,
                       preset
                     );
-                    if (result.roomWasZero || result.added === 0) {
-                      window.alert(
-                        `照明の上限（${STAGE_LIGHTS_MAX}件）に達しているため適用できません。不要な照明を消してからもう一度お試しください。`
-                      );
-                      return;
-                    }
                     updateLights(result.lights);
                     revealStageLights();
                     if (bindCue) {
@@ -602,7 +594,7 @@ export function StageLightingSettingsPanel({
       </div>
 
       <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>
-        種類を追加（最大 {STAGE_LIGHTS_MAX}）· いま {currentTimeSec.toFixed(1)}s
+        種類を追加 · いま {currentTimeSec.toFixed(1)}s
         {listFilter === "cue" && selectedCueId
           ? " · 追加分はこのキュー専用"
           : listFilter === "global"
@@ -616,9 +608,7 @@ export function StageLightingSettingsPanel({
             key={kind}
             type="button"
             disabled={
-              disabled ||
-              lights.length >= STAGE_LIGHTS_MAX ||
-              (listFilter === "cue" && cueMissing)
+              disabled || (listFilter === "cue" && cueMissing)
             }
             onClick={() => addLight(kind)}
             style={{
@@ -630,9 +620,7 @@ export function StageLightingSettingsPanel({
               fontSize: 11,
               fontWeight: 600,
               cursor:
-                disabled ||
-                lights.length >= STAGE_LIGHTS_MAX ||
-                (listFilter === "cue" && cueMissing)
+                disabled || (listFilter === "cue" && cueMissing)
                   ? "not-allowed"
                   : "pointer",
             }}

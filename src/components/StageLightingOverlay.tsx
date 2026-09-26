@@ -5,7 +5,6 @@ import {
   hexToRgba,
   resolveLightAxes,
   STAGE_LIGHT_COLOR_SWATCHES,
-  STAGE_LIGHTS_MAX,
 } from "../lib/stageLighting";
 
 export type StageLightingOverlayProps = {
@@ -284,7 +283,6 @@ export function StageLightingOverlay({
   const duplicateSelected = (id?: string) => {
     const target = id ?? resolvedSelected;
     if (!target) return;
-    if (fullList.length >= STAGE_LIGHTS_MAX) return;
     const src = fullList.find((L) => L.id === target);
     if (!src) return;
     const copy: StageLightFixture = {
@@ -590,7 +588,6 @@ export function StageLightingOverlay({
                     <div style={{ display: "flex", gap: 6 }}>
                       <button
                         type="button"
-                        disabled={fullList.length >= STAGE_LIGHTS_MAX}
                         onClick={(e) => {
                           e.stopPropagation();
                           duplicateSelected(menuLight.id);
@@ -605,10 +602,7 @@ export function StageLightingOverlay({
                           color: "#e2e8f0",
                           fontSize: 11,
                           fontWeight: 700,
-                          cursor:
-                            fullList.length >= STAGE_LIGHTS_MAX
-                              ? "not-allowed"
-                              : "pointer",
+                          cursor: "pointer",
                         }}
                       >
                         複製

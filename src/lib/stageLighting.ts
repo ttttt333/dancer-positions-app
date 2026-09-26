@@ -76,9 +76,6 @@ export const STAGE_LIGHT_COLOR_SWATCHES = [
   "#a3e635",
 ] as const;
 
-/** プロジェクトあたりの照明上限 */
-export const STAGE_LIGHTS_MAX = 80;
-
 function clampPct(v: number): number {
   return Math.max(0, Math.min(100, v));
 }
@@ -284,7 +281,6 @@ export function normalizeStageLights(raw: unknown): StageLightFixture[] {
       tEndSec,
       enabled: o.enabled === false ? false : true,
     });
-    if (out.length >= STAGE_LIGHTS_MAX) break;
   }
   return out;
 }
@@ -432,11 +428,8 @@ export function cloneCueLightsIntoGapWindow(
       L.tStartSec + 1e-6 >= start && L.tEndSec - 1e-6 <= end;
     return !inThisGap;
   });
-  const room = STAGE_LIGHTS_MAX - withoutGapDedicated.length;
-  if (room <= 0) return withoutGapDedicated;
   const cloned = lights
     .filter((L) => L.cueId === fromCueId)
-    .slice(0, room)
     .map((L) => ({
       ...L,
       id: crypto.randomUUID(),
@@ -618,15 +611,12 @@ export function cloneLightsFromCue(
     }));
 }
 
-/** 既存に基本照明を追加（上限まで） */
+/** 既存に基本照明を追加 */
 export function appendBasicStageLights(
   existing: readonly StageLightFixture[],
   cueId: string | null
 ): StageLightFixture[] {
-  const room = STAGE_LIGHTS_MAX - existing.length;
-  if (room <= 0) return [...existing];
-  const added = createBasicStageLights(cueId).slice(0, room);
-  return [...existing, ...added];
+  return [...existing, ...createBasicStageLights(cueId)];
 }
 
 /**
@@ -638,10 +628,7 @@ export function replaceCueWithBasicStageLights(
   cueId: string
 ): StageLightFixture[] {
   const withoutTarget = existing.filter((L) => L.cueId !== cueId);
-  const room = STAGE_LIGHTS_MAX - withoutTarget.length;
-  if (room <= 0) return withoutTarget;
-  const added = createBasicStageLights(cueId).slice(0, room);
-  return [...withoutTarget, ...added];
+  return [...withoutTarget, ...createBasicStageLights(cueId)];
 }
 
 /** 直前キューの照明を現キューへコピーして追記 */
@@ -650,13 +637,10 @@ export function appendClonedLightsFromPreviousCue(
   fromCueId: string,
   toCueId: string
 ): StageLightFixture[] {
-  const room = STAGE_LIGHTS_MAX - existing.length;
-  if (room <= 0) return [...existing];
-  const cloned = cloneLightsFromCue(existing, fromCueId, toCueId).slice(
-    0,
-    room
-  );
-  return [...existing, ...cloned];
+  return [
+    ...existing,
+    ...cloneLightsFromCue(existing, fromCueId, toCueId),
+  ];
 }
 
 /**
@@ -669,11 +653,8 @@ export function replaceCueLightsFromPreviousCue(
   toCueId: string
 ): StageLightFixture[] {
   const withoutTarget = existing.filter((L) => L.cueId !== toCueId);
-  const room = STAGE_LIGHTS_MAX - withoutTarget.length;
-  if (room <= 0) return withoutTarget;
-  const cloned = cloneLightsFromCue(existing, fromCueId, toCueId).slice(
-    0,
-    room
-  );
-  return [...withoutTarget, ...cloned];
+  return [
+    ...withoutTarget,
+    ...cloneLightsFromCue(existing, fromCueId, toCueId),
+  ];
 }
