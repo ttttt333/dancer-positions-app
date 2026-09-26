@@ -1,4 +1,5 @@
 import type { CSSProperties, Dispatch, SetStateAction } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import { sortCuesByStart } from "../core/timelineController";
@@ -12,12 +13,14 @@ import {
 import {
   listLightingPresets,
   replaceLightsFromPresetDetailed,
+  type LightingPresetItem,
 } from "../lib/lightingPresets";
 import { resolvePreviousCueDancers } from "../lib/stagePrevCueCompare";
 import { permuteSlotsMinimizeTravelFromPrev } from "../lib/stageSelectionArrange";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 import { useStageLightsViewStore } from "../store/stageLightsViewStore";
+import { LightingPresetPickModal } from "./LightingPresetPickModal";
 
 export type WaveCueMenuState = {
   cueId: string;
@@ -98,6 +101,10 @@ export function TimelineWaveMenus({
   onOpenFormationChange,
   onFocusCueForLighting,
 }: TimelineWaveMenusProps) {
+  const [presetPickCueId, setPresetPickCueId] = useState<string | null>(null);
+  const [presetPickList, setPresetPickList] = useState<LightingPresetItem[]>(
+    []
+  );
   const waveCueMenuTargetCue = waveCueMenu
     ? cuesSorted.find((c) => c.id === waveCueMenu.cueId)
     : undefined;
@@ -189,19 +196,15 @@ export function TimelineWaveMenus({
       );
       return;
     }
-    const lines = presets
-      .map((p, i) => `${i + 1}. ${p.name}（${p.lights.length}灯）`)
-      .join("\n");
-    const raw = window.prompt(
-      `適用するプリセット番号を入力してください。\n\n${lines}\n\n※このキューの照明は置き換わります。`
-    );
-    if (raw == null) return;
-    const idx = Math.floor(Number(raw)) - 1;
-    const preset = presets[idx];
-    if (!preset) {
-      window.alert("番号が正しくありません。");
-      return;
-    }
+    setPresetPickList(presets);
+    setPresetPickCueId(cueId);
+  };
+
+  const commitPickedLightingPreset = (preset: LightingPresetItem) => {
+    const cueId = presetPickCueId;
+    setPresetPickCueId(null);
+    setPresetPickList([]);
+    if (!cueId) return;
     useStageLightsViewStore.getState().setVisibleOnStage(true);
     onFocusCueForLighting?.(cueId);
     setProject((p) => {
@@ -841,6 +844,15 @@ export function TimelineWaveMenus({
       {waveCueMenuPanel}
       {gapRouteMenuPanel}
       {waveCueConfirmPanel}
+      <LightingPresetPickModal
+        open={presetPickCueId != null}
+        presets={presetPickList}
+        onClose={() => {
+          setPresetPickCueId(null);
+          setPresetPickList([]);
+        }}
+        onPick={commitPickedLightingPreset}
+      />
     </>,
     document.body
   );

@@ -17,6 +17,7 @@ import {
 import {
   deleteLightingPreset,
   listLightingPresets,
+  renameLightingPreset,
   replaceLightsFromPresetDetailed,
   saveLightingPreset,
   type LightingPresetItem,
@@ -413,7 +414,7 @@ export function StageLightingSettingsPanel({
               display: "flex",
               flexDirection: "column",
               gap: 4,
-              maxHeight: 140,
+              maxHeight: 220,
               overflowY: "auto",
             }}
           >
@@ -504,6 +505,37 @@ export function StageLightingSettingsPanel({
                     {" "}
                     · {preset.lights.length}灯
                   </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  title="名前を変更"
+                  aria-label={`${preset.name} の名前を変更`}
+                  onClick={() => {
+                    const nextName = window.prompt(
+                      "プリセット名を変更",
+                      preset.name
+                    );
+                    if (nextName == null) return;
+                    const res = renameLightingPreset(preset.id, nextName);
+                    if (!res.ok) {
+                      window.alert(res.message);
+                      return;
+                    }
+                    refreshPresets();
+                  }}
+                  style={{
+                    flex: "0 0 auto",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    border: "1px solid #475569",
+                    background: "transparent",
+                    color: "#cbd5e1",
+                    fontSize: 11,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                  }}
+                >
+                  名前
                 </button>
                 <button
                   type="button"

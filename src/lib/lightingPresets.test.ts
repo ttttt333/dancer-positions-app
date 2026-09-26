@@ -5,16 +5,21 @@ import {
   replaceLightsFromPreset,
   saveLightingPreset,
   deleteLightingPreset,
+  renameLightingPreset,
   LIGHTING_PRESETS_STORAGE_KEY,
+  LIGHTING_SAMPLE_PRESET_IDS,
 } from "./lightingPresets";
 import { createDefaultStageLight } from "./stageLighting";
+
+const SEED_FLAG = "choreogrid_lighting_presets_seeded_v2";
 
 describe("lightingPresets", () => {
   beforeEach(() => {
     localStorage.removeItem(LIGHTING_PRESETS_STORAGE_KEY);
+    localStorage.removeItem(SEED_FLAG);
   });
 
-  it("saves and lists presets", () => {
+  it("saves and lists presets (with sample seed)", () => {
     const a = {
       ...createDefaultStageLight("sideSpot"),
       id: "a",
@@ -24,10 +29,33 @@ describe("lightingPresets", () => {
     const res = saveLightingPreset("赤サイド", [a]);
     expect(res.ok).toBe(true);
     const list = listLightingPresets();
-    expect(list).toHaveLength(1);
-    expect(list[0]!.name).toBe("赤サイド");
-    expect(list[0]!.lights[0]!.color).toBe("#ef4444");
-    expect(list[0]!.lights[0]!).not.toHaveProperty("cueId");
+    expect(list.some((x) => x.name === "赤サイド")).toBe(true);
+    const saved = list.find((x) => x.name === "赤サイド")!;
+    expect(saved.lights[0]!.color).toBe("#ef4444");
+    expect(saved.lights[0]!).not.toHaveProperty("cueId");
+    expect(
+      LIGHTING_SAMPLE_PRESET_IDS.every((id) => list.some((x) => x.id === id))
+    ).toBe(true);
+  });
+
+  it("seeds sample presets on first list", () => {
+    const list = listLightingPresets();
+    expect(list.length).toBe(LIGHTING_SAMPLE_PRESET_IDS.length);
+    expect(list.some((x) => x.name === "基本照明（フル）")).toBe(true);
+  });
+
+  it("renames presets", () => {
+    const res = saveLightingPreset("旧名", [
+      createDefaultStageLight("pinSpot"),
+    ]);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    listLightingPresets();
+    const renamed = renameLightingPreset(res.item.id, "新名");
+    expect(renamed.ok).toBe(true);
+    expect(listLightingPresets().find((x) => x.id === res.item.id)?.name).toBe(
+      "新名"
+    );
   });
 
   it("replaceLightsFromPreset clears target cue then applies", () => {
@@ -72,7 +100,10 @@ describe("lightingPresets", () => {
     const res = saveLightingPreset("del", [createDefaultStageLight("pinSpot")]);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
+    listLightingPresets();
     expect(deleteLightingPreset(res.item.id)).toBe(true);
-    expect(listLightingPresets()).toHaveLength(0);
+    expect(
+      listLightingPresets().find((x) => x.id === res.item.id)
+    ).toBeUndefined();
   });
 });
