@@ -122,6 +122,9 @@ describe("stageLighting / architecture guides", () => {
     expect(pin.xPct).toBe(50);
     expect(pin.yPct).toBe(50);
     expect(lights.every((L) => L.intensity >= 0.7)).toBe(true);
+    // 参照画像相当: 広がりすぎない範囲
+    expect(lights.every((L) => (L.rxPct ?? 99) <= 18)).toBe(true);
+    expect(lights.find((L) => L.kind === "pinSpot")!.rxPct).toBe(9);
   });
 
   it("appendBasicStageLights respects STAGE_LIGHTS_MAX room", () => {
