@@ -2,6 +2,57 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function () {
+        /** 古いデプロイの JS を取りに行き HTML が返ると #root が空のまま真っ黒になる */
+        var RELOAD_KEY = "choreocore-stale-asset-reload";
+        function recoverStaleAssets() {
+          try {
+            if (sessionStorage.getItem(RELOAD_KEY) === "1") return;
+            sessionStorage.setItem(RELOAD_KEY, "1");
+          } catch (e) {
+            return;
+          }
+          var reload = function () {
+            location.reload();
+          };
+          var clearCaches = function () {
+            if (!window.caches || !caches.keys) return Promise.resolve();
+            return caches.keys().then(function (names) {
+              return Promise.all(
+                names.map(function (name) {
+                  return caches.delete(name);
+                })
+              );
+            });
+          };
+          if (!("serviceWorker" in navigator)) {
+            clearCaches().then(reload, reload);
+            return;
+          }
+          navigator.serviceWorker
+            .getRegistrations()
+            .then(function (regs) {
+              return Promise.all(
+                regs.map(function (reg) {
+                  return reg.unregister();
+                })
+              );
+            })
+            .then(clearCaches, clearCaches)
+            .then(reload, reload);
+        }
+        window.addEventListener(
+          "error",
+          function (ev) {
+            var t = ev && ev.target;
+            if (!t || t.tagName !== "SCRIPT") return;
+            recoverStaleAssets();
+          },
+          true
+        );
+      })();
+    </script>
     <meta
       http-equiv="Cache-Control"
       content="no-cache, no-store, must-revalidate"

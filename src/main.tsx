@@ -10,6 +10,13 @@ import { installAudioContextGestureUnlock } from "./lib/audioContext";
 warmShareViewFromCurrentPath();
 installAudioContextGestureUnlock();
 
+/** 起動成功後は stale-asset リカバリの再試行フラグをリセット */
+try {
+  sessionStorage.removeItem("choreocore-stale-asset-reload");
+} catch {
+  /* ignore */
+}
+
 /** Mac Safari 等で古いシェルが残りやすいので、表示復帰時にも更新を取りにいく */
 if (import.meta.env.PROD) {
   const updateSW = registerSW({

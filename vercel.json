@@ -128,7 +128,7 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/|assets/|brand/|ffmpeg-core/).*)",
       "destination": "/index.html"
     }
   ]

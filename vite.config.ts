@@ -132,31 +132,28 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
         /** SPA ルート直アクセス時も index.html を返す */
         navigateFallback: "/index.html",
-        /** API はフォールバック対象外 */
-        navigateFallbackDenylist: [/^\/api/],
+        /** 静的アセット欠落時に HTML を返すと MIME エラーで真っ黒になる */
+        navigateFallbackDenylist: [/^\/api/, /^\/assets\//],
         runtimeCaching: [
           {
             /** ナビ（HTML）は常にネットワーク優先で最新シェルを取る */
             urlPattern: ({ request }) => request.mode === "navigate",
             handler: "NetworkFirst",
             options: {
-              cacheName: "choreocore-html-v4",
+              cacheName: "choreocore-html-v5",
               networkTimeoutSeconds: 4,
               cacheableResponse: { statuses: [0, 200] },
             },
           },
           {
-            /** デプロイ後の古い SW が存在しない JS チャンクを参照するのを防ぐ */
+            /**
+             * ハッシュ付き JS は precache 済み。ランタイムで NetworkFirst すると
+             * 欠落チャンクの SPA HTML(200) を JS としてキャッシュしてしまう。
+             */
             urlPattern: /\/assets\/.*\.js$/,
-            handler: "NetworkFirst",
+            handler: "NetworkOnly",
             options: {
-              cacheName: "choreocore-assets-js-v4",
-              expiration: {
-                maxEntries: 64,
-                maxAgeSeconds: 60 * 60 * 24 * 7,
-              },
-              cacheableResponse: { statuses: [0, 200] },
-              networkTimeoutSeconds: 8,
+              cacheName: "choreocore-assets-js-v5",
             },
           },
           {
