@@ -53,6 +53,7 @@ export type StageBoardContextMenuLayerProps = {
     lightAddOptions?: { kind: string; label: string }[];
     onAddLight?: (kind: string) => void;
     onAddBasicLights?: () => void;
+    onApplyLightingPreset?: () => void;
     onApplyPreviousCueLights?: () => void;
     onAddPreviousLight?: () => void;
     previousLightHint?: string | null;
@@ -161,6 +162,14 @@ export function StageBoardContextMenuLayer({
                 }
               : undefined
           }
+          onApplyLightingPreset={
+            dockQuickMenu.onApplyLightingPreset
+              ? () => {
+                  dockQuickMenu.onApplyLightingPreset?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
           onApplyPreviousCueLights={
             dockQuickMenu.onApplyPreviousCueLights
               ? () => {
@@ -208,6 +217,14 @@ export function StageBoardContextMenuLayer({
             dockQuickMenu.onAddBasicLights
               ? () => {
                   dockQuickMenu.onAddBasicLights?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onApplyLightingPreset={
+            dockQuickMenu.onApplyLightingPreset
+              ? () => {
+                  dockQuickMenu.onApplyLightingPreset?.();
                   onCloseMenu();
                 }
               : undefined

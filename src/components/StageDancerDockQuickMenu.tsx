@@ -24,6 +24,8 @@ export type StageDancerDockQuickMenuProps = {
   onAddLight?: (kind: string) => void;
   /** 基本照明一式をこのキューへ */
   onAddBasicLights?: () => void;
+  /** 保存済みプリセットから選んでこのキューへ適用 */
+  onApplyLightingPreset?: () => void;
   /** 直前キューの照明をこのキューへ適用 */
   onApplyPreviousCueLights?: () => void;
   /** 一つ前（直近）の照明を同じ設定で追加 */
@@ -77,6 +79,7 @@ export function StageDancerDockQuickMenu({
   lightAddOptions,
   onAddLight,
   onAddBasicLights,
+  onApplyLightingPreset,
   onApplyPreviousCueLights,
   onAddPreviousLight,
   previousLightHint,
@@ -262,6 +265,7 @@ export function StageDancerDockQuickMenu({
         </>
       ) : null}
       {onToggleStageLightsVisible ||
+      onApplyLightingPreset ||
       (onAddLight && lightAddOptions && lightAddOptions.length > 0) ? (
         <>
           <div
@@ -308,6 +312,28 @@ export function StageDancerDockQuickMenu({
               >
                 {stageLightsVisibleOnStage ? "表示中" : "非表示中"}
               </span>
+            </button>
+          ) : null}
+          {onApplyLightingPreset ? (
+            <button
+              type="button"
+              role="menuitem"
+              style={itemBtn}
+              title="保存済みプリセットを選んで、いまのキューの照明を置き換えます"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onApplyLightingPreset();
+              }}
+            >
+              <span>プリセットから選ぶ</span>
             </button>
           ) : null}
           {onAddLight && lightAddOptions && lightAddOptions.length > 0 ? (

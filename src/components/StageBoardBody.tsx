@@ -73,6 +73,12 @@ import {
   STAGE_LIGHT_KIND_LABELS,
   STAGE_LIGHT_KINDS,
 } from "../lib/stageLighting";
+import {
+  listLightingPresets,
+  replaceLightsFromPresetDetailed,
+  type LightingPresetItem,
+} from "../lib/lightingPresets";
+import { LightingPresetPickModal } from "./LightingPresetPickModal";
 import { sortCuesByStart } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { useStageLightsViewStore } from "../store/stageLightsViewStore";
@@ -718,6 +724,11 @@ export function StageBoardBody({
     clientX: number;
     clientY: number;
   } | null>(null);
+  const [lightingPresetPickerOpen, setLightingPresetPickerOpen] =
+    useState(false);
+  const [lightingPresetPickerList, setLightingPresetPickerList] = useState<
+    LightingPresetItem[]
+  >([]);
 
   useEffect(() => {
     return subscribeStageDockSectionRequest((req) => {
@@ -5551,6 +5562,55 @@ export function StageBoardBody({
     setStageLightsVisibleOnStage,
   ]);
 
+  /** プリセット一覧を開いて、いまのキューへ一括適用 */
+  const handleOpenLightingPresetPickerFromContextMenu = useCallback(() => {
+    if (viewMode === "view" || lightsLockedByPlayback) return;
+    if (!editCueId) {
+      window.alert("キューを選択してから実行してください。");
+      return;
+    }
+    const presets = listLightingPresets();
+    if (presets.length === 0) {
+      window.alert(
+        "保存済みの照明プリセットがありません。照明設定から「プリセットに保存」してください。"
+      );
+      return;
+    }
+    setLightingPresetPickerList(presets);
+    setLightingPresetPickerOpen(true);
+  }, [viewMode, lightsLockedByPlayback, editCueId]);
+
+  const handlePickLightingPresetFromContextMenu = useCallback(
+    (preset: LightingPresetItem) => {
+      setLightingPresetPickerOpen(false);
+      setLightingPresetPickerList([]);
+      if (viewMode === "view" || lightsLockedByPlayback) return;
+      if (!editCueId) {
+        window.alert("キューを選択してから実行してください。");
+        return;
+      }
+      setProject((p) => {
+        if (!p || p.viewMode === "view") return p;
+        const result = replaceLightsFromPresetDetailed(
+          p.stageLights ?? [],
+          editCueId,
+          preset
+        );
+        return { ...p, stageLights: result.lights };
+      });
+      setStageLightsVisibleOnStage(true);
+      focusEditCueForLighting();
+    },
+    [
+      setProject,
+      viewMode,
+      lightsLockedByPlayback,
+      editCueId,
+      setStageLightsVisibleOnStage,
+      focusEditCueForLighting,
+    ]
+  );
+
   /** 直近に追加／選択した照明と同じ設定で、クリック位置に追加 */
   const handleAddPreviousLightFromContextMenu = useCallback(() => {
     if (viewMode === "view" || lightsLockedByPlayback) return;
@@ -6301,6 +6361,12 @@ export function StageBoardBody({
                       Boolean(onStageLightsChange)
                         ? handleAddBasicLightsFromContextMenu
                         : undefined,
+                    onApplyLightingPreset:
+                      viewMode !== "view" &&
+                      !lightsLockedByPlayback &&
+                      Boolean(onStageLightsChange)
+                        ? handleOpenLightingPresetPickerFromContextMenu
+                        : undefined,
                     onApplyPreviousCueLights:
                       viewMode !== "view" &&
                       !lightsLockedByPlayback &&
@@ -6339,6 +6405,17 @@ export function StageBoardBody({
             removeSetPieceById={removeSetPieceById}
           />
         ) : null}
+        <LightingPresetPickModal
+          open={lightingPresetPickerOpen}
+          title="プリセットから選ぶ"
+          subtitle="クリックしたプリセットで、いまのキューの照明を置き換えます"
+          presets={lightingPresetPickerList}
+          onClose={() => {
+            setLightingPresetPickerOpen(false);
+            setLightingPresetPickerList([]);
+          }}
+          onPick={handlePickLightingPresetFromContextMenu}
+        />
         {dancerSelectionSheetOpen && primarySelectedDancer ? (
           <StageDancerContextMenuSheet
             open
