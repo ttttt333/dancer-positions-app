@@ -597,6 +597,37 @@ export function TimelineWaveMenus({
           >
             前の照明をこの移動にコピー
           </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={viewMode === "view"}
+            style={{
+              ...btnSecondary,
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              marginBottom: "6px",
+              fontSize: "13px",
+              padding: "9px 10px",
+              borderColor: "rgba(248, 113, 113, 0.55)",
+              color: "#fecaca",
+              cursor: viewMode === "view" ? "not-allowed" : "pointer",
+            }}
+            onClick={() => {
+              if (viewMode === "view") return;
+              setGapRouteMenu(null);
+              setProject((p) => {
+                const n = p.stageLights?.length ?? 0;
+                if (n === 0) return p;
+                if (!window.confirm(`照明をすべて消しますか？（${n} 件）`)) {
+                  return p;
+                }
+                return { ...p, stageLights: [] };
+              });
+            }}
+          >
+            照明の一括クリア
+          </button>
           <div style={{ borderTop: `1px solid ${shell.border}`, margin: "8px 0 6px" }} />
           <button
             type="button"
