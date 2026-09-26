@@ -103,28 +103,29 @@ describe("stageLighting / architecture guides", () => {
     expect(wide.ry).toBe(20);
   });
 
-  it("createBasicStageLights matches reference layout and colors", () => {
+  it("createBasicStageLights matches requested counts and deep colors", () => {
     const lights = createBasicStageLights("cue-a");
-    // バック4 + サイド6 + サス2 + フット2 + ピン4
-    expect(lights).toHaveLength(18);
+    // バック2 + サイド6 + サス2 + フット3 + ピン1 = 14
+    expect(lights).toHaveLength(14);
     expect(lights.every((L) => L.cueId === "cue-a")).toBe(true);
-    expect(lights.filter((L) => L.kind === "backlight")).toHaveLength(4);
+    expect(lights.filter((L) => L.kind === "backlight")).toHaveLength(2);
     expect(lights.filter((L) => L.kind === "sideSpot")).toHaveLength(6);
     expect(lights.filter((L) => L.kind === "suspension")).toHaveLength(2);
-    expect(lights.filter((L) => L.kind === "footlight")).toHaveLength(2);
-    expect(lights.filter((L) => L.kind === "pinSpot")).toHaveLength(4);
-    expect(lights.find((L) => L.kind === "backlight")!.color).toBe("#fef08a");
-    expect(lights.find((L) => L.kind === "sideSpot")!.color).toBe("#f87171");
-    expect(lights.find((L) => L.kind === "suspension")!.color).toBe("#4ade80");
-    expect(lights.find((L) => L.kind === "footlight")!.color).toBe("#e879f9");
+    expect(lights.filter((L) => L.kind === "footlight")).toHaveLength(3);
+    expect(lights.filter((L) => L.kind === "pinSpot")).toHaveLength(1);
+    expect(lights.find((L) => L.kind === "backlight")!.color).toBe("#eab308");
+    expect(lights.find((L) => L.kind === "sideSpot")!.color).toBe("#ef4444");
+    expect(lights.find((L) => L.kind === "suspension")!.color).toBe("#22c55e");
+    expect(lights.find((L) => L.kind === "footlight")!.color).toBe("#d946ef");
     expect(lights.find((L) => L.kind === "pinSpot")!.color).toBe("#ffffff");
-    expect(lights.filter((L) => L.kind === "pinSpot").every((L) => L.xPct === 50)).toBe(
-      true
-    );
+    const pin = lights.find((L) => L.kind === "pinSpot")!;
+    expect(pin.xPct).toBe(50);
+    expect(pin.yPct).toBe(50);
+    expect(lights.every((L) => L.intensity >= 0.7)).toBe(true);
   });
 
   it("appendBasicStageLights respects STAGE_LIGHTS_MAX room", () => {
     const next = appendBasicStageLights([], "c1");
-    expect(next).toHaveLength(18);
+    expect(next).toHaveLength(14);
   });
 });

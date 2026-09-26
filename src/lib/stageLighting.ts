@@ -303,13 +303,13 @@ export function nextLightLabel(
   return n <= 1 ? base : `${base} ${n}`;
 }
 
-/** 基本照明セットのパート色（画像パターン準拠） */
+/** 基本照明セットのパート色（濃いめ・識別しやすい） */
 export const BASIC_STAGE_LIGHT_COLORS: Record<StageLightKind, string> = {
-  backlight: "#fef08a", // 黄（舞台裏）
-  sideSpot: "#f87171", // 赤（サイド）
-  suspension: "#4ade80", // 緑（サス）
-  footlight: "#e879f9", // マゼンタ（フット）
-  pinSpot: "#ffffff", // 白（ピン・中央列）
+  backlight: "#eab308", // 濃い黄（舞台裏）
+  sideSpot: "#ef4444", // 濃い赤（サイド）
+  suspension: "#22c55e", // 濃い緑（サス）
+  footlight: "#d946ef", // 濃いマゼンタ（フット）
+  pinSpot: "#ffffff", // 白（ピン・ヘソ）
 };
 
 function basicLightAt(
@@ -335,9 +335,7 @@ function basicLightAt(
     xPct: clampPct(xPct),
     yPct: clampPct(yPct),
     color: BASIC_STAGE_LIGHT_COLORS[kind],
-    intensity:
-      opts?.intensity ??
-      (kind === "pinSpot" ? 0.55 : kind === "suspension" ? 0.38 : 0.4),
+    intensity: opts?.intensity ?? (kind === "pinSpot" ? 0.85 : 0.72),
     rxPct: clampAxis(rx),
     ryPct: clampAxis(ry),
     shape: opts?.shape ?? "ellipse",
@@ -349,90 +347,88 @@ function basicLightAt(
 }
 
 /**
- * 基本照明一式（画像の標準配置）。
- * バック×4黄・サイド左右各3赤（横長）・サス上手/下手緑・
- * フット左右マゼンタ・ピン中央列×4白。
+ * 基本照明一式（濃いめ・指定本数）。
+ * サイド左右各3・フット3・サス上手/下手2・ピンヘソ1・バック2。
  */
 export function createBasicStageLights(
   cueId: string | null = null
 ): StageLightFixture[] {
   const L = cueId;
 
-  // バックライト: 舞台裏沿い 4 灯（黄）
-  const backXs = [18, 38, 62, 82];
-  const back = backXs.map((x, i) =>
-    basicLightAt("backlight", x, 10, L, {
-      label: `バックライト ${i + 1}`,
-      rxPct: 20,
-      ryPct: 16,
-      intensity: 0.38,
-    })
-  );
+  // バックライト: 舞台裏 2 灯（黄・濃）
+  const back = [
+    basicLightAt("backlight", 28, 10, L, {
+      label: "バックライト 下手",
+      rxPct: 26,
+      ryPct: 20,
+      intensity: 0.75,
+    }),
+    basicLightAt("backlight", 72, 10, L, {
+      label: "バックライト 上手",
+      rxPct: 26,
+      ryPct: 20,
+      intensity: 0.75,
+    }),
+  ];
 
-  // サイドスポット: 左右各 3・横長の赤
-  const sideYs = [28, 50, 72];
+  // サイドスポット: 左右各 3・横長の赤（濃）
+  const sideYs = [26, 50, 74];
   const sideLeft = sideYs.map((y, i) =>
     basicLightAt("sideSpot", 8, y, L, {
       label: `サイドスポット 下手${i + 1}`,
-      rxPct: 22,
-      ryPct: 10,
-      intensity: 0.42,
+      rxPct: 26,
+      ryPct: 12,
+      intensity: 0.78,
     })
   );
   const sideRight = sideYs.map((y, i) =>
     basicLightAt("sideSpot", 92, y, L, {
       label: `サイドスポット 上手${i + 1}`,
-      rxPct: 22,
-      ryPct: 10,
-      intensity: 0.42,
-    })
-  );
-
-  // サスペンション: 上手・下手の中央付近（緑・大きめ）
-  const suspension = [
-    basicLightAt("suspension", 28, 48, L, {
-      label: "サスペンション 下手",
-      rxPct: 30,
-      ryPct: 26,
-      intensity: 0.36,
-      shape: "circle",
-    }),
-    basicLightAt("suspension", 72, 48, L, {
-      label: "サスペンション 上手",
-      rxPct: 30,
-      ryPct: 26,
-      intensity: 0.36,
-      shape: "circle",
-    }),
-  ];
-
-  // フットライト: 客席側 左右 2 灯（マゼンタ）
-  const foot = [
-    basicLightAt("footlight", 22, 90, L, {
-      label: "フットライト 下手",
       rxPct: 26,
-      ryPct: 14,
-      intensity: 0.4,
-    }),
-    basicLightAt("footlight", 78, 90, L, {
-      label: "フットライト 上手",
-      rxPct: 26,
-      ryPct: 14,
-      intensity: 0.4,
-    }),
-  ];
-
-  // ピンスポ: 中央縦列 4 灯（白）
-  const pinYs = [22, 40, 58, 76];
-  const pin = pinYs.map((y, i) =>
-    basicLightAt("pinSpot", 50, y, L, {
-      label: i === 1 || i === 2 ? "ピンスポ ヘソ" : `ピンスポ ${i + 1}`,
-      rxPct: 12,
       ryPct: 12,
-      intensity: 0.55,
-      shape: "circle",
+      intensity: 0.78,
     })
   );
+
+  // サスペンション: 上手・下手（緑・濃・大きめ）
+  const suspension = [
+    basicLightAt("suspension", 26, 48, L, {
+      label: "サスペンション 下手",
+      rxPct: 32,
+      ryPct: 28,
+      intensity: 0.7,
+      shape: "circle",
+    }),
+    basicLightAt("suspension", 74, 48, L, {
+      label: "サスペンション 上手",
+      rxPct: 32,
+      ryPct: 28,
+      intensity: 0.7,
+      shape: "circle",
+    }),
+  ];
+
+  // フットライト: 客席側 3 灯（マゼンタ・濃）
+  const footXs = [22, 50, 78];
+  const foot = footXs.map((x, i) =>
+    basicLightAt("footlight", x, 90, L, {
+      label: `フットライト ${i + 1}`,
+      rxPct: 24,
+      ryPct: 14,
+      intensity: 0.75,
+    })
+  );
+
+  // ピンスポ: ヘソ 1 灯（白・濃）
+  const pin = [
+    basicLightAt("pinSpot", 50, 50, L, {
+      label: "ピンスポ ヘソ",
+      rxPct: 16,
+      ryPct: 16,
+      intensity: 0.88,
+      shape: "circle",
+    }),
+  ];
 
   return [...back, ...sideLeft, ...sideRight, ...suspension, ...foot, ...pin];
 }
