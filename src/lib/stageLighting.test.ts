@@ -103,28 +103,28 @@ describe("stageLighting / architecture guides", () => {
     expect(wide.ry).toBe(20);
   });
 
-  it("createBasicStageLights colors each part distinctly", () => {
+  it("createBasicStageLights matches reference layout and colors", () => {
     const lights = createBasicStageLights("cue-a");
-    expect(lights).toHaveLength(15);
+    // バック4 + サイド6 + サス2 + フット2 + ピン4
+    expect(lights).toHaveLength(18);
     expect(lights.every((L) => L.cueId === "cue-a")).toBe(true);
+    expect(lights.filter((L) => L.kind === "backlight")).toHaveLength(4);
     expect(lights.filter((L) => L.kind === "sideSpot")).toHaveLength(6);
     expect(lights.filter((L) => L.kind === "suspension")).toHaveLength(2);
-    expect(lights.filter((L) => L.kind === "pinSpot")).toHaveLength(1);
-    expect(lights.filter((L) => L.kind === "footlight")).toHaveLength(3);
-    expect(lights.filter((L) => L.kind === "backlight")).toHaveLength(3);
-    const byKind = Object.fromEntries(
-      (["backlight", "sideSpot", "suspension", "footlight", "pinSpot"] as const).map(
-        (k) => [k, lights.find((L) => L.kind === k)!.color]
-      )
+    expect(lights.filter((L) => L.kind === "footlight")).toHaveLength(2);
+    expect(lights.filter((L) => L.kind === "pinSpot")).toHaveLength(4);
+    expect(lights.find((L) => L.kind === "backlight")!.color).toBe("#fef08a");
+    expect(lights.find((L) => L.kind === "sideSpot")!.color).toBe("#f87171");
+    expect(lights.find((L) => L.kind === "suspension")!.color).toBe("#4ade80");
+    expect(lights.find((L) => L.kind === "footlight")!.color).toBe("#e879f9");
+    expect(lights.find((L) => L.kind === "pinSpot")!.color).toBe("#ffffff");
+    expect(lights.filter((L) => L.kind === "pinSpot").every((L) => L.xPct === 50)).toBe(
+      true
     );
-    expect(new Set(Object.values(byKind)).size).toBe(5);
-    const pin = lights.find((L) => L.kind === "pinSpot")!;
-    expect(pin.xPct).toBe(50);
-    expect(pin.yPct).toBe(50);
   });
 
   it("appendBasicStageLights respects STAGE_LIGHTS_MAX room", () => {
     const next = appendBasicStageLights([], "c1");
-    expect(next).toHaveLength(15);
+    expect(next).toHaveLength(18);
   });
 });
