@@ -4249,6 +4249,181 @@ body:has([data-editor-sheet-root] [aria-labelledby="flow-lib-title"]) [data-shel
   aspect-ratio: 900 / 580;
 }
 
+.dancer-path-editor--with-route-panel {
+  padding-right: min(320px, 38vw);
+  box-sizing: border-box;
+}
+
+.dancer-path-editor-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+  width: 100%;
+}
+
+.dancer-path-editor-stage--with-panel {
+  width: min(900px, calc(100vw - 32px - min(320px, 38vw))) !important;
+}
+
+.dancer-path-editor-route-panel {
+  position: fixed;
+  right: max(8px, env(safe-area-inset-right, 0px));
+  top: max(8px, env(safe-area-inset-top, 0px));
+  bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  z-index: 10050;
+  width: min(300px, calc(38vw - 8px));
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  background: rgba(15, 23, 42, 0.97);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.dancer-path-editor-route-panel__head {
+  flex-shrink: 0;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.75);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dancer-path-editor-route-panel__title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #e2e8f0;
+  letter-spacing: 0.03em;
+}
+
+.dancer-path-editor-route-panel__sub {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.dancer-path-editor-route-panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dancer-path-editor-route-panel__divider {
+  height: 1px;
+  background: rgba(51, 65, 85, 0.75);
+  margin: 4px 0 6px;
+}
+
+.dancer-path-editor-route-panel__btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  white-space: normal;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(71, 85, 105, 0.85);
+  background: rgba(30, 41, 59, 0.75);
+  color: #e2e8f0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dancer-path-editor-route-panel__btn:hover {
+  background: rgba(51, 65, 85, 0.9);
+}
+
+.dancer-path-editor-route-panel__btn--selected {
+  border-color: rgba(129, 140, 248, 0.95);
+  background: rgba(67, 56, 202, 0.35);
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.35),
+    0 0 12px rgba(99, 102, 241, 0.35);
+}
+
+.dancer-path-editor-route-panel__btn--bulk-on {
+  font-weight: 800;
+  color: #ecfdf5;
+  background: rgba(16, 185, 129, 0.28);
+  border: 1.5px solid rgba(52, 211, 153, 0.95);
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.35),
+    0 0 14px rgba(16, 185, 129, 0.55);
+}
+
+.dancer-path-editor-route-panel__btn--bulk-off {
+  font-weight: 800;
+  color: #e2e8f0;
+  background: rgba(51, 65, 85, 0.55);
+  border: 1.5px solid rgba(148, 163, 184, 0.55);
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15);
+}
+
+.dancer-path-editor-route-panel__foot {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px
+    max(10px, env(safe-area-inset-bottom, 10px));
+  border-top: 1px solid rgba(51, 65, 85, 0.75);
+  background: rgba(2, 6, 23, 0.55);
+}
+
+.dancer-path-editor-route-panel__cancel,
+.dancer-path-editor-route-panel__apply {
+  flex: 1;
+  min-height: 42px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dancer-path-editor-route-panel__cancel {
+  border: 1px solid rgba(71, 85, 105, 0.9);
+  background: rgba(30, 41, 59, 0.9);
+  color: #cbd5e1;
+}
+
+.dancer-path-editor-route-panel__apply {
+  border: 1px solid rgba(99, 102, 241, 0.95);
+  background: rgba(67, 56, 202, 0.9);
+  color: #f8fafc;
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.35);
+}
+
+@media (max-width: 720px) {
+  .dancer-path-editor--with-route-panel {
+    padding-right: 0;
+    padding-bottom: min(48vh, 360px);
+  }
+  .dancer-path-editor-route-panel {
+    left: max(8px, env(safe-area-inset-left, 0px));
+    right: max(8px, env(safe-area-inset-right, 0px));
+    top: auto;
+    bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: min(46vh, 360px);
+  }
+  .dancer-path-editor-stage--with-panel {
+    width: min(900px, calc(100vw - 32px)) !important;
+  }
+}
+
 .dancer-path-editor-stage--portrait {
   flex: 1;
   min-height: 0;

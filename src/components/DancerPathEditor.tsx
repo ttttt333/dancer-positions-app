@@ -14,9 +14,6 @@ import {
   controlPointsFromGapApproach,
   GAP_APPROACH_OPTIONS,
 } from "../lib/gapDancerInterpolation";
-import { btnSecondary } from "./stageButtonStyles";
-import { shell } from "../theme/choreoShell";
-import { readLayoutViewportSize } from "../lib/viewportLayoutMetrics";
 
 export type DancerPathEditorProps = {
   cueId: string;
@@ -142,11 +139,19 @@ export function DancerPathEditor({
   );
   /** 一括表示オン */
   const [showAllPaths, setShowAllPaths] = useState(false);
-  /** 右クリックメニュー（経路プリセット） */
-  const [ctxMenu, setCtxMenu] = useState<{
-    clientX: number;
-    clientY: number;
+  /** 経路プリセット右サイドパネル */
+  const [routePanelOpen, setRoutePanelOpen] = useState(false);
+  /** パネルを開いた時点のスナップショット（キャンセルで戻す） */
+  const routePanelSnapshotRef = useRef<{
+    paths: LocalPaths;
+    appliedApproach: GapApproachRoute | undefined;
+    showAllPaths: boolean;
+    visiblePathIds: string[];
   } | null>(null);
+  /** パネル内で選択中のプリセット（ハイライト用） */
+  const [pendingApproachId, setPendingApproachId] = useState<
+    GapApproachRoute | "clear" | null
+  >(null);
   /** 適用した経路プリセット（保存時にキューへ） */
   const [appliedApproach, setAppliedApproach] = useState<
     GapApproachRoute | undefined
@@ -167,7 +172,20 @@ export function DancerPathEditor({
     });
   }, []);
 
-  const applyApproachPreset = useCallback(
+  const openRoutePanel = useCallback(() => {
+    routePanelSnapshotRef.current = {
+      paths: { ...paths },
+      appliedApproach,
+      showAllPaths,
+      visiblePathIds: [...visiblePathIds],
+    };
+    setPendingApproachId(
+      appliedApproach ?? (Object.keys(paths).length ? null : null)
+    );
+    setRoutePanelOpen(true);
+  }, [paths, appliedApproach, showAllPaths, visiblePathIds]);
+
+  const previewApproachPreset = useCallback(
     (route: GapApproachRoute) => {
       const cps = controlPointsFromGapApproach(
         prevFormation,
@@ -176,12 +194,39 @@ export function DancerPathEditor({
       );
       setPaths(cps);
       setAppliedApproach(route === "linear" ? undefined : route);
+      setPendingApproachId(route);
       setShowAllPaths(true);
       setVisiblePathIds(new Set());
-      setCtxMenu(null);
     },
     [prevFormation, nextFormation]
   );
+
+  const previewClearApproach = useCallback(() => {
+    setPaths(buildInitialControlPoints(prevFormation, nextFormation));
+    setAppliedApproach(undefined);
+    setPendingApproachId("clear");
+    setShowAllPaths(true);
+    setVisiblePathIds(new Set());
+  }, [prevFormation, nextFormation]);
+
+  const commitRoutePanel = useCallback(() => {
+    routePanelSnapshotRef.current = null;
+    setRoutePanelOpen(false);
+    setPendingApproachId(null);
+  }, []);
+
+  const cancelRoutePanel = useCallback(() => {
+    const snap = routePanelSnapshotRef.current;
+    if (snap) {
+      setPaths(snap.paths);
+      setAppliedApproach(snap.appliedApproach);
+      setShowAllPaths(snap.showAllPaths);
+      setVisiblePathIds(new Set(snap.visiblePathIds));
+    }
+    routePanelSnapshotRef.current = null;
+    setRoutePanelOpen(false);
+    setPendingApproachId(null);
+  }, []);
 
   const dragging = useRef<string | null>(null);
   /** 黄色い制御点ドラッグ中のダンサー（ラベル強調用・再描画が必要） */
@@ -478,153 +523,97 @@ export function DancerPathEditor({
     viewState.zoom > 1.001 ? ` · ${viewState.zoom.toFixed(viewState.zoom >= 10 ? 0 : 1)}×` : "";
 
   const pathHint =
-    "ダンサーをクリックで動線表示 · 右クリックで経路プリセット／一括表示";
+    "ダンサーをクリックで動線表示 · 右クリックで経路パネル（舞台の右）";
 
-  const ctxMenuPanel = ctxMenu ? (
-    <>
-      <button
-        type="button"
-        aria-label="メニューを閉じる"
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 2600,
-          border: "none",
-          background: "transparent",
-          cursor: "default",
-        }}
-        onClick={() => setCtxMenu(null)}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setCtxMenu(null);
-        }}
-      />
-      <div
-        role="menu"
-        aria-label="動線の経路設定"
-        style={{
-          position: "fixed",
-          left: Math.max(
-            8,
-            Math.min(
-              ctxMenu.clientX,
-              (readLayoutViewportSize().width || 800) - 300
-            )
-          ),
-          top: Math.max(
-            8,
-            Math.min(
-              ctxMenu.clientY,
-              (typeof window !== "undefined"
-                ? readLayoutViewportSize().height
-                : 600) - 360
-            )
-          ),
-          zIndex: 2601,
-          minWidth: 240,
-          maxWidth: "min(320px, calc(100vw - 16px))",
-          maxHeight: "min(78vh, 520px)",
-          overflowY: "auto",
-          padding: 8,
-          borderRadius: 10,
-          border: `1px solid ${shell.border}`,
-          background: shell.surface,
-          boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+  const routePanel = routePanelOpen ? (
+    <aside
+      className="dancer-path-editor-route-panel"
+      role="dialog"
+      aria-label="動線の経路設定"
+    >
+      <div className="dancer-path-editor-route-panel__head">
+        <span className="dancer-path-editor-route-panel__title">経路設定</span>
+        <span className="dancer-path-editor-route-panel__sub">
+          選ぶと舞台にプレビュー → 適用で決定
+        </span>
+      </div>
+      <div className="dancer-path-editor-route-panel__body">
         <button
           type="button"
-          role="menuitem"
           aria-pressed={showAllPaths}
-          style={{
-            ...btnSecondary,
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            marginBottom: 6,
-            fontSize: 13,
-            padding: "10px 12px",
-            fontWeight: 800,
-            color: showAllPaths ? "#ecfdf5" : "#e2e8f0",
-            background: showAllPaths
-              ? "rgba(16, 185, 129, 0.28)"
-              : "rgba(51, 65, 85, 0.55)",
-            border: showAllPaths
-              ? "1.5px solid rgba(52, 211, 153, 0.95)"
-              : "1.5px solid rgba(148, 163, 184, 0.55)",
-            boxShadow: showAllPaths
-              ? "0 0 0 1px rgba(52, 211, 153, 0.35), 0 0 14px rgba(16, 185, 129, 0.55)"
-              : "0 0 0 1px rgba(148, 163, 184, 0.15)",
-          }}
+          className={
+            showAllPaths
+              ? "dancer-path-editor-route-panel__btn dancer-path-editor-route-panel__btn--bulk-on"
+              : "dancer-path-editor-route-panel__btn dancer-path-editor-route-panel__btn--bulk-off"
+          }
           onClick={() => {
             setShowAllPaths((v) => !v);
             if (!showAllPaths) setVisiblePathIds(new Set());
-            setCtxMenu(null);
           }}
         >
           {showAllPaths ? "一括表示：オン" : "一括表示：オフ"}
         </button>
-        <div
-          style={{
-            borderTop: `1px solid ${shell.border}`,
-            margin: "6px 0 8px",
-          }}
-        />
-        {GAP_APPROACH_OPTIONS.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            role="menuitem"
-            style={{
-              ...btnSecondary,
-              display: "block",
-              width: "100%",
-              textAlign: "left",
-              marginBottom: 6,
-              fontSize: 12,
-              padding: "8px 10px",
-              lineHeight: 1.35,
-              whiteSpace: "normal",
-            }}
-            onClick={() => applyApproachPreset(opt.id)}
-          >
-            {opt.label}
-          </button>
-        ))}
+        <div className="dancer-path-editor-route-panel__divider" />
+        {GAP_APPROACH_OPTIONS.map((opt) => {
+          const selected =
+            pendingApproachId === opt.id ||
+            (pendingApproachId == null &&
+              ((opt.id === "linear" && appliedApproach == null) ||
+                appliedApproach === opt.id));
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              className={
+                selected
+                  ? "dancer-path-editor-route-panel__btn dancer-path-editor-route-panel__btn--selected"
+                  : "dancer-path-editor-route-panel__btn"
+              }
+              onClick={() => previewApproachPreset(opt.id)}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
         <button
           type="button"
-          role="menuitem"
-          style={{
-            ...btnSecondary,
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            marginTop: 4,
-            fontSize: 12,
-            padding: "8px 10px",
-          }}
-          onClick={() => {
-            setPaths(buildInitialControlPoints(prevFormation, nextFormation));
-            setAppliedApproach(undefined);
-            setShowAllPaths(false);
-            setVisiblePathIds(new Set());
-            setCtxMenu(null);
-          }}
+          className={
+            pendingApproachId === "clear"
+              ? "dancer-path-editor-route-panel__btn dancer-path-editor-route-panel__btn--selected"
+              : "dancer-path-editor-route-panel__btn"
+          }
+          onClick={previewClearApproach}
         >
           設定をクリア（線形のみ）
         </button>
       </div>
-    </>
+      <div className="dancer-path-editor-route-panel__foot">
+        <button
+          type="button"
+          className="dancer-path-editor-route-panel__cancel"
+          onClick={cancelRoutePanel}
+        >
+          キャンセル
+        </button>
+        <button
+          type="button"
+          className="dancer-path-editor-route-panel__apply"
+          onClick={commitRoutePanel}
+        >
+          適用
+        </button>
+      </div>
+    </aside>
   ) : null;
 
   const onStageContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      setCtxMenu({ clientX: e.clientX, clientY: e.clientY });
+      if (routePanelOpen) return;
+      openRoutePanel();
     },
-    []
+    [routePanelOpen, openRoutePanel]
   );
 
   const stageSvg = (
@@ -896,7 +885,11 @@ export function DancerPathEditor({
   if (portraitMobile) {
     return (
       <div
-        className="dancer-path-editor dancer-path-editor--portrait"
+        className={
+          routePanelOpen
+            ? "dancer-path-editor dancer-path-editor--portrait dancer-path-editor--with-route-panel"
+            : "dancer-path-editor dancer-path-editor--portrait"
+        }
         role="dialog"
         aria-modal="true"
         aria-label="個人別移動軌道の設定"
@@ -942,19 +935,24 @@ export function DancerPathEditor({
         <div className="dancer-path-editor-actions dancer-path-editor-actions--portrait">
           {actionButtons}
         </div>
-        {ctxMenuPanel}
+        {routePanel}
       </div>
     );
   }
 
   return (
     <div
-      className="dancer-path-editor"
+      className={
+        routePanelOpen
+          ? "dancer-path-editor dancer-path-editor--with-route-panel"
+          : "dancer-path-editor"
+      }
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onPointerLeave={onPointerUp}
     >
+      <div className="dancer-path-editor-main">
       <div className="dancer-path-editor-header">
         <div className="dancer-path-editor-title-block">
           個人別移動軌道の設定
@@ -966,7 +964,11 @@ export function DancerPathEditor({
       </div>
 
       <div
-        className="dancer-path-editor-stage dancer-path-editor-stage--desktop"
+        className={
+          routePanelOpen
+            ? "dancer-path-editor-stage dancer-path-editor-stage--desktop dancer-path-editor-stage--with-panel"
+            : "dancer-path-editor-stage dancer-path-editor-stage--desktop"
+        }
         onPointerDown={onStagePointerDown}
         onPointerMove={onStagePointerMove}
         onPointerUp={onStagePointerUp}
@@ -1001,7 +1003,8 @@ export function DancerPathEditor({
       <div className="dancer-path-editor-actions dancer-path-editor-actions--desktop">
         {actionButtons}
       </div>
-      {ctxMenuPanel}
+      </div>
+      {routePanel}
     </div>
   );
 }
