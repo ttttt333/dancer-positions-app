@@ -5645,6 +5645,13 @@ export function StageBoardBody({
     setStageLightsVisibleOnStage,
   ]);
 
+  const canApplyPrevCueLights = useMemo(() => {
+    if (!editCueId) return false;
+    const sorted = sortCuesByStart(project.cues);
+    const i = sorted.findIndex((c) => c.id === editCueId);
+    return i > 0;
+  }, [editCueId, project.cues]);
+
   const previousLightAddHint = useMemo(() => {
     const existing = project.stageLights ?? [];
     const fromTemplate = lastStageLightTemplateRef.current;
