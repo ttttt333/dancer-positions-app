@@ -2926,6 +2926,7 @@ function EditorPageContent({
         setFloorTextPreferredTab("lights");
         setFloorTextSideSheetOpen(true);
       }}
+      onOpenFormationChange={() => setFormationPresetPickerOpen(true)}
       onOpenGapLightingSettings={(nextCueId) => {
         if (!project) return;
         const sorted = [...project.cues].sort(

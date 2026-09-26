@@ -6,6 +6,7 @@ import {
   createDefaultStageLight,
   normalizeDepthMmList,
   replaceCueLightsFromPreviousCue,
+  replaceCueWithBasicStageLights,
   resolveLightAxes,
   yPctFromFrontMm,
 } from "./stageLighting";
@@ -170,6 +171,25 @@ describe("stageLighting / architecture guides", () => {
   it("appendBasicStageLights respects STAGE_LIGHTS_MAX room", () => {
     const next = appendBasicStageLights([], "c1");
     expect(next).toHaveLength(14);
+  });
+
+  it("replaceCueWithBasicStageLights clears cue then places basic set", () => {
+    const old = {
+      ...createDefaultStageLight("pinSpot"),
+      id: "old",
+      cueId: "c1",
+      color: "#aaaaaa",
+    };
+    const other = {
+      ...createDefaultStageLight("sideSpot"),
+      id: "keep",
+      cueId: "c2",
+      color: "#ef4444",
+    };
+    const next = replaceCueWithBasicStageLights([old, other], "c1");
+    expect(next.some((L) => L.id === "old")).toBe(false);
+    expect(next.some((L) => L.id === "keep")).toBe(true);
+    expect(next.filter((L) => L.cueId === "c1")).toHaveLength(14);
   });
 
   it("replaceCueLightsFromPreviousCue clears target cue then copies", () => {

@@ -181,6 +181,7 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
         onOpenPathEditor={p.onOpenPathEditor}
         onOpenLightingSettings={p.onOpenLightingSettings}
         onOpenGapLightingSettings={p.onOpenGapLightingSettings}
+        onOpenFormationChange={p.onOpenFormationChange}
       />
     </div>
   );

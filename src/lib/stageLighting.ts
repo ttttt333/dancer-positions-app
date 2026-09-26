@@ -604,6 +604,21 @@ export function appendBasicStageLights(
   return [...existing, ...added];
 }
 
+/**
+ * 指定キューの照明を消してから基本照明一式を置く。
+ * （メニュー「基本の照明を追加」用 — 既存灯があっても結果が分かる）
+ */
+export function replaceCueWithBasicStageLights(
+  existing: readonly StageLightFixture[],
+  cueId: string
+): StageLightFixture[] {
+  const withoutTarget = existing.filter((L) => L.cueId !== cueId);
+  const room = STAGE_LIGHTS_MAX - withoutTarget.length;
+  if (room <= 0) return withoutTarget;
+  const added = createBasicStageLights(cueId).slice(0, room);
+  return [...withoutTarget, ...added];
+}
+
 /** 直前キューの照明を現キューへコピーして追記 */
 export function appendClonedLightsFromPreviousCue(
   existing: readonly StageLightFixture[],

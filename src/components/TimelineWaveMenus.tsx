@@ -6,7 +6,7 @@ import { GAP_APPROACH_OPTIONS } from "../lib/gapDancerInterpolation";
 import { readLayoutViewportSize } from "../lib/viewportLayoutMetrics";
 import { requestStageDockSection } from "../lib/stageEditDockHost";
 import {
-  appendBasicStageLights,
+  replaceCueWithBasicStageLights,
   replaceCueLightsFromPreviousCue,
   cloneCueLightsIntoGapWindow,
 } from "../lib/stageLighting";
@@ -64,6 +64,8 @@ export type TimelineWaveMenusProps = {
    * nextCueId = ギャップの直後のキュー。
    */
   onOpenGapLightingSettings?: (nextCueId: string) => void;
+  /** Change ボタンと同じ：立ち位置雛形ピッカーを開く */
+  onOpenFormationChange?: () => void;
 };
 
 /**
@@ -88,6 +90,7 @@ export function TimelineWaveMenus({
   onOpenPathEditor,
   onOpenLightingSettings,
   onOpenGapLightingSettings,
+  onOpenFormationChange,
 }: TimelineWaveMenusProps) {
   const waveCueMenuTargetCue = waveCueMenu
     ? cuesSorted.find((c) => c.id === waveCueMenu.cueId)
@@ -157,7 +160,7 @@ export function TimelineWaveMenus({
   const addBasicLights = (cueId: string) => {
     setProject((p) => ({
       ...p,
-      stageLights: appendBasicStageLights(p.stageLights ?? [], cueId),
+      stageLights: replaceCueWithBasicStageLights(p.stageLights ?? [], cueId),
     }));
   };
 
@@ -309,7 +312,7 @@ export function TimelineWaveMenus({
             onClick={() => {
               if (viewMode === "view") return;
               closeCueMenu();
-              requestStageDockSection("shape");
+              onOpenFormationChange?.();
             }}
           >
             雛形
@@ -384,6 +387,7 @@ export function TimelineWaveMenus({
             type="button"
             role="menuitem"
             disabled={viewMode === "view"}
+            style={menuBtnBase(!!waveCueMenu.fullscreen)}
             onClick={() => {
               if (viewMode === "view") return;
               addBasicLights(waveCueMenu.cueId);
