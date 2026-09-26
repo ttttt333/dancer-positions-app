@@ -50,9 +50,11 @@ import {
   clampNameBelowFontPx,
   computeNameBelowFontResizeDraftSizes,
   defaultNameBelowFontPx,
+  dancerNameBelowLabelOffsetPx,
   effectiveNameBelowFontPx,
   stableDancerMarkerPxForNameFont,
 } from "../lib/stageNameBelowFontSizing";
+import { computeViewerNameOverlapFitScale } from "../lib/viewerMarkerLabelFit";
 import { resolveArrangeTargetIds, swapTwoDancerPositions } from "../lib/stageSelectionArrange";
 import {
   buildSleeveCurtainMarksFromCurtains,
@@ -237,6 +239,8 @@ export function StageBoardBody({
   markHistorySkipNextPush,
   studentViewerFocus = null,
   markerDisplayScale = 1,
+  nameLabelDisplayScale = 1,
+  nameLabelAutoFit = false,
   compactViewportChrome = false,
   compactLandscapeViewport = false,
   hideStageFloorTextMarkup = false,
@@ -287,6 +291,7 @@ export function StageBoardBody({
     floorLineSessionRef,
     stageMainFloorRef,
     setMainFloorPxWidth,
+    mainFloorPxWidth,
     baseMarkerPx,
     nameBelowClearanceExtraPx,
   } = useStageBoardController({
@@ -654,15 +659,7 @@ export function StageBoardBody({
   );
 
   /** 名下ラベルの実効フォント（px）。床幅連動の ○ 表示サイズではなく保存値ベースで解決。 */
-  const resolveNameBelowFontPx = useCallback(
-    (d: DancerSpot, _markerPx?: number) =>
-      effectiveNameBelowFontPx(
-        d,
-        stableDancerMarkerPxForNameFont(d, project.dancerMarkerDiameterPx),
-        nameBelowFontDraft?.get(d.id),
-      ),
-    [nameBelowFontDraft, project.dancerMarkerDiameterPx],
-  );
+  // resolveNameBelowFontPx は dancersForStageMarkers 確定後に定義（自動フィット用）
 
   /** 回転ドラッグ中はドラフト、それ以外は `facingDeg`（未設定は 0）。 */
   const effectiveFacingDeg = useCallback(
@@ -945,6 +942,86 @@ export function StageBoardBody({
   const dancersForStageMarkers = useMemo(
     () => applyEffectivePositions(displayDancers, positionOverlays),
     [displayDancers, positionOverlays],
+  );
+
+  const nameLabelUserScale =
+    typeof nameLabelDisplayScale === "number" &&
+    Number.isFinite(nameLabelDisplayScale) &&
+    nameLabelDisplayScale > 0
+      ? nameLabelDisplayScale
+      : 1;
+
+  /** 閲覧: 名下ラベルの重なりを減らす自動倍率 */
+  const nameLabelAutoFitScale = useMemo(() => {
+    if (!nameLabelAutoFit || !dancerLabelBelow) return 1;
+    if (dancersForStageMarkers.length < 2 || !(mainFloorPxWidth > 40)) return 1;
+    const floorH =
+      stageMainFloorRef.current?.clientHeight ?? mainFloorPxWidth * 1.25;
+    if (!(floorH > 40)) return 1;
+    const sample = dancersForStageMarkers[0]!;
+    const stablePx = stableDancerMarkerPxForNameFont(
+      sample,
+      project.dancerMarkerDiameterPx
+    );
+    const baseFont = effectiveNameBelowFontPx(
+      sample,
+      stablePx,
+      nameBelowFontDraft?.get(sample.id)
+    );
+    const fontBeforeAuto = Math.max(
+      6,
+      baseFont * markerScale * nameLabelUserScale
+    );
+    const markerPxSample = scaleMarkerPx(stablePx);
+    const labelOffsetPx = dancerNameBelowLabelOffsetPx(
+      markerPxSample,
+      nameBelowClearanceExtraPx
+    );
+    return computeViewerNameOverlapFitScale({
+      dancers: dancersForStageMarkers.map((d) => ({
+        xPct: d.xPct,
+        yPct: d.yPct,
+        label: d.label || "?",
+      })),
+      floorW: mainFloorPxWidth,
+      floorH,
+      markerPx: markerPxSample,
+      nameFontPx: fontBeforeAuto,
+      labelOffsetPx,
+    });
+  }, [
+    nameLabelAutoFit,
+    dancerLabelBelow,
+    dancersForStageMarkers,
+    mainFloorPxWidth,
+    stageMainFloorRef,
+    project.dancerMarkerDiameterPx,
+    nameBelowFontDraft,
+    markerScale,
+    nameLabelUserScale,
+    scaleMarkerPx,
+    nameBelowClearanceExtraPx,
+  ]);
+
+  /** 名下ラベルの実効フォント（px）。閲覧時は印倍率・手動倍率・自動フィットを掛け合わせる。 */
+  const resolveNameBelowFontPx = useCallback(
+    (d: DancerSpot, _markerPx?: number) => {
+      const base = effectiveNameBelowFontPx(
+        d,
+        stableDancerMarkerPxForNameFont(d, project.dancerMarkerDiameterPx),
+        nameBelowFontDraft?.get(d.id)
+      );
+      const scaled =
+        base * markerScale * nameLabelUserScale * nameLabelAutoFitScale;
+      return clampNameBelowFontPx(scaled);
+    },
+    [
+      nameBelowFontDraft,
+      project.dancerMarkerDiameterPx,
+      markerScale,
+      nameLabelUserScale,
+      nameLabelAutoFitScale,
+    ]
   );
 
   /**

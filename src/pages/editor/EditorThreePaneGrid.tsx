@@ -18,9 +18,7 @@ import { playbackEngine } from "../../core/playbackEngine";
 import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSession";
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
-import {
-  PUBLIC_VIEWER_MARKER_DISPLAY_SCALE,
-} from "../../components/ChoreoViewerBottomBar";
+import { useViewerChromeStore } from "../../store/viewerChromeStore";
 import { sortCuesByStart } from "../../core/timelineController";
 import { cueSelectionExtentSec } from "../../lib/cueSelectionExtent";
 import { TransportIconUndo, TransportIconRedo } from "../../components/mobile/TransportIcons";
@@ -237,6 +235,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const undo = props.undo as never;
   const v = props.v as never;
   const viewerLocalStorageKey = props.viewerLocalStorageKey as never;
+  const viewerMarkerDisplayScale = useViewerChromeStore(
+    (s) => s.markerDisplayScale
+  );
+  const viewerNameLabelScale = useViewerChromeStore((s) => s.nameLabelScale);
+  const viewerAutoNameFit = useViewerChromeStore((s) => s.autoNameFit);
   const wideBottomDockPx = props.wideBottomDockPx as never;
   const wideEditorLayout = props.wideEditorLayout as never;
   const workbenchInRightRail = props.workbenchInRightRail as never;
@@ -1108,7 +1111,15 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     viewportTextOverlayRoot={editorSurfaceEl}
                     studentViewerFocus={studentViewerFocusForStage}
                     markerDisplayScale={
-                      choreoPublicView ? PUBLIC_VIEWER_MARKER_DISPLAY_SCALE : 1
+                      choreoPublicView
+                        ? viewerMarkerDisplayScale
+                        : 1
+                    }
+                    nameLabelDisplayScale={
+                      choreoPublicView ? viewerNameLabelScale : 1
+                    }
+                    nameLabelAutoFit={
+                      choreoPublicView ? viewerAutoNameFit : false
                     }
                     compactViewportChrome={choreoPublicView}
                     compactLandscapeViewport={choreoPublicView && publicViewTightHeight}

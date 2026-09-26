@@ -53,6 +53,10 @@ import { playbackEngine } from "../core/playbackEngine";
 import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
 import type { ViewerChromeInsets } from "../components/ChoreoViewerControlBars";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import {
+  clampViewerMarkerScale,
+  clampViewerNameScale,
+} from "../lib/viewerMarkerDisplay";
 import { useViewerChromeStore } from "../store/viewerChromeStore";
 import {
   resolveViewerAudienceEdge,
@@ -831,6 +835,26 @@ function EditorPageContent({
       if (raw === "stage" || raw === "audience") {
         useViewerChromeStore.getState().setAudiencePerspective(raw);
       }
+      const sizeRaw = localStorage.getItem(`${viewerLocalStorageKey}:markerSize`);
+      if (sizeRaw) {
+        const parsed = JSON.parse(sizeRaw) as {
+          markerDisplayScale?: number;
+          nameLabelScale?: number;
+          autoNameFit?: boolean;
+        };
+        const st = useViewerChromeStore.getState();
+        if (typeof parsed.markerDisplayScale === "number") {
+          st.setMarkerDisplayScale(
+            clampViewerMarkerScale(parsed.markerDisplayScale)
+          );
+        }
+        if (typeof parsed.nameLabelScale === "number") {
+          st.setNameLabelScale(clampViewerNameScale(parsed.nameLabelScale));
+        }
+        if (typeof parsed.autoNameFit === "boolean") {
+          st.setAutoNameFit(parsed.autoNameFit);
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -847,6 +871,32 @@ function EditorPageContent({
       /* ignore */
     }
   }, [choreoPublicView, viewerLocalStorageKey, audiencePerspective]);
+
+  const viewerMarkerDisplayScale = useViewerChromeStore((s) => s.markerDisplayScale);
+  const viewerNameLabelScale = useViewerChromeStore((s) => s.nameLabelScale);
+  const viewerAutoNameFit = useViewerChromeStore((s) => s.autoNameFit);
+
+  useEffect(() => {
+    if (!choreoPublicView || !viewerLocalStorageKey) return;
+    try {
+      localStorage.setItem(
+        `${viewerLocalStorageKey}:markerSize`,
+        JSON.stringify({
+          markerDisplayScale: viewerMarkerDisplayScale,
+          nameLabelScale: viewerNameLabelScale,
+          autoNameFit: viewerAutoNameFit,
+        })
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [
+    choreoPublicView,
+    viewerLocalStorageKey,
+    viewerMarkerDisplayScale,
+    viewerNameLabelScale,
+    viewerAutoNameFit,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !choreoPublicView) return;

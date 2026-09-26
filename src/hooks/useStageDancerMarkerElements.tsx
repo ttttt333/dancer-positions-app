@@ -267,7 +267,11 @@ export function useStageDancerMarkerElements(
             circleInnerLabelSpanStyle={circleInnerLabelLayout.spanStyle}
             centerDistanceAboveLabel={centerDistanceAboveLabel}
             screenUnrotateDeg={screenUnrotateDeg}
-            showNameBelow={circleContent.showNameBelow && !hideGlyph}
+            showNameBelow={
+              circleContent.showNameBelow &&
+              !hideGlyph &&
+              !(onePersonMode && !isStudentHighlight)
+            }
             labelOffsetPx={labelOffsetPx}
             belowLabelOriginYpx={belowLabelOriginYpx}
             belowNameFontPx={belowNameFontPx}

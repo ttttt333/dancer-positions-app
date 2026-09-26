@@ -264,7 +264,7 @@ export function StageDancerMarkerItem({
             pointerEvents: "none",
             textShadow: "0 1px 2px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.85)",
             userSelect: "none",
-            maxWidth: "120px",
+            maxWidth: `${Math.max(56, Math.min(120, Math.round(belowNameFontPx * 6.5)))}px`,
             overflow: "hidden",
             textOverflow: "ellipsis",
           }}

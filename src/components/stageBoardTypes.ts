@@ -133,6 +133,15 @@ export type StageBoardBodyProps = {
     | { kind: "one"; crewMemberId: string; label: string };
   /** 閲覧共有など: ダンサー印の表示倍率（1 = 既定） */
   markerDisplayScale?: number;
+  /**
+   * 閲覧: 名下ラベルの追加表示倍率（1 = 既定）。
+   * 印の `markerDisplayScale` とは独立に掛け合わせる。
+   */
+  nameLabelDisplayScale?: number;
+  /**
+   * 閲覧: 名下ラベル同士の重なりを検知してフォントを自動で小さくする。
+   */
+  nameLabelAutoFit?: boolean;
   /** 閲覧: 客席帯が aspect 外に出る分のビューポート余白を確保 */
   compactViewportChrome?: boolean;
   /** 閲覧横画面: `compactViewportChrome` 時の帯余白をさらに詰める */

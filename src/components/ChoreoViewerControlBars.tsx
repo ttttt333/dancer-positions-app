@@ -21,6 +21,7 @@ import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { useViewerTransportActions } from "../hooks/useViewerTransportActions";
 import { ViewerMemberModeSwitch } from "./ViewerMemberModeSwitch";
 import { ViewerAudiencePerspectiveSwitch } from "./ViewerAudiencePerspectiveSwitch";
+import { ViewerMarkerSizeControls } from "./ViewerMarkerSizeControls";
 import { ChoreoViewerVideoSaveButton } from "./ChoreoViewerVideoSaveButton";
 import { ViewerFullscreenButton } from "./ViewerFullscreenButton";
 import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
@@ -342,6 +343,9 @@ export function ChoreoViewerControlBars({
   );
 
   const fullscreenBtn = <ViewerFullscreenButton showLabel={landscapeMode} />;
+  const markerSizeControls = (
+    <ViewerMarkerSizeControls layout={landscapeMode ? "stack" : "inline"} />
+  );
 
   if (landscapeMode) {
     return (
@@ -355,6 +359,7 @@ export function ChoreoViewerControlBars({
           <div className="choreo-viewer-bars__left-col choreo-viewer-bars__left-col--meta">
             {modeSwitch}
             {perspectiveSwitch}
+            {markerSizeControls}
             {videoSave}
             {fullscreenBtn}
           </div>
@@ -380,6 +385,7 @@ export function ChoreoViewerControlBars({
         <div className="choreo-viewer-bars__bottom-panel">
           <div className="choreo-viewer-bars__bottom-meta">
             {perspectiveSwitch}
+            {markerSizeControls}
             {videoSave}
             {fullscreenBtn}
           </div>
@@ -399,6 +405,7 @@ export function ChoreoViewerControlBars({
           <div className="choreo-viewer-bars__bottom-meta">
             {modeSwitch}
             {perspectiveSwitch}
+            {markerSizeControls}
             {videoSave}
             {fullscreenBtn}
           </div>
