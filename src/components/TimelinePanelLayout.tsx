@@ -182,6 +182,7 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
         onOpenLightingSettings={p.onOpenLightingSettings}
         onOpenGapLightingSettings={p.onOpenGapLightingSettings}
         onOpenFormationChange={p.onOpenFormationChange}
+        onFocusCueForLighting={p.onFocusCueForLighting}
       />
     </div>
   );

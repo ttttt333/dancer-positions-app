@@ -614,6 +614,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
             prevFormation={prevForm.dancers}
             nextFormation={nextForm.dancers}
             existingPaths={targetCue.dancerCustomPaths}
+            existingApproach={targetCue.gapApproachFromPrev}
             setProject={setProjectSafe}
             onClose={() => setPathEditorCueId(null)}
           />

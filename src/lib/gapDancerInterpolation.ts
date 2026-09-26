@@ -242,6 +242,44 @@ function pairXY(
 }
 
 /**
+ * ギャップ経路プリセットを、パスエディタ用の二次ベジェ制御点に変換する。
+ * （折れ線経由点をベジェ CP に近似: B(0.5)=via ⇒ CP = 2·via − mid）
+ */
+export function controlPointsFromGapApproach(
+  from: DancerSpot[],
+  to: DancerSpot[],
+  route: GapApproachRoute
+): Record<string, { cpX: number; cpY: number }> {
+  const toById = new Map(to.map((d) => [d.id, d]));
+  const medX = median(from.map((d) => d.xPct));
+  const medY = median(from.map((d) => d.yPct));
+  const sepPct = gapPassingSeparationPct(from, to);
+  const out: Record<string, { cpX: number; cpY: number }> = {};
+  for (const a of from) {
+    const b = toById.get(a.id);
+    if (!b) continue;
+    const via = pairXY(
+      a.xPct,
+      a.yPct,
+      b.xPct,
+      b.yPct,
+      0.5,
+      route,
+      medX,
+      medY,
+      sepPct
+    );
+    const mx = (a.xPct + b.xPct) / 2;
+    const my = (a.yPct + b.yPct) / 2;
+    out[a.id] = {
+      cpX: Math.min(100, Math.max(0, 2 * via.x - mx)),
+      cpY: Math.min(100, Math.max(0, 2 * via.y - my)),
+    };
+  }
+  return out;
+}
+
+/**
  * 二次ベジェ補間（制御点1個）。
  * p0: 始点, cp: 制御点, p1: 終点, t: [0,1]
  */

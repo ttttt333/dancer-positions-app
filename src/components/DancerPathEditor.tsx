@@ -1,17 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
+import type {
+  ChoreographyProjectJson,
+  DancerSpot,
+  GapApproachRoute,
+} from "../types/choreography";
 import {
   buildInitialControlPoints,
   isStationaryPath,
   type PathControlPoint,
 } from "../lib/dancerPathControlPoints";
+import {
+  controlPointsFromGapApproach,
+  GAP_APPROACH_OPTIONS,
+} from "../lib/gapDancerInterpolation";
+import { btnSecondary } from "./stageButtonStyles";
+import { shell } from "../theme/choreoShell";
+import { readLayoutViewportSize } from "../lib/viewportLayoutMetrics";
 
 export type DancerPathEditorProps = {
   cueId: string;
   prevFormation: DancerSpot[];
   nextFormation: DancerSpot[];
   existingPaths: Record<string, { cpX: number; cpY: number }> | undefined;
+  /** 既存のギャップ経路プリセット */
+  existingApproach?: GapApproachRoute;
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
   onClose: () => void;
   stageWidthPx?: number;
@@ -107,6 +120,7 @@ export function DancerPathEditor({
   prevFormation,
   nextFormation,
   existingPaths,
+  existingApproach,
   setProject,
   onClose,
   stageWidthPx = 900,
@@ -121,6 +135,52 @@ export function DancerPathEditor({
 
   const [paths, setPaths] = useState<LocalPaths>(() =>
     buildInitialControlPoints(prevFormation, nextFormation, existingPaths)
+  );
+  /** 動線を表示するダンサー（個人クリック） */
+  const [visiblePathIds, setVisiblePathIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  /** 一括表示オン */
+  const [showAllPaths, setShowAllPaths] = useState(false);
+  /** 右クリックメニュー（経路プリセット） */
+  const [ctxMenu, setCtxMenu] = useState<{
+    clientX: number;
+    clientY: number;
+  } | null>(null);
+  /** 適用した経路プリセット（保存時にキューへ） */
+  const [appliedApproach, setAppliedApproach] = useState<
+    GapApproachRoute | undefined
+  >(() => existingApproach);
+
+  const isPathVisible = useCallback(
+    (id: string) => showAllPaths || visiblePathIds.has(id),
+    [showAllPaths, visiblePathIds]
+  );
+
+  const toggleDancerPath = useCallback((id: string) => {
+    setShowAllPaths(false);
+    setVisiblePathIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const applyApproachPreset = useCallback(
+    (route: GapApproachRoute) => {
+      const cps = controlPointsFromGapApproach(
+        prevFormation,
+        nextFormation,
+        route
+      );
+      setPaths(cps);
+      setAppliedApproach(route === "linear" ? undefined : route);
+      setShowAllPaths(true);
+      setVisiblePathIds(new Set());
+      setCtxMenu(null);
+    },
+    [prevFormation, nextFormation]
   );
 
   const dragging = useRef<string | null>(null);
@@ -377,15 +437,27 @@ export function DancerPathEditor({
               ...c,
               dancerCustomPaths:
                 Object.keys(toSave).length > 0 ? toSave : undefined,
+              gapApproachFromPrev: appliedApproach,
             }
           : c
       ),
     }));
     onClose();
-  }, [cueId, paths, prevFormation, nextFormation, setProject, onClose]);
+  }, [
+    cueId,
+    paths,
+    prevFormation,
+    nextFormation,
+    setProject,
+    onClose,
+    appliedApproach,
+  ]);
 
   const onReset = useCallback(() => {
     setPaths(buildInitialControlPoints(prevFormation, nextFormation));
+    setAppliedApproach(undefined);
+    setShowAllPaths(false);
+    setVisiblePathIds(new Set());
   }, [prevFormation, nextFormation]);
 
   const toSvgX = (pct: number) => (pct / 100) * stageWidthPx;
@@ -404,6 +476,149 @@ export function DancerPathEditor({
 
   const zoomHint =
     viewState.zoom > 1.001 ? ` · ${viewState.zoom.toFixed(viewState.zoom >= 10 ? 0 : 1)}×` : "";
+
+  const pathHint =
+    "ダンサーをクリックで動線表示 · 右クリックで経路プリセット／一括表示";
+
+  const ctxMenuPanel = ctxMenu ? (
+    <>
+      <button
+        type="button"
+        aria-label="メニューを閉じる"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 2600,
+          border: "none",
+          background: "transparent",
+          cursor: "default",
+        }}
+        onClick={() => setCtxMenu(null)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setCtxMenu(null);
+        }}
+      />
+      <div
+        role="menu"
+        aria-label="動線の経路設定"
+        style={{
+          position: "fixed",
+          left: Math.max(
+            8,
+            Math.min(
+              ctxMenu.clientX,
+              (readLayoutViewportSize().width || 800) - 300
+            )
+          ),
+          top: Math.max(
+            8,
+            Math.min(
+              ctxMenu.clientY,
+              (typeof window !== "undefined"
+                ? readLayoutViewportSize().height
+                : 600) - 360
+            )
+          ),
+          zIndex: 2601,
+          minWidth: 240,
+          maxWidth: "min(320px, calc(100vw - 16px))",
+          maxHeight: "min(78vh, 520px)",
+          overflowY: "auto",
+          padding: 8,
+          borderRadius: 10,
+          border: `1px solid ${shell.border}`,
+          background: shell.surface,
+          boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          role="menuitem"
+          style={{
+            ...btnSecondary,
+            display: "block",
+            width: "100%",
+            textAlign: "left",
+            marginBottom: 6,
+            fontSize: 13,
+            padding: "9px 10px",
+            fontWeight: 700,
+            borderColor: showAllPaths
+              ? "rgba(52, 211, 153, 0.7)"
+              : undefined,
+            color: showAllPaths ? "#a7f3d0" : undefined,
+          }}
+          onClick={() => {
+            setShowAllPaths((v) => !v);
+            if (!showAllPaths) setVisiblePathIds(new Set());
+            setCtxMenu(null);
+          }}
+        >
+          {showAllPaths ? "一括表示をオフ" : "一括表示"}
+        </button>
+        <div
+          style={{
+            borderTop: `1px solid ${shell.border}`,
+            margin: "6px 0 8px",
+          }}
+        />
+        {GAP_APPROACH_OPTIONS.map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            role="menuitem"
+            style={{
+              ...btnSecondary,
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              marginBottom: 6,
+              fontSize: 12,
+              padding: "8px 10px",
+              lineHeight: 1.35,
+              whiteSpace: "normal",
+            }}
+            onClick={() => applyApproachPreset(opt.id)}
+          >
+            {opt.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          role="menuitem"
+          style={{
+            ...btnSecondary,
+            display: "block",
+            width: "100%",
+            textAlign: "left",
+            marginTop: 4,
+            fontSize: 12,
+            padding: "8px 10px",
+          }}
+          onClick={() => {
+            setPaths(buildInitialControlPoints(prevFormation, nextFormation));
+            setAppliedApproach(undefined);
+            setShowAllPaths(false);
+            setVisiblePathIds(new Set());
+            setCtxMenu(null);
+          }}
+        >
+          設定をクリア（線形のみ）
+        </button>
+      </div>
+    </>
+  ) : null;
+
+  const onStageContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setCtxMenu({ clientX: e.clientX, clientY: e.clientY });
+    },
+    []
+  );
 
   const stageSvg = (
     <svg
@@ -454,6 +669,7 @@ export function DancerPathEditor({
         const cpx = toSvgX(cp.cpX);
         const cpy = toSvgY(cp.cpY);
         const stationary = isStationaryPath(a.xPct, a.yPct, b.xPct, b.yPct);
+        const pathShown = isPathVisible(a.id);
         const isActive = activeDragId === a.id;
         const isDimmed = activeDragId != null && !isActive;
         const labelFont = isActive
@@ -469,56 +685,81 @@ export function DancerPathEditor({
           : markers.pathStroke;
         const guideStroke = isActive ? "#fda4af" : "#7f1d1d";
 
+        const onMarkerToggle = (e: React.PointerEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleDancerPath(a.id);
+        };
+
         return (
           <g
             key={a.id}
             opacity={groupOpacity}
             style={isActive ? { filter: "drop-shadow(0 0 6px rgba(255,255,255,0.45))" } : undefined}
           >
-            <line
-              x1={ax}
-              y1={ay}
-              x2={cpx}
-              y2={cpy}
-              stroke={guideStroke}
-              strokeWidth={markers.guideStroke}
-              strokeDasharray="4,3"
-            />
-            <line
-              x1={bx}
-              y1={by}
-              x2={cpx}
-              y2={cpy}
-              stroke={guideStroke}
-              strokeWidth={markers.guideStroke}
-              strokeDasharray="4,3"
-            />
-
-            <path
-              d={bezierD(a.xPct, a.yPct, cp.cpX, cp.cpY, b.xPct, b.yPct)}
-              fill="none"
-              stroke={pathStroke}
-              strokeWidth={pathWidth}
-              strokeDasharray="6,3"
-            />
+            {pathShown ? (
+              <>
+                <line
+                  x1={ax}
+                  y1={ay}
+                  x2={cpx}
+                  y2={cpy}
+                  stroke={guideStroke}
+                  strokeWidth={markers.guideStroke}
+                  strokeDasharray="4,3"
+                />
+                <line
+                  x1={bx}
+                  y1={by}
+                  x2={cpx}
+                  y2={cpy}
+                  stroke={guideStroke}
+                  strokeWidth={markers.guideStroke}
+                  strokeDasharray="4,3"
+                />
+                <path
+                  d={bezierD(a.xPct, a.yPct, cp.cpX, cp.cpY, b.xPct, b.yPct)}
+                  fill="none"
+                  stroke={pathStroke}
+                  strokeWidth={pathWidth}
+                  strokeDasharray="6,3"
+                />
+              </>
+            ) : null}
 
             {stationary ? (
               <>
                 <circle
                   cx={ax}
                   cy={ay}
-                  r={markers.formationR * (isActive ? 1.12 : 1)}
-                  fill={isActive ? "rgba(59,130,246,0.55)" : "rgba(59,130,246,0.28)"}
-                  stroke={isActive ? "#93c5fd" : "#3b82f6"}
-                  strokeWidth={markers.formationStroke * (isActive ? 1.25 : 1)}
+                  r={markers.formationR * (isActive || pathShown ? 1.12 : 1)}
+                  fill={
+                    pathShown
+                      ? "rgba(59,130,246,0.55)"
+                      : isActive
+                        ? "rgba(59,130,246,0.55)"
+                        : "rgba(59,130,246,0.28)"
+                  }
+                  stroke={pathShown || isActive ? "#93c5fd" : "#3b82f6"}
+                  strokeWidth={markers.formationStroke * (pathShown || isActive ? 1.25 : 1)}
+                  style={{ cursor: "pointer" }}
+                  onPointerDown={onMarkerToggle}
                 />
                 <circle
                   cx={ax}
                   cy={ay}
-                  r={markers.formationR * 0.58 * (isActive ? 1.12 : 1)}
-                  fill={isActive ? "rgba(34,197,94,0.55)" : "rgba(34,197,94,0.32)"}
-                  stroke={isActive ? "#86efac" : "#22c55e"}
-                  strokeWidth={markers.formationStroke * 0.9 * (isActive ? 1.25 : 1)}
+                  r={markers.formationR * 0.58 * (isActive || pathShown ? 1.12 : 1)}
+                  fill={
+                    pathShown
+                      ? "rgba(34,197,94,0.55)"
+                      : isActive
+                        ? "rgba(34,197,94,0.55)"
+                        : "rgba(34,197,94,0.32)"
+                  }
+                  stroke={pathShown || isActive ? "#86efac" : "#22c55e"}
+                  strokeWidth={markers.formationStroke * 0.9 * (pathShown || isActive ? 1.25 : 1)}
+                  style={{ cursor: "pointer" }}
+                  onPointerDown={onMarkerToggle}
                 />
                 <text
                   x={ax}
@@ -528,8 +769,8 @@ export function DancerPathEditor({
                   fill={stationaryLabelFill}
                   fontSize={labelFont}
                   fontWeight={800}
-                  stroke={isActive ? "rgba(15,23,42,0.85)" : "none"}
-                  strokeWidth={isActive ? 3 : 0}
+                  stroke={isActive || pathShown ? "rgba(15,23,42,0.85)" : "none"}
+                  strokeWidth={isActive || pathShown ? 3 : 0}
                   paintOrder="stroke fill"
                   pointerEvents="none"
                 >
@@ -541,10 +782,18 @@ export function DancerPathEditor({
                 <circle
                   cx={ax}
                   cy={ay}
-                  r={markers.formationR * (isActive ? 1.12 : 1)}
-                  fill={isActive ? "rgba(59,130,246,0.55)" : "rgba(59,130,246,0.28)"}
-                  stroke={isActive ? "#93c5fd" : "#3b82f6"}
-                  strokeWidth={markers.formationStroke * (isActive ? 1.25 : 1)}
+                  r={markers.formationR * (isActive || pathShown ? 1.12 : 1)}
+                  fill={
+                    pathShown
+                      ? "rgba(59,130,246,0.55)"
+                      : isActive
+                        ? "rgba(59,130,246,0.55)"
+                        : "rgba(59,130,246,0.28)"
+                  }
+                  stroke={pathShown || isActive ? "#93c5fd" : "#3b82f6"}
+                  strokeWidth={markers.formationStroke * (pathShown || isActive ? 1.25 : 1)}
+                  style={{ cursor: "pointer" }}
+                  onPointerDown={onMarkerToggle}
                 />
                 <text
                   x={ax}
@@ -554,8 +803,8 @@ export function DancerPathEditor({
                   fill={prevLabelFill}
                   fontSize={labelFont}
                   fontWeight={800}
-                  stroke={isActive ? "rgba(15,23,42,0.85)" : "none"}
-                  strokeWidth={isActive ? 3 : 0}
+                  stroke={isActive || pathShown ? "rgba(15,23,42,0.85)" : "none"}
+                  strokeWidth={isActive || pathShown ? 3 : 0}
                   paintOrder="stroke fill"
                   pointerEvents="none"
                 >
@@ -565,10 +814,18 @@ export function DancerPathEditor({
                 <circle
                   cx={bx}
                   cy={by}
-                  r={markers.formationR * (isActive ? 1.12 : 1)}
-                  fill={isActive ? "rgba(34,197,94,0.5)" : "rgba(34,197,94,0.24)"}
-                  stroke={isActive ? "#86efac" : "#22c55e"}
-                  strokeWidth={markers.formationStroke * (isActive ? 1.25 : 1)}
+                  r={markers.formationR * (isActive || pathShown ? 1.12 : 1)}
+                  fill={
+                    pathShown
+                      ? "rgba(34,197,94,0.5)"
+                      : isActive
+                        ? "rgba(34,197,94,0.5)"
+                        : "rgba(34,197,94,0.24)"
+                  }
+                  stroke={pathShown || isActive ? "#86efac" : "#22c55e"}
+                  strokeWidth={markers.formationStroke * (pathShown || isActive ? 1.25 : 1)}
+                  style={{ cursor: "pointer" }}
+                  onPointerDown={onMarkerToggle}
                 />
                 <text
                   x={bx}
@@ -578,8 +835,8 @@ export function DancerPathEditor({
                   fill={nextLabelFill}
                   fontSize={labelFont}
                   fontWeight={800}
-                  stroke={isActive ? "rgba(15,23,42,0.85)" : "none"}
-                  strokeWidth={isActive ? 3 : 0}
+                  stroke={isActive || pathShown ? "rgba(15,23,42,0.85)" : "none"}
+                  strokeWidth={isActive || pathShown ? 3 : 0}
                   paintOrder="stroke fill"
                   pointerEvents="none"
                 >
@@ -588,23 +845,27 @@ export function DancerPathEditor({
               </>
             )}
 
-            <circle
-              cx={cpx}
-              cy={cpy}
-              r={markers.controlR * (isActive ? 1.2 : 1)}
-              fill={isActive ? "#fbbf24" : "#f59e0b"}
-              stroke="#fde68a"
-              strokeWidth={markers.controlStroke * (isActive ? 1.35 : 1)}
-              pointerEvents="none"
-            />
-            <circle
-              cx={cpx}
-              cy={cpy}
-              r={markers.controlHitR}
-              fill="transparent"
-              style={{ cursor: isActive ? "grabbing" : "grab", touchAction: "none" }}
-              onPointerDown={(e) => beginControlPointDrag(a.id, e)}
-            />
+            {pathShown ? (
+              <>
+                <circle
+                  cx={cpx}
+                  cy={cpy}
+                  r={markers.controlR * (isActive ? 1.2 : 1)}
+                  fill={isActive ? "#fbbf24" : "#f59e0b"}
+                  stroke="#fde68a"
+                  strokeWidth={markers.controlStroke * (isActive ? 1.35 : 1)}
+                  pointerEvents="none"
+                />
+                <circle
+                  cx={cpx}
+                  cy={cpy}
+                  r={markers.controlHitR}
+                  fill="transparent"
+                  style={{ cursor: isActive ? "grabbing" : "grab", touchAction: "none" }}
+                  onPointerDown={(e) => beginControlPointDrag(a.id, e)}
+                />
+              </>
+            ) : null}
           </g>
         );
       })}
@@ -639,7 +900,8 @@ export function DancerPathEditor({
         <header className="dancer-path-editor-header dancer-path-editor-header--portrait">
           <h2 className="dancer-path-editor-title">個人別移動軌道</h2>
           <p className="dancer-path-editor-hint">
-            黄色い点をドラッグして曲線を調整 · 2本指で拡大{zoomHint}
+            {pathHint}
+            {zoomHint}
           </p>
         </header>
 
@@ -650,6 +912,7 @@ export function DancerPathEditor({
           onPointerUp={onStagePointerUp}
           onPointerCancel={onStagePointerUp}
           onWheel={onStageWheel}
+          onContextMenu={onStageContextMenu}
         >
           {stageSvg}
         </div>
@@ -672,6 +935,7 @@ export function DancerPathEditor({
         <div className="dancer-path-editor-actions dancer-path-editor-actions--portrait">
           {actionButtons}
         </div>
+        {ctxMenuPanel}
       </div>
     );
   }
@@ -688,7 +952,8 @@ export function DancerPathEditor({
         <div className="dancer-path-editor-title-block">
           個人別移動軌道の設定
           <span className="dancer-path-editor-hint dancer-path-editor-hint--desktop">
-            黄色い点をドラッグして曲線を調整 · ピンチ／ホイールで拡大{zoomHint}
+            {pathHint}
+            {zoomHint}
           </span>
         </div>
       </div>
@@ -700,6 +965,7 @@ export function DancerPathEditor({
         onPointerUp={onStagePointerUp}
         onPointerCancel={onStagePointerUp}
         onWheel={onStageWheel}
+        onContextMenu={onStageContextMenu}
       >
         {stageSvg}
       </div>
@@ -728,6 +994,7 @@ export function DancerPathEditor({
       <div className="dancer-path-editor-actions dancer-path-editor-actions--desktop">
         {actionButtons}
       </div>
+      {ctxMenuPanel}
     </div>
   );
 }

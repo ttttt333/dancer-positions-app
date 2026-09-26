@@ -2,7 +2,6 @@ import type { CSSProperties, Dispatch, SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import { sortCuesByStart } from "../core/timelineController";
-import { GAP_APPROACH_OPTIONS } from "../lib/gapDancerInterpolation";
 import { readLayoutViewportSize } from "../lib/viewportLayoutMetrics";
 import { requestStageDockSection } from "../lib/stageEditDockHost";
 import {
@@ -66,6 +65,11 @@ export type TimelineWaveMenusProps = {
   onOpenGapLightingSettings?: (nextCueId: string) => void;
   /** Change ボタンと同じ：立ち位置雛形ピッカーを開く */
   onOpenFormationChange?: () => void;
+  /**
+   * キュー照明をステージに見えるよう再生停止・シーク・選択する。
+   * 「基本の照明を追加」「照明設定」の前に呼ぶ。
+   */
+  onFocusCueForLighting?: (cueId: string) => void;
 };
 
 /**
@@ -91,6 +95,7 @@ export function TimelineWaveMenus({
   onOpenLightingSettings,
   onOpenGapLightingSettings,
   onOpenFormationChange,
+  onFocusCueForLighting,
 }: TimelineWaveMenusProps) {
   const waveCueMenuTargetCue = waveCueMenu
     ? cuesSorted.find((c) => c.id === waveCueMenu.cueId)
@@ -158,6 +163,7 @@ export function TimelineWaveMenus({
   };
 
   const addBasicLights = (cueId: string) => {
+    onFocusCueForLighting?.(cueId);
     setProject((p) => ({
       ...p,
       stageLights: replaceCueWithBasicStageLights(p.stageLights ?? [], cueId),
@@ -304,6 +310,22 @@ export function TimelineWaveMenus({
           >
             複製
           </button>
+          {onOpenPathEditor ? (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={viewMode === "view"}
+              style={menuBtnBase(!!waveCueMenu.fullscreen)}
+              onClick={() => {
+                if (viewMode === "view") return;
+                const id = waveCueMenu.cueId;
+                closeCueMenu();
+                onOpenPathEditor(id);
+              }}
+            >
+              動線設定
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"
@@ -365,6 +387,7 @@ export function TimelineWaveMenus({
               if (viewMode === "view") return;
               const id = waveCueMenu.cueId;
               closeCueMenu();
+              onFocusCueForLighting?.(id);
               onOpenLightingSettings?.(id);
             }}
           >
@@ -479,115 +502,36 @@ export function TimelineWaveMenus({
         >
           {gapRouteMenu.fullscreen ? (
             <div className="timeline-gap-route-menu-header">
-              <h2 className="timeline-gap-route-menu-title">キュー間の動線</h2>
+              <h2 className="timeline-gap-route-menu-title">キュー間の設定</h2>
               <p className="timeline-gap-route-menu-sub">
-                前のキューから次のキューへの入り方を選びます
+                動線・照明を設定します
               </p>
             </div>
           ) : null}
           <div className="timeline-gap-route-menu-body">
-          {/* 個人設定ボタンを最上部に */}
-          {onOpenPathEditor && viewMode !== "view" && (
-            <>
-              <button
-                type="button"
-                role="menuitem"
-                style={{
-                  ...btnSecondary,
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                  fontSize: "14px",
-                  padding: "10px 12px",
-                  borderColor: "rgba(139,92,246,0.7)",
-                  color: "#ddd6fe",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  marginBottom: "8px",
-                }}
-                onClick={() => {
-                  const nextId = gapRouteMenu.nextCueId;
-                  setGapRouteMenu(null);
-                  onOpenPathEditor(nextId);
-                }}
-              >
-                🎯 動線を個人設定…
-              </button>
-              <div style={{ borderTop: `1px solid ${shell.border}`, margin: "8px 0" }} />
-            </>
-          )}
-
-          {GAP_APPROACH_OPTIONS.map((opt) => (
+          {onOpenPathEditor && viewMode !== "view" ? (
             <button
-              key={opt.id}
               type="button"
               role="menuitem"
-              disabled={viewMode === "view"}
               style={{
                 ...btnSecondary,
                 display: "block",
                 width: "100%",
                 textAlign: "left",
+                fontSize: "14px",
+                padding: "10px 12px",
+                cursor: "pointer",
                 marginBottom: "6px",
-                fontSize: "13px",
-                padding: "9px 10px",
-                lineHeight: 1.4,
-                whiteSpace: "normal",
-                cursor: viewMode === "view" ? "not-allowed" : "pointer",
               }}
               onClick={() => {
                 const nextId = gapRouteMenu.nextCueId;
                 setGapRouteMenu(null);
-                if (viewMode === "view") return;
-                setProject((p) => ({
-                  ...p,
-                  cues: sortCuesByStart(
-                    p.cues.map((c) =>
-                      c.id === nextId
-                        ? {
-                            ...c,
-                            gapApproachFromPrev: opt.id === "linear" ? undefined : opt.id,
-                          }
-                        : c
-                    )
-                  ),
-                }));
+                onOpenPathEditor(nextId);
               }}
             >
-              {opt.label}
+              動線設定
             </button>
-          ))}
-          <button
-            type="button"
-            role="menuitem"
-            disabled={viewMode === "view"}
-            style={{
-              ...btnSecondary,
-              display: "block",
-              width: "100%",
-              textAlign: "left",
-              marginTop: "4px",
-              fontSize: "13px",
-              padding: "9px 10px",
-              cursor: viewMode === "view" ? "not-allowed" : "pointer",
-            }}
-            onClick={() => {
-              const nextId = gapRouteMenu.nextCueId;
-              setGapRouteMenu(null);
-              if (viewMode === "view") return;
-              setProject((p) => ({
-                ...p,
-                cues: sortCuesByStart(
-                  p.cues.map((c) =>
-                    c.id === nextId ? { ...c, gapApproachFromPrev: undefined } : c
-                  )
-                ),
-              }));
-            }}
-          >
-            設定をクリア（線形のみ）
-          </button>
-          <div style={{ borderTop: `1px solid ${shell.border}`, margin: "8px 0 6px" }} />
+          ) : null}
           <button
             type="button"
             role="menuitem"
@@ -646,7 +590,7 @@ export function TimelineWaveMenus({
               onOpenGapLightingSettings?.(nextId);
             }}
           >
-            前の照明をこの移動にコピー
+            前の照明をここに適応
           </button>
           <button
             type="button"

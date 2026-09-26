@@ -29,10 +29,10 @@ export function resolveWaveGapConnectorStyle(opts: {
   }
   if (opts.configuredGapMovement) {
     return {
-      fillStyle: "rgba(239, 68, 68, 0.14)",
-      strokeStyle: "rgba(239, 68, 68, 0.62)",
-      crossStyle: "rgba(252, 165, 165, 0.95)",
-      lineWidth: lw * 1.12,
+      fillStyle: "rgba(185, 28, 28, 0.38)",
+      strokeStyle: "rgba(239, 68, 68, 0.9)",
+      crossStyle: "rgba(254, 202, 202, 1)",
+      lineWidth: lw * 1.18,
     };
   }
   return {

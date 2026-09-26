@@ -101,6 +101,7 @@ export function useTimelinePanelSessionBundle(
     onOpenPathEditor,
     onOpenLightingSettings,
     onOpenGapLightingSettings,
+    onFocusCueForLighting,
     publicShareView = false,
     audioFileInputRef,
     extractProgress = null,
@@ -446,6 +447,7 @@ export function useTimelinePanelSessionBundle(
       onOpenPathEditor,
       onOpenLightingSettings,
       onOpenGapLightingSettings,
+      onFocusCueForLighting,
     };
 
   return {

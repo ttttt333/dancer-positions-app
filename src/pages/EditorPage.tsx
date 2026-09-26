@@ -2922,9 +2922,38 @@ function EditorPageContent({
       extractProgress={editorAudioSession.extractProgress}
       onPickAudio={editorAudioSession.onPickAudio}
       onOpenPathEditor={(cueId) => setPathEditorCueId(cueId)}
-      onOpenLightingSettings={() => {
+      onOpenLightingSettings={(cueId) => {
+        if (cueId) {
+          const cue = project?.cues.find((c) => c.id === cueId);
+          if (cue) {
+            const mid = (cue.tStartSec + cue.tEndSec) / 2;
+            usePlaybackUiStore.getState().setIsPlaying(false);
+            usePlaybackUiStore.getState().setCurrentTimeSec(mid);
+            try {
+              playbackEngine.pause();
+              playbackEngine.seek(mid);
+            } catch {
+              /* ignore */
+            }
+            setSelectedCueIds([cueId]);
+          }
+        }
         setFloorTextPreferredTab("lights");
         setFloorTextSideSheetOpen(true);
+      }}
+      onFocusCueForLighting={(cueId) => {
+        const cue = project?.cues.find((c) => c.id === cueId);
+        if (!cue) return;
+        const mid = (cue.tStartSec + cue.tEndSec) / 2;
+        usePlaybackUiStore.getState().setIsPlaying(false);
+        usePlaybackUiStore.getState().setCurrentTimeSec(mid);
+        try {
+          playbackEngine.pause();
+          playbackEngine.seek(mid);
+        } catch {
+          /* ignore */
+        }
+        setSelectedCueIds([cueId]);
       }}
       onOpenFormationChange={() => setFormationPresetPickerOpen(true)}
       onOpenGapLightingSettings={(nextCueId) => {
