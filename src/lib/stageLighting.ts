@@ -156,11 +156,36 @@ export function createDefaultStageLight(
     StageLightKind,
     Pick<StageLightFixture, "xPct" | "yPct" | "color" | "intensity">
   > = {
-    suspension: { xPct: 50, yPct: 35, color: "#fef08a", intensity: 0.35 },
-    sideSpot: { xPct: 12, yPct: 55, color: "#fb923c", intensity: 0.4 },
-    backlight: { xPct: 50, yPct: 18, color: "#60a5fa", intensity: 0.3 },
-    footlight: { xPct: 50, yPct: 88, color: "#f472b6", intensity: 0.35 },
-    pinSpot: { xPct: 50, yPct: 50, color: "#ffffff", intensity: 0.55 },
+    suspension: {
+      xPct: 50,
+      yPct: 35,
+      color: BASIC_STAGE_LIGHT_COLORS.suspension,
+      intensity: 0.78,
+    },
+    sideSpot: {
+      xPct: 12,
+      yPct: 55,
+      color: BASIC_STAGE_LIGHT_COLORS.sideSpot,
+      intensity: 0.78,
+    },
+    backlight: {
+      xPct: 50,
+      yPct: 18,
+      color: BASIC_STAGE_LIGHT_COLORS.backlight,
+      intensity: 0.72,
+    },
+    footlight: {
+      xPct: 50,
+      yPct: 88,
+      color: BASIC_STAGE_LIGHT_COLORS.footlight,
+      intensity: 0.75,
+    },
+    pinSpot: {
+      xPct: 50,
+      yPct: 50,
+      color: BASIC_STAGE_LIGHT_COLORS.pinSpot,
+      intensity: 0.85,
+    },
   };
   const p = presets[kind];
   const r = defaultRadiusPctForKind(kind);

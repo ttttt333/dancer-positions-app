@@ -69,12 +69,15 @@ import {
   nextLightLabel,
   replaceCueLightsFromPreviousCue,
   replaceCueWithBasicStageLights,
+  BASIC_STAGE_LIGHT_COLORS,
   STAGE_LIGHT_KIND_LABELS,
   STAGE_LIGHT_KINDS,
   STAGE_LIGHTS_MAX,
 } from "../lib/stageLighting";
 import { sortCuesByStart } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { useStageLightsViewStore } from "../store/stageLightsViewStore";
+import { playbackEngine } from "../core/playbackEngine";
 import {
   alignSelectedDancers,
   distributeSelectedDancers,
@@ -709,8 +712,13 @@ export function StageBoardBody({
     section: "shape" | "display" | "sort";
   } | null>(null);
   const dockSectionRequestIdRef = useRef(0);
-  /** コンテキストメニューから追加した直近の照明（一つ前の照明を追加用） */
+  /** コンテキストメニューから追加した直近の照明（同じ照明を追加用） */
   const lastStageLightTemplateRef = useRef<StageLightFixture | null>(null);
+  /** 右クリック位置（メニューを閉じても座標を残す） */
+  const stageLightMenuPointRef = useRef<{
+    clientX: number;
+    clientY: number;
+  } | null>(null);
 
   useEffect(() => {
     return subscribeStageDockSectionRequest((req) => {
@@ -4070,6 +4078,15 @@ export function StageBoardBody({
   }, [centerFieldGuideIntervalMm, Wmm]);
 
   const currentTimeSec = usePlaybackUiStore((s) => s.currentTimeSec);
+  const stageLightsVisibleOnStage = useStageLightsViewStore(
+    (s) => s.visibleOnStage
+  );
+  const setStageLightsVisibleOnStage = useStageLightsViewStore(
+    (s) => s.setVisibleOnStage
+  );
+  const toggleStageLightsVisibleOnStage = useStageLightsViewStore(
+    (s) => s.toggleVisibleOnStage
+  );
   const sleeveCurtains = useMemo(
     () =>
       normalizeStageSleeveCurtains(
@@ -4090,12 +4107,15 @@ export function StageBoardBody({
   );
   const activeStageLights = useMemo(
     () =>
-      activeStageLightsAtTime(project.stageLights, currentTimeSec, {
-        cues: project.cues,
-        // 再生中は時間帯どおり。停止中は選択キューの照明を優先表示。
-        focusCueId: lightsLockedByPlayback ? null : editCueId,
-      }),
+      stageLightsVisibleOnStage
+        ? activeStageLightsAtTime(project.stageLights, currentTimeSec, {
+            cues: project.cues,
+            // 再生中は時間帯どおり。停止中は選択キューの照明を優先表示。
+            focusCueId: lightsLockedByPlayback ? null : editCueId,
+          })
+        : [],
     [
+      stageLightsVisibleOnStage,
       project.stageLights,
       project.cues,
       currentTimeSec,
@@ -4121,7 +4141,13 @@ export function StageBoardBody({
   const stageLightsEditable =
     viewMode !== "view" &&
     !lightsLockedByPlayback &&
-    Boolean(onStageLightsChange);
+    Boolean(onStageLightsChange) &&
+    stageLightsVisibleOnStage;
+
+  useEffect(() => {
+    if (stageLightsVisibleOnStage) return;
+    onSelectStageLightId?.(null);
+  }, [stageLightsVisibleOnStage, onSelectStageLightId]);
 
   const mainFloorStyle: CSSProperties = useMemo(
     () => ({
@@ -5330,6 +5356,10 @@ export function StageBoardBody({
       const anchorId =
         primarySelectedDancer?.id ?? selectedDancerIds[0] ?? null;
       if (anchorId && selectedDancerIds.length >= 1) {
+        stageLightMenuPointRef.current = {
+          clientX: e.clientX,
+          clientY: e.clientY,
+        };
         setStageContextMenu({
           kind: "dancerDock",
           clientX: e.clientX,
@@ -5338,6 +5368,10 @@ export function StageBoardBody({
         });
         return;
       }
+      stageLightMenuPointRef.current = {
+        clientX: e.clientX,
+        clientY: e.clientY,
+      };
       setStageContextMenu({
         kind: "floor",
         clientX: e.clientX,
@@ -5351,58 +5385,121 @@ export function StageBoardBody({
     ]
   );
 
+  const focusEditCueForLighting = useCallback(() => {
+    if (!editCueId) return;
+    const cue = project.cues.find((c) => c.id === editCueId);
+    if (!cue) return;
+    const mid = (cue.tStartSec + cue.tEndSec) / 2;
+    usePlaybackUiStore.getState().setIsPlaying(false);
+    usePlaybackUiStore.getState().setCurrentTimeSec(mid);
+    try {
+      playbackEngine.pause();
+      playbackEngine.seek(mid);
+    } catch {
+      /* ignore */
+    }
+  }, [editCueId, project.cues]);
+
   const handleAddLightFromContextMenu = useCallback(
     (kindRaw: string) => {
-      if (!onStageLightsChange || viewMode === "view" || lightsLockedByPlayback) {
+      if (viewMode === "view") {
+        window.alert("閲覧モードでは照明を追加できません。");
+        return;
+      }
+      if (lightsLockedByPlayback) {
+        window.alert(
+          "再生中は照明を追加できません。停止してから追加してください。"
+        );
         return;
       }
       const kind = kindRaw as StageLightKind;
-      if (!STAGE_LIGHT_KINDS.includes(kind)) return;
-      const existing = project.stageLights ?? [];
-      if (existing.length >= STAGE_LIGHTS_MAX) return;
-      const L = createDefaultStageLight(kind);
-      L.label = nextLightLabel(kind, existing);
-      if (editCueId) {
-        L.cueId = editCueId;
-        L.tStartSec = null;
-        L.tEndSec = null;
-      }
-      const menu = stageContextMenu;
-      const floor = stageMainFloorRef.current;
-      if (menu && floor) {
-        const r = floor.getBoundingClientRect();
-        if (r.width > 1 && r.height > 1) {
-          L.xPct = Math.max(
-            5,
-            Math.min(95, ((menu.clientX - r.left) / r.width) * 100)
+      if (!(kind in STAGE_LIGHT_KIND_LABELS)) return;
+
+      let addedId: string | null = null;
+      setProject((p) => {
+        if (!p || p.viewMode === "view") return p;
+        const existing = p.stageLights ?? [];
+        if (existing.length >= STAGE_LIGHTS_MAX) {
+          window.alert(
+            `照明は最大 ${STAGE_LIGHTS_MAX} 件までです（現在 ${existing.length} 件）。不要な照明を消してから追加してください。`
           );
-          L.yPct = Math.max(
-            5,
-            Math.min(95, ((menu.clientY - r.top) / r.height) * 100)
-          );
+          return p;
         }
+
+        const L = createDefaultStageLight(kind);
+        L.label = nextLightLabel(kind, existing);
+        L.color = BASIC_STAGE_LIGHT_COLORS[kind] ?? L.color;
+        if (editCueId) {
+          L.cueId = editCueId;
+          L.tStartSec = null;
+          L.tEndSec = null;
+        }
+
+        const same = existing.filter((x) => x.kind === kind);
+        if (kind === "sideSpot") {
+          L.xPct = same.length % 2 === 0 ? 12 : 88;
+          L.yPct = 40 + (same.length % 5) * 8;
+        } else if (kind === "footlight") {
+          L.yPct = 90;
+          L.xPct = 20 + (same.length % 5) * 15;
+        } else if (
+          kind === "suspension" ||
+          kind === "backlight" ||
+          kind === "pinSpot"
+        ) {
+          L.xPct = Math.min(85, 25 + (same.length % 4) * 18);
+          L.yPct = Math.min(80, L.yPct + (same.length % 3) * 10);
+        }
+
+        const point = stageLightMenuPointRef.current;
+        const menu = stageContextMenu;
+        const floor = stageMainFloorRef.current;
+        const clientX = point?.clientX ?? menu?.clientX;
+        const clientY = point?.clientY ?? menu?.clientY;
+        if (
+          floor &&
+          typeof clientX === "number" &&
+          typeof clientY === "number"
+        ) {
+          const r = floor.getBoundingClientRect();
+          if (r.width > 1 && r.height > 1) {
+            L.xPct = Math.max(
+              5,
+              Math.min(95, ((clientX - r.left) / r.width) * 100)
+            );
+            L.yPct = Math.max(
+              5,
+              Math.min(95, ((clientY - r.top) / r.height) * 100)
+            );
+          }
+        }
+
+        lastStageLightTemplateRef.current = L;
+        addedId = L.id;
+        return { ...p, stageLights: [...existing, L] };
+      });
+      if (addedId) {
+        setStageLightsVisibleOnStage(true);
+        focusEditCueForLighting();
+        onSelectStageLightId?.(addedId);
       }
-      lastStageLightTemplateRef.current = L;
-      onStageLightsChange([...existing, L]);
-      onSelectStageLightId?.(L.id);
     },
     [
-      onStageLightsChange,
+      setProject,
       onSelectStageLightId,
       viewMode,
       lightsLockedByPlayback,
-      project.stageLights,
       editCueId,
       stageContextMenu,
       stageMainFloorRef,
+      focusEditCueForLighting,
+      setStageLightsVisibleOnStage,
     ]
   );
 
   /** 直前キューの照明を、いま選択中のキューへ適用 */
   const handleApplyPreviousCueLightsFromContextMenu = useCallback(() => {
-    if (!onStageLightsChange || viewMode === "view" || lightsLockedByPlayback) {
-      return;
-    }
+    if (viewMode === "view" || lightsLockedByPlayback) return;
     if (!editCueId) {
       window.alert("キューを選択してから実行してください。");
       return;
@@ -5414,109 +5511,139 @@ export function StageBoardBody({
       return;
     }
     const prevId = sorted[i - 1]!.id;
-    const next = replaceCueLightsFromPreviousCue(
-      project.stageLights ?? [],
-      prevId,
-      editCueId
-    );
-    onStageLightsChange(next);
+    setProject((p) => {
+      if (!p || p.viewMode === "view") return p;
+      return {
+        ...p,
+        stageLights: replaceCueLightsFromPreviousCue(
+          p.stageLights ?? [],
+          prevId,
+          editCueId
+        ),
+      };
+    });
+    setStageLightsVisibleOnStage(true);
+    focusEditCueForLighting();
   }, [
-    onStageLightsChange,
+    setProject,
     viewMode,
     lightsLockedByPlayback,
     editCueId,
     project.cues,
-    project.stageLights,
+    focusEditCueForLighting,
+    setStageLightsVisibleOnStage,
   ]);
 
   /** 基本照明一式をいまのキューへ置く */
   const handleAddBasicLightsFromContextMenu = useCallback(() => {
-    if (!onStageLightsChange || viewMode === "view" || lightsLockedByPlayback) {
-      return;
-    }
+    if (viewMode === "view" || lightsLockedByPlayback) return;
     if (!editCueId) {
       window.alert("キューを選択してから実行してください。");
       return;
     }
-    onStageLightsChange(
-      replaceCueWithBasicStageLights(project.stageLights ?? [], editCueId)
-    );
+    setProject((p) => {
+      if (!p || p.viewMode === "view") return p;
+      return {
+        ...p,
+        stageLights: replaceCueWithBasicStageLights(
+          p.stageLights ?? [],
+          editCueId
+        ),
+      };
+    });
+    setStageLightsVisibleOnStage(true);
+    focusEditCueForLighting();
   }, [
-    onStageLightsChange,
+    setProject,
     viewMode,
     lightsLockedByPlayback,
     editCueId,
-    project.stageLights,
+    focusEditCueForLighting,
+    setStageLightsVisibleOnStage,
   ]);
 
   /** 直近に追加／選択した照明と同じ設定で、クリック位置に追加 */
   const handleAddPreviousLightFromContextMenu = useCallback(() => {
-    if (!onStageLightsChange || viewMode === "view" || lightsLockedByPlayback) {
-      return;
-    }
-    const existing = project.stageLights ?? [];
-    if (existing.length >= STAGE_LIGHTS_MAX) return;
+    if (viewMode === "view" || lightsLockedByPlayback) return;
 
-    const fromTemplate = lastStageLightTemplateRef.current;
-    const fromSelected =
-      selectedStageLightId != null
-        ? existing.find((x) => x.id === selectedStageLightId)
-        : undefined;
-    const src = fromTemplate ?? fromSelected ?? existing[existing.length - 1];
-    if (!src) return;
-
-    const L: StageLightFixture = {
-      ...src,
-      id: crypto.randomUUID(),
-      label: `${(src.label ?? STAGE_LIGHT_KIND_LABELS[src.kind]).replace(
-        /\s*コピー\d*$/,
-        ""
-      )}`,
-    };
-    if (editCueId) {
-      L.cueId = editCueId;
-      L.tStartSec = null;
-      L.tEndSec = null;
-    }
-    const menu = stageContextMenu;
-    const floor = stageMainFloorRef.current;
-    if (menu && floor) {
-      const r = floor.getBoundingClientRect();
-      if (r.width > 1 && r.height > 1) {
-        L.xPct = Math.max(
-          5,
-          Math.min(95, ((menu.clientX - r.left) / r.width) * 100)
+    let addedId: string | null = null;
+    setProject((p) => {
+      if (!p || p.viewMode === "view") return p;
+      const existing = p.stageLights ?? [];
+      if (existing.length >= STAGE_LIGHTS_MAX) {
+        window.alert(
+          `照明は最大 ${STAGE_LIGHTS_MAX} 件までです（現在 ${existing.length} 件）。`
         );
-        L.yPct = Math.max(
-          5,
-          Math.min(95, ((menu.clientY - r.top) / r.height) * 100)
-        );
+        return p;
       }
-    } else {
-      L.xPct = Math.min(95, src.xPct + 4);
-      L.yPct = Math.min(95, src.yPct + 4);
+
+      const fromTemplate = lastStageLightTemplateRef.current;
+      const fromSelected =
+        selectedStageLightId != null
+          ? existing.find((x) => x.id === selectedStageLightId)
+          : undefined;
+      const src = fromTemplate ?? fromSelected ?? existing[existing.length - 1];
+      if (!src) return p;
+
+      const L: StageLightFixture = {
+        ...src,
+        id: crypto.randomUUID(),
+        label: `${(src.label ?? STAGE_LIGHT_KIND_LABELS[src.kind]).replace(
+          /\s*コピー\d*$/,
+          ""
+        )}`,
+      };
+      if (editCueId) {
+        L.cueId = editCueId;
+        L.tStartSec = null;
+        L.tEndSec = null;
+      }
+      const point = stageLightMenuPointRef.current;
+      const menu = stageContextMenu;
+      const floor = stageMainFloorRef.current;
+      const clientX = point?.clientX ?? menu?.clientX;
+      const clientY = point?.clientY ?? menu?.clientY;
+      if (
+        floor &&
+        typeof clientX === "number" &&
+        typeof clientY === "number"
+      ) {
+        const r = floor.getBoundingClientRect();
+        if (r.width > 1 && r.height > 1) {
+          L.xPct = Math.max(
+            5,
+            Math.min(95, ((clientX - r.left) / r.width) * 100)
+          );
+          L.yPct = Math.max(
+            5,
+            Math.min(95, ((clientY - r.top) / r.height) * 100)
+          );
+        }
+      } else {
+        L.xPct = Math.min(95, src.xPct + 4);
+        L.yPct = Math.min(95, src.yPct + 4);
+      }
+      lastStageLightTemplateRef.current = L;
+      addedId = L.id;
+      return { ...p, stageLights: [...existing, L] };
+    });
+    if (addedId) {
+      setStageLightsVisibleOnStage(true);
+      focusEditCueForLighting();
+      onSelectStageLightId?.(addedId);
     }
-    lastStageLightTemplateRef.current = L;
-    onStageLightsChange([...existing, L]);
-    onSelectStageLightId?.(L.id);
   }, [
-    onStageLightsChange,
+    setProject,
     onSelectStageLightId,
     viewMode,
     lightsLockedByPlayback,
-    project.stageLights,
     selectedStageLightId,
     editCueId,
     stageContextMenu,
     stageMainFloorRef,
+    focusEditCueForLighting,
+    setStageLightsVisibleOnStage,
   ]);
-
-  const canApplyPrevCueLights = useMemo(() => {
-    if (!editCueId) return false;
-    const sorted = sortCuesByStart(project.cues);
-    const i = sorted.findIndex((c) => c.id === editCueId);
-    return i > 0;
-  }, [editCueId, project.cues]);
 
   const previousLightAddHint = useMemo(() => {
     const existing = project.stageLights ?? [];
@@ -5802,12 +5929,42 @@ export function StageBoardBody({
               floorRef={stageMainFloorRef}
             />
           ) : null;
-        if (!sleeve && !centerMarksEdit && !lightsEdit) return null;
+        const lightsHiddenChip =
+          !stageLightsVisibleOnStage &&
+          viewMode !== "view" &&
+          (project.stageLights?.length ?? 0) > 0 ? (
+            <button
+              type="button"
+              onClick={() => setStageLightsVisibleOnStage(true)}
+              title="舞台上の照明を再表示"
+              style={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                zIndex: 40,
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(251,191,36,0.55)",
+                background: "rgba(15,23,42,0.92)",
+                color: "#fbbf24",
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: "pointer",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+                pointerEvents: "auto",
+              }}
+            >
+              照明：非表示中（タップで再表示）
+            </button>
+          ) : null;
+        if (!sleeve && !centerMarksEdit && !lightsEdit && !lightsHiddenChip)
+          return null;
         return (
           <>
             {sleeve}
             {centerMarksEdit}
             {lightsEdit}
+            {lightsHiddenChip}
           </>
         );
       })(),
@@ -6179,6 +6336,15 @@ export function StageBoardBody({
                         : undefined,
                     previousLightHint: previousLightAddHint,
                     defaultLightOpen: stageContextMenu.kind === "floor",
+                    stageLightsVisibleOnStage,
+                    onToggleStageLightsVisible:
+                      viewMode !== "view" &&
+                      Boolean(onStageLightsChange) &&
+                      (project.stageLights?.length ?? 0) > 0
+                        ? () => {
+                            toggleStageLightsVisibleOnStage();
+                          }
+                        : undefined,
                   }
                 : undefined
             }

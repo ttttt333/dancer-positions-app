@@ -31,6 +31,9 @@ export type StageDancerDockQuickMenuProps = {
   previousLightHint?: string | null;
   /** 照明種類一覧を最初から開く */
   defaultLightOpen?: boolean;
+  /** 舞台上の照明表示オン／オフ */
+  stageLightsVisibleOnStage?: boolean;
+  onToggleStageLightsVisible?: () => void;
 };
 
 const itemBtn: CSSProperties = {
@@ -78,6 +81,8 @@ export function StageDancerDockQuickMenu({
   onAddPreviousLight,
   previousLightHint,
   defaultLightOpen = false,
+  stageLightsVisibleOnStage = true,
+  onToggleStageLightsVisible,
 }: StageDancerDockQuickMenuProps) {
   const [dupOpen, setDupOpen] = useState(false);
   const [gatherOpen, setGatherOpen] = useState(true);
@@ -256,7 +261,8 @@ export function StageDancerDockQuickMenu({
           ) : null}
         </>
       ) : null}
-      {onAddLight && lightAddOptions && lightAddOptions.length > 0 ? (
+      {onToggleStageLightsVisible ||
+      (onAddLight && lightAddOptions && lightAddOptions.length > 0) ? (
         <>
           <div
             style={{
@@ -265,6 +271,47 @@ export function StageDancerDockQuickMenu({
               margin: "3px 6px",
             }}
           />
+          {onToggleStageLightsVisible ? (
+            <button
+              type="button"
+              role="menuitem"
+              style={itemBtn}
+              title={
+                stageLightsVisibleOnStage
+                  ? "舞台上の照明を隠して、立ち位置を操作しやすくします"
+                  : "舞台上の照明を再表示します"
+              }
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleStageLightsVisible();
+              }}
+            >
+              <span>
+                {stageLightsVisibleOnStage
+                  ? "照明を非表示"
+                  : "照明を再表示"}
+              </span>
+              <span
+                style={{
+                  color: stageLightsVisibleOnStage ? "#64748b" : "#fbbf24",
+                  fontSize: 10,
+                  fontWeight: 600,
+                }}
+              >
+                {stageLightsVisibleOnStage ? "表示中" : "非表示中"}
+              </span>
+            </button>
+          ) : null}
+          {onAddLight && lightAddOptions && lightAddOptions.length > 0 ? (
+            <>
           {onApplyPreviousCueLights ? (
             <button
               type="button"
@@ -277,7 +324,12 @@ export function StageDancerDockQuickMenu({
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "transparent";
               }}
-              onClick={() => onApplyPreviousCueLights()}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onApplyPreviousCueLights();
+              }}
             >
               <span>前の照明を適応</span>
             </button>
@@ -294,7 +346,12 @@ export function StageDancerDockQuickMenu({
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "transparent";
               }}
-              onClick={() => onAddBasicLights()}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onAddBasicLights();
+              }}
             >
               <span>基本の照明を追加</span>
             </button>
@@ -311,7 +368,12 @@ export function StageDancerDockQuickMenu({
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "transparent";
               }}
-              onClick={() => onAddPreviousLight()}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onAddPreviousLight();
+              }}
             >
               <span>同じ照明を追加</span>
               <span
@@ -360,12 +422,19 @@ export function StageDancerDockQuickMenu({
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "transparent";
                   }}
-                  onClick={() => onAddLight(opt.kind)}
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onAddLight(opt.kind);
+                  }}
                 >
                   <span>＋{opt.label}</span>
                 </button>
               ))
             : null}
+            </>
+          ) : null}
         </>
       ) : null}
       {onDelete || onOpenLegacyMore ? (

@@ -1672,10 +1672,12 @@ function EditorPageContent({
 
   const onStageLightsChange = useCallback(
     (lights: StageLightFixture[]) => {
-      if (!project || project.viewMode === "view") return;
-      setProjectSafe((p) => ({ ...p, stageLights: lights }));
+      setProjectSafe((p) => {
+        if (!p || p.viewMode === "view") return p;
+        return { ...p, stageLights: lights };
+      });
     },
-    [project, setProjectSafe]
+    [setProjectSafe]
   );
 
   useEffect(() => {

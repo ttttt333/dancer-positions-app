@@ -57,6 +57,8 @@ export type StageBoardContextMenuLayerProps = {
     onAddPreviousLight?: () => void;
     previousLightHint?: string | null;
     defaultLightOpen?: boolean;
+    stageLightsVisibleOnStage?: boolean;
+    onToggleStageLightsVisible?: () => void;
   };
   viewMode: "edit" | "view";
   setPiecesEditable: boolean;
@@ -177,6 +179,15 @@ export function StageBoardContextMenuLayer({
           }
           previousLightHint={dockQuickMenu.previousLightHint}
           defaultLightOpen={dockQuickMenu.defaultLightOpen}
+          stageLightsVisibleOnStage={dockQuickMenu.stageLightsVisibleOnStage}
+          onToggleStageLightsVisible={
+            dockQuickMenu.onToggleStageLightsVisible
+              ? () => {
+                  dockQuickMenu.onToggleStageLightsVisible?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
         />
       ) : menu.kind === "floor" && dockQuickMenu ? (
         <StageDancerDockQuickMenu
@@ -219,6 +230,15 @@ export function StageBoardContextMenuLayer({
           }
           previousLightHint={dockQuickMenu.previousLightHint}
           defaultLightOpen={dockQuickMenu.defaultLightOpen ?? true}
+          stageLightsVisibleOnStage={dockQuickMenu.stageLightsVisibleOnStage}
+          onToggleStageLightsVisible={
+            dockQuickMenu.onToggleStageLightsVisible
+              ? () => {
+                  dockQuickMenu.onToggleStageLightsVisible?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
         />
       ) : menu.kind === "dancer" ? (
         <StageDancerContextMenu

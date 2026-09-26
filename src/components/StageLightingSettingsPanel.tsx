@@ -22,6 +22,7 @@ import {
   saveLightingPreset,
   type LightingPresetItem,
 } from "../lib/lightingPresets";
+import { useStageLightsViewStore } from "../store/stageLightsViewStore";
 
 export type StageLightingSettingsPanelProps = {
   disabled?: boolean;
@@ -75,6 +76,12 @@ export function StageLightingSettingsPanel({
   onSelectLightId,
 }: StageLightingSettingsPanelProps) {
   const lights = project.stageLights ?? [];
+  const stageLightsVisibleOnStage = useStageLightsViewStore(
+    (s) => s.visibleOnStage
+  );
+  const setStageLightsVisibleOnStage = useStageLightsViewStore(
+    (s) => s.setVisibleOnStage
+  );
   const cues = useMemo(() => sortedCues(project.cues ?? []), [project.cues]);
   const [localSelectedId, setLocalSelectedId] = useState<string | null>(
     lights[0]?.id ?? null
@@ -165,6 +172,7 @@ export function StageLightingSettingsPanel({
       L.yPct = Math.min(80, L.yPct + (same.length % 3) * 10);
     }
     updateLights([...lights, L]);
+    setStageLightsVisibleOnStage(true);
     setSelectedId(L.id);
   };
 
@@ -189,6 +197,45 @@ export function StageLightingSettingsPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <button
+        type="button"
+        disabled={disabled || lights.length === 0}
+        aria-pressed={!stageLightsVisibleOnStage}
+        onClick={() => {
+          if (lights.length === 0) return;
+          const next = !stageLightsVisibleOnStage;
+          setStageLightsVisibleOnStage(next);
+          if (!next) setSelectedId(null);
+        }}
+        title={
+          stageLightsVisibleOnStage
+            ? "舞台上の照明を隠して、立ち位置を操作しやすくします"
+            : "舞台上の照明を再表示します"
+        }
+        style={{
+          width: "100%",
+          padding: "9px 12px",
+          borderRadius: 8,
+          border: stageLightsVisibleOnStage
+            ? "1px solid #475569"
+            : "1px solid rgba(251,191,36,0.55)",
+          background: stageLightsVisibleOnStage
+            ? "#0f172a"
+            : "rgba(120,53,15,0.35)",
+          color: stageLightsVisibleOnStage ? "#e2e8f0" : "#fbbf24",
+          fontSize: 12,
+          fontWeight: 800,
+          cursor:
+            disabled || lights.length === 0 ? "not-allowed" : "pointer",
+          opacity: lights.length === 0 ? 0.45 : 1,
+          textAlign: "left",
+        }}
+      >
+        {stageLightsVisibleOnStage
+          ? "舞台上の照明を一時非表示にする"
+          : "舞台上の照明を再表示する（いま非表示）"}
+      </button>
+
       <div
         style={{
           padding: "8px 10px",

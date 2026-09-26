@@ -43,7 +43,7 @@ export function computeStageContextMenuStyle(
   const mw =
     isDockLike ? 220 : menu.kind === "floorText" ? 168 : 132;
   const mh =
-    isDockLike ? 360 : menu.kind === "floorText" ? 88 : 52;
+    isDockLike ? 480 : menu.kind === "floorText" ? 88 : 52;
   const { width: vw, height: vh } =
     typeof window !== "undefined"
       ? readLayoutViewportSize()
@@ -56,6 +56,8 @@ export function computeStageContextMenuStyle(
     top: Math.max(pad, Math.min(menu.clientY, maxT)),
     zIndex: 10000,
     minWidth: `${mw}px`,
+    maxHeight: isDockLike ? Math.min(vh - pad * 2, 520) : undefined,
+    overflowY: isDockLike ? "auto" : undefined,
     padding: isDockLike ? "6px" : "5px",
     borderRadius: isDockLike ? 10 : 8,
     border: "1px solid #475569",
