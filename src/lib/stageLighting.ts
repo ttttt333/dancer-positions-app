@@ -273,12 +273,62 @@ export type ActiveStageLightsOptions = {
    * 編集中のキュー。指定時はそのキュー紐づけ照明を時間外でも表示する。
    */
   focusCueId?: string | null;
+  /**
+   * キューとキューのあいだで、直前キューの照明を引き継ぐ（既定 true）。
+   * その区間に専用の全体照明があるときは引き継がない。
+   */
+  carryPrevCueLights?: boolean;
 };
+
+/** 時刻 t が属するキュー。ギャップなら直前キュー ID（なければ null） */
+export function resolveLightingCueIdAtTime(
+  cues: readonly StageLightCueBound[],
+  tSec: number
+): { cueId: string; inCue: boolean } | null {
+  if (!cues.length || !Number.isFinite(tSec)) return null;
+  const sorted = [...cues].sort(
+    (a, b) =>
+      a.tStartSec - b.tStartSec ||
+      a.tEndSec - b.tEndSec ||
+      a.id.localeCompare(b.id)
+  );
+
+  let containing: StageLightCueBound | null = null;
+  for (const c of sorted) {
+    if (tSec + 1e-9 >= c.tStartSec && tSec - 1e-9 <= c.tEndSec) {
+      containing = c;
+    }
+  }
+  if (containing) return { cueId: containing.id, inCue: true };
+
+  let prev: StageLightCueBound | null = null;
+  for (const c of sorted) {
+    if (c.tEndSec < tSec - 1e-9) prev = c;
+  }
+  if (prev) return { cueId: prev.id, inCue: false };
+  return null;
+}
+
+/** ギャップ区間にちょうど収まる全体照明があるか */
+export function gapHasDedicatedLights(
+  lights: readonly StageLightFixture[],
+  gapStartSec: number,
+  gapEndSec: number
+): boolean {
+  if (!(gapEndSec > gapStartSec + 0.02)) return false;
+  return lights.some((L) => {
+    if (L.enabled === false || L.cueId) return false;
+    const a = L.tStartSec;
+    const b = L.tEndSec;
+    if (a == null || b == null) return false;
+    return a + 1e-6 >= gapStartSec && b - 1e-6 <= gapEndSec;
+  });
+}
 
 /**
  * 現在時刻（と任意でフォーカス中キュー）で点灯中の照明。
- * - cueId あり + focusCueId あり → そのキューの灯だけ（他キューは時間内でも出さない）
- * - cueId あり + focus なし → キューの時間帯内
+ * - cueId あり + focusCueId あり → そのキューの灯だけ（他キューは時間外でも出さない）
+ * - cueId あり + focus なし → キュー区間内。ギャップでは直前キューを引き継ぐ（専用灯が無いとき）
  * - cueId なし → tStart/tEnd（全体）
  */
 export function activeStageLightsAtTime(
@@ -288,22 +338,49 @@ export function activeStageLightsAtTime(
 ): StageLightFixture[] {
   if (!lights?.length || !Number.isFinite(tSec)) return [];
   const cues = options?.cues ?? null;
-  const cueById = cues
-    ? new Map(cues.map((c) => [c.id, c] as const))
-    : null;
   const focusCueId = options?.focusCueId ?? null;
+  const carryPrev = options?.carryPrevCueLights !== false;
+
+  let activeCueId: string | null = null;
+  let inCue = true;
+  if (focusCueId != null) {
+    activeCueId = focusCueId;
+    inCue = true;
+  } else if (cues?.length) {
+    const resolved = resolveLightingCueIdAtTime(cues, tSec);
+    if (resolved) {
+      activeCueId = resolved.cueId;
+      inCue = resolved.inCue;
+      if (!inCue && carryPrev) {
+        const sorted = [...cues].sort(
+          (a, b) =>
+            a.tStartSec - b.tStartSec ||
+            a.tEndSec - b.tEndSec ||
+            a.id.localeCompare(b.id)
+        );
+        const prevIdx = sorted.findIndex((c) => c.id === activeCueId);
+        const prev = prevIdx >= 0 ? sorted[prevIdx]! : null;
+        const next = prevIdx >= 0 ? sorted[prevIdx + 1] : undefined;
+        // 次キューまでのギャップに専用全体照明があれば、キュー灯の引き継ぎはしない
+        if (
+          prev &&
+          next &&
+          gapHasDedicatedLights(lights, prev.tEndSec, next.tStartSec)
+        ) {
+          activeCueId = null;
+        }
+      } else if (!inCue && !carryPrev) {
+        activeCueId = null;
+      }
+    }
+  }
 
   return lights.filter((L) => {
     if (L.enabled === false) return false;
 
     if (L.cueId) {
-      // 編集フォーカス中は「選択キューの灯」だけ（全体は別扱い）
-      if (focusCueId != null) {
-        return L.cueId === focusCueId;
-      }
-      const cue = cueById?.get(L.cueId);
-      if (!cue) return false;
-      return tSec + 1e-9 >= cue.tStartSec && tSec - 1e-9 <= cue.tEndSec;
+      if (activeCueId == null) return false;
+      return L.cueId === activeCueId;
     }
 
     const a = L.tStartSec;
@@ -312,6 +389,34 @@ export function activeStageLightsAtTime(
     if (b != null && tSec - 1e-9 > b) return false;
     return true;
   });
+}
+
+/** 直前キューの照明を、ギャップ時間帯の全体照明として複製 */
+export function cloneCueLightsIntoGapWindow(
+  lights: readonly StageLightFixture[],
+  fromCueId: string,
+  gapStartSec: number,
+  gapEndSec: number
+): StageLightFixture[] {
+  const room = STAGE_LIGHTS_MAX - lights.length;
+  if (room <= 0) return [...lights];
+  const start = Math.max(0, gapStartSec);
+  const end = Math.max(start + 0.05, gapEndSec);
+  const cloned = lights
+    .filter((L) => L.cueId === fromCueId)
+    .slice(0, room)
+    .map((L) => ({
+      ...L,
+      id: crypto.randomUUID(),
+      cueId: null,
+      tStartSec: start,
+      tEndSec: end,
+      label: `${(L.label ?? STAGE_LIGHT_KIND_LABELS[L.kind]).replace(
+        /\s*移動\d*$/,
+        ""
+      )} 移動`,
+    }));
+  return [...lights, ...cloned];
 }
 
 export function hexToRgba(hex: string, alpha: number): string {

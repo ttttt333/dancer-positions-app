@@ -194,9 +194,82 @@ export function StageLightingSettingsPanel({
         </div>
         <p style={{ margin: "4px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.4 }}>
           {selectedCueId
-            ? "「このキュー」タブの照明だけが、そのキュー再生時に点灯します。全体は全キュー共通です。"
-            : "タイムラインでキューを選ぶと、キュー専用の照明を追加・編集できます。"}
+            ? "「このキュー」の照明は、そのキュー区間と次のキューまでの移動中にも点灯します。全体は時間指定の共通灯です。"
+            : "タイムラインでキューを選ぶと、キュー専用の照明を追加・編集できます。キュー間は直前キューの照明が続きます。"}
         </p>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 6,
+        }}
+      >
+        <button
+          type="button"
+          disabled={disabled || lights.length === 0}
+          onClick={() => {
+            if (lights.length === 0) return;
+            if (
+              !window.confirm(
+                `照明をすべて消しますか？（${lights.length} 件）`
+              )
+            ) {
+              return;
+            }
+            updateLights([]);
+            setSelectedId(null);
+          }}
+          style={{
+            flex: "1 1 auto",
+            minWidth: 120,
+            padding: "8px 10px",
+            borderRadius: 8,
+            border: "1px solid rgba(248,113,113,0.55)",
+            background: "rgba(127,29,29,0.35)",
+            color: "#fecaca",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor:
+              disabled || lights.length === 0 ? "not-allowed" : "pointer",
+            opacity: lights.length === 0 ? 0.45 : 1,
+          }}
+        >
+          すべての照明を消す
+        </button>
+        {listFilter === "cue" && selectedCueId ? (
+          <button
+            type="button"
+            disabled={
+              disabled ||
+              lights.filter((L) => L.cueId === selectedCueId).length === 0
+            }
+            onClick={() => {
+              const n = lights.filter((L) => L.cueId === selectedCueId).length;
+              if (n === 0) return;
+              if (!window.confirm(`このキューの照明を消しますか？（${n} 件）`)) {
+                return;
+              }
+              updateLights(lights.filter((L) => L.cueId !== selectedCueId));
+              setSelectedId(null);
+            }}
+            style={{
+              flex: "1 1 auto",
+              minWidth: 120,
+              padding: "8px 10px",
+              borderRadius: 8,
+              border: "1px solid #475569",
+              background: "#0f172a",
+              color: "#fca5a5",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: disabled ? "not-allowed" : "pointer",
+            }}
+          >
+            このキューの照明を消す
+          </button>
+        ) : null}
       </div>
 
       <div

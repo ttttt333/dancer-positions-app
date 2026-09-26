@@ -2926,6 +2926,34 @@ function EditorPageContent({
         setFloorTextPreferredTab("lights");
         setFloorTextSideSheetOpen(true);
       }}
+      onOpenGapLightingSettings={(nextCueId) => {
+        if (!project) return;
+        const sorted = [...project.cues].sort(
+          (a, b) =>
+            a.tStartSec - b.tStartSec ||
+            a.tEndSec - b.tEndSec ||
+            a.id.localeCompare(b.id)
+        );
+        const i = sorted.findIndex((c) => c.id === nextCueId);
+        const prev = i > 0 ? sorted[i - 1]! : null;
+        const next = i >= 0 ? sorted[i]! : null;
+        if (prev && next) {
+          const mid = (prev.tEndSec + next.tStartSec) / 2;
+          usePlaybackUiStore.getState().setIsPlaying(false);
+          usePlaybackUiStore.getState().setCurrentTimeSec(mid);
+          try {
+            playbackEngine.pause();
+            playbackEngine.seek(mid);
+          } catch {
+            /* ignore */
+          }
+          setSelectedCueIds([prev.id]);
+        } else if (prev) {
+          setSelectedCueIds([prev.id]);
+        }
+        setFloorTextPreferredTab("lights");
+        setFloorTextSideSheetOpen(true);
+      }}
       publicShareView={choreoPublicView}
       topDockHeightPx={
         showTopWaveDock && !mobileStackEditor ? editorTopDockHeightPx : null

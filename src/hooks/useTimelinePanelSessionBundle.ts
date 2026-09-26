@@ -100,6 +100,7 @@ export function useTimelinePanelSessionBundle(
     onPlaybackRateChange,
     onOpenPathEditor,
     onOpenLightingSettings,
+    onOpenGapLightingSettings,
     publicShareView = false,
     audioFileInputRef,
     extractProgress = null,
@@ -444,6 +445,7 @@ export function useTimelinePanelSessionBundle(
       saveCueFormationToBoxList,
       onOpenPathEditor,
       onOpenLightingSettings,
+      onOpenGapLightingSettings,
     };
 
   return {

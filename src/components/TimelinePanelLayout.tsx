@@ -180,6 +180,7 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
         saveCueFormationToBoxList={p.saveCueFormationToBoxList}
         onOpenPathEditor={p.onOpenPathEditor}
         onOpenLightingSettings={p.onOpenLightingSettings}
+        onOpenGapLightingSettings={p.onOpenGapLightingSettings}
       />
     </div>
   );

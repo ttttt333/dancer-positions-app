@@ -8,6 +8,7 @@ import { requestStageDockSection } from "../lib/stageEditDockHost";
 import {
   appendBasicStageLights,
   appendClonedLightsFromPreviousCue,
+  cloneCueLightsIntoGapWindow,
 } from "../lib/stageLighting";
 import { resolvePreviousCueDancers } from "../lib/stagePrevCueCompare";
 import { permuteSlotsMinimizeTravelFromPrev } from "../lib/stageSelectionArrange";
@@ -54,6 +55,11 @@ export type TimelineWaveMenusProps = {
   onOpenPathEditor?: (cueId: string) => void;
   /** 照明設定サイドシートを開く */
   onOpenLightingSettings?: (cueId: string) => void;
+  /**
+   * キュー間ギャップの右クリックから照明設定を開く。
+   * nextCueId = ギャップの直後のキュー。
+   */
+  onOpenGapLightingSettings?: (nextCueId: string) => void;
 };
 
 /**
@@ -77,6 +83,7 @@ export function TimelineWaveMenus({
   saveCueFormationToBoxList,
   onOpenPathEditor,
   onOpenLightingSettings,
+  onOpenGapLightingSettings,
 }: TimelineWaveMenusProps) {
   const waveCueMenuTargetCue = waveCueMenu
     ? cuesSorted.find((c) => c.id === waveCueMenu.cueId)
@@ -528,6 +535,67 @@ export function TimelineWaveMenus({
             }}
           >
             設定をクリア（線形のみ）
+          </button>
+          <div style={{ borderTop: `1px solid ${shell.border}`, margin: "8px 0 6px" }} />
+          <button
+            type="button"
+            role="menuitem"
+            disabled={viewMode === "view"}
+            style={{
+              ...btnSecondary,
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              marginBottom: "6px",
+              fontSize: "13px",
+              padding: "9px 10px",
+              cursor: viewMode === "view" ? "not-allowed" : "pointer",
+            }}
+            onClick={() => {
+              if (viewMode === "view") return;
+              const nextId = gapRouteMenu.nextCueId;
+              setGapRouteMenu(null);
+              onOpenGapLightingSettings?.(nextId);
+            }}
+          >
+            照明設定
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={viewMode === "view"}
+            style={{
+              ...btnSecondary,
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              marginBottom: "6px",
+              fontSize: "13px",
+              padding: "9px 10px",
+              cursor: viewMode === "view" ? "not-allowed" : "pointer",
+            }}
+            onClick={() => {
+              if (viewMode === "view") return;
+              const nextId = gapRouteMenu.nextCueId;
+              const sorted = sortCuesByStart(cuesSorted);
+              const i = sorted.findIndex((c) => c.id === nextId);
+              const prev = i > 0 ? sorted[i - 1] : null;
+              const next = i >= 0 ? sorted[i] : null;
+              setGapRouteMenu(null);
+              if (!prev || !next) return;
+              setProject((p) => ({
+                ...p,
+                stageLights: cloneCueLightsIntoGapWindow(
+                  p.stageLights ?? [],
+                  prev.id,
+                  prev.tEndSec,
+                  next.tStartSec
+                ),
+              }));
+              onOpenGapLightingSettings?.(nextId);
+            }}
+          >
+            前の照明をこの移動にコピー
           </button>
           <div style={{ borderTop: `1px solid ${shell.border}`, margin: "8px 0 6px" }} />
           <button

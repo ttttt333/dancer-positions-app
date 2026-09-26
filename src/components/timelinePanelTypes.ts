@@ -71,6 +71,8 @@ export type TimelinePanelBodyProps = {
   onOpenPathEditor?: (cueId: string) => void;
   /** キュー右クリック「照明設定」からサイドシートを開く */
   onOpenLightingSettings?: (cueId: string) => void;
+  /** キュー間ギャップ右クリック「照明設定」 */
+  onOpenGapLightingSettings?: (nextCueId: string) => void;
   /** 生徒閲覧（/view/s/…）: ログインなしで Supabase 音源を読む */
   publicShareView?: boolean;
   /** PC 上部ドック外枠の高さ（px）。波形を再生エリアに連動させる */

@@ -90,6 +90,45 @@ describe("stageLighting / architecture guides", () => {
     ).toEqual(["cue2L", "g"]);
   });
 
+  it("carries previous cue lights across gaps until next cue", () => {
+    const cues = [
+      { id: "c1", tStartSec: 0, tEndSec: 10 },
+      { id: "c2", tStartSec: 15, tEndSec: 25 },
+    ];
+    const cueLight = {
+      ...createDefaultStageLight("pinSpot"),
+      id: "cueL",
+      cueId: "c1",
+    };
+    const cue2 = {
+      ...createDefaultStageLight("pinSpot"),
+      id: "cue2L",
+      cueId: "c2",
+    };
+    expect(
+      activeStageLightsAtTime([cueLight, cue2], 12, { cues }).map((L) => L.id)
+    ).toEqual(["cueL"]);
+    expect(
+      activeStageLightsAtTime([cueLight, cue2], 12, {
+        cues,
+        carryPrevCueLights: false,
+      }).map((L) => L.id)
+    ).toEqual([]);
+
+    const gapOnly = {
+      ...createDefaultStageLight("sideSpot"),
+      id: "gapL",
+      cueId: null,
+      tStartSec: 10,
+      tEndSec: 15,
+    };
+    expect(
+      activeStageLightsAtTime([cueLight, cue2, gapOnly], 12, { cues }).map(
+        (L) => L.id
+      )
+    ).toEqual(["gapL"]);
+  });
+
   it("resolveLightAxes supports circle aspect correction", () => {
     const L = {
       ...createDefaultStageLight("pinSpot"),
