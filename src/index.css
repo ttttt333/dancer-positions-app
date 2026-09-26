@@ -639,10 +639,30 @@ body {
   right: max(8px, env(safe-area-inset-right, 0px));
   top: max(8px, env(safe-area-inset-top, 0px));
   pointer-events: auto;
+  padding: 6px 8px;
+  gap: 6px;
+}
+
+.choreo-viewer-viral-cta--viewer:not(.choreo-viewer-viral-cta--landscape)
+  .choreo-viewer-viral-cta__sub {
+  display: none;
+}
+
+.choreo-viewer-viral-cta--viewer:not(.choreo-viewer-viral-cta--landscape)
+  .choreo-viewer-viral-cta__line {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.choreo-viewer-viral-cta--viewer:not(.choreo-viewer-viral-cta--landscape)
+  .choreo-viewer-viral-cta__btn {
+  padding: 6px 10px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .choreo-viewer-viral-cta--landscape {
-  left: calc(var(--choreo-viewer-left-rail-w, 72px) + max(8px, env(safe-area-inset-left, 0px)));
+  left: calc(var(--choreo-viewer-left-rail-w, 176px) + max(8px, env(safe-area-inset-left, 0px)));
 }
 
 .choreo-viewer-viral-cta--gate {
@@ -910,6 +930,11 @@ html.choreo-public-view-html::backdrop {
     padding-bottom: calc(
       var(--choreo-viewer-transport-bar-h, 0px) + var(--choreo-viewer-bar-h, 0px)
     ) !important;
+  }
+  .choreo-public-view-root:not(.choreo-public-view-root--landscape)
+    .stage-board-fit-viewport-inner {
+    align-items: center !important;
+    justify-content: center !important;
   }
   .choreo-public-view-root .editor-stage-section--public-view,
   .choreo-public-view-root .editor-stage-section--public-view-max {
@@ -1209,22 +1234,42 @@ html.choreo-public-view-html::backdrop {
     width: 100%;
     min-width: 0;
   }
+  .choreo-viewer-bars__bottom-meta--primary {
+    gap: 6px;
+  }
+  .choreo-viewer-bars__bottom-meta--tools {
+    gap: 4px;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+  }
   .choreo-viewer-bars__bottom-meta .choreo-viewer-member-mode {
     flex: 1 1 auto;
     min-width: 0;
   }
+  .choreo-viewer-bars__bottom-meta--primary .choreo-viewer-perspective {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .choreo-viewer-bars__bottom-meta--tools .choreo-viewer-marker-size {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .choreo-viewer-bars__bottom-meta--tools .choreo-viewer-bars__video-btn {
+    flex: 0 0 auto;
+  }
   .choreo-viewer-bars__video-btn {
     flex: 0 0 auto;
-    min-width: 52px;
+    min-width: 44px;
     min-height: 36px;
-    padding: 0 10px;
+    padding: 0 8px;
     border-radius: 10px;
     border: 1px solid rgba(71, 85, 105, 0.9);
     background: rgba(30, 41, 59, 0.92);
     color: #e2e8f0;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     touch-action: manipulation;
+    white-space: nowrap;
   }
   .choreo-viewer-bars__video-btn:disabled {
     opacity: 0.45;
@@ -1288,6 +1333,7 @@ html.choreo-public-view-html::backdrop {
     border-color: rgba(99, 102, 241, 0.95);
     background: rgba(67, 56, 202, 0.85);
     color: #f8fafc;
+    box-sizing: border-box;
   }
   .choreo-viewer-bars__rate-select {
     flex-shrink: 0;
@@ -1332,7 +1378,7 @@ html.choreo-public-view-html::backdrop {
     .stage-board-fit-viewport--public-landscape
     .stage-board-fit-viewport-inner {
     /* 左レール分を除いた領域でステージを最大化（実測フィット） */
-    padding-left: var(--choreo-viewer-left-rail-w, 132px) !important;
+    padding-left: var(--choreo-viewer-left-rail-w, 176px) !important;
     box-sizing: border-box !important;
   }
   .choreo-public-view-root--landscape .choreo-viewer-bars--landscape {
@@ -1340,8 +1386,8 @@ html.choreo-public-view-html::backdrop {
     padding-top: max(2px, env(safe-area-inset-top, 0px));
     padding-bottom: max(2px, env(safe-area-inset-bottom, 0px));
     padding-left: max(2px, env(safe-area-inset-left, 0px));
-    width: min(var(--choreo-viewer-left-rail-w, 132px), 30vw);
-    max-width: min(var(--choreo-viewer-left-rail-w, 132px), 30vw);
+    width: min(var(--choreo-viewer-left-rail-w, 176px), 34vw);
+    max-width: min(var(--choreo-viewer-left-rail-w, 176px), 34vw);
   }
   /* 客席帯をコンパクトに（横画面共有） */
   .choreo-public-view-root--landscape .stage-audience-footer-band {
@@ -1407,16 +1453,16 @@ html.choreo-public-view-html::backdrop {
     top: 0;
     bottom: 0;
     z-index: 88;
-    width: var(--choreo-viewer-left-rail-w, 152px);
-    max-width: min(var(--choreo-viewer-left-rail-w, 152px), 32vw);
+    width: var(--choreo-viewer-left-rail-w, 176px);
+    max-width: min(var(--choreo-viewer-left-rail-w, 176px), 34vw);
     display: flex;
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
-    gap: 6px;
-    padding: max(6px, env(safe-area-inset-top, 0px)) 4px
-      max(6px, env(safe-area-inset-bottom, 0px))
-      max(6px, env(safe-area-inset-left, 0px));
+    gap: 4px;
+    padding: max(4px, env(safe-area-inset-top, 0px)) 4px
+      max(4px, env(safe-area-inset-bottom, 0px))
+      max(4px, env(safe-area-inset-left, 0px));
     background: linear-gradient(
       90deg,
       rgba(15, 23, 42, 0.92) 0%,
@@ -1437,7 +1483,7 @@ html.choreo-public-view-html::backdrop {
   .choreo-viewer-bars__left-stack {
     /* 横画面: 2列（左=表示切替、右=再生操作）でボタンの重なりを防ぐ */
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: stretch;
     gap: 6px;
     width: 100%;
@@ -1448,16 +1494,20 @@ html.choreo-public-view-html::backdrop {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 6px;
+    gap: 4px;
     min-width: 0;
     min-height: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .choreo-viewer-bars__left-col--meta {
     justify-content: flex-start;
   }
   .choreo-viewer-bars__left-col--transport {
     justify-content: center;
+    overflow-y: hidden;
   }
   .choreo-viewer-bars--landscape .choreo-viewer-bars__video-btn {
     width: 100%;
@@ -1603,6 +1653,26 @@ html.choreo-public-view-html::backdrop {
     width: 100%;
     gap: 4px;
   }
+  .choreo-viewer-marker-size--compact {
+    gap: 3px;
+  }
+  .choreo-viewer-marker-size--compact .choreo-viewer-marker-size__label {
+    min-width: 14px;
+    font-size: 10px;
+    padding: 0 1px;
+  }
+  .choreo-viewer-marker-size--compact .choreo-viewer-marker-size__btn {
+    min-width: 28px;
+    min-height: 32px;
+    padding: 0 4px;
+    font-size: 14px;
+  }
+  .choreo-viewer-marker-size--compact .choreo-viewer-marker-size__auto {
+    min-width: 34px;
+    min-height: 32px;
+    padding: 0 5px;
+    font-size: 10px;
+  }
   .choreo-viewer-marker-size__row {
     display: flex;
     align-items: stretch;
@@ -1663,6 +1733,11 @@ html.choreo-public-view-html::backdrop {
   }
   .choreo-viewer-bars--landscape .choreo-viewer-marker-size__btn {
     flex: 1 1 0;
+    min-width: 0;
+  }
+  .choreo-viewer-bars--landscape .choreo-viewer-marker-size__auto {
+    width: 100%;
+    min-height: 30px;
   }
   .choreo-viewer-bars--landscape .choreo-viewer-perspective {
     width: 100%;
@@ -1849,6 +1924,7 @@ html.choreo-public-view-html::backdrop {
     border-bottom: 1px solid rgba(51, 65, 85, 0.45);
   }
   .choreo-viewer-play--ready {
+    box-sizing: border-box;
     box-shadow:
       0 0 0 2px rgba(250, 204, 21, 0.85),
       0 0 18px rgba(250, 204, 21, 0.55);

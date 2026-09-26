@@ -344,7 +344,10 @@ export function ChoreoViewerControlBars({
 
   const fullscreenBtn = <ViewerFullscreenButton showLabel={landscapeMode} />;
   const markerSizeControls = (
-    <ViewerMarkerSizeControls layout={landscapeMode ? "stack" : "inline"} />
+    <ViewerMarkerSizeControls
+      layout={landscapeMode ? "stack" : "inline"}
+      compact
+    />
   );
 
   if (landscapeMode) {
@@ -383,7 +386,7 @@ export function ChoreoViewerControlBars({
         aria-label={t("editor.layout.viewerControlBarsAria")}
       >
         <div className="choreo-viewer-bars__bottom-panel">
-          <div className="choreo-viewer-bars__bottom-meta">
+          <div className="choreo-viewer-bars__bottom-meta choreo-viewer-bars__bottom-meta--tools">
             {perspectiveSwitch}
             {markerSizeControls}
             {videoSave}
@@ -401,10 +404,14 @@ export function ChoreoViewerControlBars({
       aria-label={t("editor.layout.viewerControlBarsAria")}
     >
       <div className="choreo-viewer-bars__bottom-panel">
-        {modeSwitch || perspectiveSwitch || videoSave ? (
-          <div className="choreo-viewer-bars__bottom-meta">
+        {modeSwitch || perspectiveSwitch ? (
+          <div className="choreo-viewer-bars__bottom-meta choreo-viewer-bars__bottom-meta--primary">
             {modeSwitch}
             {perspectiveSwitch}
+          </div>
+        ) : null}
+        {markerSizeControls || videoSave || fullscreenBtn ? (
+          <div className="choreo-viewer-bars__bottom-meta choreo-viewer-bars__bottom-meta--tools">
             {markerSizeControls}
             {videoSave}
             {fullscreenBtn}

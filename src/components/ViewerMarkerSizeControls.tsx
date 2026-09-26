@@ -9,12 +9,17 @@ import { useViewerChromeStore } from "../store/viewerChromeStore";
 
 type Props = {
   layout?: "inline" | "stack";
+  /** 下部バー向けのコンパクト表示（狭い幅でも収まらせる） */
+  compact?: boolean;
 };
 
 /**
  * 生徒閲覧: 印・名前の表示サイズと、名前の自動フィット。
  */
-export function ViewerMarkerSizeControls({ layout = "inline" }: Props) {
+export function ViewerMarkerSizeControls({
+  layout = "inline",
+  compact = false,
+}: Props) {
   const markerDisplayScale = useViewerChromeStore((s) => s.markerDisplayScale);
   const nameLabelScale = useViewerChromeStore((s) => s.nameLabelScale);
   const autoNameFit = useViewerChromeStore((s) => s.autoNameFit);
@@ -28,11 +33,13 @@ export function ViewerMarkerSizeControls({ layout = "inline" }: Props) {
 
   return (
     <div
-      className={
-        stack
-          ? "choreo-viewer-marker-size choreo-viewer-marker-size--stack"
-          : "choreo-viewer-marker-size"
-      }
+      className={[
+        "choreo-viewer-marker-size",
+        stack ? "choreo-viewer-marker-size--stack" : "",
+        compact ? "choreo-viewer-marker-size--compact" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       role="group"
       aria-label="立ち位置の表示サイズ"
     >
