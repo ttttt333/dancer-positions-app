@@ -7,7 +7,7 @@ import { readLayoutViewportSize } from "../lib/viewportLayoutMetrics";
 import { requestStageDockSection } from "../lib/stageEditDockHost";
 import {
   appendBasicStageLights,
-  appendClonedLightsFromPreviousCue,
+  replaceCueLightsFromPreviousCue,
   cloneCueLightsIntoGapWindow,
 } from "../lib/stageLighting";
 import { resolvePreviousCueDancers } from "../lib/stagePrevCueCompare";
@@ -141,7 +141,7 @@ export function TimelineWaveMenus({
       const prevId = sorted[i - 1]!.id;
       return {
         ...p,
-        stageLights: appendClonedLightsFromPreviousCue(
+        stageLights: replaceCueLightsFromPreviousCue(
           p.stageLights ?? [],
           prevId,
           cueId

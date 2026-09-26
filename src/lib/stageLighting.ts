@@ -391,17 +391,24 @@ export function activeStageLightsAtTime(
   });
 }
 
-/** 直前キューの照明を、ギャップ時間帯の全体照明として複製 */
+/** 直前キューの照明を、ギャップ時間帯の全体照明として複製（その区間の専用灯は置き換え） */
 export function cloneCueLightsIntoGapWindow(
   lights: readonly StageLightFixture[],
   fromCueId: string,
   gapStartSec: number,
   gapEndSec: number
 ): StageLightFixture[] {
-  const room = STAGE_LIGHTS_MAX - lights.length;
-  if (room <= 0) return [...lights];
   const start = Math.max(0, gapStartSec);
   const end = Math.max(start + 0.05, gapEndSec);
+  const withoutGapDedicated = lights.filter((L) => {
+    if (L.cueId) return true;
+    if (L.tStartSec == null || L.tEndSec == null) return true;
+    const inThisGap =
+      L.tStartSec + 1e-6 >= start && L.tEndSec - 1e-6 <= end;
+    return !inThisGap;
+  });
+  const room = STAGE_LIGHTS_MAX - withoutGapDedicated.length;
+  if (room <= 0) return withoutGapDedicated;
   const cloned = lights
     .filter((L) => L.cueId === fromCueId)
     .slice(0, room)
@@ -416,7 +423,7 @@ export function cloneCueLightsIntoGapWindow(
         ""
       )} 移動`,
     }));
-  return [...lights, ...cloned];
+  return [...withoutGapDedicated, ...cloned];
 }
 
 export function hexToRgba(hex: string, alpha: number): string {
@@ -610,4 +617,23 @@ export function appendClonedLightsFromPreviousCue(
     room
   );
   return [...existing, ...cloned];
+}
+
+/**
+ * 現キュー専用の照明を消してから、直前キューの照明を複製する。
+ * （「一つ前の照明をコピー」用）
+ */
+export function replaceCueLightsFromPreviousCue(
+  existing: readonly StageLightFixture[],
+  fromCueId: string,
+  toCueId: string
+): StageLightFixture[] {
+  const withoutTarget = existing.filter((L) => L.cueId !== toCueId);
+  const room = STAGE_LIGHTS_MAX - withoutTarget.length;
+  if (room <= 0) return withoutTarget;
+  const cloned = cloneLightsFromCue(existing, fromCueId, toCueId).slice(
+    0,
+    room
+  );
+  return [...withoutTarget, ...cloned];
 }
