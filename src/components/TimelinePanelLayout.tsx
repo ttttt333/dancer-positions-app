@@ -179,6 +179,7 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
         duplicateCueAtTimelineEnd={p.duplicateCueAtTimelineEnd}
         saveCueFormationToBoxList={p.saveCueFormationToBoxList}
         onOpenPathEditor={p.onOpenPathEditor}
+        onOpenLightingSettings={p.onOpenLightingSettings}
       />
     </div>
   );

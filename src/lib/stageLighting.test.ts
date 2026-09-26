@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   activeStageLightsAtTime,
+  appendBasicStageLights,
+  createBasicStageLights,
   createDefaultStageLight,
   normalizeDepthMmList,
   resolveLightAxes,
@@ -99,5 +101,25 @@ describe("stageLighting / architecture guides", () => {
     expect(round.ry).toBe(10);
     const wide = resolveLightAxes(L, 2);
     expect(wide.ry).toBe(20);
+  });
+
+  it("createBasicStageLights places white presets for a cue", () => {
+    const lights = createBasicStageLights("cue-a");
+    expect(lights).toHaveLength(15);
+    expect(lights.every((L) => L.color === "#ffffff")).toBe(true);
+    expect(lights.every((L) => L.cueId === "cue-a")).toBe(true);
+    expect(lights.filter((L) => L.kind === "sideSpot")).toHaveLength(6);
+    expect(lights.filter((L) => L.kind === "suspension")).toHaveLength(2);
+    expect(lights.filter((L) => L.kind === "pinSpot")).toHaveLength(1);
+    expect(lights.filter((L) => L.kind === "footlight")).toHaveLength(3);
+    expect(lights.filter((L) => L.kind === "backlight")).toHaveLength(3);
+    const pin = lights.find((L) => L.kind === "pinSpot")!;
+    expect(pin.xPct).toBe(50);
+    expect(pin.yPct).toBe(50);
+  });
+
+  it("appendBasicStageLights respects STAGE_LIGHTS_MAX room", () => {
+    const next = appendBasicStageLights([], "c1");
+    expect(next).toHaveLength(15);
   });
 });

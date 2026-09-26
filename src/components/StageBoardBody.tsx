@@ -85,6 +85,7 @@ import {
   getStageEditDockHost,
   requestStageEditRightPane,
   subscribeStageEditDockHost,
+  subscribeStageDockSectionRequest,
 } from "../lib/stageEditDockHost";
 import {
   buildPrevCueCompareMarks,
@@ -710,6 +711,20 @@ export function StageBoardBody({
   const dockSectionRequestIdRef = useRef(0);
   /** コンテキストメニューから追加した直近の照明（一つ前の照明を追加用） */
   const lastStageLightTemplateRef = useRef<StageLightFixture | null>(null);
+
+  useEffect(() => {
+    return subscribeStageDockSectionRequest((req) => {
+      dockSectionRequestIdRef.current = Math.max(
+        dockSectionRequestIdRef.current,
+        req.requestId
+      );
+      setDockSectionRequest({
+        requestId: req.requestId,
+        section: req.section,
+      });
+    });
+  }, []);
+
   const stageEditDockHost = useSyncExternalStore(
     subscribeStageEditDockHost,
     getStageEditDockHost,

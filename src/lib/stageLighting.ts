@@ -302,3 +302,103 @@ export function nextLightLabel(
     existing.filter((L) => L.kind === kind).length + 1;
   return n <= 1 ? base : `${base} ${n}`;
 }
+
+function whiteLightAt(
+  kind: StageLightKind,
+  xPct: number,
+  yPct: number,
+  cueId: string | null,
+  label?: string
+): StageLightFixture {
+  const r = defaultRadiusPctForKind(kind);
+  return {
+    id: crypto.randomUUID(),
+    kind,
+    label: label ?? STAGE_LIGHT_KIND_LABELS[kind],
+    xPct: clampPct(xPct),
+    yPct: clampPct(yPct),
+    color: "#ffffff",
+    intensity: kind === "pinSpot" ? 0.55 : 0.4,
+    rxPct: r,
+    ryPct: Math.round(r * 0.72 * 10) / 10,
+    shape: "ellipse",
+    cueId,
+    tStartSec: null,
+    tEndSec: null,
+    enabled: true,
+  };
+}
+
+/**
+ * 基本照明一式（白）。
+ * サイドスポット左右3・サスペンション上手/下手各1・ピンスポ（ヘソ）・
+ * フットライト3・バックライト3。
+ */
+export function createBasicStageLights(
+  cueId: string | null = null
+): StageLightFixture[] {
+  const L = cueId;
+  const sideYs = [28, 50, 72];
+  const sideLeft = sideYs.map((y, i) =>
+    whiteLightAt("sideSpot", 10, y, L, `サイドスポット 下手${i + 1}`)
+  );
+  const sideRight = sideYs.map((y, i) =>
+    whiteLightAt("sideSpot", 90, y, L, `サイドスポット 上手${i + 1}`)
+  );
+  const suspension = [
+    whiteLightAt("suspension", 18, 50, L, "サスペンション 下手"),
+    whiteLightAt("suspension", 82, 50, L, "サスペンション 上手"),
+  ];
+  const pin = [whiteLightAt("pinSpot", 50, 50, L, "ピンスポ ヘソ")];
+  const footXs = [25, 50, 75];
+  const foot = footXs.map((x, i) =>
+    whiteLightAt("footlight", x, 92, L, `フットライト ${i + 1}`)
+  );
+  const back = footXs.map((x, i) =>
+    whiteLightAt("backlight", x, 8, L, `バックライト ${i + 1}`)
+  );
+  return [...sideLeft, ...sideRight, ...suspension, ...pin, ...foot, ...back];
+}
+
+/** 直前キューに紐づく照明を、指定キュー向けに複製して返す */
+export function cloneLightsFromCue(
+  lights: readonly StageLightFixture[],
+  fromCueId: string,
+  toCueId: string
+): StageLightFixture[] {
+  return lights
+    .filter((L) => L.cueId === fromCueId)
+    .map((L) => ({
+      ...L,
+      id: crypto.randomUUID(),
+      cueId: toCueId,
+      tStartSec: null,
+      tEndSec: null,
+    }));
+}
+
+/** 既存に基本照明を追加（上限まで） */
+export function appendBasicStageLights(
+  existing: readonly StageLightFixture[],
+  cueId: string | null
+): StageLightFixture[] {
+  const room = STAGE_LIGHTS_MAX - existing.length;
+  if (room <= 0) return [...existing];
+  const added = createBasicStageLights(cueId).slice(0, room);
+  return [...existing, ...added];
+}
+
+/** 直前キューの照明を現キューへコピーして追記 */
+export function appendClonedLightsFromPreviousCue(
+  existing: readonly StageLightFixture[],
+  fromCueId: string,
+  toCueId: string
+): StageLightFixture[] {
+  const room = STAGE_LIGHTS_MAX - existing.length;
+  if (room <= 0) return [...existing];
+  const cloned = cloneLightsFromCue(existing, fromCueId, toCueId).slice(
+    0,
+    room
+  );
+  return [...existing, ...cloned];
+}

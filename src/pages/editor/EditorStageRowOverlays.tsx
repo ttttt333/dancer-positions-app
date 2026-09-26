@@ -146,6 +146,14 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const floorMarkupTool = props.floorMarkupTool as never;
   const floorTextPlaceSession = props.floorTextPlaceSession as never;
   const floorTextSideSheetOpen = props.floorTextSideSheetOpen as never;
+  const floorTextPreferredTab = props.floorTextPreferredTab as
+    | "text"
+    | "lights"
+    | null
+    | undefined;
+  const setFloorTextPreferredTab = props.setFloorTextPreferredTab as
+    | ((v: "text" | "lights" | null) => void)
+    | undefined;
   const flowLibraryDialogEl = props.flowLibraryDialogEl as never;
   const fontFamily = props.fontFamily as never;
   const formationBoxManagerDialogEl = props.formationBoxManagerDialogEl as never;
@@ -2458,6 +2466,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
           open={floorTextSideSheetOpen}
           onClose={() => {
             setFloorTextSideSheetOpen(false);
+            setFloorTextPreferredTab?.(null);
           }}
           zIndex={75}
           width="min(360px, 94vw)"
@@ -2469,12 +2478,19 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             floorTextPlaceSession={floorTextPlaceSession}
             setFloorTextPlaceSession={setFloorTextPlaceSession}
             commitFloorTextPlace={commitFloorTextPlace}
-            onClose={() => setFloorTextSideSheetOpen(false)}
+            onClose={() => {
+              setFloorTextSideSheetOpen(false);
+              setFloorTextPreferredTab?.(null);
+            }}
             onCancel={() => {
               setFloorTextPlaceSession(null);
               setFloorTextSideSheetOpen(false);
+              setFloorTextPreferredTab?.(null);
             }}
-            onCommitted={() => setFloorTextSideSheetOpen(false)}
+            onCommitted={() => {
+              setFloorTextSideSheetOpen(false);
+              setFloorTextPreferredTab?.(null);
+            }}
             t={t}
             project={project}
             setProject={setProjectSafe}
@@ -2489,6 +2505,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 : null
             }
             onSelectLightId={setSelectedStageLightId}
+            preferredTab={floorTextPreferredTab ?? null}
           />
         </EditorSideSheet>
       ) : null}

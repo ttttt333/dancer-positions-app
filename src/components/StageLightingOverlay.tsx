@@ -35,7 +35,7 @@ const LIGHT_COLOR_SWATCHES = [
   "#fcd34d",
 ] as const;
 
-type DragMode = "move" | "rx" | "ry" | "intensity";
+type DragMode = "move" | "resize" | "intensity";
 
 type LightContextMenu = {
   id: string;
@@ -236,29 +236,23 @@ export function StageLightingOverlay({
       return;
     }
 
+    if (d.mode !== "resize") return;
     d.moved = true;
     const shape = L.shape === "circle" ? "circle" : "ellipse";
-    if (d.mode === "rx") {
-      const raw = Math.abs(p.xPct - L.xPct);
-      const rx = Math.round(Math.max(2, Math.min(60, raw)) * 2) / 2;
-      if (shape === "circle") {
-        patch(d.id, { rxPct: rx, ryPct: undefined, shape: "circle" });
-      } else {
-        const axes = resolveLightAxes(L, floorAspect);
-        patch(d.id, { rxPct: rx, ryPct: axes.ry, shape: "ellipse" });
-      }
-      return;
-    }
-
-    const raw = Math.abs(p.yPct - L.yPct);
-    const ry = Math.round(Math.max(2, Math.min(60, raw)) * 2) / 2;
+    const rawRx = Math.abs(p.xPct - L.xPct);
+    const rawRy = Math.abs(p.yPct - L.yPct);
     if (shape === "circle") {
+      // 斜めドラッグでも正円を保つ（画面上の見た目に合わせ aspect 補正）
+      const rxFromX = rawRx;
+      const rxFromY = floorAspect > 0.15 ? rawRy / floorAspect : rawRy;
       const rx =
-        Math.round(Math.max(2, Math.min(60, ry / floorAspect)) * 2) / 2;
+        Math.round(Math.max(2, Math.min(60, Math.max(rxFromX, rxFromY))) * 2) /
+        2;
       patch(d.id, { rxPct: rx, ryPct: undefined, shape: "circle" });
     } else {
-      const axes = resolveLightAxes(L, floorAspect);
-      patch(d.id, { rxPct: axes.rx, ryPct: ry, shape: "ellipse" });
+      const rx = Math.round(Math.max(2, Math.min(60, rawRx)) * 2) / 2;
+      const ry = Math.round(Math.max(2, Math.min(60, rawRy)) * 2) / 2;
+      patch(d.id, { rxPct: rx, ryPct: ry, shape: "ellipse" });
     }
   };
 
@@ -435,52 +429,25 @@ export function StageLightingOverlay({
                     <button
                       type="button"
                       data-stage-light-ui
-                      aria-label={`${L.label ?? "照明"} の横サイズ`}
-                      title={`横 ${rx.toFixed(0)}%`}
-                      onPointerDown={(e) => onPointerDown(e, L.id, "rx")}
+                      aria-label={`${L.label ?? "照明"} のサイズ`}
+                      title={`範囲 ${rx.toFixed(0)}×${ry.toFixed(0)}% · 斜めドラッグで変更`}
+                      onPointerDown={(e) => onPointerDown(e, L.id, "resize")}
                       onPointerMove={onPointerMove}
                       onPointerUp={onPointerUp}
                       onPointerCancel={onPointerUp}
                       style={{
                         position: "absolute",
                         left: `${Math.min(98, L.xPct + rx)}%`,
-                        top: `${L.yPct}%`,
-                        width: 11,
-                        height: 11,
-                        margin: 0,
-                        padding: 0,
-                        transform: "translate(-50%, -50%)",
-                        borderRadius: 2,
-                        border: "1px solid #0f172a",
-                        background: "#fde68a",
-                        cursor: "ew-resize",
-                        pointerEvents: "auto",
-                        touchAction: "none",
-                        zIndex: 2,
-                      }}
-                    />
-                    <button
-                      type="button"
-                      data-stage-light-ui
-                      aria-label={`${L.label ?? "照明"} の縦サイズ`}
-                      title={`縦 ${ry.toFixed(0)}%`}
-                      onPointerDown={(e) => onPointerDown(e, L.id, "ry")}
-                      onPointerMove={onPointerMove}
-                      onPointerUp={onPointerUp}
-                      onPointerCancel={onPointerUp}
-                      style={{
-                        position: "absolute",
-                        left: `${L.xPct}%`,
                         top: `${Math.min(98, L.yPct + ry)}%`,
-                        width: 11,
-                        height: 11,
+                        width: 12,
+                        height: 12,
                         margin: 0,
                         padding: 0,
                         transform: "translate(-50%, -50%)",
                         borderRadius: 2,
                         border: "1px solid #0f172a",
                         background: "#fde68a",
-                        cursor: "ns-resize",
+                        cursor: "nwse-resize",
                         pointerEvents: "auto",
                         touchAction: "none",
                         zIndex: 2,

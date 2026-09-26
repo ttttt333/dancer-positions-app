@@ -44,6 +44,8 @@ export type FloorTextSideSheetContentProps = {
   selectedCueId?: string | null;
   selectedLightId?: string | null;
   onSelectLightId?: (id: string | null) => void;
+  /** 開いたときに初期表示するタブ（照明設定など） */
+  preferredTab?: SheetTab | null;
 };
 
 export function FloorTextSideSheetContent({
@@ -62,6 +64,7 @@ export function FloorTextSideSheetContent({
   selectedCueId = null,
   selectedLightId = null,
   onSelectLightId,
+  preferredTab = null,
 }: FloorTextSideSheetContentProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -74,10 +77,21 @@ export function FloorTextSideSheetContent({
       setTab("text");
       return;
     }
+    if (preferredTab === "lights" && lightsEnabled) {
+      setTab("lights");
+    } else if (preferredTab === "text") {
+      setTab("text");
+    }
     if (!floorTextPlaceSession) {
       setFloorTextPlaceSession(createDefaultFloorTextPlaceSession());
     }
-  }, [open, floorTextPlaceSession, setFloorTextPlaceSession]);
+  }, [
+    open,
+    floorTextPlaceSession,
+    setFloorTextPlaceSession,
+    preferredTab,
+    lightsEnabled,
+  ]);
 
   useEffect(() => {
     if (!open || tab !== "text") return;

@@ -1,9 +1,16 @@
-import type { Dispatch, SetStateAction } from "react";
+import type { CSSProperties, Dispatch, SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import { sortCuesByStart } from "../core/timelineController";
 import { GAP_APPROACH_OPTIONS } from "../lib/gapDancerInterpolation";
 import { readLayoutViewportSize } from "../lib/viewportLayoutMetrics";
+import { requestStageDockSection } from "../lib/stageEditDockHost";
+import {
+  appendBasicStageLights,
+  appendClonedLightsFromPreviousCue,
+} from "../lib/stageLighting";
+import { resolvePreviousCueDancers } from "../lib/stagePrevCueCompare";
+import { permuteSlotsMinimizeTravelFromPrev } from "../lib/stageSelectionArrange";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 
@@ -45,6 +52,8 @@ export type TimelineWaveMenusProps = {
   saveCueFormationToBoxList: (cueId: string) => void;
   /** ギャップ経路メニューから個人軌道エディタを開くコールバック */
   onOpenPathEditor?: (cueId: string) => void;
+  /** 照明設定サイドシートを開く */
+  onOpenLightingSettings?: (cueId: string) => void;
 };
 
 /**
@@ -62,11 +71,12 @@ export function TimelineWaveMenus({
   waveCueConfirm,
   setWaveCueConfirm,
   splitCueAtPlayhead,
-  removeCue,
+  removeCue: _removeCue,
   duplicateCueAfterSource,
   duplicateCueAtTimelineEnd,
   saveCueFormationToBoxList,
   onOpenPathEditor,
+  onOpenLightingSettings,
 }: TimelineWaveMenusProps) {
   const waveCueMenuTargetCue = waveCueMenu
     ? cuesSorted.find((c) => c.id === waveCueMenu.cueId)
@@ -75,6 +85,70 @@ export function TimelineWaveMenus({
     !!waveCueMenuTargetCue &&
     currentTime > waveCueMenuTargetCue.tStartSec + 0.02 &&
     currentTime < waveCueMenuTargetCue.tEndSec - 0.02;
+
+  const menuBtnBase = (
+    fullscreen: boolean,
+    extra?: CSSProperties
+  ): CSSProperties => ({
+    ...btnSecondary,
+    display: "block",
+    width: "100%",
+    textAlign: "left",
+    marginBottom: "6px",
+    fontSize: fullscreen ? "15px" : "12px",
+    padding: fullscreen ? "14px 14px" : "8px 10px",
+    cursor: viewMode === "view" ? "not-allowed" : "pointer",
+    ...extra,
+  });
+
+  const closeCueMenu = () => setWaveCueMenu(null);
+
+  const moveToShortestFromPrev = (cueId: string) => {
+    setProject((p) => {
+      const cue = p.cues.find((c) => c.id === cueId);
+      if (!cue) return p;
+      const prevDancers = resolvePreviousCueDancers(p.cues, p.formations, cueId);
+      if (!prevDancers?.length) return p;
+      const form = p.formations.find((f) => f.id === cue.formationId);
+      if (!form?.dancers?.length) return p;
+      const ids = form.dancers.map((d) => d.id);
+      const nextDancers = permuteSlotsMinimizeTravelFromPrev(
+        form.dancers,
+        ids,
+        prevDancers
+      );
+      return {
+        ...p,
+        formations: p.formations.map((f) =>
+          f.id === form.id ? { ...f, dancers: nextDancers } : f
+        ),
+      };
+    });
+  };
+
+  const copyPrevCueLights = (cueId: string) => {
+    setProject((p) => {
+      const sorted = sortCuesByStart(p.cues);
+      const i = sorted.findIndex((c) => c.id === cueId);
+      if (i <= 0) return p;
+      const prevId = sorted[i - 1]!.id;
+      return {
+        ...p,
+        stageLights: appendClonedLightsFromPreviousCue(
+          p.stageLights ?? [],
+          prevId,
+          cueId
+        ),
+      };
+    });
+  };
+
+  const addBasicLights = (cueId: string) => {
+    setProject((p) => ({
+      ...p,
+      stageLights: appendBasicStageLights(p.stageLights ?? [], cueId),
+    }));
+  };
 
   const waveCueMenuPanel =
     waveCueMenu && !waveCueConfirm ? (
@@ -114,19 +188,23 @@ export function TimelineWaveMenus({
                     8,
                     Math.min(
                       waveCueMenu.clientX,
-                      (readLayoutViewportSize().width || 800) - 240
+                      (readLayoutViewportSize().width || 800) - 280
                     )
                   ),
                   top: Math.max(
                     8,
                     Math.min(
                       waveCueMenu.clientY,
-                      (typeof window !== "undefined" ? readLayoutViewportSize().height : 600) - 150
+                      (typeof window !== "undefined"
+                        ? readLayoutViewportSize().height
+                        : 600) - 360
                     )
                   ),
                   zIndex: 2499,
-                  minWidth: "220px",
-                  maxWidth: "min(300px, calc(100vw - 16px))",
+                  minWidth: "240px",
+                  maxWidth: "min(320px, calc(100vw - 16px))",
+                  maxHeight: "min(86vh, 520px)",
+                  overflowY: "auto",
                   padding: "8px",
                   borderRadius: "10px",
                   border: `1px solid ${shell.border}`,
@@ -140,7 +218,7 @@ export function TimelineWaveMenus({
             <div className="timeline-gap-route-menu-header">
               <h2 className="timeline-gap-route-menu-title">キューの操作</h2>
               <p className="timeline-gap-route-menu-sub">
-                赤いバーの位置で分割・複製などができます
+                分割・複製・照明・並び替えなど
               </p>
             </div>
           ) : null}
@@ -153,115 +231,127 @@ export function TimelineWaveMenus({
             type="button"
             role="menuitem"
             disabled={viewMode === "view" || !canSplitAtPlayhead}
-            style={{
-              ...btnSecondary,
-              display: "block",
-              width: "100%",
-              textAlign: "left",
-              marginBottom: "6px",
-              fontSize: waveCueMenu.fullscreen ? "15px" : "12px",
-              padding: waveCueMenu.fullscreen ? "14px 14px" : "8px 10px",
+            style={menuBtnBase(!!waveCueMenu.fullscreen, {
               cursor:
-                viewMode === "view" || !canSplitAtPlayhead ? "not-allowed" : "pointer",
+                viewMode === "view" || !canSplitAtPlayhead
+                  ? "not-allowed"
+                  : "pointer",
               opacity: canSplitAtPlayhead ? 1 : 0.4,
-            }}
+            })}
             onClick={() => {
               if (viewMode === "view" || !canSplitAtPlayhead) return;
               splitCueAtPlayhead(waveCueMenu.cueId);
-              setWaveCueMenu(null);
+              closeCueMenu();
             }}
           >
-            ✂️ ここで分割（赤いバーの位置）
+            ここで分割
           </button>
           <button
             type="button"
             role="menuitem"
             disabled={viewMode === "view"}
-            style={{
-              ...btnSecondary,
-              display: "block",
-              width: "100%",
-              textAlign: "left",
-              marginBottom: "6px",
-              fontSize: waveCueMenu.fullscreen ? "15px" : "12px",
-              padding: waveCueMenu.fullscreen ? "14px 14px" : "8px 10px",
-              cursor: viewMode === "view" ? "not-allowed" : "pointer",
-            }}
+            style={menuBtnBase(!!waveCueMenu.fullscreen)}
             onClick={() => {
               if (viewMode === "view") return;
-              setWaveCueMenu(null);
+              closeCueMenu();
               setWaveCueConfirm({ kind: "duplicate", cueId: waveCueMenu.cueId });
             }}
           >
-            複製する
+            複製
           </button>
           <button
             type="button"
             role="menuitem"
             disabled={viewMode === "view"}
-            style={{
-              ...btnSecondary,
-              display: "block",
-              width: "100%",
-              textAlign: "left",
-              marginBottom: "6px",
-              fontSize: waveCueMenu.fullscreen ? "15px" : "12px",
-              padding: waveCueMenu.fullscreen ? "14px 14px" : "8px 10px",
-              cursor: viewMode === "view" ? "not-allowed" : "pointer",
-            }}
+            style={menuBtnBase(!!waveCueMenu.fullscreen)}
             onClick={() => {
               if (viewMode === "view") return;
-              setWaveCueMenu(null);
-              setWaveCueConfirm({
-                kind: "formationBox",
-                cueId: waveCueMenu.cueId,
-              });
+              closeCueMenu();
+              requestStageDockSection("shape");
             }}
           >
-            立ち位置を保存
+            雛形
           </button>
           <button
             type="button"
             role="menuitem"
             disabled={viewMode === "view"}
-            style={{
-              ...btnSecondary,
-              display: "block",
-              width: "100%",
-              textAlign: "left",
-              fontSize: waveCueMenu.fullscreen ? "15px" : "12px",
-              padding: waveCueMenu.fullscreen ? "14px 14px" : "8px 10px",
-              borderColor: "rgba(248, 113, 113, 0.55)",
-              color: "#fecaca",
-              cursor: viewMode === "view" ? "not-allowed" : "pointer",
-            }}
+            style={menuBtnBase(!!waveCueMenu.fullscreen)}
             onClick={() => {
               if (viewMode === "view") return;
-              removeCue(waveCueMenu.cueId);
-              setWaveCueMenu(null);
+              moveToShortestFromPrev(waveCueMenu.cueId);
+              closeCueMenu();
             }}
           >
-            削除
+            前の立ち位置から最短距離の位置に移動
           </button>
-          <div style={{ borderTop: `1px solid ${shell.border}`, margin: "6px 0 4px" }} />
           <button
             type="button"
             role="menuitem"
-            className={
-              waveCueMenu.fullscreen ? "timeline-gap-route-menu-cancel" : undefined
-            }
-            style={{
-              ...btnSecondary,
-              display: "block",
-              width: "100%",
-              textAlign: "center",
-              fontSize: waveCueMenu.fullscreen ? "15px" : "12px",
-              padding: waveCueMenu.fullscreen ? "14px 14px" : "8px 10px",
-              color: "#94a3b8",
+            disabled={viewMode === "view"}
+            style={menuBtnBase(!!waveCueMenu.fullscreen)}
+            onClick={() => {
+              if (viewMode === "view") return;
+              closeCueMenu();
+              requestStageDockSection("display");
             }}
-            onClick={() => setWaveCueMenu(null)}
           >
-            キャンセル
+            表示
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={viewMode === "view"}
+            style={menuBtnBase(!!waveCueMenu.fullscreen)}
+            onClick={() => {
+              if (viewMode === "view") return;
+              closeCueMenu();
+              requestStageDockSection("sort");
+            }}
+          >
+            並び替え
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={viewMode === "view"}
+            style={menuBtnBase(!!waveCueMenu.fullscreen)}
+            onClick={() => {
+              if (viewMode === "view") return;
+              const id = waveCueMenu.cueId;
+              closeCueMenu();
+              onOpenLightingSettings?.(id);
+            }}
+          >
+            照明設定
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={viewMode === "view"}
+            style={menuBtnBase(!!waveCueMenu.fullscreen)}
+            onClick={() => {
+              if (viewMode === "view") return;
+              copyPrevCueLights(waveCueMenu.cueId);
+              closeCueMenu();
+            }}
+          >
+            一つ前の照明をコピー
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={viewMode === "view"}
+            style={menuBtnBase(!!waveCueMenu.fullscreen, {
+              marginBottom: 0,
+            })}
+            onClick={() => {
+              if (viewMode === "view") return;
+              addBasicLights(waveCueMenu.cueId);
+              closeCueMenu();
+            }}
+          >
+            基本の照明を追加
           </button>
           </div>
         </div>

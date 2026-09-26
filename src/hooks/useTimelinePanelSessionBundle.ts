@@ -99,6 +99,7 @@ export function useTimelinePanelSessionBundle(
     playbackRate,
     onPlaybackRateChange,
     onOpenPathEditor,
+    onOpenLightingSettings,
     publicShareView = false,
     audioFileInputRef,
     extractProgress = null,
@@ -442,6 +443,7 @@ export function useTimelinePanelSessionBundle(
       duplicateCueAtTimelineEnd,
       saveCueFormationToBoxList,
       onOpenPathEditor,
+      onOpenLightingSettings,
     };
 
   return {

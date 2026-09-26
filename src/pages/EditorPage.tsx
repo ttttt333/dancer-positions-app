@@ -454,6 +454,10 @@ function EditorPageContent({
   const [memberRosterSheetOpen, setMemberRosterSheetOpen] = useState(false);
   /** wideEditorLayout 時: テキストパネルを右サイドシートに表示するか */
   const [floorTextSideSheetOpen, setFloorTextSideSheetOpen] = useState(false);
+  /** サイドシートを開くときの初期タブ（キューメニュー「照明設定」用） */
+  const [floorTextPreferredTab, setFloorTextPreferredTab] = useState<
+    "text" | "lights" | null
+  >(null);
   /** 動線矢印オーバーレイ表示フラグ */
   const [showMotionArrows, setShowMotionArrows] = useState(false);
   /** テキストパネルのポータルターゲット DOM 要素 */
@@ -2868,6 +2872,10 @@ function EditorPageContent({
       extractProgress={editorAudioSession.extractProgress}
       onPickAudio={editorAudioSession.onPickAudio}
       onOpenPathEditor={(cueId) => setPathEditorCueId(cueId)}
+      onOpenLightingSettings={() => {
+        setFloorTextPreferredTab("lights");
+        setFloorTextSideSheetOpen(true);
+      }}
       publicShareView={choreoPublicView}
       topDockHeightPx={
         showTopWaveDock && !mobileStackEditor ? editorTopDockHeightPx : null
@@ -2986,6 +2994,7 @@ function EditorPageContent({
     floorMarkupTool,
     floorTextPlaceSession,
     floorTextSideSheetOpen,
+    floorTextPreferredTab,
     flowLibraryDialogEl,
     formationBoxManagerDialogEl,
     formationPresetPickerOpen,
@@ -3071,6 +3080,7 @@ function EditorPageContent({
     setFloorMarkupTool,
     setFloorTextPlaceSession,
     setFloorTextSideSheetOpen,
+    setFloorTextPreferredTab,
     setFlowLibraryOpen,
     setMemberRosterSheetOpen,
     setMobileEditorToolsExpanded,
