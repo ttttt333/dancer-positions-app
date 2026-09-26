@@ -45,6 +45,37 @@ export const STAGE_LIGHT_KINDS = Object.keys(
   STAGE_LIGHT_KIND_LABELS
 ) as StageLightKind[];
 
+/**
+ * 照明の色パレット（設定パネル・ステージ上メニュー共通）。
+ * 白〜パステルに加え、識別しやすいビビッド色を多めに揃える。
+ */
+export const STAGE_LIGHT_COLOR_SWATCHES = [
+  "#ffffff",
+  "#fef08a",
+  "#fcd34d",
+  "#eab308",
+  "#fb923c",
+  "#f97316",
+  "#ef4444",
+  "#f43f5e",
+  "#f87171",
+  "#ec4899",
+  "#f472b6",
+  "#d946ef",
+  "#c084fc",
+  "#a855f7",
+  "#6366f1",
+  "#3b82f6",
+  "#60a5fa",
+  "#0ea5e9",
+  "#06b6d4",
+  "#14b8a6",
+  "#22c55e",
+  "#34d399",
+  "#84cc16",
+  "#a3e635",
+] as const;
+
 /** プロジェクトあたりの照明上限 */
 export const STAGE_LIGHTS_MAX = 80;
 

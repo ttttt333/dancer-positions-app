@@ -10,23 +10,11 @@ import {
   createDefaultStageLight,
   nextLightLabel,
   resolveLightAxes,
+  STAGE_LIGHT_COLOR_SWATCHES,
   STAGE_LIGHT_KIND_LABELS,
   STAGE_LIGHT_KINDS,
   STAGE_LIGHTS_MAX,
 } from "../lib/stageLighting";
-
-const COLOR_SWATCHES = [
-  "#ffffff",
-  "#fef08a",
-  "#fb923c",
-  "#f87171",
-  "#f472b6",
-  "#c084fc",
-  "#60a5fa",
-  "#34d399",
-  "#a3e635",
-  "#fcd34d",
-] as const;
 
 export type StageLightingSettingsPanelProps = {
   disabled?: boolean;
@@ -778,7 +766,7 @@ export function StageLightingSettingsPanel({
           <div>
             <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>色</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {COLOR_SWATCHES.map((hex) => (
+              {STAGE_LIGHT_COLOR_SWATCHES.map((hex) => (
                 <button
                   key={hex}
                   type="button"

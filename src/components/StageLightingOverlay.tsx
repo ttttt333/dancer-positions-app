@@ -4,6 +4,7 @@ import type { StageLightFixture } from "../types/choreography";
 import {
   hexToRgba,
   resolveLightAxes,
+  STAGE_LIGHT_COLOR_SWATCHES,
   STAGE_LIGHTS_MAX,
 } from "../lib/stageLighting";
 
@@ -24,19 +25,6 @@ export type StageLightingOverlayProps = {
   onGestureBegin?: () => void;
   onGestureEnd?: () => void;
 };
-
-const LIGHT_COLOR_SWATCHES = [
-  "#ffffff",
-  "#fef08a",
-  "#fb923c",
-  "#f87171",
-  "#f472b6",
-  "#c084fc",
-  "#60a5fa",
-  "#34d399",
-  "#a3e635",
-  "#fcd34d",
-] as const;
 
 type DragMode = "move" | "resize" | "intensity";
 
@@ -573,7 +561,7 @@ export function StageLightingOverlay({
                         marginBottom: 8,
                       }}
                     >
-                      {LIGHT_COLOR_SWATCHES.map((hex) => (
+                      {STAGE_LIGHT_COLOR_SWATCHES.map((hex) => (
                         <button
                           key={hex}
                           type="button"
