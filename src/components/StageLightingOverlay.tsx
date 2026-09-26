@@ -20,6 +20,9 @@ export type StageLightingOverlayProps = {
   onChangeAllLights?: (next: StageLightFixture[]) => void;
   allLights?: readonly StageLightFixture[];
   floorRef?: RefObject<HTMLElement | null>;
+  /** 移動・リサイズ・濃さドラッグを 1 Undo にまとめる */
+  onGestureBegin?: () => void;
+  onGestureEnd?: () => void;
 };
 
 const LIGHT_COLOR_SWATCHES = [
@@ -58,6 +61,8 @@ export function StageLightingOverlay({
   onChangeAllLights,
   allLights,
   floorRef,
+  onGestureBegin,
+  onGestureEnd,
 }: StageLightingOverlayProps) {
   const dragRef = useRef<{
     id: string;
@@ -67,6 +72,7 @@ export function StageLightingOverlay({
     originClientY: number;
     moved: boolean;
   } | null>(null);
+  const gestureOpenRef = useRef(false);
   const [localSelected, setLocalSelected] = useState<string | null>(null);
   const [floorAspect, setFloorAspect] = useState(1);
   const [contextMenu, setContextMenu] = useState<LightContextMenu | null>(
@@ -201,6 +207,10 @@ export function StageLightingOverlay({
       originClientY: e.clientY,
       moved: false,
     };
+    if (!gestureOpenRef.current) {
+      gestureOpenRef.current = true;
+      onGestureBegin?.();
+    }
     select(id);
   };
 
@@ -256,6 +266,12 @@ export function StageLightingOverlay({
     }
   };
 
+  const finishGesture = () => {
+    if (!gestureOpenRef.current) return;
+    gestureOpenRef.current = false;
+    onGestureEnd?.();
+  };
+
   const onPointerUp = (e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) return;
@@ -265,6 +281,7 @@ export function StageLightingOverlay({
     } catch {
       /* already released */
     }
+    finishGesture();
   };
 
   const deleteSelected = (id?: string) => {

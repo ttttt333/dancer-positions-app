@@ -5657,6 +5657,8 @@ export function StageBoardBody({
                 onStageLightsChange(merged);
               }}
               onChangeAllLights={(next) => onStageLightsChange?.(next)}
+              onGestureBegin={onGestureHistoryBegin}
+              onGestureEnd={onGestureHistoryEnd}
               floorRef={stageMainFloorRef}
             />
           ) : null;
