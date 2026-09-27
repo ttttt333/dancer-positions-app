@@ -44,6 +44,7 @@ import { modDancerColorIndex, normalizeDancerFacingDeg } from "./dancerColorPale
 import { sliceMarkerBadgeForStorage } from "./markerBadge";
 import { normalizeDancerFaceStamp } from "./dancerFaceStamp";
 import { normalizeDancerFigure3d } from "./dancerFigure3d";
+import { MAX_DANCERS_PER_FORMATION } from "./dancerCountLimits";
 
 function randomId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
@@ -580,12 +581,12 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       const dancersRaw = Array.isArray(slObj.dancers) ? slObj.dancers : [];
       const dancers: DancerSpot[] = dancersRaw
         .filter((d) => d != null && typeof d === "object")
-        .slice(0, 100)
+        .slice(0, MAX_DANCERS_PER_FORMATION)
         .map((d, i) => normalizeDancerSpot(d, i));
       const savedAtCount =
         typeof slObj.savedAtCount === "number" && Number.isFinite(slObj.savedAtCount)
-          ? Math.max(1, Math.min(100, Math.floor(slObj.savedAtCount)))
-          : Math.max(1, Math.min(100, dancers.length || 1));
+          ? Math.max(1, Math.min(MAX_DANCERS_PER_FORMATION, Math.floor(slObj.savedAtCount)))
+          : Math.max(1, Math.min(MAX_DANCERS_PER_FORMATION, dancers.length || 1));
       const stageSnapshot = normalizeSavedSpotStageSnapshot(slObj.stageSnapshot, defaults);
       return {
         id: typeof slObj.id === "string" && slObj.id ? slObj.id : randomId("saved-layout"),
