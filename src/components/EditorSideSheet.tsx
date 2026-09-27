@@ -104,6 +104,27 @@ export function EditorSideSheet({
             e.stopPropagation();
             if (canDismiss) onClose();
           }}
+          onContextMenu={(e) => {
+            /** 背面のステージへ右クリックを渡し、ブラウザ標準メニューを出さない */
+            e.preventDefault();
+            e.stopPropagation();
+            const { clientX, clientY } = e;
+            const backdrop = e.currentTarget;
+            backdrop.style.pointerEvents = "none";
+            const under = document.elementFromPoint(clientX, clientY);
+            backdrop.style.pointerEvents = "";
+            if (canDismiss) onClose();
+            under?.dispatchEvent(
+              new MouseEvent("contextmenu", {
+                bubbles: true,
+                cancelable: true,
+                clientX,
+                clientY,
+                button: 2,
+                buttons: 2,
+              })
+            );
+          }}
           style={{
             position: "absolute",
             inset: 0,

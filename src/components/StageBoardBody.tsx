@@ -5323,13 +5323,19 @@ export function StageBoardBody({
   /** ステージ床右クリック → クイック一覧（照明追加含む）。色バーは出さない。 */
   const handleContextMenuFloor = useCallback(
     (e: ReactMouseEvent<HTMLDivElement>) => {
-      if (dancerMenuInteractionDisabled) return;
+      if (viewMode === "view") return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest?.("button, a, input, textarea, [data-set-piece]")) {
+      if (
+        target?.closest?.(
+          "input, textarea, select, [contenteditable='true'], [data-set-piece]"
+        )
+      ) {
         return;
       }
+      /** 雛形プレビュー中などで印が pointer-events:none でも、ブラウザ標準メニューは出さない */
       e.preventDefault();
       e.stopPropagation();
+      if (!stageInteractionsEnabled || playbackDancers) return;
       const anchorId =
         primarySelectedDancer?.id ?? selectedDancerIds[0] ?? null;
       if (anchorId && selectedDancerIds.length >= 1) {
@@ -5356,7 +5362,9 @@ export function StageBoardBody({
       });
     },
     [
-      dancerMenuInteractionDisabled,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackDancers,
       selectedDancerIds,
       primarySelectedDancer?.id,
     ]
