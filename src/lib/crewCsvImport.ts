@@ -860,13 +860,13 @@ export function parseCrewMembersFromCsv(
   return rowsToCrewMembers(rows, opts);
 }
 
-/** 入力された名前と CSV テキストから新しい Crew を作る（id は生成、最大 80 人で打ち切り） */
+/** 入力された名前と CSV テキストから新しい Crew を作る（id は生成） */
 export function buildCrewFromCsv(
   name: string,
   csvText: string,
   opts?: CrewImportOptions
 ): Crew {
-  const members = parseCrewMembersFromCsv(csvText, opts).slice(0, 80);
+  const members = parseCrewMembersFromCsv(csvText, opts);
   return {
     id: crypto.randomUUID(),
     name: name.trim().slice(0, 60) || "新しい名簿",
@@ -880,7 +880,7 @@ export function buildCrewFromRows(
   rows: string[][],
   opts?: CrewImportOptions
 ): Crew {
-  const members = rowsToCrewMembers(rows, opts).slice(0, 80);
+  const members = rowsToCrewMembers(rows, opts);
   return {
     id: crypto.randomUUID(),
     name: name.trim().slice(0, 60) || "新しい名簿",

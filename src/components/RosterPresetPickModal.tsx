@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { MAX_DANCERS_PER_FORMATION } from "../lib/dancerCountLimits";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -61,7 +62,7 @@ export function RosterPresetPickModal({
   onRosterSortModeChange,
   onPreviewPreset,
 }: Props) {
-  const n = Math.max(1, Math.min(80, previewCount));
+  const n = Math.max(1, Math.min(MAX_DANCERS_PER_FORMATION, previewCount));
 
   /** 選択中の雛形（未確定状態） */
   const [selectedPresetId, setSelectedPresetId] = useState<LayoutPresetId | null>(null);

@@ -6,6 +6,7 @@ import {
   rescaleSpotsForSpacing,
 } from "./dancerSpacing";
 import { modDancerColorIndex } from "./dancerColorPalette";
+import { MAX_DANCERS_PER_FORMATION } from "./dancerCountLimits";
 import {
   balancedHorizontalLineSpots,
   balancedVerticalColumnSpots,
@@ -2984,7 +2985,7 @@ export function dancersWithPresetAndWingSurplus(
   enableWingSurplus: boolean,
   opts?: LayoutPresetOptions
 ): DancerSpot[] {
-  const nn = Math.max(0, Math.min(80, Math.floor(n) || 0));
+  const nn = Math.max(0, Math.min(MAX_DANCERS_PER_FORMATION, Math.floor(n) || 0));
   if (nn <= 0) return [];
   const prev = Math.max(0, Math.floor(previousBodyCount) || 0);
   if (!enableWingSurplus || nn <= prev || prev < MIN_BODY_FOR_WING_SURPLUS) {

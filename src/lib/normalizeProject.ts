@@ -584,8 +584,8 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
         .map((d, i) => normalizeDancerSpot(d, i));
       const savedAtCount =
         typeof slObj.savedAtCount === "number" && Number.isFinite(slObj.savedAtCount)
-          ? Math.max(1, Math.min(80, Math.floor(slObj.savedAtCount)))
-          : Math.max(1, Math.min(80, dancers.length || 1));
+          ? Math.max(1, Math.min(100, Math.floor(slObj.savedAtCount)))
+          : Math.max(1, Math.min(100, dancers.length || 1));
       const stageSnapshot = normalizeSavedSpotStageSnapshot(slObj.stageSnapshot, defaults);
       return {
         id: typeof slObj.id === "string" && slObj.id ? slObj.id : randomId("saved-layout"),
