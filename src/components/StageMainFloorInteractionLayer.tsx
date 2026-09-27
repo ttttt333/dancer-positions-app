@@ -56,6 +56,8 @@ export type StageMainFloorInteractionLayerProps = {
     h: GroupBoxHandle,
     box: StageSelectionBoxPct
   ) => void;
+  /** 選択枠右上（緑）: 複数選択の操作パネル */
+  onOpenSelectionMenuClick?: () => void;
   selectedDancerIds: readonly string[];
   onGroupRotatePointerDown: (
     e: ReactPointerEvent<HTMLButtonElement>
@@ -100,6 +102,7 @@ export function StageMainFloorInteractionLayer({
   effectiveMarkerPx,
   effectiveFacingDeg,
   onGroupBoxHandlePointerDown,
+  onOpenSelectionMenuClick,
   selectedDancerIds,
   onGroupRotatePointerDown,
   dragGhostById,
@@ -124,6 +127,11 @@ export function StageMainFloorInteractionLayer({
 }: StageMainFloorInteractionLayerProps) {
   const showDeleteHandles =
     Boolean(onDeleteSelectedDancers) &&
+    !playbackOrPreview &&
+    viewMode !== "view" &&
+    stageInteractionsEnabled;
+  const showGroupCornerHandles =
+    selectedDancerIds.length >= 2 &&
     !playbackOrPreview &&
     viewMode !== "view" &&
     stageInteractionsEnabled;
@@ -157,6 +165,17 @@ export function StageMainFloorInteractionLayer({
           }
           onHandlePointerDown={(e, h) =>
             onGroupBoxHandlePointerDown(e, h, selectionBox)
+          }
+          onNameBelowFontPointerDown={
+            showGroupCornerHandles && dancerLabelBelow
+              ? onNameBelowFontResizePointerDown
+              : undefined
+          }
+          onOpenMenuClick={
+            showGroupCornerHandles ? onOpenSelectionMenuClick : undefined
+          }
+          onMarkerResizePointerDown={
+            showGroupCornerHandles ? onMarkerResizePointerDown : undefined
           }
           onDeleteClick={showDeleteHandles ? onDeleteSelectedDancers : undefined}
         />

@@ -37,7 +37,6 @@ import {
 } from "../../lib/memberRosterSheetFields";
 import {
   removeMembersFromStage,
-  shouldConfirmMemberDeleteScope,
   type MemberDeleteScope,
 } from "../../lib/removeMemberFromStage";
 import { MemberDeleteScopeDialog } from "../../components/MemberDeleteScopeDialog";
@@ -847,24 +846,6 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                             setStagePreviewDancers?.(null);
                             setMemberDeletePending(null);
                           };
-                          if (shouldConfirmMemberDeleteScope(project)) {
-                            setMemberDeletePending({
-                              formationId: editFid,
-                              cueId,
-                              dancerId: dancer.id,
-                              label: dancer.label || "メンバー",
-                            });
-                            return;
-                          }
-                          if (
-                            !window.confirm(
-                              dancer.label?.trim()
-                                ? `「${dancer.label.trim()}」を舞台から削除しますか？`
-                                : "このメンバーを舞台から削除しますか？"
-                            )
-                          ) {
-                            return;
-                          }
                           run("cue");
                         }}
                         style={{

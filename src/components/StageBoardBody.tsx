@@ -178,7 +178,6 @@ import {
 } from "../lib/memberRosterSheetFields";
 import {
   removeMembersFromStage,
-  shouldConfirmMemberDeleteScope,
   type MemberDeleteScope,
 } from "../lib/removeMemberFromStage";
 import { MemberDeleteScopeDialog } from "./MemberDeleteScopeDialog";
@@ -1644,7 +1643,6 @@ export function StageBoardBody({
         stageInteractionsEnabled === false
       )
         return;
-      const spot = writeFormation.dancers.find((x) => x.id === dancerId);
       const run = (scope: MemberDeleteScope) => {
         setProject((p) =>
           removeMembersFromStage(p, {
@@ -1661,23 +1659,6 @@ export function StageBoardBody({
         setStageContextMenu(null);
         setMemberDeletePending(null);
       };
-      if (shouldConfirmMemberDeleteScope(project)) {
-        setMemberDeletePending({
-          dancerIds: [dancerId],
-          formationId: formationIdForWrites,
-          label: spot?.label,
-        });
-        return;
-      }
-      if (
-        !window.confirm(
-          spot?.label?.trim()
-            ? `「${spot.label.trim()}」を舞台から削除しますか？`
-            : "この立ち位置を削除しますか？",
-        )
-      ) {
-        return;
-      }
       run("cue");
     },
     [
@@ -1809,20 +1790,6 @@ export function StageBoardBody({
         setStageContextMenu(null);
         setMemberDeletePending(null);
       };
-      if (shouldConfirmMemberDeleteScope(project)) {
-        const first = writeFormation.dancers.find((d) => removeSet.has(d.id));
-        setMemberDeletePending({
-          dancerIds: [...dancerIds],
-          formationId: formationIdForWrites,
-          label: dancerIds.length === 1 ? first?.label : undefined,
-        });
-        return;
-      }
-      const msg =
-        dancerIds.length === 1
-          ? "この立ち位置を削除しますか？"
-          : `選択中の ${dancerIds.length} 人の立ち位置を削除しますか？`;
-      if (!window.confirm(msg)) return;
       run("cue");
     },
     [
@@ -5901,6 +5868,7 @@ export function StageBoardBody({
         effectiveMarkerPx,
         effectiveFacingDeg,
         onGroupBoxHandlePointerDown: handlePointerDownGroupBoxHandle,
+        onOpenSelectionMenuClick: handleOpenSelectionMenu,
         selectedDancerIds,
         onGroupRotatePointerDown: handlePointerDownMarkerRotate,
         dragGhostById,
