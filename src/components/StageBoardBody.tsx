@@ -217,6 +217,32 @@ import { STAGE_BOARD_ABORT_POINTER_GESTURES } from "../lib/stageBoardGestureAbor
 
 /** タッチ時、指で隠れないようマーカーを指より上に置くオフセット（px） */
 const TOUCH_DANCER_FINGER_CLEARANCE_PX = 56;
+/** ここに含まれる要素のタップでは選択を解除しない（舞台本体・ボタン・パネル・メニュー） */
+const KEEP_STAGE_SELECTION_TAP_SELECTOR = [
+  "#stage-export-root",
+  ".stage-board-main-slot",
+  "button",
+  "a",
+  "input",
+  "select",
+  "textarea",
+  "label",
+  "[contenteditable='true']",
+  "[role='button']",
+  "[role='menu']",
+  "[role='menuitem']",
+  "[role='dialog']",
+  "[role='toolbar']",
+  "[role='slider']",
+  "[role='radiogroup']",
+  "[role='listbox']",
+  "[data-editor-sheet-root]",
+  "[data-mobile-menu-sheet]",
+  "[data-stage-edit-dock]",
+  "[data-selection-arrange-panel]",
+  "[data-selection-display-panel]",
+  "[data-selection-compare-panel]",
+].join(", ");
 /** この床幅（px）未満のときだけ個別の印径・名前 px を床幅比で縮める */
 const NARROW_FLOOR_REFERENCE_PX = 640;
 
@@ -402,6 +428,20 @@ export function StageBoardBody({
   const clearSelectedDancers = useStageBoardInteractionStore(
     (s) => s.clearSelectedDancers,
   );
+  const hasDancerSelection = selectedDancerIds.length > 0;
+  /** タッチ操作では、舞台・操作 UI 以外の画面をタップしたら選択解除 */
+  useEffect(() => {
+    if (!hasDancerSelection) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest(KEEP_STAGE_SELECTION_TAP_SELECTOR)) return;
+      clearSelectedDancers();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [hasDancerSelection, clearSelectedDancers]);
   const [selectedSetPieceId, setSelectedSetPieceId] = useState<string | null>(
     null,
   );
