@@ -36,6 +36,7 @@ import {
   resolveMemberRosterFields,
 } from "../../lib/memberRosterSheetFields";
 import {
+  moveOtherMembersToWings,
   removeMembersFromStage,
   type MemberDeleteScope,
 } from "../../lib/removeMemberFromStage";
@@ -93,6 +94,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   } | null>(null);
   const [rosterDragFrom, setRosterDragFrom] = useState<number | null>(null);
   const [rosterDragOver, setRosterDragOver] = useState<number | null>(null);
+  const [rosterCheckedIds, setRosterCheckedIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
 
   const videoExportOpen = useVideoExportUiStore((s) => s.open);
   const closeVideoExport = useVideoExportUiStore((s) => s.closeSheet);
@@ -589,7 +593,119 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 outline: "none",
                 cursor: viewOnly ? "default" : "pointer",
               };
-              return formation.dancers.map((dancer, idx) => {
+              const checkedIds = formation.dancers
+                .filter((d) => rosterCheckedIds.has(d.id))
+                .map((d) => d.id);
+              const allChecked =
+                checkedIds.length === formation.dancers.length;
+              const cueIdForEdit =
+                (selectedCue as { id?: string } | null | undefined)?.id ??
+                (typeof selectedCueId === "string" ? selectedCueId : null);
+              const bulkBtnStyle = (danger: boolean): CSSProperties => ({
+                height: 28,
+                padding: "0 10px",
+                borderRadius: 6,
+                border: danger
+                  ? "1px solid rgba(248,113,113,0.45)"
+                  : `1px solid ${shell.border}`,
+                background: danger
+                  ? "rgba(127,29,29,0.35)"
+                  : "rgba(255,255,255,0.06)",
+                color: danger ? "#fecaca" : shell.text,
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: checkedIds.length === 0 ? "not-allowed" : "pointer",
+                opacity: checkedIds.length === 0 ? 0.45 : 1,
+                whiteSpace: "nowrap",
+              });
+              const bulkBar = viewOnly ? null : (
+                <div
+                  key="__roster-bulk"
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 4px 8px",
+                    marginBottom: 2,
+                    borderBottom: `1px solid ${shell.border}`,
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                      fontSize: 11,
+                      color: shell.textMuted,
+                      cursor: "pointer",
+                      marginRight: "auto",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={allChecked}
+                      ref={(el) => {
+                        if (el) {
+                          el.indeterminate =
+                            checkedIds.length > 0 && !allChecked;
+                        }
+                      }}
+                      onChange={() =>
+                        setRosterCheckedIds(
+                          allChecked
+                            ? new Set()
+                            : new Set(formation.dancers.map((d) => d.id))
+                        )
+                      }
+                    />
+                    {checkedIds.length > 0
+                      ? `${checkedIds.length}人選択中`
+                      : "全員選択"}
+                  </label>
+                  <button
+                    type="button"
+                    disabled={checkedIds.length === 0}
+                    title="チェックしたメンバーだけ舞台上に残し、それ以外を舞台そでに待機させます（このキュー）"
+                    onClick={() => {
+                      if (!fid || checkedIds.length === 0) return;
+                      setProjectSafe((p) =>
+                        moveOtherMembersToWings(p, {
+                          formationId: fid,
+                          cueId: cueIdForEdit,
+                          keepDancerIds: checkedIds,
+                        })
+                      );
+                      setStagePreviewDancers?.(null);
+                    }}
+                    style={bulkBtnStyle(false)}
+                  >
+                    選んだメンバーだけ舞台に残す
+                  </button>
+                  <button
+                    type="button"
+                    disabled={checkedIds.length === 0}
+                    title="チェックしたメンバーをまとめて削除（このキュー）"
+                    onClick={() => {
+                      if (!fid || checkedIds.length === 0) return;
+                      setProjectSafe((p) =>
+                        removeMembersFromStage(p, {
+                          formationId: fid,
+                          cueId: cueIdForEdit,
+                          dancerIds: checkedIds,
+                          scope: "cue",
+                        })
+                      );
+                      setStagePreviewDancers?.(null);
+                      setRosterCheckedIds(new Set());
+                    }}
+                    style={bulkBtnStyle(true)}
+                  >
+                    選んだメンバーを削除
+                  </button>
+                </div>
+              );
+              const rows = formation.dancers.map((dancer, idx) => {
                 const colorIdx = modDancerColorIndex(dancer.colorIndex);
                 const colorHex = DANCER_COLOR_PALETTE_HEX[colorIdx]!;
                 const badgeLabel = dancer.markerBadge ?? String(idx + 1);
@@ -700,6 +816,22 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                       >
                         ⠿
                       </button>
+                    ) : null}
+                    {!viewOnly ? (
+                      <input
+                        type="checkbox"
+                        aria-label="選択"
+                        checked={rosterCheckedIds.has(dancer.id)}
+                        onChange={() =>
+                          setRosterCheckedIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(dancer.id)) next.delete(dancer.id);
+                            else next.add(dancer.id);
+                            return next;
+                          })
+                        }
+                        style={{ flexShrink: 0, margin: 0, cursor: "pointer" }}
+                      />
                     ) : null}
                     <select
                       aria-label="色"
@@ -873,6 +1005,12 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   </div>
                 );
               });
+              return (
+                <>
+                  {bulkBar}
+                  {rows}
+                </>
+              );
             })()}
           </div>
           {/* フッター：全フォーメーションに名前を反映 */}

@@ -145,6 +145,79 @@ export function removeMembersFromStage(
   };
 }
 
+/**
+ * 袖（メイン床の左右外側）の x 座標（メイン床幅に対する %）。
+ * サイドステージ寸法があればその中央、なければ床のすぐ外側。
+ */
+export function wingStandbyXPct(
+  side: "left" | "right",
+  stageWidthMm: number | null | undefined,
+  sideStageMm: number | null | undefined
+): number {
+  const W = typeof stageWidthMm === "number" && stageWidthMm > 0 ? stageWidthMm : 0;
+  const S = typeof sideStageMm === "number" && sideStageMm > 0 ? sideStageMm : 0;
+  const off = W > 0 && S > 0 ? Math.min(40, (S / W) * 50) : 6;
+  return side === "left" ? -off : 100 + off;
+}
+
+/**
+ * 指定メンバーだけ舞台上に残し、それ以外を左右の袖に縦並びで待機させる。
+ * 現在位置が上手/下手どちらに近いかで袖を振り分ける。共有フォーメーションはキュー用にフォーク。
+ */
+export function moveOtherMembersToWings(
+  p: ChoreographyProjectJson,
+  opts: {
+    formationId: string;
+    cueId?: string | null;
+    keepDancerIds: readonly string[];
+  }
+): ChoreographyProjectJson {
+  const forked = forkFormationForCueIfShared(p, opts.cueId, opts.formationId);
+  const project = forked.project;
+  const formationId = forked.formationId;
+  const target = project.formations.find((f) => f.id === formationId);
+  if (!target) return project;
+
+  const keep = new Set(opts.keepDancerIds);
+  const left: number[] = [];
+  const right: number[] = [];
+  target.dancers.forEach((d, i) => {
+    if (keep.has(d.id)) return;
+    (d.xPct < 50 ? left : right).push(i);
+  });
+  if (left.length === 0 && right.length === 0) return project;
+
+  const round2 = (v: number) => Math.round(v * 100) / 100;
+  const place = new Map<number, { xPct: number; yPct: number }>();
+  const layout = (idxs: number[], side: "left" | "right") => {
+    const sorted = [...idxs].sort(
+      (a, b) => target.dancers[a]!.yPct - target.dancers[b]!.yPct
+    );
+    const x = wingStandbyXPct(side, project.stageWidthMm, project.sideStageMm);
+    const n = sorted.length;
+    sorted.forEach((di, k) => {
+      const yPct = n === 1 ? 50 : 8 + (k / (n - 1)) * 84;
+      place.set(di, { xPct: round2(x), yPct: round2(yPct) });
+    });
+  };
+  layout(left, "left");
+  layout(right, "right");
+
+  return {
+    ...project,
+    formations: project.formations.map((f) => {
+      if (f.id !== formationId) return f;
+      return {
+        ...f,
+        dancers: f.dancers.map((d, i) => {
+          const pos = place.get(i);
+          return pos ? { ...d, ...pos } : d;
+        }),
+      };
+    }),
+  };
+}
+
 /** キューが2つ以上あるときだけスコープ確認が必要 */
 export function shouldConfirmMemberDeleteScope(
   p: ChoreographyProjectJson
