@@ -50,7 +50,6 @@ export type UseStageDancerMarkerElementsParams = {
   previewDancers: DancerSpot[] | null;
   stageInteractionsEnabled: boolean;
   /** 複数選択時の枠線色（`shell.ruby` 相当） */
-  rubyAccent: string;
   dancerQuickEditId: string | null;
   setShowStageDancerColorToolbar: Dispatch<SetStateAction<boolean>>;
   setStageContextMenu: Dispatch<SetStateAction<StageBoardContextMenuState>>;
@@ -82,7 +81,6 @@ export function useStageDancerMarkerElements(
     playbackDancers,
     previewDancers,
     stageInteractionsEnabled,
-    rubyAccent,
     dancerQuickEditId,
     setShowStageDancerColorToolbar,
     setStageContextMenu,
@@ -179,7 +177,7 @@ export function useStageDancerMarkerElements(
             ? "2px solid rgba(99,102,241,0.95)"
             : selectedDancerIds.includes(d.id)
               ? selectedDancerIds.length >= 2
-                ? `2px solid ${rubyAccent}`
+                ? "1.5px solid rgba(255,255,255,0.95)"
                 : "2px solid rgba(251,191,36,0.92)"
               : "2px solid rgba(255,255,255,0.35)";
         const cursorCss =
@@ -300,7 +298,6 @@ export function useStageDancerMarkerElements(
       playbackDancers,
       previewDancers,
       stageInteractionsEnabled,
-      rubyAccent,
       dancerQuickEditId,
       setShowStageDancerColorToolbar,
       setStageContextMenu,

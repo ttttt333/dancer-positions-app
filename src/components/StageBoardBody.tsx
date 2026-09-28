@@ -5848,7 +5848,6 @@ export function StageBoardBody({
     playbackDancers,
     previewDancers,
     stageInteractionsEnabled,
-    rubyAccent: shell.ruby,
     dancerQuickEditId,
     setShowStageDancerColorToolbar,
     setStageContextMenu,

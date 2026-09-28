@@ -387,7 +387,11 @@ export function StageLightingOverlay({
             const { rx, ry } = resolveLightAxes(L, floorAspect);
             const selected = resolvedSelected === L.id;
             return (
-              <div key={`hit-${L.id}`} style={{ pointerEvents: "none" }}>
+              <div
+                key={`hit-${L.id}`}
+                className="stage-light-handles"
+                style={{ pointerEvents: "none" }}
+              >
                 {/*
                   範囲全体の透明ヒットは舞台の範囲選択・ダブルクリックを奪うため使わない。
                   選択枠は見た目のみ。操作は中央チップ＋選択時ハンドルに限定する。

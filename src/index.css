@@ -4151,6 +4151,12 @@ body:has([data-editor-sheet-root] [aria-labelledby="flow-lib-title"]) [data-shel
   min-height: 44px !important;
 }
 
+/* 携帯版: 舞台上の照明の丸ボタン・ハンドルは出さない（照明は設定パネルで編集） */
+[data-shell-portrait] .stage-light-handles,
+[data-shell-landscape] .stage-light-handles {
+  display: none !important;
+}
+
 /* ── ログイン／登録：iOS のフォーカス時拡大を抑え、タップ領域を確保 ── */
 @media (max-width: 480px) {
   .app-auth-card input[type="email"],
