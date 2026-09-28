@@ -91,7 +91,7 @@ export function TimelineWaveMenus({
   waveCueConfirm,
   setWaveCueConfirm,
   splitCueAtPlayhead,
-  removeCue: _removeCue,
+  removeCue,
   duplicateCueAfterSource,
   duplicateCueAtTimelineEnd,
   saveCueFormationToBoxList,
@@ -443,9 +443,7 @@ export function TimelineWaveMenus({
             type="button"
             role="menuitem"
             disabled={viewMode === "view"}
-            style={menuBtnBase(!!waveCueMenu.fullscreen, {
-              marginBottom: 0,
-            })}
+            style={menuBtnBase(!!waveCueMenu.fullscreen)}
             onClick={() => {
               if (viewMode === "view") return;
               applyLightingPresetToCue(waveCueMenu.cueId);
@@ -453,6 +451,24 @@ export function TimelineWaveMenus({
             }}
           >
             プリセットから適用
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={viewMode === "view"}
+            style={menuBtnBase(!!waveCueMenu.fullscreen, {
+              marginBottom: 0,
+              color: "#f87171",
+              borderColor: "rgba(248, 113, 113, 0.45)",
+            })}
+            onClick={() => {
+              if (viewMode === "view") return;
+              const id = waveCueMenu.cueId;
+              closeCueMenu();
+              removeCue(id);
+            }}
+          >
+            削除
           </button>
           </div>
         </div>
