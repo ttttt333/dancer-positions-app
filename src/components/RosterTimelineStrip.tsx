@@ -33,7 +33,10 @@ import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
-import { resolveDancerDisplayHex } from "../lib/dancerGender";
+import {
+  genderLabelForColor,
+  resolveDancerDisplayHex,
+} from "../lib/dancerGender";
 import { dancerMarkerDiameterAfterRosterImport } from "../lib/projectDefaults";
 import { useI18n } from "../i18n/I18nContext";
 import {
@@ -868,7 +871,7 @@ export function RosterTimelineStrip({
 
   const chipBg = (m: CrewMember) =>
     resolveDancerDisplayHex(
-      m.genderLabel,
+      genderLabelForColor(m),
       DANCER_PALETTE[modDancerColorIndex(m.colorIndex)]!
     );
 

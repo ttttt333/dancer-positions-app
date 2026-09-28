@@ -359,6 +359,7 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     ...(typeof d.genderLabel === "string" && d.genderLabel.trim()
       ? { genderLabel: d.genderLabel.trim().slice(0, 32) }
       : {}),
+    ...(d.colorOverridesGender === true ? { colorOverridesGender: true } : {}),
     ...(markerBadge !== undefined ? { markerBadge } : {}),
     ...(markerBadgeSource ? { markerBadgeSource } : {}),
     ...(facingDeg != null ? { facingDeg } : {}),
@@ -561,6 +562,9 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
               }
               if (typeof mm.genderLabel === "string" && mm.genderLabel.trim()) {
                 base.genderLabel = mm.genderLabel.trim().slice(0, 32);
+              }
+              if (mm.colorOverridesGender === true) {
+                base.colorOverridesGender = true;
               }
               if (typeof mm.note === "string" && mm.note.trim()) {
                 base.note = mm.note.trim().slice(0, 2000);

@@ -9,7 +9,10 @@ import {
   modDancerColorIndex,
   normalizeDancerFacingDeg,
 } from "../lib/dancerColorPalette";
-import { resolveDancerDisplayHex } from "../lib/dancerGender";
+import {
+  genderLabelForColor,
+  resolveDancerDisplayHex,
+} from "../lib/dancerGender";
 import { dancerNameBelowLabelOffsetPx } from "../lib/stageNameBelowFontSizing";
 import { dancerCircleInnerBelowLabel } from "../lib/stageBoardModelHelpers";
 import { resolveMarkerCircleContent } from "../lib/resolveMarkerCircleContent";
@@ -254,7 +257,7 @@ export function useStageDancerMarkerElements(
             markerPx={dMarkerPx}
             borderCss={borderCss}
             fillHex={resolveDancerDisplayHex(
-              d.genderLabel,
+              genderLabelForColor(d),
               DANCER_PALETTE[modDancerColorIndex(d.colorIndex)]!
             )}
             labelFontPx={dLabelFontPx}

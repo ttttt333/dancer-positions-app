@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DANCER_GENDER_FEMALE_HEX,
   DANCER_GENDER_MALE_HEX,
+  genderLabelForColor,
   parseDancerGenderKind,
   resolveDancerDisplayHex,
 } from "./dancerGender";
@@ -42,5 +43,20 @@ describe("resolveDancerDisplayHex", () => {
 
   it("falls back when gender unset", () => {
     expect(resolveDancerDisplayHex(undefined, "#38bdf8")).toBe("#38bdf8");
+  });
+
+  it("prefers the palette color once a color was picked explicitly", () => {
+    expect(
+      resolveDancerDisplayHex(
+        genderLabelForColor({ genderLabel: "男子", colorOverridesGender: true }),
+        "#38bdf8"
+      )
+    ).toBe("#38bdf8");
+    expect(
+      resolveDancerDisplayHex(
+        genderLabelForColor({ genderLabel: "女子" }),
+        "#38bdf8"
+      )
+    ).toBe(DANCER_GENDER_FEMALE_HEX);
   });
 });

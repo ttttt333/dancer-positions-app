@@ -417,6 +417,7 @@ export function lerpDancersAcrossGap(
           return {
             ...(src.heightCm != null ? { heightCm: src.heightCm } : {}),
             ...(src.genderLabel ? { genderLabel: src.genderLabel } : {}),
+            ...(src.colorOverridesGender ? { colorOverridesGender: true } : {}),
             ...(src.gradeLabel ? { gradeLabel: src.gradeLabel } : {}),
             ...(src.skillRankLabel ? { skillRankLabel: src.skillRankLabel } : {}),
             ...(src.faceStamp ? { faceStamp: src.faceStamp } : {}),

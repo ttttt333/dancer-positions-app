@@ -6,7 +6,7 @@ import {
   DANCER_COLOR_PALETTE_HEX,
   modDancerColorIndex,
 } from "./dancerColorPalette";
-import { resolveDancerDisplayHex } from "./dancerGender";
+import { genderLabelForColor, resolveDancerDisplayHex } from "./dancerGender";
 import { resolveStageExportRange } from "./stageExportRange";
 import { buildStageExportAppearance } from "./stageExportAppearance";
 import { resolvePlaybackAudioUrlForExport } from "./resolvePlaybackAudioUrlForExport";
@@ -21,7 +21,7 @@ import {
 
 function dancerColorHex(d: DancerSpot): string {
   return resolveDancerDisplayHex(
-    d.genderLabel,
+    genderLabelForColor(d),
     DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)]!
   );
 }

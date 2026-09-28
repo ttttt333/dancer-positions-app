@@ -4262,6 +4262,16 @@ export function StageBoardBody({
         const cmid = spot.crewMemberId;
         const matches = (x: DancerSpot) =>
           x.id === dancerId || Boolean(cmid && x.crewMemberId === cmid);
+        const genderChanged =
+          (patch.genderLabel ?? "") !== (spot.genderLabel ?? "");
+        const colorPicked =
+          modDancerColorIndex(patch.colorIndex) !==
+          modDancerColorIndex(spot.colorIndex);
+        const colorOverridesGender = genderChanged
+          ? undefined
+          : colorPicked
+            ? true
+            : spot.colorOverridesGender;
 
         let crews = p.crews;
         if (cmid) {
@@ -4276,6 +4286,7 @@ export function StageBoardBody({
                     heightCm: patch.heightCm,
                     gradeLabel: patch.gradeLabel,
                     genderLabel: patch.genderLabel,
+                    colorOverridesGender,
                     skillRankLabel: patch.skillRankLabel,
                     note: patch.note,
                   }
@@ -4302,6 +4313,7 @@ export function StageBoardBody({
                 heightCm: patch.heightCm,
                 gradeLabel: patch.gradeLabel,
                 genderLabel: patch.genderLabel,
+                colorOverridesGender,
                 skillRankLabel: patch.skillRankLabel,
                 markerBadge: slicedBadge,
                 ...(slicedBadge ? { markerBadgeSource: undefined } : {}),
@@ -4358,7 +4370,11 @@ export function StageBoardBody({
           ...crew,
           members: crew.members.map((m) =>
             colorByCrewId.has(m.id)
-              ? { ...m, colorIndex: colorByCrewId.get(m.id)! }
+              ? {
+                  ...m,
+                  colorIndex: colorByCrewId.get(m.id)!,
+                  colorOverridesGender: true,
+                }
               : m,
           ),
         }));
@@ -4371,7 +4387,11 @@ export function StageBoardBody({
               ...f,
               dancers: f.dancers.map((d) =>
                 colorById.has(d.id)
-                  ? { ...d, colorIndex: colorById.get(d.id)! }
+                  ? {
+                      ...d,
+                      colorIndex: colorById.get(d.id)!,
+                      colorOverridesGender: true,
+                    }
                   : d,
               ),
             };
@@ -4971,7 +4991,7 @@ export function StageBoardBody({
             ...crew,
             members: crew.members.map((m) =>
               crewIds.has(m.id)
-                ? { ...m, genderLabel: nextGender }
+                ? { ...m, genderLabel: nextGender, colorOverridesGender: undefined }
                 : m
             ),
           })),
@@ -4981,11 +5001,9 @@ export function StageBoardBody({
               ...f,
               dancers: f.dancers.map((d) => {
                 if (!idSet.has(d.id)) return d;
-                if (!nextGender) {
-                  const { genderLabel: _g, ...rest } = d;
-                  return rest;
-                }
-                return { ...d, genderLabel: nextGender };
+                const { genderLabel: _g, colorOverridesGender: _c, ...rest } = d;
+                if (!nextGender) return rest;
+                return { ...rest, genderLabel: nextGender };
               }),
             };
           }),

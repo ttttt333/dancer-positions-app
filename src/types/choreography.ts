@@ -62,6 +62,8 @@ export type DancerSpot = {
   gradeLabel?: string;
   /** 性別などの表示ラベル（名簿と同期可） */
   genderLabel?: string;
+  /** true のとき性別色（男子青・女子ピンク）より colorIndex を優先 */
+  colorOverridesGender?: boolean;
   /** スキルランク表示（名簿未紐付け時も並び替え・再配置に使用） */
   skillRankLabel?: string;
   /**
@@ -337,6 +339,8 @@ export type CrewMember = {
   gradeLabel?: string;
   /** 性別など（例: 男・女） */
   genderLabel?: string;
+  /** true のとき性別色より colorIndex を優先 */
+  colorOverridesGender?: boolean;
   /** ダンス等スキルランクの表示（例: A、上級） */
   skillRankLabel?: string;
   /** メンバー単位メモ（立ち位置の備考と同期する場合あり） */

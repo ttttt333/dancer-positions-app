@@ -11,7 +11,10 @@ import {
   resolveDancerFigure3dId,
   type DancerFigure3dId,
 } from "../lib/dancerFigure3d";
-import { resolveDancerDisplayThree } from "../lib/dancerGender";
+import {
+  genderLabelForColor,
+  resolveDancerDisplayThree,
+} from "../lib/dancerGender";
 import {
   DEFAULT_DANCER_MARKER_DIAMETER_PX,
   MARKER_DIAMETER_PX_MAX,
@@ -649,7 +652,7 @@ export function Stage3DView({
       const totalH =
         BASE_FIGURE_HEIGHT * (heightCm / DEFAULT_HEIGHT_CM) * Math.min(1.35, Math.max(0.75, sizeScale));
       const paletteColor = PALETTE[modDancerColorIndex(d.colorIndex)]!;
-      const color = resolveDancerDisplayThree(d.genderLabel, paletteColor);
+      const color = resolveDancerDisplayThree(genderLabelForColor(d), paletteColor);
       const figureId = resolveDancerFigure3dId(d.figure3d);
       const fig = buildDancerFigure3d(figureId, totalH, color);
       fig.userData.dancerId = d.id;

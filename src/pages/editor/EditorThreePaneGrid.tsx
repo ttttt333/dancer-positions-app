@@ -1009,6 +1009,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                                     ? {
                                         ...m,
                                         genderLabel: patch.genderLabel,
+                                        colorOverridesGender: undefined,
                                       }
                                     : m
                                 ),
@@ -1024,13 +1025,17 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                                   ...f,
                                   dancers: f.dancers.map((d) => {
                                     if (d.id !== dancerId) return d;
+                                    const {
+                                      genderLabel: _g,
+                                      colorOverridesGender: _c,
+                                      ...rest
+                                    } = d;
                                     if (patch.genderLabel) {
                                       return {
-                                        ...d,
+                                        ...rest,
                                         genderLabel: patch.genderLabel,
                                       };
                                     }
-                                    const { genderLabel: _g, ...rest } = d;
                                     return rest;
                                   }),
                                 };

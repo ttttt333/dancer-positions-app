@@ -547,6 +547,7 @@ function crewMemberFromSpot(d: DancerSpot, memberId: string): CrewMember {
     ...(d.genderLabel?.trim()
       ? { genderLabel: d.genderLabel.trim().slice(0, 32) }
       : {}),
+    ...(d.colorOverridesGender ? { colorOverridesGender: true } : {}),
     ...(d.skillRankLabel?.trim()
       ? { skillRankLabel: d.skillRankLabel.trim().slice(0, 24) }
       : {}),

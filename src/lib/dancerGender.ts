@@ -82,6 +82,14 @@ export function dancerGenderThree(kind: DancerGenderKind): number {
     : DANCER_GENDER_FEMALE_THREE;
 }
 
+/** 色解決に使う性別ラベル（色を明示指定済みなら性別色を使わない） */
+export function genderLabelForColor(x: {
+  genderLabel?: string;
+  colorOverridesGender?: boolean;
+}): string | undefined {
+  return x.colorOverridesGender ? undefined : x.genderLabel;
+}
+
 /**
  * 性別が男子／女子ならその色、それ以外は fallbackHex。
  */
