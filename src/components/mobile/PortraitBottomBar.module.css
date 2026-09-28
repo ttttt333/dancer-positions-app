@@ -12,7 +12,7 @@
 .editRow {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: clamp(2px, 1vw, 4px);
   padding: 4px 6px 2px;
   padding-left: max(6px, env(safe-area-inset-left, 6px));
   padding-right: max(6px, env(safe-area-inset-right, 6px));
@@ -21,8 +21,8 @@
 }
 
 .editBtn {
-  width: 40px !important;
-  height: 40px !important;
+  width: clamp(30px, 10vw, 40px) !important;
+  height: clamp(34px, 10vw, 40px) !important;
   border-radius: 10px !important;
   flex-shrink: 0;
 }
@@ -33,14 +33,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: clamp(2px, 1vw, 4px);
   padding: 0 2px;
   height: 40px;
 }
 
 .cueNavBtn {
-  width: 36px !important;
-  height: 36px !important;
+  width: clamp(28px, 9vw, 36px) !important;
+  height: clamp(32px, 9vw, 36px) !important;
   border-radius: 9px !important;
   flex-shrink: 0;
 }
@@ -59,7 +59,7 @@
 .deleteCueBtn {
   flex: 0 0 auto;
   height: 36px;
-  padding: 0 10px;
+  padding: 0 clamp(6px, 2.5vw, 10px);
   border-radius: 9px;
   border: 1px solid rgba(196, 30, 58, 0.55);
   color: #fca5a5;

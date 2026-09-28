@@ -80,7 +80,7 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
   onChangeDraft,
 }: StageAreaDimensionRowsProps) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 6px", marginBottom: 0 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "4px 6px", marginBottom: 0 }}>
       {STAGE_AREA_DIM_ROWS.map((row) => {
         const hasVal = draft[row.key].m !== "" || draft[row.key].cm !== "";
         return (
@@ -314,7 +314,7 @@ export const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingCo
     },
   ];
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 6px", marginBottom: 0 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "4px 6px", marginBottom: 0 }}>
       {rows.map((row) => {
         const val = draft[row.key];
         const hasVal = val.m !== "" || val.cm !== "";

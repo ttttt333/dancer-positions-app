@@ -217,6 +217,8 @@ import { STAGE_BOARD_ABORT_POINTER_GESTURES } from "../lib/stageBoardGestureAbor
 
 /** タッチ時、指で隠れないようマーカーを指より上に置くオフセット（px） */
 const TOUCH_DANCER_FINGER_CLEARANCE_PX = 56;
+/** この床幅（px）未満のときだけ個別の印径・名前 px を床幅比で縮める */
+const NARROW_FLOOR_REFERENCE_PX = 640;
 
 /**
  * ステージボードの実装本体。`useStageDancerMarkerElements` / `useSetPieceBlockElements` 等で束ね、return 直前では次の順にオブジェクトを組み立てる:
@@ -655,19 +657,28 @@ export function StageBoardBody({
     [markerScale],
   );
 
+  /**
+   * 個別 sizePx・名前 px は PC の床幅で決めた値なので、スマホなど床が狭いときだけ床幅に比例して縮める。
+   * （既定の印径は床幅連動済みなので対象外）
+   */
+  const narrowFloorScale =
+    mainFloorPxWidth > 0
+      ? Math.min(1, mainFloorPxWidth / NARROW_FLOOR_REFERENCE_PX)
+      : 1;
+
   /** ダンサー 1 人分の実効サイズ（px）。draft > 個別 sizePx > プロジェクト共通、の順で解決。 */
   const effectiveMarkerPx = useCallback(
     (d: DancerSpot) => {
       const draft = markerDiamDraft?.get(d.id);
       if (typeof draft === "number" && Number.isFinite(draft)) {
-        return scaleMarkerPx(draft);
+        return scaleMarkerPx(draft * narrowFloorScale);
       }
       if (typeof d.sizePx === "number" && Number.isFinite(d.sizePx)) {
-        return scaleMarkerPx(d.sizePx);
+        return scaleMarkerPx(d.sizePx * narrowFloorScale);
       }
       return scaleMarkerPx(baseMarkerPx);
     },
-    [markerDiamDraft, baseMarkerPx, scaleMarkerPx],
+    [markerDiamDraft, baseMarkerPx, scaleMarkerPx, narrowFloorScale],
   );
 
   /** 名下ラベルの実効フォント（px）。床幅連動の ○ 表示サイズではなく保存値ベースで解決。 */
@@ -1034,7 +1045,11 @@ export function StageBoardBody({
         nameBelowFontDraft?.get(d.id)
       );
       const scaled =
-        base * markerScale * nameLabelUserScale * nameLabelAutoFitScale;
+        base *
+        markerScale *
+        nameLabelUserScale *
+        nameLabelAutoFitScale *
+        narrowFloorScale;
       return clampNameBelowFontPx(scaled);
     },
     [
@@ -1043,6 +1058,7 @@ export function StageBoardBody({
       markerScale,
       nameLabelUserScale,
       nameLabelAutoFitScale,
+      narrowFloorScale,
     ]
   );
 
@@ -2517,7 +2533,7 @@ export function StageBoardBody({
         const cur =
           typeof d.sizePx === "number" && Number.isFinite(d.sizePx)
             ? Math.round(d.sizePx)
-            : baseMarkerPx;
+            : Math.round(baseMarkerPx / narrowFloorScale);
         startSizes.set(id, cur);
       }
       if (startSizes.size === 0) return;
@@ -2544,6 +2560,7 @@ export function StageBoardBody({
       writeFormation,
       activeFormation,
       baseMarkerPx,
+      narrowFloorScale,
       setMarkerDiamDraft,
     ],
   );
@@ -3536,7 +3553,8 @@ export function StageBoardBody({
         const dy = e.clientY - m.startClientY;
         /** 右下方向に引っ張ると大きく、左上に引くと小さくなる */
         const bulk = m.ids.length >= 2;
-        const delta = (dx + dy) * (bulk ? 0.85 : 0.65);
+        const delta =
+          ((dx + dy) * (bulk ? 0.85 : 0.65)) / narrowFloorScale;
         const draft = computeMarkerResizeDraftSizes({
           startSizes: m.startSizes,
           delta,
@@ -3853,6 +3871,7 @@ export function StageBoardBody({
     setTrashHotIfChanged,
     trashDropEdge,
     markerDiamDraft,
+    narrowFloorScale,
     nameBelowFontDraft,
     setProject,
     writeFormation,
@@ -6218,7 +6237,6 @@ export function StageBoardBody({
     /* プレビュー帯・ステージ枠・床下一括色ツール */
     mainColumn: (
       <StageBoardMainColumn
-        dancerCount={displayDancers.length}
         previewBanner={
           <StageBoardPreviewFormationBanner
             show={Boolean(previewDancers && previewDancers.length > 0)}
