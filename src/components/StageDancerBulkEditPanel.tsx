@@ -7,7 +7,8 @@ import { DancerColorRandomSwatch } from "./DancerColorRandomSwatch";
 import {
   applyPositionSort,
   formatPositionSortPreview,
-  positionSortDirectionLabels,
+  normalizePositionSortDirection,
+  positionSortDirectionOptions,
   resolveArrangeTargetIds,
   rotateDancerRingOneStep,
   swapTwoDancerPositions,
@@ -85,7 +86,7 @@ function Segment<T extends string>({
             aria-checked={on}
             onClick={() => onChange(opt.id)}
             style={{
-              flex: "1 1 0",
+              flex: options.length > 3 ? "1 1 calc(50% - 2px)" : "1 1 0",
               minWidth: 56,
               padding: "5px 4px",
               borderRadius: 6,
@@ -185,7 +186,8 @@ export function StageDancerBulkEditPanel({
 }: StageDancerBulkEditPanelProps) {
   const [axis, setAxis] = useState<PositionSortAxis>("height");
   const [scope, setScope] = useState<PositionSortScope>("all");
-  const [direction, setDirection] = useState<PositionSortDirection>("asc");
+  const [directionPick, setDirection] = useState<PositionSortDirection>("asc");
+  const direction = normalizePositionSortDirection(axis, scope, directionPick);
   const [figure3dScope, setFigure3dScope] =
     useState<DancerFigure3dApplyScope>("all");
   const [showAllColors, setShowAllColors] = useState(false);
@@ -199,7 +201,7 @@ export function StageDancerBulkEditPanel({
     [axis, scope, direction]
   );
   const preview = formatPositionSortPreview(sortRequest);
-  const dirLabels = positionSortDirectionLabels(axis);
+  const dirOptions = positionSortDirectionOptions(axis, scope);
   const colors = showAllColors ? DANCER_PALETTE : DANCER_PALETTE.slice(0, PRIMARY_COLOR_COUNT);
 
   const runSort = () => {
@@ -276,10 +278,7 @@ export function StageDancerBulkEditPanel({
               ariaLabel="並べ替えの方向"
               value={direction}
               onChange={setDirection}
-              options={[
-                { id: "asc", label: dirLabels.asc },
-                { id: "desc", label: dirLabels.desc },
-              ]}
+              options={dirOptions}
             />
           </div>
           <p

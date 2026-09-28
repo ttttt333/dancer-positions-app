@@ -4,7 +4,8 @@ import {
   applyPositionSort,
   formatPositionSortPreview,
   permuteSlotsMinimizeTravelFromPrev,
-  positionSortDirectionLabels,
+  normalizePositionSortDirection,
+  positionSortDirectionOptions,
   swapTwoDancerPositions,
   type PositionSortAxis,
   type PositionSortDirection,
@@ -48,7 +49,7 @@ function Segment<T extends string>({
             aria-checked={on}
             onClick={() => onChange(opt.id)}
             style={{
-              flex: "1 1 0",
+              flex: options.length > 3 ? "1 1 calc(50% - 2px)" : "1 1 0",
               minWidth: 0,
               padding: "5px 4px",
               borderRadius: 6,
@@ -99,12 +100,13 @@ export function StageSelectionArrangePanel({
 }: StageSelectionArrangePanelProps) {
   const [axis, setAxis] = useState<PositionSortAxis>("height");
   const [scope, setScope] = useState<PositionSortScope>("all");
-  const [direction, setDirection] = useState<PositionSortDirection>("asc");
+  const [directionPick, setDirection] = useState<PositionSortDirection>("asc");
+  const direction = normalizePositionSortDirection(axis, scope, directionPick);
   const preview = useMemo(
     () => formatPositionSortPreview({ axis, scope, direction }),
     [axis, scope, direction]
   );
-  const dirLabels = positionSortDirectionLabels(axis);
+  const dirOptions = positionSortDirectionOptions(axis, scope);
   const canSort = selectedCount >= 2 && !disabled;
   const canGather = selectedCount >= 1 && !disabled;
   const canSwapPair = selectedCount === 2 && !disabled;
@@ -202,10 +204,7 @@ export function StageSelectionArrangePanel({
             ariaLabel="並べ替えの方向"
             value={direction}
             onChange={setDirection}
-            options={[
-              { id: "asc", label: dirLabels.asc },
-              { id: "desc", label: dirLabels.desc },
-            ]}
+            options={dirOptions}
           />
         </div>
         <p

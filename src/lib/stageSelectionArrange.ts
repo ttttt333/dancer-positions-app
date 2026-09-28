@@ -8,7 +8,17 @@ import {
 
 export type PositionSortAxis = "height" | "grade" | "skill";
 export type PositionSortScope = "all" | "row" | "col";
-export type PositionSortDirection = "asc" | "desc";
+/**
+ * asc / desc: 汎用の昇順・降順。
+ * kamite* / center*: 横一列の身長専用（上手＝x 大）。
+ */
+export type PositionSortDirection =
+  | "asc"
+  | "desc"
+  | "kamiteAsc"
+  | "kamiteDesc"
+  | "centerDesc"
+  | "centerAsc";
 
 export type PositionSortRequest = {
   axis: PositionSortAxis;
@@ -583,7 +593,13 @@ function peopleSortCmp(
   axis: PositionSortAxis,
   direction: PositionSortDirection
 ): (a: DancerSpot, b: DancerSpot) => number {
-  const sign = direction === "asc" ? 1 : -1;
+  /** 並びの先頭（下手端 or センター）に来る人が値の小さい人なら 1 */
+  const sign =
+    direction === "asc" ||
+    direction === "kamiteDesc" ||
+    direction === "centerAsc"
+      ? 1
+      : -1;
   return (a, b) => {
     let raw = 0;
     if (axis === "height") raw = heightCmp(a, b);
@@ -694,15 +710,52 @@ export function applyPositionSort(
       ? clusterSelectionByDepthRows(dancers, targetIds)
       : clusterSelectionByVerticalColumns(dancers, targetIds);
   const along = request.scope === "row" ? "x" : "y";
+  const centerDir =
+    request.direction === "centerAsc" || request.direction === "centerDesc";
   let next = dancers;
   for (const group of groups) {
     if (group.length < 2) continue;
     next = lineUpAlongAxis(next, group.map((d) => d.id), cmp, along, {
       frontFirstOnY: skillCenter && along === "y",
-      centerOutOnX: skillCenter && along === "x",
+      centerOutOnX: (skillCenter || centerDir) && along === "x",
     });
   }
   return next;
+}
+
+export type PositionSortDirectionOption = {
+  id: PositionSortDirection;
+  label: string;
+};
+
+/** 身長×横一列のときだけ上手基準／センター基準の 4 択 */
+export function positionSortDirectionOptions(
+  axis: PositionSortAxis,
+  scope: PositionSortScope
+): PositionSortDirectionOption[] {
+  if (axis === "height" && scope === "row") {
+    return [
+      { id: "centerDesc", label: "センターが高い" },
+      { id: "centerAsc", label: "センターが低い" },
+      { id: "kamiteAsc", label: "上手から低い順" },
+      { id: "kamiteDesc", label: "上手から高い順" },
+    ];
+  }
+  const labels = DIRECTION_LABEL[axis];
+  return [
+    { id: "asc", label: labels.asc },
+    { id: "desc", label: labels.desc },
+  ];
+}
+
+/** 軸・範囲を変えたとき、選べない方向なら先頭の選択肢に戻す */
+export function normalizePositionSortDirection(
+  axis: PositionSortAxis,
+  scope: PositionSortScope,
+  direction: PositionSortDirection
+): PositionSortDirection {
+  const options = positionSortDirectionOptions(axis, scope);
+  return options.some((o) => o.id === direction) ? direction : options[0]!.id;
 }
 
 const AXIS_LABEL: Record<PositionSortAxis, string> = {
@@ -719,7 +772,7 @@ const SCOPE_LABEL: Record<PositionSortScope, string> = {
 
 const DIRECTION_LABEL: Record<
   PositionSortAxis,
-  Record<PositionSortDirection, string>
+  Record<"asc" | "desc", string>
 > = {
   height: { asc: "低い順", desc: "高い順" },
   grade: { asc: "低学年から", desc: "高学年から" },
@@ -727,15 +780,20 @@ const DIRECTION_LABEL: Record<
 };
 
 export function formatPositionSortPreview(request: PositionSortRequest): string {
-  const axis = AXIS_LABEL[request.axis];
-  const dir = DIRECTION_LABEL[request.axis][request.direction];
   const scope = SCOPE_LABEL[request.scope];
-  return `${axis}が${dir}、${scope}で並べ替えます`;
-}
-
-export function positionSortDirectionLabels(axis: PositionSortAxis): {
-  asc: string;
-  desc: string;
-} {
-  return DIRECTION_LABEL[axis];
+  switch (request.direction) {
+    case "centerDesc":
+      return `${scope}で、センターほど身長が高くなるよう並べ替えます`;
+    case "centerAsc":
+      return `${scope}で、センターほど身長が低くなるよう並べ替えます`;
+    case "kamiteAsc":
+      return `${scope}で、上手から身長の低い順に並べ替えます`;
+    case "kamiteDesc":
+      return `${scope}で、上手から身長の高い順に並べ替えます`;
+    default: {
+      const axis = AXIS_LABEL[request.axis];
+      const dir = DIRECTION_LABEL[request.axis][request.direction];
+      return `${axis}が${dir}、${scope}で並べ替えます`;
+    }
+  }
 }

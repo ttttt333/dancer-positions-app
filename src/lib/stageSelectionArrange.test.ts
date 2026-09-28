@@ -3,7 +3,9 @@ import type { DancerSpot } from "../types/choreography";
 import {
   applyPositionSort,
   formatPositionSortPreview,
+  normalizePositionSortDirection,
   permuteSlotsByHeightAsc,
+  positionSortDirectionOptions,
   permuteSlotsMinimizeTravelFromPrev,
   swapTwoDancerPositions,
 } from "./stageSelectionArrange";
@@ -176,6 +178,64 @@ describe("applyPositionSort", () => {
     expect(byId.c!.xPct).toBe(60);
     expect(byId.d!.xPct).toBe(20);
     expect(byId.a!.xPct).toBe(80);
+  });
+
+  describe("row + height kamite / center directions", () => {
+    const row = () => [
+      spot("h150", 10, 50, { heightCm: 150 }),
+      spot("h180", 30, 50, { heightCm: 180 }),
+      spot("h160", 50, 50, { heightCm: 160 }),
+      spot("h170", 70, 50, { heightCm: 170 }),
+      spot("h175", 90, 50, { heightCm: 175 }),
+    ];
+    const xs = (direction: "kamiteAsc" | "kamiteDesc" | "centerDesc" | "centerAsc") => {
+      const dancers = row();
+      const next = applyPositionSort(
+        dancers,
+        dancers.map((d) => d.id),
+        { axis: "height", scope: "row", direction }
+      );
+      return Object.fromEntries(next.map((d) => [d.id, d.xPct]));
+    };
+
+    it("kamiteAsc puts the shortest on the kamite (high x) end", () => {
+      const x = xs("kamiteAsc");
+      expect(x.h150).toBe(90);
+      expect(x.h180).toBe(10);
+    });
+
+    it("kamiteDesc puts the tallest on the kamite end", () => {
+      const x = xs("kamiteDesc");
+      expect(x.h180).toBe(90);
+      expect(x.h150).toBe(10);
+    });
+
+    it("centerDesc puts the tallest at center and shortest on the edges", () => {
+      const x = xs("centerDesc");
+      expect(x.h180).toBe(50);
+      expect([x.h175, x.h170].sort()).toEqual([30, 70]);
+      expect([x.h160, x.h150].sort()).toEqual([10, 90]);
+    });
+
+    it("centerAsc puts the shortest at center", () => {
+      const x = xs("centerAsc");
+      expect(x.h150).toBe(50);
+      expect([x.h175, x.h180].sort()).toEqual([10, 90]);
+    });
+  });
+
+  it("offers four height directions only for row scope", () => {
+    expect(positionSortDirectionOptions("height", "row").map((o) => o.id)).toEqual([
+      "centerDesc",
+      "centerAsc",
+      "kamiteAsc",
+      "kamiteDesc",
+    ]);
+    expect(positionSortDirectionOptions("height", "all").map((o) => o.id)).toEqual([
+      "asc",
+      "desc",
+    ]);
+    expect(normalizePositionSortDirection("height", "col", "centerDesc")).toBe("asc");
   });
 
   it("builds the preview sentence from axis, direction, and scope", () => {
