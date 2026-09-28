@@ -113,9 +113,21 @@ export function permuteSlotsMinimizeTravelFromPrev(
   if (subset.length < 2) return dancers;
 
   const prevById = new Map(prevDancers.map((d) => [d.id, d] as const));
+  const prevByCrew = new Map(
+    prevDancers
+      .filter((d) => d.crewMemberId)
+      .map((d) => [d.crewMemberId!, d] as const)
+  );
+  const indexById = new Map(dancers.map((d, i) => [d.id, i] as const));
+  /** キュー間の補間は配列順で対応するため、ID・名簿が一致しなければ同じ順番の人を前位置とみなす */
+  const prevFor = (person: DancerSpot): DancerSpot =>
+    prevById.get(person.id) ??
+    (person.crewMemberId ? prevByCrew.get(person.crewMemberId) : undefined) ??
+    prevDancers[indexById.get(person.id) ?? -1] ??
+    person;
   const slots = subset.map((d) => ({ xPct: d.xPct, yPct: d.yPct }));
   const cost: number[][] = subset.map((person) => {
-    const from = prevById.get(person.id) ?? person;
+    const from = prevFor(person);
     return slots.map((slot) => {
       const dx = from.xPct - slot.xPct;
       const dy = from.yPct - slot.yPct;

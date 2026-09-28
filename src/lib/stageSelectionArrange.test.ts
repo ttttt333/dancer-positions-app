@@ -250,6 +250,28 @@ describe("applyPositionSort", () => {
 });
 
 describe("permuteSlotsMinimizeTravelFromPrev", () => {
+  it("falls back to array order when the previous cue has different ids", () => {
+    const dancers = [spot("a", 20, 50), spot("b", 80, 50)];
+    const prev = [spot("x", 85, 50), spot("y", 15, 50)];
+    const next = permuteSlotsMinimizeTravelFromPrev(dancers, ["a", "b"], prev);
+    expect(next.find((d) => d.id === "a")!.xPct).toBe(80);
+    expect(next.find((d) => d.id === "b")!.xPct).toBe(20);
+  });
+
+  it("matches by crewMemberId before array order", () => {
+    const dancers = [
+      spot("a", 20, 50, { crewMemberId: "m1" }),
+      spot("b", 80, 50, { crewMemberId: "m2" }),
+    ];
+    const prev = [
+      spot("y", 85, 50, { crewMemberId: "m2" }),
+      spot("x", 15, 50, { crewMemberId: "m1" }),
+    ];
+    const next = permuteSlotsMinimizeTravelFromPrev(dancers, ["a", "b"], prev);
+    expect(next.find((d) => d.id === "a")!.xPct).toBe(20);
+    expect(next.find((d) => d.id === "b")!.xPct).toBe(80);
+  });
+
   it("reassigns people to current slots to minimize travel from previous positions", () => {
     const dancers = [
       spot("a", 20, 50, { label: "A" }),
