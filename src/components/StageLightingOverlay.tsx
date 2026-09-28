@@ -386,6 +386,8 @@ export function StageLightingOverlay({
           {lights.map((L) => {
             const { rx, ry } = resolveLightAxes(L, floorAspect);
             const selected = resolvedSelected === L.id;
+            /** 舞台上の丸は出さない。照明設定パネルで選んだ照明だけ移動・サイズ用の UI を出す */
+            if (!selected) return null;
             return (
               <div
                 key={`hit-${L.id}`}
