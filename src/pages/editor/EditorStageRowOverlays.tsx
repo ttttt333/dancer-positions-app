@@ -45,7 +45,11 @@ import { dancersForLayoutPreset, transferDancerIdentitiesByOrder } from "../../l
 import { formatMmSsFloor } from "../../lib/timeFormat";
 import { dancerMarkerDiameterAfterRosterImport } from "../../lib/projectDefaults";
 import { getViewRosterEntries } from "../../lib/viewRoster";
-import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
+import {
+  deleteStagePreset,
+  listStagePresets,
+  saveStagePreset,
+} from "../../lib/stagePresets";
 import { stripFormationStageSnapshots } from "../../lib/savedSpotStageSnapshot";
 import {
   createEmptySleeveDraft,
@@ -1955,6 +1959,11 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   if (name === null) return;
                   const result = saveStagePreset(name.trim() || defaultName, dims);
                   if (!result.ok) { window.alert(result.message); return; }
+                  setStageAreaPresetList(listStagePresets());
+                }}
+                onDeletePreset={(id) => {
+                  if (project.viewMode === "view") return;
+                  deleteStagePreset(id);
                   setStageAreaPresetList(listStagePresets());
                 }}
               />

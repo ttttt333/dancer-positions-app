@@ -1,5 +1,6 @@
 import {
   memo,
+  useState,
   type CSSProperties,
   type Dispatch,
   type ReactNode,
@@ -152,6 +153,7 @@ type StageAreaPresetBlockProps = {
   onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
   onBumpPresetNonce: () => void;
   onSavePreset: () => void;
+  onDeletePreset?: (id: string) => void;
 };
 
 export const StageAreaPresetBlock = memo(function StageAreaPresetBlock({
@@ -161,8 +163,11 @@ export const StageAreaPresetBlock = memo(function StageAreaPresetBlock({
   onChangeDraft,
   onBumpPresetNonce,
   onSavePreset,
+  onDeletePreset,
 }: StageAreaPresetBlockProps) {
   const { t } = useI18n();
+  const [pickedId, setPickedId] = useState("");
+  const pickedExists = stageAreaPresetList.some((x) => x.id === pickedId);
   return (
     <div
       style={{
@@ -187,11 +192,12 @@ export const StageAreaPresetBlock = memo(function StageAreaPresetBlock({
         {t("editor.layout.loadPreset")}
         <select
           key={stageAreaPresetSelectNonce}
-          defaultValue=""
+          value={pickedExists ? pickedId : ""}
           disabled={disabled || stageAreaPresetList.length === 0}
           title={t("editor.layout.loadPresetTitle")}
           onChange={(e) => {
             const id = e.target.value;
+            setPickedId(id);
             if (!id) return;
             const item = stageAreaPresetList.find((x) => x.id === id);
             if (!item) return;
@@ -239,6 +245,30 @@ export const StageAreaPresetBlock = memo(function StageAreaPresetBlock({
       >
         {t("editor.layout.savePresetButton")}
       </button>
+      {onDeletePreset ? (
+        <button
+          type="button"
+          disabled={disabled || !pickedExists}
+          title="選んだプリセットを削除"
+          onClick={() => {
+            if (!pickedExists) return;
+            onDeletePreset(pickedId);
+            setPickedId("");
+          }}
+          style={{
+            ...btnSecondary,
+            flex: "0 0 auto",
+            padding: "6px 10px",
+            fontSize: "11px",
+            fontWeight: 600,
+            color: "#f87171",
+            borderColor: "rgba(248, 113, 113, 0.45)",
+            opacity: pickedExists ? 1 : 0.45,
+          }}
+        >
+          削除
+        </button>
+      ) : null}
     </div>
   );
 });
