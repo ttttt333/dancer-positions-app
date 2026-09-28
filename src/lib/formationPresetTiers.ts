@@ -25,6 +25,7 @@ export const PRESET_TIER_BY_ID: Record<string, PresetTier> = {
   classic_kamite_heavy: 1,
   stagger: 1,
   stagger_inverse: 1,
+  alternating_rows: 1,
   two_rows: 1,
   rows_3: 1,
   rows_4: 1,

@@ -245,6 +245,45 @@ function evenRowCounts(n: number, targetRows: number): number[] {
 }
 
 /**
+ * 交互列（窓あき）の行人数。前列から「W, W-1, W, W-1…」と交互に並べ、最奥列に余りを置く。
+ * W は横長の比率（W ≈ √(1.5n)）に近く、最奥列がなるべく埋まるものを選ぶ。
+ * 例: 82 人 → [11, 10, 11, 10, 11, 10, 11, 8]
+ *
+ * 戻り値は `counts[0]` が **最前列（客席側）**。
+ */
+export function alternatingRowCounts(n: number): number[] {
+  const total = Math.floor(n);
+  if (total <= 0) return [];
+  if (total <= 3) return [total];
+  const build = (w: number): number[] => {
+    const counts: number[] = [];
+    let left = total;
+    for (let r = 0; left > 0; r++) {
+      const cap = r % 2 === 0 ? w : w - 1;
+      const c = Math.min(cap, left);
+      counts.push(c);
+      left -= c;
+    }
+    return counts;
+  };
+  const ideal = Math.sqrt(total * 1.5);
+  let best: number[] = [total];
+  let bestScore = Infinity;
+  for (let w = 3; w <= total; w++) {
+    const counts = build(w);
+    const lastIdx = counts.length - 1;
+    const lastCap = lastIdx % 2 === 0 ? w : w - 1;
+    const fill = counts[lastIdx]! / lastCap;
+    const score = Math.abs(w - ideal) + (1 - fill) * 5;
+    if (score < bestScore - 1e-9) {
+      bestScore = score;
+      best = counts;
+    }
+  }
+  return best;
+}
+
+/**
  * グリッドの横人数を選ぶ（ほぼ正方形）。奥に1人だけ残る配分は避ける。
  */
 function chooseGridCols(n: number): number {
@@ -493,6 +532,7 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "pyramid_inverse", label: "逆ピラミッド" },
   { id: "stagger", label: "千鳥" },
   { id: "stagger_inverse", label: "逆千鳥" },
+  { id: "alternating_rows", label: "交互列（窓あき）" },
   { id: "two_rows", label: "2列" },
   { id: "rows_3", label: "3列" },
   { id: "rows_4", label: "4列" },
@@ -756,6 +796,7 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
   {
     label: "複数列・千鳥",
     ids: [
+      "alternating_rows",
       "two_rows",
       "two_rows_equal",
       "two_rows_dense_back",
@@ -1341,6 +1382,23 @@ export function dancersForLayoutPreset(
       const pts = generateStructuredStaggered(n);
       for (let i = 0; i < pts.length; i += 1) {
         pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
+      }
+      break;
+    }
+    case "alternating_rows": {
+      /** 全行で横ステップを共通にし、W-1 の行が W の行のちょうど間に入るようにする */
+      const rowCounts = alternatingRowCounts(n);
+      const nr = rowCounts.length;
+      const widest = Math.max(...rowCounts);
+      const step =
+        widest > 1 ? Math.min(TARGET_STEP_X, 90 / (widest - 1)) : TARGET_STEP_X;
+      let idx = 0;
+      for (let r = 0; r < nr; r++) {
+        const cnt = rowCounts[r]!;
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        for (let j = 0; j < cnt; j++) {
+          pushSpot(out, idx++, 50 + (j - (cnt - 1) / 2) * step, y);
+        }
       }
       break;
     }
