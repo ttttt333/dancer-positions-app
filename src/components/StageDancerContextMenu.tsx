@@ -1,6 +1,10 @@
 import { useMemo, type Dispatch, type SetStateAction } from "react";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
-import { DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE } from "../lib/dancerColorPalette";
+import {
+  DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
+  DANCER_COLOR_RANDOM,
+} from "../lib/dancerColorPalette";
+import { DancerColorRandomSwatch } from "./DancerColorRandomSwatch";
 import {
   lineUpByGradeAsc,
   lineUpByGradeDesc,
@@ -382,6 +386,15 @@ menuInteractionDisabled
         }}
       />
     ))}
+    <DancerColorRandomSwatch
+      size={sheet ? 34 : 22}
+      radius={sheet ? 8 : 5}
+      onClick={() => {
+        const ids = resolveArrangeTargetIds(anchorDancerId, selectedDancerIds);
+        applyBulkColorToDancerIds(ids, DANCER_COLOR_RANDOM);
+        onCloseMenu();
+      }}
+    />
   </div>
   <div
     style={{

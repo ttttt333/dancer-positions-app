@@ -6,7 +6,11 @@ import {
   type SetStateAction,
 } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
-import { DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE } from "../lib/dancerColorPalette";
+import {
+  DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
+  DANCER_COLOR_RANDOM,
+} from "../lib/dancerColorPalette";
+import { DancerColorRandomSwatch } from "./DancerColorRandomSwatch";
 import {
   NAME_BELOW_FONT_PX_MAX,
   NAME_BELOW_FONT_PX_MIN,
@@ -488,6 +492,12 @@ export function StageSelectionDisplayPanel({
               }}
             />
           ))}
+          <DancerColorRandomSwatch
+            size={38}
+            radius={8}
+            disabled={busy}
+            onClick={() => applyBulkColorToDancerIds(ids, DANCER_COLOR_RANDOM)}
+          />
         </div>
         {DANCER_PALETTE.length > PRIMARY_COLOR_COUNT ? (
           <button

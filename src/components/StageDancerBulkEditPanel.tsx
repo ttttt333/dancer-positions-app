@@ -1,5 +1,9 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE } from "../lib/dancerColorPalette";
+import {
+  DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
+  DANCER_COLOR_RANDOM,
+} from "../lib/dancerColorPalette";
+import { DancerColorRandomSwatch } from "./DancerColorRandomSwatch";
 import {
   applyPositionSort,
   formatPositionSortPreview,
@@ -597,6 +601,13 @@ export function StageDancerBulkEditPanel({
                   }}
                 />
               ))}
+              <DancerColorRandomSwatch
+                size={34}
+                radius={8}
+                onClick={() =>
+                  applyBulkColorToDancerIds(targetIds, DANCER_COLOR_RANDOM)
+                }
+              />
             </div>
             {DANCER_PALETTE.length > PRIMARY_COLOR_COUNT ? (
               <button

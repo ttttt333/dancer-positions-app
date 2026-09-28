@@ -165,8 +165,10 @@ import {
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
 import { shell } from "../theme/choreoShell";
 import {
+  DANCER_COLOR_RANDOM,
   modDancerColorIndex,
   normalizeDancerFacingDeg,
+  randomDancerColorIndices,
 } from "../lib/dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
 import {
@@ -4333,20 +4335,31 @@ export function StageBoardBody({
       if (!formationIdForWrites || targetIds.length === 0) return;
       if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
         return;
-      const ci = modDancerColorIndex(colorIndex);
       const idSet = new Set(targetIds);
       setProject((p) => {
-        const crewIds = new Set<string>();
         const form = p.formations.find((f) => f.id === formationIdForWrites);
         if (!form) return p;
-        for (const d of form.dancers) {
-          if (!idSet.has(d.id)) continue;
-          if (d.crewMemberId) crewIds.add(d.crewMemberId);
+        const targets = form.dancers.filter((d) => idSet.has(d.id));
+        const colorById = new Map<string, number>();
+        if (colorIndex === DANCER_COLOR_RANDOM) {
+          const picks = randomDancerColorIndices(targets.length);
+          targets.forEach((d, i) => colorById.set(d.id, picks[i]!));
+        } else {
+          const ci = modDancerColorIndex(colorIndex);
+          targets.forEach((d) => colorById.set(d.id, ci));
+        }
+        const colorByCrewId = new Map<string, number>();
+        for (const d of targets) {
+          if (d.crewMemberId) {
+            colorByCrewId.set(d.crewMemberId, colorById.get(d.id)!);
+          }
         }
         const crews = p.crews.map((crew) => ({
           ...crew,
           members: crew.members.map((m) =>
-            crewIds.has(m.id) ? { ...m, colorIndex: ci } : m,
+            colorByCrewId.has(m.id)
+              ? { ...m, colorIndex: colorByCrewId.get(m.id)! }
+              : m,
           ),
         }));
         return {
@@ -4357,7 +4370,9 @@ export function StageBoardBody({
             return {
               ...f,
               dancers: f.dancers.map((d) =>
-                idSet.has(d.id) ? { ...d, colorIndex: ci } : d,
+                colorById.has(d.id)
+                  ? { ...d, colorIndex: colorById.get(d.id)! }
+                  : d,
               ),
             };
           }),

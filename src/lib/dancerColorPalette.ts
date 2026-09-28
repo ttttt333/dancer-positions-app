@@ -34,6 +34,35 @@ export function modDancerColorIndex(i: number): number {
   return ((n % m) + m) % m;
 }
 
+/** 一括色変更で「ランダム（バラバラ）」を指す値。パレット番号ではない。 */
+export const DANCER_COLOR_RANDOM = -1;
+
+/**
+ * count 人分のバラバラな色番号。パレットをシャッフルして順に使い、
+ * 一巡したら再シャッフル（つなぎ目で同色が続かないようにする）。
+ */
+export function randomDancerColorIndices(
+  count: number,
+  rand: () => number = Math.random
+): number[] {
+  const out: number[] = [];
+  let bag: number[] = [];
+  while (out.length < count) {
+    if (bag.length === 0) {
+      bag = Array.from({ length: DANCER_COLOR_COUNT }, (_, i) => i);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [bag[i], bag[j]] = [bag[j]!, bag[i]!];
+      }
+      if (bag.length > 1 && bag[0] === out[out.length - 1]) {
+        [bag[0], bag[1]] = [bag[1]!, bag[0]!];
+      }
+    }
+    out.push(bag.shift()!);
+  }
+  return out;
+}
+
 /** three.js 用 0xRRGGBB */
 export const DANCER_COLOR_PALETTE_THREE: readonly number[] =
   DANCER_COLOR_PALETTE_HEX.map((h) => Number.parseInt(h.slice(1), 16));
