@@ -268,11 +268,10 @@ function pickCueDragModeForCueAtX(
   grab: CueEdgeGrabPx
 ): CueDragEdgeMode {
   const cueWidth = right - left;
-  if (cueWidth <= grab.inner * 2 + 1) {
-    return "move";
-  }
-  const inStartZone = x >= left - grab.outer && x <= left + grab.inner;
-  const inEndZone = x >= right - grab.inner && x <= right + grab.outer;
+  /** 縮小表示で帯が細いときも、中央 40% は移動・両端と枠外は伸縮に使えるようにする */
+  const inner = Math.min(grab.inner, cueWidth * 0.3);
+  const inStartZone = x >= left - grab.outer && x <= left + inner;
+  const inEndZone = x >= right - inner && x <= right + grab.outer;
   if (inStartZone) return "start";
   if (inEndZone) return "end";
   return "move";
