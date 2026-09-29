@@ -260,6 +260,69 @@ export function removeMemberRosterDancerFromFormation(
   };
 }
 
+export type MemberRosterSortKey = "height" | "grade" | "skill";
+
+function gradeRank(label: string | undefined): number | null {
+  const g = label?.trim();
+  if (!g) return null;
+  const i = (MEMBER_ROSTER_GRADE_OPTIONS as readonly string[]).indexOf(g);
+  return i >= 0 ? i : MEMBER_ROSTER_GRADE_OPTIONS.length;
+}
+
+/** 数字は小さいほど上手。文字は S > A > B > C の順で数字の後ろ */
+function skillRank(label: string | undefined): number | null {
+  const s = label?.trim();
+  if (!s) return null;
+  const n = Number(s);
+  if (Number.isFinite(n)) return n;
+  const letters = ["S", "A", "B", "C"];
+  const i = letters.indexOf(s.toUpperCase());
+  return 10_000 + (i >= 0 ? i : letters.length);
+}
+
+/**
+ * メンバー一覧を身長・学年・スキルで並べ替える（空欄は常に末尾、同値は元の順）。
+ * キュー間の補間は配列の順番で対応づくため、同じ人数の全フォーメーションに同じ入れ替えを適用する。
+ */
+export function sortFormationDancersInProject(
+  p: ChoreographyProjectJson,
+  formationId: string,
+  key: MemberRosterSortKey,
+  dir: "asc" | "desc"
+): ChoreographyProjectJson {
+  const target = p.formations.find((f) => f.id === formationId);
+  if (!target || target.dancers.length < 2) return p;
+  const n = target.dancers.length;
+  const valueOf = (d: DancerSpot): number | null => {
+    const f = resolveMemberRosterFields(d, p);
+    if (key === "height") {
+      return typeof f.heightCm === "number" && Number.isFinite(f.heightCm)
+        ? f.heightCm
+        : null;
+    }
+    if (key === "grade") return gradeRank(f.gradeLabel);
+    return skillRank(f.skillRankLabel);
+  };
+  const keyed = target.dancers.map((d, i) => ({ i, v: valueOf(d) }));
+  keyed.sort((a, b) => {
+    if (a.v == null && b.v == null) return a.i - b.i;
+    if (a.v == null) return 1;
+    if (b.v == null) return -1;
+    const diff = dir === "asc" ? a.v - b.v : b.v - a.v;
+    return diff !== 0 ? diff : a.i - b.i;
+  });
+  const order = keyed.map((k) => k.i);
+  if (order.every((from, to) => from === to)) return p;
+  return {
+    ...p,
+    formations: p.formations.map((f) =>
+      f.dancers.length === n
+        ? { ...f, dancers: order.map((from) => f.dancers[from]!) }
+        : f
+    ),
+  };
+}
+
 /**
  * メンバーシート上の並び替え。フォーメーション内 dancers 配列の順序だけ入れ替える
  * （舞台上の座標はそのまま）。

@@ -34,6 +34,8 @@ import {
   patchMemberRosterDancerInProject,
   reorderFormationDancersInProject,
   resolveMemberRosterFields,
+  sortFormationDancersInProject,
+  type MemberRosterSortKey,
 } from "../../lib/memberRosterSheetFields";
 import {
   moveOtherMembersToWings,
@@ -97,6 +99,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const [rosterCheckedIds, setRosterCheckedIds] = useState<ReadonlySet<string>>(
     () => new Set()
   );
+  const [rosterSort, setRosterSort] = useState<{
+    key: MemberRosterSortKey;
+    dir: "asc" | "desc";
+  } | null>(null);
 
   const videoExportOpen = useVideoExportUiStore((s) => s.open);
   const closeVideoExport = useVideoExportUiStore((s) => s.closeSheet);
@@ -631,6 +637,62 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                     borderBottom: `1px solid ${shell.border}`,
                   }}
                 >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      width: "100%",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span style={{ fontSize: 11, color: shell.textMuted }}>
+                      並び替え
+                    </span>
+                    {(
+                      [
+                        ["height", "身長順", "低い順", "高い順"],
+                        ["grade", "学年順", "下の学年から", "上の学年から"],
+                        ["skill", "スキル順", "上手い順", "下から"],
+                      ] as const
+                    ).map(([key, label, ascHint, descHint]) => {
+                      const active = rosterSort?.key === key;
+                      const nextDir: "asc" | "desc" =
+                        active && rosterSort?.dir === "asc" ? "desc" : "asc";
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          title={`${label}（押すたびに ${ascHint}／${descHint} を切り替え）`}
+                          onClick={() => {
+                            if (!fid) return;
+                            setProjectSafe((p) =>
+                              sortFormationDancersInProject(p, fid, key, nextDir)
+                            );
+                            setRosterSort({ key, dir: nextDir });
+                          }}
+                          style={{
+                            ...bulkBtnStyle(false),
+                            cursor: "pointer",
+                            opacity: 1,
+                            border: active
+                              ? "1px solid rgba(251,191,36,0.85)"
+                              : `1px solid ${shell.border}`,
+                            background: active
+                              ? "rgba(251,191,36,0.14)"
+                              : "rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          {label}
+                          {active
+                            ? rosterSort?.dir === "asc"
+                              ? ` ↑ ${ascHint}`
+                              : ` ↓ ${descHint}`
+                            : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
                   <label
                     style={{
                       display: "flex",

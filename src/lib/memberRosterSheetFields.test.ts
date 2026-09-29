@@ -10,6 +10,7 @@ import {
   removeMemberRosterDancerFromFormation,
   reorderFormationDancersInProject,
   resolveMemberRosterFields,
+  sortFormationDancersInProject,
 } from "./memberRosterSheetFields";
 
 function spot(partial: Partial<DancerSpot> & { id: string }): DancerSpot {
@@ -204,5 +205,42 @@ describe("resolveMemberRosterFields", () => {
       gradeLabel: "高1",
       skillRankLabel: "2",
     });
+  });
+});
+
+describe("sortFormationDancersInProject", () => {
+  const dancers = [
+    spot({ id: "a", heightCm: 160, gradeLabel: "中2", skillRankLabel: "3" }),
+    spot({ id: "b", gradeLabel: "小5", skillRankLabel: "S" }),
+    spot({ id: "c", heightCm: 150, gradeLabel: "高1", skillRankLabel: "1" }),
+    spot({ id: "d", heightCm: 170 }),
+  ];
+  const other = ["w", "x", "y", "z"].map((id) => spot({ id }));
+  const project = {
+    crews: [],
+    formations: [
+      { id: "f1", name: "1", dancers, setPieces: [] },
+      { id: "f2", name: "2", dancers: other, setPieces: [] },
+      { id: "f3", name: "3", dancers: [spot({ id: "solo" })], setPieces: [] },
+    ],
+    cues: [],
+  } as unknown as ChoreographyProjectJson;
+  const ids = (p: ChoreographyProjectJson, fid: string) =>
+    p.formations.find((f) => f.id === fid)!.dancers.map((d) => d.id);
+
+  it("sorts by height with blanks last, both directions", () => {
+    expect(ids(sortFormationDancersInProject(project, "f1", "height", "asc"), "f1")).toEqual(["c", "a", "d", "b"]);
+    expect(ids(sortFormationDancersInProject(project, "f1", "height", "desc"), "f1")).toEqual(["d", "a", "c", "b"]);
+  });
+
+  it("sorts by grade order and skill (numbers before S/A/B/C)", () => {
+    expect(ids(sortFormationDancersInProject(project, "f1", "grade", "asc"), "f1")).toEqual(["b", "a", "c", "d"]);
+    expect(ids(sortFormationDancersInProject(project, "f1", "skill", "asc"), "f1")).toEqual(["c", "a", "b", "d"]);
+  });
+
+  it("applies the same permutation to formations with the same count", () => {
+    const next = sortFormationDancersInProject(project, "f1", "height", "asc");
+    expect(ids(next, "f2")).toEqual(["y", "w", "z", "x"]);
+    expect(ids(next, "f3")).toEqual(["solo"]);
   });
 });
