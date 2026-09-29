@@ -7,8 +7,19 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
-import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
-import { sortCuesByStart } from "../lib/cueInterval";
+import type { ChoreographyProjectJson, Cue, DancerSpot } from "../types/choreography";
+import {
+  cloneFormationForNewCue,
+  resolveCueIntervalNonOverlap,
+  sortCuesByStart,
+} from "../lib/cueInterval";
+import {
+  DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
+  MIN_CUE_DURATION_SEC,
+  trimHiSecForCueTimeline,
+} from "../core/timelineController";
+import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { formatMmSsFloor } from "../lib/timeFormat";
 import {
   PRESET_CATEGORIES,
   type LayoutPresetId,
@@ -44,6 +55,8 @@ type Props = {
   setProject: React.Dispatch<React.SetStateAction<ChoreographyProjectJson>>;
   selectedCueId?: string | null;
   onStagePreviewChange?: (dancers: DancerSpot[] | null) => void;
+  /** 再生位置にキューが無いとき、適用で新規キューを作った直後に呼ぶ */
+  onCueCreated?: (cueId: string) => void;
 };
 
 function SpotThumb({
@@ -135,7 +148,19 @@ export function FormationPresetPickerSheet({
   setProject,
   selectedCueId,
   onStagePreviewChange,
+  onCueCreated,
 }: Props) {
+  const playheadSec = usePlaybackUiStore((s) =>
+    open ? Math.round(s.currentTimeSec * 100) / 100 : 0
+  );
+  /** 赤い再生位置がどのキューの範囲にも入っていなければ、適用時にそこへ新規キューを作る */
+  const createCueAtPlayhead = useMemo(
+    () =>
+      !project.cues.some(
+        (c) => playheadSec >= c.tStartSec - 1e-6 && playheadSec <= c.tEndSec + 1e-6
+      ),
+    [project.cues, playheadSec]
+  );
   const targetFormationId = useMemo(() => {
     if (selectedCueId) {
       const cue = project.cues.find((c) => c.id === selectedCueId);
@@ -158,7 +183,16 @@ export function FormationPresetPickerSheet({
    * なければ編集中フォーメーション自体を使う。
    */
   const nearestMatchSource = useMemo((): DancerSpot[] => {
-    if (selectedCueId) {
+    if (createCueAtPlayhead) {
+      const before = sortCuesByStart(project.cues).filter(
+        (c) => c.tEndSec <= playheadSec + 1e-6
+      );
+      const prev = before[before.length - 1];
+      const prevF = prev
+        ? project.formations.find((f) => f.id === prev.formationId)
+        : null;
+      if (prevF && prevF.dancers.length > 0) return prevF.dancers;
+    } else if (selectedCueId) {
       const sorted = sortCuesByStart(project.cues);
       const idx = sorted.findIndex((c) => c.id === selectedCueId);
       if (idx > 0) {
@@ -168,7 +202,14 @@ export function FormationPresetPickerSheet({
       }
     }
     return targetFormation?.dancers ?? [];
-  }, [project.cues, project.formations, selectedCueId, targetFormation]);
+  }, [
+    project.cues,
+    project.formations,
+    selectedCueId,
+    targetFormation,
+    createCueAtPlayhead,
+    playheadSec,
+  ]);
 
   const selectedDancerIds = useStageBoardInteractionStore(
     (s) => s.selectedDancerIds
@@ -319,6 +360,55 @@ export function FormationPresetPickerSheet({
 
   const apply = useCallback(() => {
     if (!targetFormation || !selectedPresetId || !previewDancers) return;
+    if (createCueAtPlayhead) {
+      const newCueId = crypto.randomUUID();
+      const build = (p: ChoreographyProjectJson): ChoreographyProjectJson | null => {
+        if (p.cues.length >= 100) return null;
+        const src = p.formations.find((f) => f.id === targetFormation.id);
+        if (!src) return null;
+        const newFm = {
+          ...cloneFormationForNewCue(src),
+          dancers: previewDancers.map((d) => ({ ...d })),
+          confirmedDancerCount: previewDancers.length,
+        };
+        const trimLo = p.trimStartSec;
+        const trimHi = trimHiSecForCueTimeline(
+          p.trimEndSec,
+          usePlaybackUiStore.getState().durationSec
+        );
+        const t0 = Math.max(
+          trimLo,
+          Math.min(trimHi - MIN_CUE_DURATION_SEC, playheadSec)
+        );
+        const { tStartSec, tEndSec } = resolveCueIntervalNonOverlap(
+          p.cues,
+          newCueId,
+          t0,
+          Math.min(trimHi, t0 + DEFAULT_CUE_SPAN_WITH_AUDIO_SEC),
+          trimLo,
+          trimHi
+        );
+        if (!(tEndSec > tStartSec)) return null;
+        const cue: Cue = {
+          id: newCueId,
+          tStartSec,
+          tEndSec,
+          formationId: newFm.id,
+        };
+        return {
+          ...p,
+          formations: [...p.formations, newFm],
+          cues: sortCuesByStart([...p.cues, cue]),
+          activeFormationId: newFm.id,
+        };
+      };
+      if (build(project)) {
+        setProject((p) => build(p) ?? p);
+        onCueCreated?.(newCueId);
+        closeAndCleanup();
+        return;
+      }
+    }
     setProject((p) => ({
       ...p,
       formations: p.formations.map((f) =>
@@ -332,7 +422,17 @@ export function FormationPresetPickerSheet({
       ),
     }));
     closeAndCleanup();
-  }, [targetFormation, selectedPresetId, previewDancers, setProject, closeAndCleanup]);
+  }, [
+    targetFormation,
+    selectedPresetId,
+    previewDancers,
+    setProject,
+    closeAndCleanup,
+    createCueAtPlayhead,
+    playheadSec,
+    onCueCreated,
+    project,
+  ]);
 
   const cueLabel = useMemo(() => {
     if (!selectedCueId) return null;
@@ -345,7 +445,11 @@ export function FormationPresetPickerSheet({
   const untouchedCount = (targetFormation?.dancers.length ?? 0) - targetIds.length;
   const subtitle = noTarget
     ? "適用先のフォーメーションがありません"
-    : isSubsetApply
+    : createCueAtPlayhead
+      ? `再生位置 ${formatMmSsFloor(playheadSec)} に新しいキューとして追加（${
+          targetFormation?.dancers.length ?? count
+        } 人）`
+      : isSubsetApply
       ? `選択中の ${targetIds.length} 人に反映（他の ${untouchedCount} 人はそのまま）`
       : cueLabel
         ? `「${cueLabel}」に反映（${count} 人）`

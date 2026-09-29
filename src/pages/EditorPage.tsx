@@ -2109,6 +2109,7 @@ function EditorPageContent({
           setProject={setProjectSafe}
           selectedCueId={selectedCueId}
           onStagePreviewChange={setStagePreviewDancers}
+          onCueCreated={(id) => setSelectedCueIds([id])}
         />
       ) : null,
     [
