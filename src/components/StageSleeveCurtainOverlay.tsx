@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
+import { createPortal } from "react-dom";
 import type { StageSleeveCurtain } from "../types/choreography";
 import type { SleeveCurtainMark } from "../lib/stageSleeveCurtains";
 import { formatDepthMmLabel } from "../lib/stageLighting";
@@ -49,6 +50,58 @@ export function StageSleeveCurtainOverlay({
     side: "left" | "right";
   } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: Event) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.("[data-sleeve-curtain-menu]")) return;
+      setMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenu(null);
+    };
+    window.addEventListener("pointerdown", close, true);
+    window.addEventListener("wheel", close, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", close, true);
+      window.removeEventListener("wheel", close, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
+
+  const duplicateCurtain = (id: string) => {
+    const src = curtains.find((c) => c.id === id);
+    if (!src || curtains.length >= 24) return;
+    const step = 1000;
+    const maxDepth = Math.max(100, stageDepthMm - 50);
+    const depthMm =
+      src.depthMm + step <= maxDepth
+        ? src.depthMm + step
+        : Math.max(100, src.depthMm - step);
+    onChangeCurtains(
+      [...curtains, { ...src, id: crypto.randomUUID(), depthMm }].sort(
+        (a, b) => a.depthMm - b.depthMm || a.id.localeCompare(b.id)
+      )
+    );
+  };
+
+  const deleteCurtain = (id: string) => {
+    onChangeCurtains(curtains.filter((c) => c.id !== id));
+  };
+
+  const onContextMenu = (e: React.MouseEvent, id: string) => {
+    if (!editable) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu({ id, x: e.clientX, y: e.clientY });
+  };
 
   const maxInsetMm = Math.max(0, Math.round(stageWidthMm * 0.5));
   const maxWingMm = Math.max(0, sideStageMm);
@@ -209,6 +262,7 @@ export function StageSleeveCurtainOverlay({
               aria-label={`${m.label} 奥行 ${formatDepthMmLabel(m.depthMm)}`}
               disabled={!editable}
               onPointerDown={(e) => onPointerDown(e, m.id, "depth", side)}
+              onContextMenu={(e) => onContextMenu(e, m.id)}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
@@ -230,6 +284,7 @@ export function StageSleeveCurtainOverlay({
               aria-label={`${m.label} 舞台端から内側 ${formatLen(m.insetMm)}`}
               disabled={!editable}
               onPointerDown={(e) => onPointerDown(e, m.id, "inset", side)}
+              onContextMenu={(e) => onContextMenu(e, m.id)}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
@@ -260,6 +315,7 @@ export function StageSleeveCurtainOverlay({
                 aria-label={`${m.label} そで側 ${formatLen(m.wingExtentMm)}`}
                 disabled={!editable}
                 onPointerDown={(e) => onPointerDown(e, m.id, "wing", side)}
+                onContextMenu={(e) => onContextMenu(e, m.id)}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
                 onPointerCancel={onPointerUp}
@@ -293,6 +349,69 @@ export function StageSleeveCurtainOverlay({
           </div>
         );
       })}
+      {menu && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              data-sleeve-curtain-menu
+              role="menu"
+              onContextMenu={(e) => e.preventDefault()}
+              style={{
+                position: "fixed",
+                left: Math.min(menu.x, window.innerWidth - 150),
+                top: Math.min(menu.y, window.innerHeight - 90),
+                zIndex: 5000,
+                minWidth: 130,
+                padding: 4,
+                borderRadius: 8,
+                border: "1px solid rgba(148,163,184,0.35)",
+                background: "rgba(15,23,42,0.97)",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+              }}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                disabled={curtains.length >= 24}
+                onClick={() => {
+                  duplicateCurtain(menu.id);
+                  setMenu(null);
+                }}
+                style={menuItemStyle(false)}
+              >
+                複製
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  deleteCurtain(menu.id);
+                  setMenu(null);
+                }}
+                style={menuItemStyle(true)}
+              >
+                削除
+              </button>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
+}
+
+function menuItemStyle(danger: boolean): React.CSSProperties {
+  return {
+    textAlign: "left",
+    padding: "7px 10px",
+    borderRadius: 6,
+    border: "none",
+    background: "transparent",
+    color: danger ? "#fca5a5" : "#e2e8f0",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+  };
 }
