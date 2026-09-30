@@ -60,6 +60,8 @@ function mapDancers(dancers: DancerSpot[]) {
     nameBelowFontPx: d.nameBelowFontPx,
     sizePx: d.sizePx,
     faceStamp: d.faceStamp,
+    markerShape: d.markerShape,
+    facingDeg: d.facingDeg,
     color: resolveDancerDisplayHex(
       genderLabelForColor(d),
       DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)]!

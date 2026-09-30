@@ -14,6 +14,13 @@ import {
   normalizeDancerFaceStamp,
   type DancerFaceStampId,
 } from "./dancerFaceStamp";
+import {
+  dancerMarkerShapeLabelCenterYPct,
+  dancerMarkerShapeLabelScale,
+  normalizeDancerMarkerShape,
+  traceDancerMarkerShapePath,
+  type DancerMarkerShape,
+} from "./dancerMarkerShape";
 
 export type ExportDancerFrame = {
   name: string;
@@ -23,6 +30,9 @@ export type ExportDancerFrame = {
   nameBelowFontPx?: number;
   sizePx?: number;
   faceStamp?: DancerFaceStampId;
+  markerShape?: DancerMarkerShape;
+  /** 印の向き（度、時計回り）。ステージ座標系での値 */
+  facingDeg?: number;
   color: string;
   x: number;
   y: number;
@@ -364,32 +374,53 @@ function drawDancers(
     const x = main.x + dancer.x * main.w;
     const y = main.y + dancer.y * main.h;
 
+    const shape = normalizeDancerMarkerShape(dancer.markerShape);
+    const facingRad =
+      typeof dancer.facingDeg === "number" && Number.isFinite(dancer.facingDeg)
+        ? (dancer.facingDeg * Math.PI) / 180
+        : 0;
+
     ctx.beginPath();
-    ctx.arc(x, y, markerR, 0, Math.PI * 2);
+    if (shape) {
+      traceDancerMarkerShapePath(ctx, shape, x, y, markerPx, facingRad);
+    } else {
+      ctx.arc(x, y, markerR, 0, Math.PI * 2);
+    }
     ctx.fillStyle = dancer.color;
     ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,0.85)";
     ctx.lineWidth = 1.5;
+    ctx.lineJoin = "round";
     ctx.stroke();
+
+    /** 三角・矢印は文字を太い側へ寄せる（向きに合わせて回す） */
+    const labelOffset =
+      ((dancerMarkerShapeLabelCenterYPct(shape) - 50) / 100) * markerPx;
+    const lx = x - Math.sin(facingRad) * labelOffset;
+    const ly = y + Math.cos(facingRad) * labelOffset;
+    const labelScale = dancerMarkerShapeLabelScale(shape);
 
     const stamp = normalizeDancerFaceStamp(dancer.faceStamp);
     if (stamp) {
       const emoji = dancerFaceStampMeta(stamp).emoji;
       ctx.fillStyle = "#0f172a";
-      const fontPx = Math.max(12, Math.round(markerPx * 0.55));
+      const fontPx = Math.max(10, Math.round(markerPx * 0.55 * labelScale));
       ctx.font = `${fontPx}px "Apple Color Emoji","Segoe UI Emoji",sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(emoji, x, y);
+      ctx.fillText(emoji, lx, ly);
     } else {
       const inner = resolveExportCircleLabel(dancer, di, appearance);
       if (inner) {
         ctx.fillStyle = "#0f172a";
-        const fontPx = markerCircleLabelFontPx(markerPx, inner);
+        const fontPx = Math.max(
+          6,
+          Math.round(markerCircleLabelFontPx(markerPx, inner) * labelScale)
+        );
         ctx.font = `bold ${fontPx}px system-ui,sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(inner, x, y);
+        ctx.fillText(inner, lx, ly);
       }
     }
 

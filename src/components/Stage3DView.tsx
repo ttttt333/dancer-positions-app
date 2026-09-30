@@ -25,6 +25,11 @@ import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
 import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle";
 import { DancerGenderPicker } from "./DancerGenderPicker";
 import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
+import {
+  DANCER_MARKER_SHAPE_POINTS,
+  normalizeDancerMarkerShape,
+  type DancerMarkerShape,
+} from "../lib/dancerMarkerShape";
 
 /** 身長未入力時の基準（cm）。入力済みの身長はこの値との比率で立体の高さを決める */
 const DEFAULT_HEIGHT_CM = 170;
@@ -147,6 +152,52 @@ function formatDancerNameLabel(raw: string): string {
   if (!t) return "";
   if (t.length <= 8) return t;
   return `${t.slice(0, 7)}…`;
+}
+
+/**
+ * 印の形の床プレート（フィギュアの子。向きはフィギュアの回転に従う）。
+ * 形の +y（客席側）をワールドの yPct 増加方向へ合わせる。
+ */
+function buildMarkerShapePlate(
+  shape: Exclude<DancerMarkerShape, "circle">,
+  size: number,
+  zSign: 1 | -1,
+  color: number
+): THREE.Group {
+  const pts = DANCER_MARKER_SHAPE_POINTS[shape].split(" ").map((p) => {
+    const [px, py] = p.split(",").map(Number);
+    return [((px! - 50) / 100) * size, ((py! - 50) / 100) * size * zSign] as const;
+  });
+  /** 中心から扇状に三角形を張る（どの形も (50,50) から全頂点が見える） */
+  const pos: number[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]!;
+    const b = pts[(i + 1) % pts.length]!;
+    pos.push(0, 0, 0, a[0], 0, a[1], b[0], 0, b[1]);
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  const fill = new THREE.Mesh(
+    geom,
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  );
+  const outlinePts = [...pts, pts[0]!].map(
+    ([x, z]) => new THREE.Vector3(x, 0.002, z)
+  );
+  const outline = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(outlinePts),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })
+  );
+  const group = new THREE.Group();
+  group.add(fill, outline);
+  group.position.y = MARK_Y + 0.004;
+  return group;
 }
 
 function disposeObject3D(obj: THREE.Object3D) {
@@ -661,6 +712,14 @@ export function Stage3DView({
       fig.position.set(x, 0, z);
       if (typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)) {
         fig.rotation.y = -THREE.MathUtils.degToRad(d.facingDeg);
+      }
+      const shape = normalizeDancerMarkerShape(d.markerShape);
+      if (shape) {
+        const plateSize = 0.72 * Math.min(1.35, Math.max(0.75, sizeScale));
+        const zSign: 1 | -1 = pctToZ(100) >= pctToZ(0) ? 1 : -1;
+        fig.add(
+          buildMarkerShapePlate(shape, plateSize, zSign, color)
+        );
       }
       scene.add(fig);
       figures.push(fig);

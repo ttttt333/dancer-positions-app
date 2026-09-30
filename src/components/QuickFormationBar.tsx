@@ -6,6 +6,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { DancerShapeGlyph } from "./DancerShapeGlyph";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -987,11 +988,13 @@ function SpotThumb({ dancers }: { dancers: DancerSpot[] }) {
         const cx = Math.max(4, Math.min(96, d.xPct));
         const cy = 2 + (Math.max(0, Math.min(100, d.yPct)) / 100) * 56;
         return (
-          <circle
+          <DancerShapeGlyph
             key={i}
             cx={cx}
             cy={cy}
             r={radius}
+            shape={d.markerShape}
+            facingDeg={d.facingDeg}
             fill="currentColor"
             fillOpacity={0.9}
           />
