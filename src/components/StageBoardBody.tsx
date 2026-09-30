@@ -171,6 +171,7 @@ import {
   randomDancerColorIndices,
 } from "../lib/dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
+import type { DancerMarkerShape } from "../lib/dancerMarkerShape";
 import {
   pointerInViewportTrashRevealZone,
 } from "../lib/stageBoardRosterAndTrash";
@@ -5025,6 +5026,86 @@ export function StageBoardBody({
     ],
   );
 
+  /**
+   * 印の形を一括設定。同じ人の印は全キューで揃える（名簿 id、なければ同人数の隊形の並び順で対応）。
+   */
+  const applyBulkMarkerShape = useCallback(
+    (targetIds: string[], shape: DancerMarkerShape) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      const idSet = new Set(targetIds);
+      setProject((p) => {
+        const src = p.formations.find((f) => f.id === formationIdForWrites);
+        if (!src) return p;
+        const crewIds = new Set<string>();
+        const indexes = new Set<number>();
+        src.dancers.forEach((d, i) => {
+          if (!idSet.has(d.id)) return;
+          indexes.add(i);
+          if (d.crewMemberId) crewIds.add(d.crewMemberId);
+        });
+        const n = src.dancers.length;
+        const withShape = (d: DancerSpot): DancerSpot => {
+          if (shape === "circle") {
+            const { markerShape: _s, ...rest } = d;
+            return rest;
+          }
+          return { ...d, markerShape: shape };
+        };
+        return {
+          ...p,
+          formations: p.formations.map((f) => {
+            const sameCount = f.dancers.length === n;
+            let changed = false;
+            const dancers = f.dancers.map((d, i) => {
+              const hit =
+                idSet.has(d.id) ||
+                (d.crewMemberId != null && crewIds.has(d.crewMemberId)) ||
+                (sameCount && !d.crewMemberId && indexes.has(i));
+              if (!hit) return d;
+              changed = true;
+              return withShape(d);
+            });
+            return changed ? { ...f, dancers } : f;
+          }),
+        };
+      });
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ],
+  );
+
+  /** 印の向き（0〜359°）を一括設定。このキューの立ち位置だけ変える */
+  const applyBulkFacingDeg = useCallback(
+    (targetIds: string[], deg: number) => {
+      if (targetIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      const next = normalizeDancerFacingDeg(deg);
+      const idSet = new Set(targetIds);
+      updateActiveFormation((f) => ({
+        ...f,
+        dancers: f.dancers.map((d) => {
+          if (!idSet.has(d.id)) return d;
+          const { facingDeg: _fd, ...rest } = d;
+          return next === 0 ? rest : { ...rest, facingDeg: next };
+        }),
+      }));
+    },
+    [
+      updateActiveFormation,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ],
+  );
+
   /** 選択メンバーの性別を一括設定（null／空でクリア）。名簿紐付け時は名簿も同期 */
   const applyBulkGenderToDancerIds = useCallback(
     (targetIds: string[], genderLabel: string | null) => {
@@ -6188,6 +6269,15 @@ export function StageBoardBody({
       applyBulkFaceStamp={applyBulkFaceStamp}
       applyBulkGenderToDancerIds={applyBulkGenderToDancerIds}
       applyBulkFigure3dToDancerIds={applyBulkFigure3dToDancerIds}
+      applyBulkMarkerShape={applyBulkMarkerShape}
+      applyBulkFacingDeg={applyBulkFacingDeg}
+      allDancerIds={(writeFormation?.dancers ?? activeFormation?.dancers ?? []).map(
+        (d) => d.id
+      )}
+      primaryMarkerShape={primarySelectedDancer.markerShape ?? "circle"}
+      primaryFacingDeg={normalizeDancerFacingDeg(
+        effectiveFacingDeg(primarySelectedDancer)
+      )}
       shapePreviewActive={Boolean(
         shapePreviewById && shapePreviewById.size > 0
       )}

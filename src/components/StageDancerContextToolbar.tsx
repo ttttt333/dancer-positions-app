@@ -95,6 +95,14 @@ export type StageDancerContextToolbarProps = {
     figure3d: import("../lib/dancerFigure3d").DancerFigure3dId,
     scope?: import("../lib/applyDancerFigure3d").DancerFigure3dApplyScope
   ) => void;
+  applyBulkMarkerShape?: (
+    ids: string[],
+    shape: import("../lib/dancerMarkerShape").DancerMarkerShape
+  ) => void;
+  applyBulkFacingDeg?: (ids: string[], deg: number) => void;
+  allDancerIds?: readonly string[];
+  primaryMarkerShape?: import("../lib/dancerMarkerShape").DancerMarkerShape;
+  primaryFacingDeg?: number;
   shapePreviewActive?: boolean;
   depthPreviewActive?: boolean;
   rotationPreviewActive?: boolean;
@@ -236,6 +244,11 @@ export function StageDancerContextToolbar({
   applyBulkFaceStamp,
   applyBulkGenderToDancerIds,
   applyBulkFigure3dToDancerIds,
+  applyBulkMarkerShape,
+  applyBulkFacingDeg,
+  allDancerIds,
+  primaryMarkerShape,
+  primaryFacingDeg,
   shapePreviewActive = false,
   depthPreviewActive: _depthPreviewActive = false,
   rotationPreviewActive = false,
@@ -954,6 +967,11 @@ export function StageDancerContextToolbar({
               applyBulkFaceStamp={applyBulkFaceStamp}
               applyBulkGenderToDancerIds={applyBulkGenderToDancerIds}
               applyBulkFigure3dToDancerIds={applyBulkFigure3dToDancerIds}
+              applyBulkMarkerShape={applyBulkMarkerShape}
+              applyBulkFacingDeg={applyBulkFacingDeg}
+              allDancerIds={allDancerIds}
+              primaryMarkerShape={primaryMarkerShape}
+              primaryFacingDeg={primaryFacingDeg}
               markerPx={markerPx}
               nameFontPx={nameFontPx}
               onMarkerSizeChange={onMarkerSizeChange}

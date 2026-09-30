@@ -1,5 +1,6 @@
 import type { DancerFaceStampId } from "../lib/dancerFaceStamp";
 import type { DancerFigure3dId } from "../lib/dancerFigure3d";
+import type { DancerMarkerShape } from "../lib/dancerMarkerShape";
 
 export type { DancerFaceStampId, DancerFigure3dId };
 
@@ -44,6 +45,8 @@ export type DancerSpot = {
    * 座標 (xPct,yPct) は変えず、表示だけ回す。
    */
   facingDeg?: number;
+  /** 印の形。未指定は丸。三角・矢印は向き 0 で客席側を指す */
+  markerShape?: DancerMarkerShape;
   colorIndex: number;
   /** メンバー名簿のメンバー id（反映時のみ。ステージで名前変更と名簿を同期） */
   crewMemberId?: string;

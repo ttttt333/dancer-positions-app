@@ -33,6 +33,11 @@ import { DancerGenderPicker } from "./DancerGenderPicker";
 import type { DancerFaceStampId } from "../lib/dancerFaceStamp";
 import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
 import { withDancerLabelPosition } from "../lib/withDancerLabelPosition";
+import {
+  DANCER_MARKER_SHAPE_POINTS,
+  DANCER_MARKER_SHAPES,
+  type DancerMarkerShape,
+} from "../lib/dancerMarkerShape";
 
 const PRIMARY_COLOR_COUNT = 8;
 
@@ -49,7 +54,21 @@ const markerActionBtn: CSSProperties = {
   overflowWrap: "normal",
 };
 
-type DisclosureId = "name" | "color" | "face" | "figure3d" | "gender";
+type DisclosureId = "name" | "shape" | "color" | "face" | "figure3d" | "gender";
+
+const FACING_QUICK_DEGS = [0, 45, 90, 135, 180, 225, 270, 315] as const;
+
+function ShapeIcon({ shape, size = 18 }: { shape: DancerMarkerShape; size?: number }) {
+  return (
+    <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden>
+      {shape === "circle" ? (
+        <circle cx="50" cy="50" r="44" fill="currentColor" />
+      ) : (
+        <polygon points={DANCER_MARKER_SHAPE_POINTS[shape]} fill="currentColor" />
+      )}
+    </svg>
+  );
+}
 
 function DockDisclosure({
   id,
@@ -269,6 +288,12 @@ export type StageSelectionDisplayPanelProps = {
     figure3d: import("../lib/dancerFigure3d").DancerFigure3dId,
     scope?: DancerFigure3dApplyScope
   ) => void;
+  applyBulkMarkerShape?: (ids: string[], shape: DancerMarkerShape) => void;
+  applyBulkFacingDeg?: (ids: string[], deg: number) => void;
+  /** 「全員」に適用するときの対象（このキューの全ダンサー） */
+  allDancerIds?: readonly string[];
+  primaryMarkerShape?: DancerMarkerShape;
+  primaryFacingDeg?: number;
   selectedDancerIds: readonly string[];
   markerPx: number;
   nameFontPx: number;
@@ -292,6 +317,11 @@ export function StageSelectionDisplayPanel({
   applyBulkFaceStamp,
   applyBulkGenderToDancerIds,
   applyBulkFigure3dToDancerIds,
+  applyBulkMarkerShape,
+  applyBulkFacingDeg,
+  allDancerIds,
+  primaryMarkerShape = "circle",
+  primaryFacingDeg = 0,
   selectedDancerIds,
   markerPx,
   nameFontPx,
@@ -305,6 +335,7 @@ export function StageSelectionDisplayPanel({
     useState<DancerFigure3dApplyScope>("all");
   const [openSection, setOpenSection] = useState<DisclosureId | null>(null);
   const [markerInsideOpen, setMarkerInsideOpen] = useState(false);
+  const [shapeScope, setShapeScope] = useState<"selected" | "all">("selected");
   const colors = showAllColors
     ? DANCER_PALETTE
     : DANCER_PALETTE.slice(0, PRIMARY_COLOR_COUNT);
@@ -312,6 +343,27 @@ export function StageSelectionDisplayPanel({
   const busy = Boolean(disabled) || selectedCount === 0;
   const labelPos = rawDancerLabelPosition ?? "inside";
   const nameSummary = labelPos === "inside" ? "丸の内" : "丸の下";
+  const shapeTargetIds =
+    shapeScope === "all" && allDancerIds && allDancerIds.length > 0
+      ? [...allDancerIds]
+      : ids;
+  const shapeBusy = busy || !applyBulkMarkerShape;
+  const facingBusy = busy || !applyBulkFacingDeg;
+  const shapeSummary = `${
+    DANCER_MARKER_SHAPES.find((s) => s.id === primaryMarkerShape)?.label ?? "丸"
+  }・${Math.round(primaryFacingDeg)}°`;
+  const scopeBtn = (on: boolean): CSSProperties => ({
+    flex: 1,
+    padding: "7px 8px",
+    borderRadius: 8,
+    border: on ? "1px solid rgba(251,191,36,0.9)" : "1px solid #334155",
+    background: on ? "rgba(251,191,36,0.16)" : "#020617",
+    color: on ? "#fde68a" : "#94a3b8",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  });
 
   const toggleSection = (id: DisclosureId) => {
     setOpenSection((cur) => (cur === id ? null : id));
@@ -463,6 +515,169 @@ export function StageSelectionDisplayPanel({
           onGestureEnd={onSizeGestureEnd}
         />
       </div>
+
+      <DockDisclosure
+        id="shape"
+        title="形と向き"
+        summary={shapeSummary}
+        open={openSection === "shape"}
+        onToggle={toggleSection}
+      >
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          <button
+            type="button"
+            aria-pressed={shapeScope === "selected"}
+            onClick={() => setShapeScope("selected")}
+            style={scopeBtn(shapeScope === "selected")}
+          >
+            選択中 {selectedCount}人
+          </button>
+          <button
+            type="button"
+            aria-pressed={shapeScope === "all"}
+            disabled={!allDancerIds || allDancerIds.length === 0}
+            onClick={() => setShapeScope("all")}
+            style={scopeBtn(shapeScope === "all")}
+          >
+            全員 {allDancerIds?.length ?? 0}人
+          </button>
+        </div>
+        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>形</div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gap: 6,
+            marginBottom: 10,
+          }}
+        >
+          {DANCER_MARKER_SHAPES.map((s) => {
+            const on = shapeScope === "selected" && primaryMarkerShape === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                data-marker-shape={s.id}
+                disabled={shapeBusy}
+                title={`${s.label}にする`}
+                onClick={() => applyBulkMarkerShape?.(shapeTargetIds, s.id)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 3,
+                  padding: "7px 2px",
+                  whiteSpace: "nowrap",
+                  borderRadius: 8,
+                  border: on
+                    ? "1px solid rgba(251,191,36,0.9)"
+                    : "1px solid #334155",
+                  background: on ? "rgba(251,191,36,0.16)" : "#020617",
+                  color: on ? "#fde68a" : "#cbd5e1",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: shapeBusy ? "not-allowed" : "pointer",
+                }}
+              >
+                <ShapeIcon shape={s.id} size={16} />
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+        <SizeSlider
+          label="向き（0°＝客席側）"
+          value={Math.round(primaryFacingDeg)}
+          min={0}
+          max={359}
+          unit="°"
+          disabled={facingBusy}
+          onChange={(deg) => applyBulkFacingDeg?.(shapeTargetIds, deg)}
+          onGestureBegin={onSizeGestureBegin}
+          onGestureEnd={onSizeGestureEnd}
+        />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+            gap: 6,
+            marginBottom: 6,
+          }}
+        >
+          {FACING_QUICK_DEGS.map((deg) => (
+            <button
+              key={deg}
+              type="button"
+              disabled={facingBusy}
+              title={`${deg}°に向ける`}
+              onClick={() => applyBulkFacingDeg?.(shapeTargetIds, deg)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 3,
+                padding: "6px 2px",
+                borderRadius: 8,
+                border:
+                  Math.round(primaryFacingDeg) === deg
+                    ? "1px solid rgba(251,191,36,0.9)"
+                    : "1px solid #334155",
+                background: "#020617",
+                color: "#cbd5e1",
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: facingBusy ? "not-allowed" : "pointer",
+              }}
+            >
+              <span
+                aria-hidden
+                style={{ display: "inline-block", transform: `rotate(${deg}deg)` }}
+              >
+                ↓
+              </span>
+              {deg}°
+            </button>
+          ))}
+        </div>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 11,
+            color: "#94a3b8",
+          }}
+        >
+          角度を入力
+          <input
+            type="number"
+            min={0}
+            max={359}
+            step={1}
+            disabled={facingBusy}
+            value={Math.round(primaryFacingDeg)}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (Number.isFinite(v)) applyBulkFacingDeg?.(shapeTargetIds, v);
+            }}
+            style={{
+              width: 64,
+              height: 26,
+              borderRadius: 6,
+              border: "1px solid #334155",
+              background: "#020617",
+              color: "#e2e8f0",
+              padding: "0 6px",
+              fontSize: 12,
+            }}
+          />
+          °
+        </label>
+        <p style={{ ...dockSectionHint, margin: "8px 0 0" }}>
+          形は全キュー共通、向きはこのキューだけに反映します。
+        </p>
+      </DockDisclosure>
 
       <DockDisclosure
         id="color"

@@ -43,6 +43,7 @@ import {
 import { modDancerColorIndex, normalizeDancerFacingDeg } from "./dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "./markerBadge";
 import { normalizeDancerFaceStamp } from "./dancerFaceStamp";
+import { normalizeDancerMarkerShape } from "./dancerMarkerShape";
 import { normalizeDancerFigure3d } from "./dancerFigure3d";
 import { MAX_DANCERS_PER_FORMATION } from "./dancerCountLimits";
 
@@ -325,6 +326,7 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
   }
   const faceStamp = normalizeDancerFaceStamp(d.faceStamp);
   const figure3d = normalizeDancerFigure3d(d.figure3d);
+  const markerShape = normalizeDancerMarkerShape(d.markerShape);
   return {
     id: typeof d.id === "string" && d.id ? d.id : randomId("d"),
     label: typeof d.label === "string" ? d.label : String(index + 1),
@@ -363,6 +365,7 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     ...(markerBadge !== undefined ? { markerBadge } : {}),
     ...(markerBadgeSource ? { markerBadgeSource } : {}),
     ...(facingDeg != null ? { facingDeg } : {}),
+    ...(markerShape ? { markerShape } : {}),
     ...(faceStamp ? { faceStamp } : {}),
     ...(figure3d ? { figure3d } : {}),
   };

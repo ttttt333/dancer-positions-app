@@ -278,6 +278,7 @@ export function useStageDancerMarkerElements(
             belowNameFontPx={belowNameFontPx}
             isStudentHighlight={isStudentHighlight}
             onePersonMode={onePersonMode}
+            shape={d.markerShape}
           />
         );
       }),

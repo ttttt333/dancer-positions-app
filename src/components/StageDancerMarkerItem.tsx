@@ -1,5 +1,17 @@
 import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { DancerLabelWithPrefix } from "./DancerLabelWithPrefix";
+import {
+  DANCER_MARKER_SHAPE_POINTS,
+  dancerMarkerShapeLabelCenterYPct,
+  dancerMarkerShapeLabelScale,
+  type DancerMarkerShape,
+} from "../lib/dancerMarkerShape";
+
+function parseBorderCss(css: string): { widthPx: number; color: string } {
+  const m = /^\s*([\d.]+)px\s+solid\s+(.+)$/.exec(css);
+  if (!m) return { widthPx: 2, color: "rgba(255,255,255,0.35)" };
+  return { widthPx: Number(m[1]) || 2, color: m[2]!.trim() };
+}
 
 export type StageDancerMarkerItemProps = {
   dancerId: string;
@@ -44,6 +56,8 @@ export type StageDancerMarkerItemProps = {
   isStudentHighlight?: boolean;
   /** 個人閲覧モード（1人フォーカス）が有効なとき true */
   onePersonMode?: boolean;
+  /** 印の形（未指定は丸） */
+  shape?: DancerMarkerShape;
 };
 
 /** ステージ上のダンサー印 1 人分（位置・回転・○内／名下） */
@@ -81,8 +95,29 @@ export function StageDancerMarkerItem({
   belowNameFontPx,
   isStudentHighlight = false,
   onePersonMode = false,
+  shape,
 }: StageDancerMarkerItemProps) {
   const pulseRingSize = markerPx + 14;
+  const polyShape = shape && shape !== "circle" ? shape : null;
+  const border = polyShape ? parseBorderCss(borderCss) : null;
+  const labelNode =
+    !hideGlyph && !centerDistanceAboveLabel ? (
+      <span
+        style={
+          circleInnerLabelSpanStyle ?? {
+            position: "relative",
+            zIndex: 1,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transform: `rotate(${screenUnrotateDeg}deg)`,
+            transformOrigin: "center center",
+          }
+        }
+      >
+        {circleLabel}
+      </span>
+    ) : null;
 
   return (
     <div
@@ -161,9 +196,9 @@ export function StageDancerMarkerItem({
           marginTop: -halfMarker,
           width: `${markerPx}px`,
           height: `${markerPx}px`,
-          borderRadius: "50%",
-          border: borderCss,
-          backgroundColor: fillHex,
+          borderRadius: polyShape ? 0 : "50%",
+          border: polyShape ? "none" : borderCss,
+          backgroundColor: polyShape ? "transparent" : fillHex,
           color: "#0f172a",
           fontWeight: 700,
           fontSize: `${labelFontPx}px`,
@@ -171,30 +206,54 @@ export function StageDancerMarkerItem({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          boxShadow: boxShadowCss,
+          boxShadow: polyShape ? "none" : boxShadowCss,
           transform: scaleTransform,
           padding: 0,
           userSelect: "none",
           pointerEvents: pointerEventsCss,
         }}
       >
-        {!hideGlyph && !centerDistanceAboveLabel ? (
-          <span
-            style={
-              circleInnerLabelSpanStyle ?? {
-                position: "relative",
-                zIndex: 1,
-                display: "inline-flex",
+        {polyShape && border ? (
+          <>
+            <svg
+              aria-hidden
+              viewBox="0 0 100 100"
+              width={markerPx}
+              height={markerPx}
+              style={{
+                position: "absolute",
+                inset: 0,
+                overflow: "visible",
+                pointerEvents: "none",
+                filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.4))",
+              }}
+            >
+              <polygon
+                points={DANCER_MARKER_SHAPE_POINTS[polyShape]}
+                fill={fillHex}
+                stroke={border.color}
+                strokeWidth={(border.widthPx * 100) / Math.max(1, markerPx)}
+                strokeLinejoin="round"
+              />
+            </svg>
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: `${dancerMarkerShapeLabelCenterYPct(polyShape)}%`,
+                transform: `translate(-50%, -50%) scale(${dancerMarkerShapeLabelScale(polyShape)})`,
+                display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                transform: `rotate(${screenUnrotateDeg}deg)`,
-                transformOrigin: "center center",
-              }
-            }
-          >
-            {circleLabel}
-          </span>
-        ) : null}
+                pointerEvents: "none",
+              }}
+            >
+              {labelNode}
+            </div>
+          </>
+        ) : (
+          labelNode
+        )}
       </button>
       {centerDistanceAboveLabel ? (
         <div

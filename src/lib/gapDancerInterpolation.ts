@@ -423,8 +423,16 @@ export function lerpDancersAcrossGap(
             ...(src.faceStamp ? { faceStamp: src.faceStamp } : {}),
             ...(src.figure3d ? { figure3d: src.figure3d } : {}),
             ...(src.poseLevel ? { poseLevel: src.poseLevel } : {}),
-            ...(src.facingDeg != null ? { facingDeg: src.facingDeg } : {}),
+            ...(src.markerShape ? { markerShape: src.markerShape } : {}),
           };
+        })(),
+        ...(() => {
+          const fa = a.facingDeg ?? 0;
+          const fb = b.facingDeg ?? 0;
+          if (fa === 0 && fb === 0) return {};
+          const delta = ((((fb - fa) % 360) + 540) % 360) - 180;
+          const deg = (((fa + delta * alpha) % 360) + 360) % 360;
+          return { facingDeg: Math.round(deg * 100) / 100 };
         })(),
       });
     } else if (a) {

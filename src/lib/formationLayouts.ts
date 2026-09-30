@@ -3094,6 +3094,7 @@ export function transferDancerIdentitiesByOrder(
       gradeLabel: od.gradeLabel ?? nd.gradeLabel,
       skillRankLabel: od.skillRankLabel ?? nd.skillRankLabel,
       facingDeg: od.facingDeg ?? nd.facingDeg,
+      ...(od.markerShape ? { markerShape: od.markerShape } : {}),
     };
   });
 }
@@ -3198,5 +3199,6 @@ function mergeDancerIdentityOntoPosition(
     gradeLabel: identity.gradeLabel ?? positioned.gradeLabel,
     skillRankLabel: identity.skillRankLabel ?? positioned.skillRankLabel,
     facingDeg: identity.facingDeg ?? positioned.facingDeg,
+    ...(identity.markerShape ? { markerShape: identity.markerShape } : {}),
   };
 }
