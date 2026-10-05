@@ -445,7 +445,7 @@ const EN_BASE: MessageBundle = {
   "shareSheet.railSub": "URL · PDF",
   "shareSheet.collabTitle": "Choreographers & collaborators",
   "shareSheet.collabDesc":
-    "Edit the same work together. Recipients sign in and open the collaborative URL.",
+    "Choreographers on other accounts can edit this work too. When they sign in and open the URL, it is added to their library, and changes sync in real time while you both have it open.",
   "shareSheet.studentTitle": "Students",
   "shareSheet.studentDesc":
     "View positions and pick a name from the roster. No editing. On a phone, opening the URL is enough (no login).",
@@ -921,7 +921,7 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "shareSheet.railSub": "URL・PDF",
     "shareSheet.collabTitle": "振付師・共同制作者",
     "shareSheet.collabDesc":
-      "同じ作品のデータを一緒に編集できます。相手はログインのうえ、共同編集用 URL を開きます。",
+      "別のアカウントの振付師も同じ作品を編集できます。相手がログインして URL を開くと、その人のライブラリにも作品が追加され、同時に開いていれば変更がリアルタイムで反映されます。",
     "shareSheet.studentTitle": "生徒",
     "shareSheet.studentDesc":
       "立ち位置の閲覧とパート表示のみ。名簿から自分を選べます。編集はできません。スマホでは URL を開くだけで確認できます（ログイン不要）。",

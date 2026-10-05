@@ -712,6 +712,12 @@
   color: #c7d2fe;
 }
 
+.home-project-badge--shared {
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  background: rgba(212, 175, 55, 0.14);
+  color: #f3e5a8;
+}
+
 .home-project-badge--local {
   border: 1px solid rgba(148, 163, 184, 0.45);
   background: rgba(51, 65, 85, 0.45);

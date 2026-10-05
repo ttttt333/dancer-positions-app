@@ -162,7 +162,8 @@ export function HomeLibrary() {
 
   const legacyProject = useMemo(() => tryMigrateFromLocalStorage(), []);
   const projectLimit = isPro ? Infinity : FREE_CLOUD_PROJECT_LIMIT;
-  const atProjectLimit = !isPro && projects.length >= projectLimit;
+  const ownedProjectCount = projects.filter((p) => !p.is_shared).length;
+  const atProjectLimit = !isPro && ownedProjectCount >= projectLimit;
 
   const libraryEntries = useMemo((): LibraryEntry[] => {
     const cloudIds = new Set(projects.map((p) => p.id));
@@ -219,14 +220,15 @@ export function HomeLibrary() {
       setError("");
       if (!isProMe(me) && !isDemoSessionToken()) {
         // 一覧要約に加え、残す候補作品は本文を読んで人数超過を正確に判定する
-        const sorted = [...list].sort((a, b) => {
+        const owned = list.filter((p) => !p.is_shared);
+        const sorted = [...owned].sort((a, b) => {
           const ta = Date.parse(a.updated_at) || 0;
           const tb = Date.parse(b.updated_at) || 0;
           return tb - ta;
         });
         const keep = sorted.slice(0, FREE_CLOUD_PROJECT_LIMIT);
         const refs = await Promise.all(
-          list.map(async (p) => {
+          owned.map(async (p) => {
             const base = {
               id: p.id,
               name: p.name,
@@ -572,7 +574,7 @@ export function HomeLibrary() {
             deleteAccount: t("home.settings.deleteAccount"),
             version: t("home.settings.version"),
             proBadge: "PRO",
-            freeBadge: `FREE ${projects.length}/3`,
+            freeBadge: `FREE ${ownedProjectCount}/3`,
             faq: t("home.drawer.faq"),
             appeal: t("home.tabAppeal"),
             help: t("home.drawer.help"),
@@ -750,6 +752,11 @@ export function HomeLibrary() {
                           ? t("home.badge.cloud")
                           : t("home.badge.local")}
                       </span>
+                      {entry.kind === "cloud" && entry.project.is_shared ? (
+                        <span className="home-project-badge home-project-badge--shared">
+                          共有
+                        </span>
+                      ) : null}
                       <span className="home-project-meta-sep" aria-hidden>
                         ·
                       </span>

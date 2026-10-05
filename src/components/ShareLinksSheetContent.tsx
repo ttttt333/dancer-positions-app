@@ -12,6 +12,8 @@ import {
 import { exportChoreographyPdf } from "../lib/exportChoreographyPdf";
 import { downloadStagePngFile, getStageExportElement } from "../lib/captureStagePng";
 import { shell } from "../theme/choreoShell";
+import { isSupabaseBackend } from "../lib/supabaseClient";
+import { supabaseEnsureEditToken } from "../lib/supabaseProjects";
 
 type ShareKind = "collab" | "view";
 type FlashKey = ShareKind | "pdf" | "csv" | "png";
@@ -22,6 +24,8 @@ type Props = {
   collabUrl: string;
   viewUrl: string;
   hasServerId: boolean;
+  /** クラウド版では編集用トークンを発行して `/join/{token}` を共同編集 URL にする */
+  serverId?: number | null;
   pieceTitle?: string;
   project: ChoreographyProjectJson | null;
   projectName?: string;
@@ -263,9 +267,10 @@ function ShareCard({
  */
 export function ShareLinksSheetContent({
   open,
-  collabUrl,
+  collabUrl: legacyCollabUrl,
   viewUrl,
   hasServerId,
+  serverId = null,
   pieceTitle = "",
   project,
   projectName = "",
@@ -279,6 +284,48 @@ export function ShareLinksSheetContent({
   const [pngBusy, setPngBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pngError, setPngError] = useState<string | null>(null);
+
+  const useJoinLink = isSupabaseBackend() && serverId != null;
+  const [editToken, setEditToken] = useState<string | null>(null);
+  const [editTokenError, setEditTokenError] = useState<string | null>(null);
+  const [editTokenBusy, setEditTokenBusy] = useState(false);
+
+  const loadEditToken = useCallback(
+    async (regenerate: boolean) => {
+      if (!useJoinLink || serverId == null) return;
+      setEditTokenBusy(true);
+      setEditTokenError(null);
+      try {
+        setEditToken(await supabaseEnsureEditToken(serverId, { regenerate }));
+      } catch (e) {
+        setEditTokenError(e instanceof Error ? e.message : "編集用リンクを作れませんでした");
+      } finally {
+        setEditTokenBusy(false);
+      }
+    },
+    [serverId, useJoinLink]
+  );
+
+  useEffect(() => {
+    if (open) void loadEditToken(false);
+  }, [open, loadEditToken]);
+
+  const collabUrl = useJoinLink
+    ? editToken && typeof window !== "undefined"
+      ? `${window.location.origin}/join/${editToken}`
+      : ""
+    : legacyCollabUrl;
+
+  const onRegenerateEditToken = () => {
+    if (
+      !window.confirm(
+        "共同編集リンクを作り直します。古いリンクからは新しく参加できなくなります（参加済みの人はそのまま編集できます）。"
+      )
+    ) {
+      return;
+    }
+    void loadEditToken(true);
+  };
 
   useEffect(() => {
     if (open) {
@@ -433,7 +480,21 @@ export function ShareLinksSheetContent({
           >
             {flash === kind ? t("shareSheet.saved") : t("shareSheet.saveTxt")}
           </ActionBtn>
+          {kind === "collab" && useJoinLink && editToken ? (
+            <ActionBtn
+              variant="ghost"
+              onClick={onRegenerateEditToken}
+              disabled={editTokenBusy}
+            >
+              リンクを作り直す
+            </ActionBtn>
+          ) : null}
         </div>
+        {kind === "collab" && useJoinLink && editTokenError ? (
+          <p style={{ margin: 0, fontSize: 12, color: "#f0a8a8", lineHeight: 1.5 }}>
+            {editTokenError}
+          </p>
+        ) : null}
       </div>
     );
   };

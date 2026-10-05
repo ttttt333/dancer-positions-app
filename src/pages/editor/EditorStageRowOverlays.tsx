@@ -2569,6 +2569,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             collabUrl={shareLinksUrls.collab}
             viewUrl={shareLinksUrls.view}
             hasServerId={serverId != null}
+            serverId={serverId}
             pieceTitle={
               project?.pieceTitle?.trim() ||
               projectName.trim() ||

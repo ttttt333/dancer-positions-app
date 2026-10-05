@@ -327,7 +327,7 @@ export function useEditorProjectLoader({
           try {
             const list = await projectApi.list();
             const report = analyzeFreePlanExcessFromList(
-              list.map((p) => ({
+              list.filter((p) => !p.is_shared).map((p) => ({
                 id: p.id,
                 name: p.name,
                 updated_at: p.updated_at,
@@ -335,8 +335,10 @@ export function useEditorProjectLoader({
                 dancerCount: p.dancerCount,
               }))
             );
-            const contentOver = trimProjectToFreeLimits(loadedJson).changed;
-            if (report.hasExcess || contentOver) {
+            const isSharedWithMe = list.some((p) => p.id === id && p.is_shared);
+            const contentOver =
+              !isSharedWithMe && trimProjectToFreeLimits(loadedJson).changed;
+            if (!isSharedWithMe && (report.hasExcess || contentOver)) {
               if (!cancelled) {
                 navigate("/", { replace: true });
               }

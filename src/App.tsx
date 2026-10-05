@@ -14,6 +14,7 @@ import { UpdateLogPage } from "./pages/UpdateLogPage";
 import { AppealPage } from "./pages/appeal/AppealPage";
 import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
 import { AnnotationWorkbenchPage } from "./pages/AnnotationWorkbenchPage";
+import { JoinCollabPage } from "./pages/JoinCollabPage";
 import { isQuotaError, recoverBlindStorageQuota } from "./pages/annotation/sessionHistory";
 import { MobileShell } from "./components/mobile/MobileShell";
 import {
@@ -284,6 +285,7 @@ function AppShell() {
             <Route path="/billing/canceled" element={<BillingCanceledPage />} />
             <Route path="/billing/confirm" element={<PlanConfirmationPage />} />
             <Route path="/legal/tokushoho" element={<TokushohoPage />} />
+            <Route path="/join/:token" element={<JoinCollabPage />} />
             <Route path="/editor/:projectId" element={
               <Suspense fallback={<div style={{ padding: 24, color: "#94a3b8" }}>Loading…</div>}>
                 <MobileEditorRoute />

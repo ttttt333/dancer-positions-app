@@ -147,6 +147,9 @@ import { ParsePositionFromPhotoDialog } from "../components/ParsePositionFromPho
 import { FormationPresetPickerSheet } from "../components/FormationPresetPickerSheet";
 import { ProUpgradeProvider, useProUpgrade } from "../components/ProUpgradeProvider";
 import { isSupabaseBackend } from "../lib/supabaseClient";
+import { projectApi } from "../api/client";
+import { useSupabaseProjectRealtime } from "../hooks/useSupabaseProjectRealtime";
+import { EditorRealtimePeersBadge } from "../components/EditorRealtimePeersBadge";
 import { isCollabFeatureAvailable } from "../lib/collabAvailability";
 import { projectShareLinks } from "../lib/shareProjectLinks";
 import { useAuth } from "../context/AuthContext";
@@ -253,7 +256,9 @@ function EditorPageContent({
   const { t } = useI18n();
   const collabRequested = searchParams.get("collab") === "1" && !choreoPublicView;
   const collabParam = collabRequested && isCollabFeatureAvailable();
-  const collabUnavailableNotice = collabRequested && !isCollabFeatureAvailable();
+  // クラウド版は保存済み作品が常にリアルタイム同期されるので、旧 ?collab=1 リンクは通常編集で開く
+  const collabUnavailableNotice =
+    collabRequested && !isCollabFeatureAvailable() && !isSupabaseBackend();
   const onHistoryResetRef = useRef<() => void>(() => {});
   const onHistoryReset = useCallback(() => {
     onHistoryResetRef.current();
@@ -623,6 +628,35 @@ function EditorPageContent({
     syncProjectToCloud,
     setSaving,
     projectChangeSig: projectAutoSaveSig,
+  });
+
+  const refetchProjectFromServer = useCallback(() => {
+    if (serverId == null) return;
+    void projectApi
+      .get(serverId)
+      .then((row) => {
+        setPlainProject(normalizeProject(row.json));
+        setKnownServerUpdatedAt(row.updated_at);
+      })
+      .catch(() => {
+        /* 次の変更通知で再試行 */
+      });
+  }, [serverId, setPlainProject, setKnownServerUpdatedAt]);
+
+  const realtime = useSupabaseProjectRealtime({
+    enabled:
+      !!me &&
+      !choreoPublicView &&
+      !collabActive &&
+      projectId != null &&
+      projectId !== "new",
+    serverId,
+    displayName: me?.user?.email?.split("@")[0] ?? "",
+    project: collabActive ? null : plainProject,
+    applyRemoteProject: setPlainProject,
+    knownServerUpdatedAt,
+    setKnownServerUpdatedAt,
+    refetchFromServer: refetchProjectFromServer,
   });
 
 
@@ -3334,6 +3368,7 @@ function EditorPageContent({
         </div>
       ) : null}
       <EditorPageLayout {...editorLayoutProps} />
+      <EditorRealtimePeersBadge peers={realtime.peers} />
       {aiSectionKeyframesDialogEl}
       {sectionFormationPatternsDialogEl}
       {sectionAutoKeyframes.pendingOffer &&
