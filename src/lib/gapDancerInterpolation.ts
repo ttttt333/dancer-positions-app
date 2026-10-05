@@ -126,10 +126,22 @@ export const GAP_APPROACH_OPTIONS: {
   },
 ];
 
-function clampXY(x: number, y: number): { x: number; y: number } {
+/** 袖など舞台外に立つ人は、その始点・終点を含む範囲までは舞台外の移動を許す */
+type ClampBounds = { xLo: number; xHi: number; yLo: number; yHi: number };
+
+function boundsFor(ax: number, ay: number, bx: number, by: number): ClampBounds {
   return {
-    x: Math.min(CLAMP_X_HI, Math.max(CLAMP_X_LO, x)),
-    y: Math.min(CLAMP_Y_HI, Math.max(CLAMP_Y_LO, y)),
+    xLo: Math.min(CLAMP_X_LO, ax, bx),
+    xHi: Math.max(CLAMP_X_HI, ax, bx),
+    yLo: Math.min(CLAMP_Y_LO, ay, by),
+    yHi: Math.max(CLAMP_Y_HI, ay, by),
+  };
+}
+
+function clampXY(x: number, y: number, b: ClampBounds): { x: number; y: number } {
+  return {
+    x: Math.min(b.xHi, Math.max(b.xLo, x)),
+    y: Math.min(b.yHi, Math.max(b.yLo, y)),
   };
 }
 
@@ -174,71 +186,73 @@ function pairXY(
   medY: number,
   sepPct: number
 ): { x: number; y: number } {
+  const bounds = boundsFor(ax, ay, bx, by);
+  const clampIn = (x: number, y: number) => clampXY(x, y, bounds);
   if (Math.hypot(ax - bx, ay - by) < STATIONARY_EPS_PCT) {
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   const mx = (ax + bx) / 2;
   const my = (ay + by) / 2;
 
   if (route === "linear") {
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "detour_bulge") {
     const p = piecewise2(ax, ay, bx, by, mx, my + sepPct, alpha);
-    return clampXY(p.x, p.y);
+    return clampIn(p.x, p.y);
   }
 
   if (route === "kamite_half_via_audience") {
     if (ax >= medX) {
       const p = piecewise2(ax, ay, bx, by, mx, my + sepPct, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "shimote_half_via_audience") {
     if (ax < medX) {
       const p = piecewise2(ax, ay, bx, by, mx, my + sepPct, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "kamite_half_via_upstage") {
     if (ax >= medX) {
       const p = piecewise2(ax, ay, bx, by, mx, my - sepPct, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "shimote_half_via_upstage") {
     if (ax < medX) {
       const p = piecewise2(ax, ay, bx, by, mx, my - sepPct, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "front_half_via_kamite") {
     if (ay >= medY) {
       const p = piecewise2(ax, ay, bx, by, mx + sepPct, my, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "front_half_via_shimote") {
     if (ay >= medY) {
       const p = piecewise2(ax, ay, bx, by, mx - sepPct, my, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
-  return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+  return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
 }
 
 /**
@@ -272,8 +286,8 @@ export function controlPointsFromGapApproach(
     const mx = (a.xPct + b.xPct) / 2;
     const my = (a.yPct + b.yPct) / 2;
     out[a.id] = {
-      cpX: Math.min(100, Math.max(0, 2 * via.x - mx)),
-      cpY: Math.min(100, Math.max(0, 2 * via.y - my)),
+      cpX: Math.min(Math.max(100, a.xPct, b.xPct), Math.max(Math.min(0, a.xPct, b.xPct), 2 * via.x - mx)),
+      cpY: Math.min(Math.max(100, a.yPct, b.yPct), Math.max(Math.min(0, a.yPct, b.yPct), 2 * via.y - my)),
     };
   }
   return out;
@@ -363,7 +377,8 @@ export function lerpDancersAcrossGap(
               { x: cp.cpX, y: cp.cpY },
               { x: b.xPct, y: b.yPct },
               alpha
-            ).y
+            ).y,
+            boundsFor(a.xPct, a.yPct, b.xPct, b.yPct)
           )
         : pairXY(
             a.xPct,
