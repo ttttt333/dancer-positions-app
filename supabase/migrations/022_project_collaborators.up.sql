@@ -125,9 +125,11 @@ begin
     raise exception 'invalid_token';
   end if;
   if owner <> auth.uid() then
-    insert into public.choreocore_project_members (project_id, user_id)
-    values (pid, auth.uid())
-    on conflict do nothing;
+    insert into public.choreocore_project_members as m (project_id, user_id, role)
+    values (pid, auth.uid(), 'editor')
+    on conflict (project_id, user_id) do update
+      set role = 'editor'
+      where m.role = 'viewer';
   end if;
   return pid;
 end;
