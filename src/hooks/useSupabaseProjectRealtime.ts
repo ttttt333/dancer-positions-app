@@ -71,6 +71,9 @@ export function useSupabaseProjectRealtime({
   const clientId = useMemo(() => crypto.randomUUID(), []);
   const [peers, setPeers] = useState<RealtimePeer[]>([]);
   const [connected, setConnected] = useState(false);
+  /** 一人で編集中は作品全体の文字列化・圧縮をしない（相手が来たら hello への返信で最新を渡す） */
+  const peerCountRef = useRef(0);
+  peerCountRef.current = peers.length;
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const latestRef = useRef<Stamp>({ c: 0, from: "" });
@@ -232,6 +235,10 @@ export function useSupabaseProjectRealtime({
   // 自分の変更を少しまとめて送る（相手から届いた内容の反映は送り返さない）
   useEffect(() => {
     if (!active || !connected || !project) return;
+    if (peerCountRef.current === 0) {
+      lastJsonRef.current = null;
+      return;
+    }
     let json: string;
     try {
       json = JSON.stringify(project);
@@ -250,12 +257,16 @@ export function useSupabaseProjectRealtime({
       sendProjectNow();
     }, SEND_DEBOUNCE_MS);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sendProjectNow は ref 経由で最新を読む
-  }, [project, active, connected]);
+  }, [project, active, connected, peers.length]);
 
   // ドラッグ中に届いた変更は指を離してから反映する（自分が動かしていたら自分の方を優先）
   useEffect(() => {
     if (!active) return;
     const onDown = () => {
+      if (peerCountRef.current === 0) {
+        pointerDownRef.current = { json: null };
+        return;
+      }
       let json: string | null = null;
       try {
         json = projectRef.current ? JSON.stringify(projectRef.current) : null;

@@ -137,28 +137,23 @@ export function useEditorHistory({
                 )
               : action;
           if (next === prev) return prev;
-          let unchanged = false;
-          try {
-            unchanged = JSON.stringify(next) === JSON.stringify(prev);
-          } catch {
-            unchanged = false;
-          }
-          if (unchanged) return prev;
-          if (applyingHistoryRef.current) {
+          // ドラッグ中は毎フレーム呼ばれるため、作品全体の文字列比較を省く（履歴はジェスチャ終了時に1回だけ積む）
+          if (gestureHistoryDepthRef.current > 0 || applyingHistoryRef.current) {
             return next;
+          }
+          let prevStr: string | null = null;
+          try {
+            prevStr = JSON.stringify(prev);
+            if (JSON.stringify(next) === prevStr) return prev;
+          } catch {
+            prevStr = null;
           }
           if (skipNextHistoryPushRef.current) {
             skipNextHistoryPushRef.current = false;
             return next;
           }
-          if (gestureHistoryDepthRef.current > 0) {
-            return next;
-          }
-          pushEditorHistorySnapshot(
-            historyRef.current,
-            JSON.stringify(prev),
-            HISTORY_CAP
-          );
+          if (prevStr == null) return next;
+          pushEditorHistorySnapshot(historyRef.current, prevStr, HISTORY_CAP);
           observeEditorProjectChange(next);
           return next;
         });

@@ -160,9 +160,36 @@ export function wingStandbyXPct(
   return side === "left" ? -off : 100 + off;
 }
 
+function isInWing(d: DancerSpot): boolean {
+  return d.xPct < 0 || d.xPct > 100;
+}
+
+/** このキューより前（なければ後）で、その人が舞台上に立っていた位置 */
+function lastOnStageSpot(
+  p: ChoreographyProjectJson,
+  cueId: string | null,
+  d: DancerSpot
+): { xPct: number; yPct: number } | null {
+  const sorted = [...p.cues].sort((a, b) => a.tStartSec - b.tStartSec);
+  const idx = cueId ? sorted.findIndex((c) => c.id === cueId) : -1;
+  const before = idx >= 0 ? sorted.slice(0, idx).reverse() : [];
+  const after = idx >= 0 ? sorted.slice(idx + 1) : sorted;
+  for (const c of [...before, ...after]) {
+    const f = p.formations.find((x) => x.id === c.formationId);
+    const hit =
+      f?.dancers.find((x) => x.id === d.id) ??
+      (d.crewMemberId
+        ? f?.dancers.find((x) => x.crewMemberId === d.crewMemberId)
+        : undefined);
+    if (hit && !isInWing(hit)) return { xPct: hit.xPct, yPct: hit.yPct };
+  }
+  return null;
+}
+
 /**
  * 指定メンバーだけ舞台上に残し、それ以外を左右の袖に縦並びで待機させる。
  * 現在位置が上手/下手どちらに近いかで袖を振り分ける。共有フォーメーションはキュー用にフォーク。
+ * 残すメンバーが袖にいるときは、前のキューで立っていた位置（なければ近い舞台端）へ戻す。
  */
 export function moveOtherMembersToWings(
   p: ChoreographyProjectJson,
@@ -181,14 +208,31 @@ export function moveOtherMembersToWings(
   const keep = new Set(opts.keepDancerIds);
   const left: number[] = [];
   const right: number[] = [];
+  const backToStage: number[] = [];
   target.dancers.forEach((d, i) => {
-    if (keep.has(d.id)) return;
+    if (keep.has(d.id)) {
+      if (isInWing(d)) backToStage.push(i);
+      return;
+    }
     (d.xPct < 50 ? left : right).push(i);
   });
-  if (left.length === 0 && right.length === 0) return project;
+  if (left.length === 0 && right.length === 0 && backToStage.length === 0) {
+    return project;
+  }
 
   const round2 = (v: number) => Math.round(v * 100) / 100;
   const place = new Map<number, { xPct: number; yPct: number }>();
+  for (const di of backToStage) {
+    const d = target.dancers[di]!;
+    const prev = lastOnStageSpot(project, opts.cueId ?? null, d);
+    place.set(
+      di,
+      prev ?? {
+        xPct: d.xPct < 50 ? 10 : 90,
+        yPct: round2(Math.min(92, Math.max(8, d.yPct))),
+      }
+    );
+  }
   const layout = (idxs: number[], side: "left" | "right") => {
     const sorted = [...idxs].sort(
       (a, b) => target.dancers[a]!.yPct - target.dancers[b]!.yPct

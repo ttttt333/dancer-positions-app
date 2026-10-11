@@ -605,10 +605,6 @@ function EditorPageContent({
     projectSaveRef.current = project;
   }
 
-  const projectAutoSaveSig = useMemo(
-    () => (project ? JSON.stringify(project) : ""),
-    [project]
-  );
 
   const awaitingInitialName =
     !choreoPublicView &&
@@ -627,7 +623,7 @@ function EditorPageContent({
     serverId,
     syncProjectToCloud,
     setSaving,
-    projectChangeSig: projectAutoSaveSig,
+    projectChangeSig: project,
   });
 
   const refetchProjectFromServer = useCallback(() => {

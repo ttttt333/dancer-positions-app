@@ -25,8 +25,8 @@ type Params = {
     conflict?: unknown;
   }>;
   setSaving: (saving: boolean) => void;
-  /** プロジェクト内容の変化検知用（JSON シグネチャ等） */
-  projectChangeSig: string;
+  /** 変化検知用。編集のたびに新しい参照になる作品オブジェクトを渡す */
+  projectChangeSig: unknown;
 };
 
 /**
@@ -122,8 +122,8 @@ export function useEditorAutoSave({
   }, [flushCloudSave]);
 
   const scheduleLocalDraft = useCallback(() => {
-    // 端末草稿はすぐ書く（再読込・トークン更新とレースしない）
-    persistLocalDraft();
+    // 端末草稿は少しまとめて書く（ドラッグ中に毎フレーム全体を書き込むと重くなる）。
+    // 再読込・タブを閉じる直前は pagehide / visibilitychange で必ず書き出す
     if (localTimerRef.current != null) {
       window.clearTimeout(localTimerRef.current);
     }

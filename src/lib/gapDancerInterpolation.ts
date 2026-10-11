@@ -294,6 +294,71 @@ export function controlPointsFromGapApproach(
 }
 
 /**
+ * キュー前後の同一人物を対応づける。ID → 名簿メンバー → 残りは並び順。
+ * 片方のキューにしかいない人は相手なし（その場に留まる）。並びは移動先キューの順。
+ */
+export function pairGapDancers(
+  from: readonly DancerSpot[],
+  to: readonly DancerSpot[]
+): Array<[DancerSpot | undefined, DancerSpot | undefined]> {
+  const usedFrom = new Set<number>();
+  const match = new Array<number>(to.length).fill(-1);
+
+  const fromById = new Map<string, number>();
+  from.forEach((d, i) => {
+    if (!fromById.has(d.id)) fromById.set(d.id, i);
+  });
+  to.forEach((d, j) => {
+    const i = fromById.get(d.id);
+    if (i != null && !usedFrom.has(i)) {
+      match[j] = i;
+      usedFrom.add(i);
+    }
+  });
+
+  const fromByCrew = new Map<string, number[]>();
+  from.forEach((d, i) => {
+    if (usedFrom.has(i) || !d.crewMemberId) return;
+    const list = fromByCrew.get(d.crewMemberId) ?? [];
+    list.push(i);
+    fromByCrew.set(d.crewMemberId, list);
+  });
+  to.forEach((d, j) => {
+    if (match[j] !== -1 || !d.crewMemberId) return;
+    const list = fromByCrew.get(d.crewMemberId);
+    const i = list?.shift();
+    if (i != null) {
+      match[j] = i;
+      usedFrom.add(i);
+    }
+  });
+
+  const restFrom = from.map((_, i) => i).filter((i) => !usedFrom.has(i));
+  const restTo = to.map((_, j) => j).filter((j) => match[j] === -1);
+  // 片方にしか ID がない人（削除・追加）は相手を作らない。ID が丸ごと入れ替わった雛形適用などだけ並び順で対応
+  const fromIdsInTo = new Set(to.map((d) => d.id));
+  const toIdsInFrom = new Set(from.map((d) => d.id));
+  const restFromFresh = restFrom.filter((i) => !fromIdsInTo.has(from[i]!.id));
+  const restToFresh = restTo.filter((j) => !toIdsInFrom.has(to[j]!.id));
+  const idsMostlyShared = usedFrom.size > 0;
+  if (!idsMostlyShared) {
+    const k = Math.min(restFromFresh.length, restToFresh.length);
+    for (let x = 0; x < k; x++) {
+      match[restToFresh[x]!] = restFromFresh[x]!;
+      usedFrom.add(restFromFresh[x]!);
+    }
+  }
+
+  const out: Array<[DancerSpot | undefined, DancerSpot | undefined]> = to.map(
+    (b, j) => [match[j]! >= 0 ? from[match[j]!] : undefined, b]
+  );
+  from.forEach((a, i) => {
+    if (!usedFrom.has(i)) out.push([a, undefined]);
+  });
+  return out;
+}
+
+/**
  * 二次ベジェ補間（制御点1個）。
  * p0: 始点, cp: 制御点, p1: 終点, t: [0,1]
  */
@@ -328,16 +393,13 @@ export function lerpDancersAcrossGap(
   const medY = median(ys);
   const sepPct = gapPassingSeparationPct(from, to);
 
-  const n = Math.max(from.length, to.length);
   const out: DancerSpot[] = [];
 
   function lerp(a: number, b: number, t: number) {
     return a + (b - a) * t;
   }
 
-  for (let i = 0; i < n; i++) {
-    const a = from[i];
-    const b = to[i];
+  for (const [a, b] of pairGapDancers(from, to)) {
     if (a && b) {
       const note =
         alpha < 0.5
