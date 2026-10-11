@@ -81,6 +81,13 @@ import {
 import { LightingPresetPickModal } from "./LightingPresetPickModal";
 import { sortCuesByStart } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { showAppToast } from "../store/appToastStore";
+import {
+  dancerClipboardLabel,
+  pasteDancersIntoCue,
+  previousCueOf,
+  useDancerClipboardStore,
+} from "../lib/dancerClipboard";
 import { useStageLightsViewStore } from "../store/stageLightsViewStore";
 import { playbackEngine } from "../core/playbackEngine";
 import {
@@ -1816,6 +1823,79 @@ export function StageBoardBody({
       playbackOrPreview,
     ],
   );
+
+  const clipboardSpots = useDancerClipboardStore((s) => s.spots);
+  const canWriteStage =
+    !!writeFormation &&
+    viewMode !== "view" &&
+    stageInteractionsEnabled !== false &&
+    !playbackOrPreview;
+
+  const copySelectedMembers = useCallback(() => {
+    if (!writeFormation) return;
+    const idSet = new Set(selectedDancerIds);
+    const spots = writeFormation.dancers.filter((d) => idSet.has(d.id));
+    if (spots.length === 0) return;
+    useDancerClipboardStore.getState().setSpots(spots);
+    showAppToast({
+      kind: "success",
+      title: `${dancerClipboardLabel(spots)} をコピーしました`,
+      description:
+        "前のキューを選び、舞台を右クリックして「ここに貼り付け」で置けます。",
+    });
+  }, [writeFormation, selectedDancerIds]);
+
+  const previousCue = useMemo(
+    () => previousCueOf(project, editCueId),
+    [project, editCueId]
+  );
+
+  const pasteMembersToPreviousCue = useCallback(() => {
+    if (!canWriteStage || !previousCue || clipboardSpots.length === 0) return;
+    const { project: next } = pasteDancersIntoCue(project, {
+      formationId: previousCue.formationId,
+      cueId: previousCue.id,
+      spots: clipboardSpots,
+    });
+    setProject(next);
+    showAppToast({
+      kind: "success",
+      title: `前のキューに ${dancerClipboardLabel(clipboardSpots)} を貼り付けました`,
+      description: "同じ位置に置いています。必要なら前のキューで袖などへ動かしてください。",
+    });
+  }, [canWriteStage, previousCue, clipboardSpots, project, setProject]);
+
+  const pasteMembersAtMenuPoint = useCallback(() => {
+    if (!canWriteStage || clipboardSpots.length === 0) return;
+    const point = stageContextMenu ?? stageLightMenuPointRef.current;
+    const floor = stageMainFloorRef.current;
+    let at: { xPct: number; yPct: number } | null = null;
+    if (floor && point) {
+      const r = floor.getBoundingClientRect();
+      if (r.width > 1 && r.height > 1) {
+        at = {
+          xPct: ((point.clientX - r.left) / r.width) * 100,
+          yPct: ((point.clientY - r.top) / r.height) * 100,
+        };
+      }
+    }
+    const { project: next, pastedIds } = pasteDancersIntoCue(project, {
+      formationId: formationIdForWrites,
+      cueId: editCueId,
+      spots: clipboardSpots,
+      at,
+    });
+    setProject(next);
+    setSelectedDancerIds(pastedIds);
+  }, [
+    canWriteStage,
+    clipboardSpots,
+    project,
+    formationIdForWrites,
+    editCueId,
+    setProject,
+    stageContextMenu,
+  ]);
 
   /**
    * 範囲選択でまとめた複数ダンサーを一括で削除する。
@@ -6484,6 +6564,24 @@ export function StageBoardBody({
                       stageContextMenu.kind === "dancerDock"
                         ? handleDeleteSelectedDancers
                         : undefined,
+                    onCopyMembers:
+                      stageContextMenu.kind === "dancerDock" &&
+                      canWriteStage &&
+                      selectedDancerIds.length >= 1
+                        ? copySelectedMembers
+                        : undefined,
+                    onPasteToPreviousCue:
+                      stageContextMenu.kind === "dancerDock" &&
+                      canWriteStage &&
+                      previousCue &&
+                      clipboardSpots.length > 0
+                        ? pasteMembersToPreviousCue
+                        : undefined,
+                    onPasteHere:
+                      canWriteStage && clipboardSpots.length > 0
+                        ? pasteMembersAtMenuPoint
+                        : undefined,
+                    clipboardLabel: dancerClipboardLabel(clipboardSpots),
                     onOpenLegacyMore:
                       stageContextMenu.kind === "dancerDock"
                         ? () => {

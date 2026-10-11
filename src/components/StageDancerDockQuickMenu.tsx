@@ -19,6 +19,14 @@ export type StageDancerDockQuickMenuProps = {
   ) => void;
   onOpenLegacyMore?: () => void;
   onDelete?: () => void;
+  /** 選択メンバーを色・名前などのデータごとコピー */
+  onCopyMembers?: () => void;
+  /** コピーしたメンバーを直前のキューの同じ位置へ貼り付け */
+  onPasteToPreviousCue?: () => void;
+  /** コピーしたメンバーを右クリックした位置へ貼り付け */
+  onPasteHere?: () => void;
+  /** 貼り付け対象の表示名（例: 「あこ」「あこ ほか2人」） */
+  clipboardLabel?: string;
   /** 照明を追加（種類ごと） */
   lightAddOptions?: { kind: string; label: string }[];
   onAddLight?: (kind: string) => void;
@@ -76,6 +84,10 @@ export function StageDancerDockQuickMenu({
   onGatherToEdge,
   onOpenLegacyMore,
   onDelete,
+  onCopyMembers,
+  onPasteToPreviousCue,
+  onPasteHere,
+  clipboardLabel = "",
   lightAddOptions,
   onAddLight,
   onAddBasicLights,
@@ -97,6 +109,7 @@ export function StageDancerDockQuickMenu({
         !showSort &&
         !onDuplicate &&
         !onDelete &&
+        !onPasteHere &&
         !onSwapPair &&
         !onGatherToEdge)
   );
@@ -145,6 +158,83 @@ export function StageDancerDockQuickMenu({
           </span>
         </button>
       ))}
+      {onCopyMembers || onPasteHere || onPasteToPreviousCue ? (
+        <>
+          {onCopyMembers ? (
+            <button
+              type="button"
+              role="menuitem"
+              data-dancer-copy
+              style={itemBtn}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(52,211,153,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onClick={onCopyMembers}
+            >
+              <span>メンバーをコピー</span>
+              <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
+                色・名前ごと
+              </span>
+            </button>
+          ) : null}
+          {onPasteToPreviousCue ? (
+            <button
+              type="button"
+              role="menuitem"
+              data-dancer-paste-prev
+              style={itemBtn}
+              title="コピーしたメンバーを、1つ前のキューの同じ位置に置きます（途中から入る人の準備に）"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(52,211,153,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onClick={onPasteToPreviousCue}
+            >
+              <span>前のキューに貼り付け</span>
+              <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
+                同じ位置
+              </span>
+            </button>
+          ) : null}
+          {onPasteHere ? (
+            <button
+              type="button"
+              role="menuitem"
+              data-dancer-paste-here
+              style={itemBtn}
+              title="コピーしたメンバーを、右クリックした場所に置きます"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(52,211,153,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onClick={onPasteHere}
+            >
+              <span>ここに貼り付け</span>
+              <span
+                style={{
+                  color: "#6ee7b7",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  maxWidth: 110,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {clipboardLabel}
+              </span>
+            </button>
+          ) : null}
+          <div style={{ height: 1, background: "#334155", margin: "3px 6px" }} />
+        </>
+      ) : null}
       {onGatherToEdge ? (
         <>
           <button

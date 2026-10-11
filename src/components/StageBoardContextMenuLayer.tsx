@@ -50,6 +50,10 @@ export type StageBoardContextMenuLayerProps = {
     onGatherToEdge?: StageDancerDockQuickMenuProps["onGatherToEdge"];
     onOpenLegacyMore?: () => void;
     onDelete?: () => void;
+    onCopyMembers?: () => void;
+    onPasteToPreviousCue?: () => void;
+    onPasteHere?: () => void;
+    clipboardLabel?: string;
     lightAddOptions?: { kind: string; label: string }[];
     onAddLight?: (kind: string) => void;
     onAddBasicLights?: () => void;
@@ -138,6 +142,31 @@ export function StageBoardContextMenuLayer({
                 }
               : undefined
           }
+          onCopyMembers={
+            dockQuickMenu.onCopyMembers
+              ? () => {
+                  dockQuickMenu.onCopyMembers?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onPasteToPreviousCue={
+            dockQuickMenu.onPasteToPreviousCue
+              ? () => {
+                  dockQuickMenu.onPasteToPreviousCue?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onPasteHere={
+            dockQuickMenu.onPasteHere
+              ? () => {
+                  dockQuickMenu.onPasteHere?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          clipboardLabel={dockQuickMenu.clipboardLabel}
           onOpenLegacyMore={
             dockQuickMenu.onOpenLegacyMore
               ? () => {
@@ -204,6 +233,15 @@ export function StageBoardContextMenuLayer({
           showDisplay={false}
           showSort={false}
           onPick={() => {}}
+          onPasteHere={
+            dockQuickMenu.onPasteHere
+              ? () => {
+                  dockQuickMenu.onPasteHere?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          clipboardLabel={dockQuickMenu.clipboardLabel}
           lightAddOptions={dockQuickMenu.lightAddOptions}
           onAddLight={
             dockQuickMenu.onAddLight
