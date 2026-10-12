@@ -7,6 +7,7 @@ import {
   copyTextToClipboard,
   downloadCueSheetCsv,
   downloadTextFile,
+  projectShareLinks,
   shareLinksSafeFilenameBase,
 } from "../lib/shareProjectLinks";
 import { exportChoreographyPdf } from "../lib/exportChoreographyPdf";
@@ -14,6 +15,12 @@ import { downloadStagePngFile, getStageExportElement } from "../lib/captureStage
 import { shell } from "../theme/choreoShell";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import { supabaseEnsureEditToken } from "../lib/supabaseProjects";
+import { projectApi } from "../api/client";
+import {
+  buildRangeExcerptProject,
+  formatSecToClock,
+  parseClockToSec,
+} from "../lib/buildRangeExcerptProject";
 
 type ShareKind = "collab" | "view";
 type FlashKey = ShareKind | "pdf" | "csv" | "png";
@@ -654,6 +661,19 @@ export function ShareLinksSheetContent({
 
         <ShareCard
           index="03"
+          icon={<IconEye />}
+          title="範囲を決めて生徒に共有"
+          desc="「最初の2分だけ」など、曲の一部だけのコピー作品を作り、その生徒用リンクを発行します。範囲の外の立ち位置は入りません。元の作品をあとで直しても、コピーには反映されません。"
+        >
+          {hasServerId ? (
+            <RangeExcerptShare project={project} title={title} />
+          ) : (
+            renderUrlActions("view")
+          )}
+        </ShareCard>
+
+        <ShareCard
+          index="04"
           icon={<IconPdf />}
           title={t("shareSheet.pdfTitle")}
           desc={t("shareSheet.pdfDesc")}
@@ -678,7 +698,7 @@ export function ShareLinksSheetContent({
         </ShareCard>
 
         <ShareCard
-          index="04"
+          index="05"
           icon={<IconFiles />}
           title={t("shareSheet.filesTitle")}
           desc={t("shareSheet.filesDesc")}
@@ -770,5 +790,149 @@ function FileTile({
       </span>
       <span style={{ fontSize: 11, color: shell.textMuted, lineHeight: 1.45 }}>{hint}</span>
     </button>
+  );
+}
+
+type ExcerptLink = { label: string; url: string };
+
+const clockInputStyle: CSSProperties = {
+  width: 72,
+  padding: "7px 8px",
+  borderRadius: 10,
+  border: `1px solid ${shell.borderStrong}`,
+  background: "rgba(0,0,0,0.38)",
+  color: shell.text,
+  fontSize: 13,
+  fontVariantNumeric: "tabular-nums",
+  textAlign: "center",
+};
+
+function RangeExcerptShare({
+  project,
+  title,
+}: {
+  project: ChoreographyProjectJson | null;
+  title: string;
+}) {
+  const lastCueEnd = Math.max(0, ...(project?.cues ?? []).map((c) => c.tEndSec));
+  const [startStr, setStartStr] = useState("0:00");
+  const [endStr, setEndStr] = useState(() =>
+    formatSecToClock(Math.min(120, lastCueEnd || 120))
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [links, setLinks] = useState<ExcerptLink[]>([]);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+
+  const onCreate = async () => {
+    if (!project || busy) return;
+    setError(null);
+    const s = parseClockToSec(startStr);
+    const e = endStr.trim() ? parseClockToSec(endStr) : lastCueEnd;
+    if (s == null || e == null) {
+      setError("時間は「2:00」のように 分:秒 で入力してください。");
+      return;
+    }
+    if (!(e > s)) {
+      setError("終わりの時間は、始めの時間より後にしてください。");
+      return;
+    }
+    const excerpt = buildRangeExcerptProject(project, s, e);
+    if (excerpt.cues.length === 0) {
+      setError("この範囲にはキューがありません。範囲を見直してください。");
+      return;
+    }
+    const label = `${formatSecToClock(s)}〜${formatSecToClock(e)}`;
+    setBusy(true);
+    try {
+      const row = await projectApi.create(`${title}（${label} 生徒用）`, excerpt);
+      const url = projectShareLinks(row.id, row.share_token).view;
+      setLinks((prev) => [{ label, url }, ...prev]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setError(
+        msg.startsWith("free_limit")
+          ? "無料プランの作品数の上限に達しているため、コピーを作れませんでした。"
+          : msg || "コピー作品を作れませんでした。"
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onCopy = async (url: string) => {
+    if (await copyTextToClipboard(url)) {
+      setCopiedUrl(url);
+      window.setTimeout(() => setCopiedUrl((cur) => (cur === url ? null : cur)), 2000);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <input
+          aria-label="始め（分:秒）"
+          data-excerpt-start
+          value={startStr}
+          onChange={(e) => setStartStr(e.target.value)}
+          placeholder="0:00"
+          style={clockInputStyle}
+        />
+        <span style={{ color: shell.textMuted, fontSize: 13 }}>〜</span>
+        <input
+          aria-label="終わり（分:秒）"
+          data-excerpt-end
+          value={endStr}
+          onChange={(e) => setEndStr(e.target.value)}
+          placeholder={formatSecToClock(lastCueEnd)}
+          style={clockInputStyle}
+        />
+        <span style={{ color: shell.textSubtle, fontSize: 11 }}>
+          （最後のキュー {formatSecToClock(lastCueEnd)}）
+        </span>
+      </div>
+      <ActionBtn
+        variant="gold"
+        fill
+        onClick={() => void onCreate()}
+        disabled={!project || busy}
+      >
+        {busy ? "作成中…" : "この範囲のコピーを作ってリンクを発行"}
+      </ActionBtn>
+      {error ? (
+        <p style={{ margin: 0, fontSize: 12, color: "#f0a8a8", lineHeight: 1.5 }}>{error}</p>
+      ) : null}
+      {links.map((l) => (
+        <div
+          key={l.url}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            padding: "10px 12px",
+            borderRadius: 12,
+            background: "rgba(0,0,0,0.38)",
+            border: "1px solid rgba(212, 175, 55, 0.14)",
+          }}
+        >
+          <span style={{ fontSize: 12, fontWeight: 700, color: shell.text }}>{l.label}</span>
+          <span
+            style={{
+              fontSize: 11,
+              color: "#d6d3d1",
+              wordBreak: "break-all",
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            }}
+          >
+            {l.url}
+          </span>
+          <div>
+            <ActionBtn variant="ghost" onClick={() => void onCopy(l.url)}>
+              {copiedUrl === l.url ? "コピーしました" : "リンクをコピー"}
+            </ActionBtn>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
