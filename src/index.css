@@ -1488,7 +1488,58 @@ html.choreo-public-view-html::backdrop {
     gap: 6px;
     width: 100%;
     min-width: 0;
-    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .choreo-viewer-bars__rail-collapse {
+    flex: 0 0 auto;
+    align-self: stretch;
+    min-height: 28px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(71, 85, 105, 0.9);
+    background: rgba(30, 41, 59, 0.92);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 700;
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+  .choreo-viewer-bars--landscape-collapsed {
+    position: fixed;
+    left: max(4px, env(safe-area-inset-left, 0px));
+    bottom: max(4px, env(safe-area-inset-bottom, 0px));
+    z-index: 88;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+  }
+  .choreo-viewer-bars--landscape-collapsed > * {
+    pointer-events: auto;
+  }
+  .choreo-viewer-bars__rail-open,
+  .choreo-viewer-bars__mini-play {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(71, 85, 105, 0.9);
+    background: rgba(15, 23, 42, 0.72);
+    color: #f8fafc;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    touch-action: manipulation;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+  .choreo-viewer-bars__mini-play {
+    border-color: rgba(99, 102, 241, 0.95);
+    background: rgba(67, 56, 202, 0.78);
   }
   .choreo-viewer-bars__left-col {
     display: flex;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { RefObject } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { TimelinePanelHandle } from "./timelinePanelTypes";
@@ -193,6 +193,16 @@ function ViewerTransportControls({
   );
 }
 
+const LANDSCAPE_RAIL_COLLAPSED_KEY = "choreocore.viewer.landscapeRailCollapsed";
+
+function readLandscapeRailCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(LANDSCAPE_RAIL_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** 生徒閲覧: 操作帯（縦=下部、横=左レール） */
 export function ChoreoViewerControlBars({
   project,
@@ -248,6 +258,16 @@ export function ChoreoViewerControlBars({
 
   const chromeRef = useRef<HTMLElement | null>(null);
 
+  const [railCollapsed, setRailCollapsed] = useState(readLandscapeRailCollapsed);
+  const toggleRailCollapsed = useCallback((next: boolean) => {
+    setRailCollapsed(next);
+    try {
+      window.localStorage.setItem(LANDSCAPE_RAIL_COLLAPSED_KEY, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const reportInsets = useCallback(() => {
     const el = chromeRef.current;
     if (!el) {
@@ -259,7 +279,7 @@ export function ChoreoViewerControlBars({
       onInsetsChange?.({
         topPx: 0,
         bottomPx: 0,
-        leftPx: Math.ceil(rect.width),
+        leftPx: railCollapsed ? 0 : Math.ceil(rect.width),
       });
       return;
     }
@@ -268,7 +288,7 @@ export function ChoreoViewerControlBars({
       bottomPx: Math.ceil(rect.height),
       leftPx: 0,
     });
-  }, [landscapeMode, onInsetsChange]);
+  }, [landscapeMode, railCollapsed, onInsetsChange]);
 
   useEffect(() => {
     const el = chromeRef.current;
@@ -350,6 +370,47 @@ export function ChoreoViewerControlBars({
     />
   );
 
+  if (landscapeMode && railCollapsed) {
+    return (
+      <aside
+        ref={chromeRef}
+        className="choreo-viewer-bars choreo-viewer-bars--landscape-collapsed"
+        aria-label={t("editor.layout.viewerControlBarsAria")}
+      >
+        <button
+          type="button"
+          className="choreo-viewer-bars__rail-open"
+          aria-label="操作パネルを開く"
+          title="操作パネルを開く"
+          onClick={() => toggleRailCollapsed(false)}
+        >
+          ›
+        </button>
+        {showTransport ? (
+          <button
+            type="button"
+            className={[
+              "choreo-viewer-bars__mini-play",
+              playReadyGlow && !isPlaying ? "choreo-viewer-play--ready" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+            title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+            onPointerDown={onPlayPointerDown}
+            onClick={togglePlay}
+          >
+            {isPlaying ? (
+              <TransportIconPause size={20} />
+            ) : (
+              <TransportIconPlay size={20} />
+            )}
+          </button>
+        ) : null}
+      </aside>
+    );
+  }
+
   if (landscapeMode) {
     return (
       <aside
@@ -358,6 +419,15 @@ export function ChoreoViewerControlBars({
         style={{ ["--choreo-viewer-left-rail-w" as string]: `${VIEWER_LEFT_RAIL_PX}px` }}
         aria-label={t("editor.layout.viewerControlBarsAria")}
       >
+        <button
+          type="button"
+          className="choreo-viewer-bars__rail-collapse"
+          aria-label="操作パネルを畳んでステージを大きく表示"
+          title="パネルを畳む"
+          onClick={() => toggleRailCollapsed(true)}
+        >
+          ‹ 畳む
+        </button>
         <div className="choreo-viewer-bars__left-stack">
           <div className="choreo-viewer-bars__left-col choreo-viewer-bars__left-col--meta">
             {modeSwitch}
