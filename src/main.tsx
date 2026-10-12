@@ -7,6 +7,16 @@ import { I18nProvider } from "./i18n/I18nContext";
 import { warmShareViewFromCurrentPath } from "./lib/shareViewProjectCache";
 import { installAudioContextGestureUnlock } from "./lib/audioContext";
 
+/**
+ * 共有閲覧ページでは manifest（start_url="/"）を外す。
+ * iOS の「ホーム画面に追加」が本体ではなく、この共有 URL を全画面で開くようにするため。
+ */
+if (location.pathname.startsWith("/view")) {
+  document
+    .querySelectorAll('link[rel="manifest"]')
+    .forEach((el) => el.remove());
+}
+
 warmShareViewFromCurrentPath();
 installAudioContextGestureUnlock();
 
