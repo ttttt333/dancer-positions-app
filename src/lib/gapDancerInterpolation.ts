@@ -387,6 +387,8 @@ export function lerpDancersAcrossGap(
   customPaths?: Record<string, { cpX: number; cpY: number }>
 ): DancerSpot[] {
   const r: GapApproachRoute = route ?? "linear";
+  /** 色・名前・形などの見た目はギャップ中は前キューのまま。次キュー開始で文字・照明と同時に切り替える */
+  const keepPrevLook = alpha < 1;
   const xs = from.map((d) => d.xPct);
   const ys = from.map((d) => d.yPct);
   const medX = median(xs);
@@ -402,7 +404,7 @@ export function lerpDancersAcrossGap(
   for (const [a, b] of pairGapDancers(from, to)) {
     if (a && b) {
       const note =
-        alpha < 0.5
+        keepPrevLook
           ? a.note?.trim()
             ? a.note
             : undefined
@@ -412,13 +414,13 @@ export function lerpDancersAcrossGap(
       const sizePx =
         a.sizePx != null && b.sizePx != null
           ? lerp(a.sizePx, b.sizePx, alpha)
-          : alpha < 0.5
+          : keepPrevLook
             ? a.sizePx
             : b.sizePx;
       const nameBelowFontPx =
         a.nameBelowFontPx != null && b.nameBelowFontPx != null
           ? Math.round(lerp(a.nameBelowFontPx, b.nameBelowFontPx, alpha))
-          : alpha < 0.5
+          : keepPrevLook
             ? a.nameBelowFontPx
             : b.nameBelowFontPx;
       const centerDistanceGap =
@@ -456,12 +458,12 @@ export function lerpDancersAcrossGap(
 
       out.push({
         id: a.id,
-        label: alpha < 0.5 ? a.label : b.label,
+        label: keepPrevLook ? a.label : b.label,
         xPct: xy.x,
         yPct: xy.y,
-        colorIndex: alpha < 0.5 ? a.colorIndex : b.colorIndex,
+        colorIndex: keepPrevLook ? a.colorIndex : b.colorIndex,
         crewMemberId:
-          alpha < 0.5 ? a.crewMemberId ?? undefined : b.crewMemberId ?? undefined,
+          keepPrevLook ? a.crewMemberId ?? undefined : b.crewMemberId ?? undefined,
         ...(note ? { note } : {}),
         ...(typeof sizePx === "number" ? { sizePx } : {}),
         ...(typeof nameBelowFontPx === "number"
@@ -473,14 +475,14 @@ export function lerpDancersAcrossGap(
               centerDistanceLabelXPct: a.xPct,
             }
           : {
-              ...(alpha < 0.5
+              ...(keepPrevLook
                 ? a.markerBadge !== undefined
                   ? { markerBadge: a.markerBadge }
                   : {}
                 : b.markerBadge !== undefined
                   ? { markerBadge: b.markerBadge }
                   : {}),
-              ...(alpha < 0.5
+              ...(keepPrevLook
                 ? a.markerBadgeSource
                   ? { markerBadgeSource: a.markerBadgeSource }
                   : {}
@@ -490,7 +492,7 @@ export function lerpDancersAcrossGap(
             }),
         /** 見た目属性は移動中も維持（3D 動物・性別色・身長など） */
         ...(() => {
-          const src = alpha < 0.5 ? a : b;
+          const src = keepPrevLook ? a : b;
           return {
             ...(src.heightCm != null ? { heightCm: src.heightCm } : {}),
             ...(src.genderLabel ? { genderLabel: src.genderLabel } : {}),

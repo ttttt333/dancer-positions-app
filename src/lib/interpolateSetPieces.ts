@@ -37,7 +37,10 @@ function roundPiece(p: SetPiece): SetPiece {
   };
 }
 
-/** インデックス対応で補間（同一スロット想定）。両方 interpolateInGaps のときのみ数値を lerp。 */
+/**
+ * インデックス対応で補間（同一スロット想定）。両方 interpolateInGaps のときのみ数値を lerp。
+ * 色・名前などの見た目はギャップ中は前キューのまま（次キュー開始で切り替え）。
+ */
 function lerpSetPiecesAtIndex(
   from: SetPiece[],
   to: SetPiece[],
@@ -52,11 +55,11 @@ function lerpSetPiecesAtIndex(
       out.push(
         roundPiece({
           ...a,
-          id: alpha < 0.5 ? a.id : b.id,
-          kind: alpha < 0.5 ? a.kind : b.kind,
-          label: alpha < 0.5 ? a.label : b.label,
-          fillColor: alpha < 0.5 ? a.fillColor : b.fillColor,
-          layer: alpha < 0.5 ? a.layer : b.layer,
+          id: alpha < 1 ? a.id : b.id,
+          kind: alpha < 1 ? a.kind : b.kind,
+          label: alpha < 1 ? a.label : b.label,
+          fillColor: alpha < 1 ? a.fillColor : b.fillColor,
+          layer: alpha < 1 ? a.layer : b.layer,
           xPct: lerp(a.xPct, b.xPct, alpha),
           yPct: lerp(a.yPct, b.yPct, alpha),
           wPct: lerp(a.wPct, b.wPct, alpha),
@@ -70,7 +73,7 @@ function lerpSetPiecesAtIndex(
         })
       );
     } else if (a && b) {
-      out.push(alpha < 0.5 ? { ...a } : { ...b });
+      out.push(alpha < 1 ? { ...a } : { ...b });
     } else if (a) {
       out.push({ ...a });
     } else if (b) {
@@ -104,11 +107,12 @@ export function setPiecesAtTime(
 
   for (let i = 0; i < sorted.length; i++) {
     const cur = sorted[i];
+    const next = sorted[i + 1];
     if (t >= cur.tStartSec && t <= cur.tEndSec) {
+      if (next && t >= next.tStartSec) continue;
       const f = formationById(formations, cur.formationId);
       return [...(f?.setPieces ?? [])];
     }
-    const next = sorted[i + 1];
     if (next && t > cur.tEndSec && t < next.tStartSec) {
       const f0 = formationById(formations, cur.formationId);
       const f1 = formationById(formations, next.formationId);
@@ -134,8 +138,8 @@ export function setPiecesAtTime(
 }
 
 /**
- * 再生時刻 t における床マーク（コメント・線）。区間内はそのフォーメーションのデータ、
- * ギャップでは補間せず alpha に応じて前後どちらか一方を表示する。
+ * 再生時刻 t における床マーク（コメント・線）。区間内はそのフォーメーションのデータ。
+ * ギャップは直前キューのまま、次キュー開始で切り替える（照明・印の色と同じタイミング）。
  */
 export function floorMarkupAtTime(
   t: number,
@@ -158,20 +162,15 @@ export function floorMarkupAtTime(
 
   for (let i = 0; i < sorted.length; i++) {
     const cur = sorted[i];
+    const next = sorted[i + 1];
     if (t >= cur.tStartSec && t <= cur.tEndSec) {
+      if (next && t >= next.tStartSec) continue;
       const f = formationById(formations, cur.formationId);
       return [...(f?.floorMarkup ?? [])];
     }
-    const next = sorted[i + 1];
     if (next && t > cur.tEndSec && t < next.tStartSec) {
       const f0 = formationById(formations, cur.formationId);
-      const f1 = formationById(formations, next.formationId);
-      const g0 = cur.tEndSec;
-      const g1 = next.tStartSec;
-      const span = g1 - g0;
-      const alpha = span > 1e-6 ? (t - g0) / span : 1;
-      const pick = alpha < 0.5 ? f0 : f1;
-      return [...(pick?.floorMarkup ?? [])];
+      return [...(f0?.floorMarkup ?? [])];
     }
   }
 
