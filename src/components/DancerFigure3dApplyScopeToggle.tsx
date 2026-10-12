@@ -5,6 +5,7 @@ type Props = {
   value: DancerFigure3dApplyScope;
   onChange: (next: DancerFigure3dApplyScope) => void;
   disabled?: boolean;
+  ariaLabel?: string;
 };
 
 const btnBase: CSSProperties = {
@@ -24,11 +25,12 @@ export function DancerFigure3dApplyScopeToggle({
   value,
   onChange,
   disabled,
+  ariaLabel = "3D見た目の適用範囲",
 }: Props) {
   return (
     <div
       role="group"
-      aria-label="3D見た目の適用範囲"
+      aria-label={ariaLabel}
       style={{ display: "flex", gap: 6, marginBottom: 8 }}
     >
       {(

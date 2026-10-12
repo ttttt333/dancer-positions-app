@@ -32,6 +32,10 @@ import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle
 import { DancerGenderPicker } from "./DancerGenderPicker";
 import type { DancerFaceStampId } from "../lib/dancerFaceStamp";
 import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
+import {
+  useDancerMarkerLookScopeStore,
+  type DancerMarkerLookScope,
+} from "../lib/applyDancerMarkerLook";
 import { withDancerLabelPosition } from "../lib/withDancerLabelPosition";
 import {
   DANCER_MARKER_SHAPE_POINTS,
@@ -288,8 +292,16 @@ export type StageSelectionDisplayPanelProps = {
     figure3d: import("../lib/dancerFigure3d").DancerFigure3dId,
     scope?: DancerFigure3dApplyScope
   ) => void;
-  applyBulkMarkerShape?: (ids: string[], shape: DancerMarkerShape) => void;
-  applyBulkFacingDeg?: (ids: string[], deg: number) => void;
+  applyBulkMarkerShape?: (
+    ids: string[],
+    shape: DancerMarkerShape,
+    scope?: DancerMarkerLookScope
+  ) => void;
+  applyBulkFacingDeg?: (
+    ids: string[],
+    deg: number,
+    scope?: DancerMarkerLookScope
+  ) => void;
   /** 「全員」に適用するときの対象（このキューの全ダンサー） */
   allDancerIds?: readonly string[];
   primaryMarkerShape?: DancerMarkerShape;
@@ -336,6 +348,8 @@ export function StageSelectionDisplayPanel({
   const [openSection, setOpenSection] = useState<DisclosureId | null>(null);
   const [markerInsideOpen, setMarkerInsideOpen] = useState(false);
   const [shapeScope, setShapeScope] = useState<"selected" | "all">("selected");
+  const lookCueScope = useDancerMarkerLookScopeStore((s) => s.scope);
+  const setLookCueScope = useDancerMarkerLookScopeStore((s) => s.setScope);
   const colors = showAllColors
     ? DANCER_PALETTE
     : DANCER_PALETTE.slice(0, PRIMARY_COLOR_COUNT);
@@ -542,6 +556,12 @@ export function StageSelectionDisplayPanel({
             全員 {allDancerIds?.length ?? 0}人
           </button>
         </div>
+        <DancerFigure3dApplyScopeToggle
+          value={lookCueScope}
+          onChange={setLookCueScope}
+          disabled={shapeBusy && facingBusy}
+          ariaLabel="形と向きの適用範囲"
+        />
         <div style={{ ...dockSectionTitle, marginBottom: 6 }}>形</div>
         <div
           style={{
@@ -560,7 +580,7 @@ export function StageSelectionDisplayPanel({
                 data-marker-shape={s.id}
                 disabled={shapeBusy}
                 title={`${s.label}にする`}
-                onClick={() => applyBulkMarkerShape?.(shapeTargetIds, s.id)}
+                onClick={() => applyBulkMarkerShape?.(shapeTargetIds, s.id, lookCueScope)}
                 style={{
                   display: "flex",
                   flexDirection: "column",
@@ -593,7 +613,7 @@ export function StageSelectionDisplayPanel({
           max={359}
           unit="°"
           disabled={facingBusy}
-          onChange={(deg) => applyBulkFacingDeg?.(shapeTargetIds, deg)}
+          onChange={(deg) => applyBulkFacingDeg?.(shapeTargetIds, deg, lookCueScope)}
           onGestureBegin={onSizeGestureBegin}
           onGestureEnd={onSizeGestureEnd}
         />
@@ -611,7 +631,7 @@ export function StageSelectionDisplayPanel({
               type="button"
               disabled={facingBusy}
               title={`${deg}°に向ける`}
-              onClick={() => applyBulkFacingDeg?.(shapeTargetIds, deg)}
+              onClick={() => applyBulkFacingDeg?.(shapeTargetIds, deg, lookCueScope)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -659,7 +679,7 @@ export function StageSelectionDisplayPanel({
             value={Math.round(primaryFacingDeg)}
             onChange={(e) => {
               const v = Number(e.target.value);
-              if (Number.isFinite(v)) applyBulkFacingDeg?.(shapeTargetIds, v);
+              if (Number.isFinite(v)) applyBulkFacingDeg?.(shapeTargetIds, v, lookCueScope);
             }}
             style={{
               width: 64,
@@ -675,7 +695,9 @@ export function StageSelectionDisplayPanel({
           °
         </label>
         <p style={{ ...dockSectionHint, margin: "8px 0 0" }}>
-          形は全キュー共通、向きはこのキューだけに反映します。
+          {lookCueScope === "cue"
+            ? "形と向きは、このキューだけに反映します。"
+            : "形と向きは、同じメンバーのすべてのキューに反映します。"}
         </p>
       </DockDisclosure>
 

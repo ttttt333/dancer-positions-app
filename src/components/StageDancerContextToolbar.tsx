@@ -97,9 +97,14 @@ export type StageDancerContextToolbarProps = {
   ) => void;
   applyBulkMarkerShape?: (
     ids: string[],
-    shape: import("../lib/dancerMarkerShape").DancerMarkerShape
+    shape: import("../lib/dancerMarkerShape").DancerMarkerShape,
+    scope?: import("../lib/applyDancerMarkerLook").DancerMarkerLookScope
   ) => void;
-  applyBulkFacingDeg?: (ids: string[], deg: number) => void;
+  applyBulkFacingDeg?: (
+    ids: string[],
+    deg: number,
+    scope?: import("../lib/applyDancerMarkerLook").DancerMarkerLookScope
+  ) => void;
   allDancerIds?: readonly string[];
   primaryMarkerShape?: import("../lib/dancerMarkerShape").DancerMarkerShape;
   primaryFacingDeg?: number;

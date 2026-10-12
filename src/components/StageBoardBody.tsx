@@ -170,6 +170,11 @@ import {
   type DancerFigure3dApplyScope,
 } from "../lib/applyDancerFigure3d";
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
+import {
+  applyDancerMarkerLook,
+  useDancerMarkerLookScopeStore,
+  type DancerMarkerLookScope,
+} from "../lib/applyDancerMarkerLook";
 import { shell } from "../theme/choreoShell";
 import {
   DANCER_COLOR_RANDOM,
@@ -3850,7 +3855,22 @@ export function StageBoardBody({
           }
         }
         if (facingChanged || posChanged) {
-          setProject((p) => ({
+          const lookScope = useDancerMarkerLookScopeStore.getState().scope;
+          setProject((p0) => {
+            let p: ChoreographyProjectJson = p0;
+            if (facingChanged && lookScope === "all" && formationIdForWrites) {
+              for (const [id, deg] of facingDraftSnap) {
+                if (!rotUp.ids.includes(id)) continue;
+                p = applyDancerMarkerLook(p, {
+                  formationId: formationIdForWrites,
+                  cueId: editCueId,
+                  dancerIds: [id],
+                  scope: "all",
+                  patch: { kind: "facing", deg },
+                });
+              }
+            }
+            return {
             ...p,
             formations: p.formations.map((f) =>
               f.id === formationIdForWrites
@@ -3875,7 +3895,8 @@ export function StageBoardBody({
                   }
                 : f,
             ),
-          }));
+            };
+          });
         }
       }
       markerRotateRef.current = null;
@@ -4001,6 +4022,7 @@ export function StageBoardBody({
     alignGuides.x,
     alignGuides.y,
     formationIdForWrites,
+    editCueId,
     onFloorTextPlaceSessionChange,
     setFloorMarkupTool,
     setPiecesEditable,
@@ -5106,54 +5128,29 @@ export function StageBoardBody({
     ],
   );
 
-  /**
-   * 印の形を一括設定。同じ人の印は全キューで揃える（名簿 id、なければ同人数の隊形の並び順で対応）。
-   */
+  /** 印の形を一括設定。scope=cue はこのキューだけ、all は同じ人を全キューで揃える */
   const applyBulkMarkerShape = useCallback(
-    (targetIds: string[], shape: DancerMarkerShape) => {
+    (
+      targetIds: string[],
+      shape: DancerMarkerShape,
+      scope: DancerMarkerLookScope = "cue",
+    ) => {
       if (!formationIdForWrites || targetIds.length === 0) return;
       if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
         return;
-      const idSet = new Set(targetIds);
-      setProject((p) => {
-        const src = p.formations.find((f) => f.id === formationIdForWrites);
-        if (!src) return p;
-        const crewIds = new Set<string>();
-        const indexes = new Set<number>();
-        src.dancers.forEach((d, i) => {
-          if (!idSet.has(d.id)) return;
-          indexes.add(i);
-          if (d.crewMemberId) crewIds.add(d.crewMemberId);
-        });
-        const n = src.dancers.length;
-        const withShape = (d: DancerSpot): DancerSpot => {
-          if (shape === "circle") {
-            const { markerShape: _s, ...rest } = d;
-            return rest;
-          }
-          return { ...d, markerShape: shape };
-        };
-        return {
-          ...p,
-          formations: p.formations.map((f) => {
-            const sameCount = f.dancers.length === n;
-            let changed = false;
-            const dancers = f.dancers.map((d, i) => {
-              const hit =
-                idSet.has(d.id) ||
-                (d.crewMemberId != null && crewIds.has(d.crewMemberId)) ||
-                (sameCount && !d.crewMemberId && indexes.has(i));
-              if (!hit) return d;
-              changed = true;
-              return withShape(d);
-            });
-            return changed ? { ...f, dancers } : f;
-          }),
-        };
-      });
+      setProject((p) =>
+        applyDancerMarkerLook(p, {
+          formationId: formationIdForWrites,
+          cueId: editCueId,
+          dancerIds: targetIds,
+          scope,
+          patch: { kind: "shape", shape },
+        }),
+      );
     },
     [
       formationIdForWrites,
+      editCueId,
       setProject,
       viewMode,
       stageInteractionsEnabled,
@@ -5161,25 +5158,30 @@ export function StageBoardBody({
     ],
   );
 
-  /** 印の向き（0〜359°）を一括設定。このキューの立ち位置だけ変える */
+  /** 印の向き（0〜359°）を一括設定。scope=cue はこのキューだけ、all は全キュー */
   const applyBulkFacingDeg = useCallback(
-    (targetIds: string[], deg: number) => {
-      if (targetIds.length === 0) return;
+    (
+      targetIds: string[],
+      deg: number,
+      scope: DancerMarkerLookScope = "cue",
+    ) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
       if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
         return;
-      const next = normalizeDancerFacingDeg(deg);
-      const idSet = new Set(targetIds);
-      updateActiveFormation((f) => ({
-        ...f,
-        dancers: f.dancers.map((d) => {
-          if (!idSet.has(d.id)) return d;
-          const { facingDeg: _fd, ...rest } = d;
-          return next === 0 ? rest : { ...rest, facingDeg: next };
+      setProject((p) =>
+        applyDancerMarkerLook(p, {
+          formationId: formationIdForWrites,
+          cueId: editCueId,
+          dancerIds: targetIds,
+          scope,
+          patch: { kind: "facing", deg },
         }),
-      }));
+      );
     },
     [
-      updateActiveFormation,
+      formationIdForWrites,
+      editCueId,
+      setProject,
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
