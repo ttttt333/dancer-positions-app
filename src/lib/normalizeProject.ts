@@ -194,6 +194,9 @@ function normalizeFloorMarkupArray(raw: unknown): StageFloorMarkup[] {
       if (Number.isFinite(sc) && sc > 0) {
         item.scale = Math.min(8, Math.max(0.2, Math.round(sc * 1000) / 1000));
       }
+      if (r.textAlign === "center" || r.textAlign === "right") {
+        item.textAlign = r.textAlign;
+      }
       out.push(item);
       continue;
     }

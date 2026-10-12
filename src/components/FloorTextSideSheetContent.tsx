@@ -26,6 +26,12 @@ const COLOR_SWATCHES = [
   { hex: "#fcd34d", label: "ゴールド" },
 ] as const;
 
+const TEXT_ALIGN_OPTIONS = [
+  { id: "left", label: "左寄せ" },
+  { id: "center", label: "中央" },
+  { id: "right", label: "右寄せ" },
+] as const;
+
 type SheetTab = "text" | "lights";
 
 export type FloorTextSideSheetContentProps = {
@@ -299,6 +305,28 @@ export function FloorTextSideSheetContent({
                     onClick={() => updateSession((s) => ({ ...s, scope }))}
                   >
                     {scope === "formation" ? "このキューのみ" : "全キューに表示"}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              className={styles.scopeRow}
+              role="group"
+              aria-label="文字の寄せ方"
+            >
+              {TEXT_ALIGN_OPTIONS.map(({ id, label }) => {
+                const active = (floorTextPlaceSession?.textAlign ?? "left") === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    data-floor-text-align={id}
+                    aria-pressed={active}
+                    className={`${styles.scopeBtn}${active ? ` ${styles.scopeBtnActive}` : ""}`}
+                    onClick={() => updateSession((s) => ({ ...s, textAlign: id }))}
+                  >
+                    {label}
                   </button>
                 );
               })}

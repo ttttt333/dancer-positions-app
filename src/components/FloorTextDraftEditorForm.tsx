@@ -13,6 +13,8 @@ export type FloorTextDraftShape = {
   color: string;
   fontFamily: string;
   bgColor: string; // "" = 背景なし、それ以外は背景色
+  /** 複数行の寄せ方 */
+  textAlign?: "left" | "center" | "right";
   /** "formation" = このキュー固有 / "global" = 全編共通 */
   scope: "formation" | "global";
 };
@@ -258,6 +260,48 @@ export function FloorTextDraftEditorForm({
             ))}
           </select>
         </label>
+      </div>
+
+      {/* ── 寄せ方 ── */}
+      <div
+        role="group"
+        aria-label="文字の寄せ方"
+        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#cbd5e1" }}
+      >
+        <span style={{ flexShrink: 0 }}>寄せ方</span>
+        {(
+          [
+            { id: "left", label: "左" },
+            { id: "center", label: "中央" },
+            { id: "right", label: "右" },
+          ] as const
+        ).map((o) => {
+          const active = (draft.textAlign ?? "left") === o.id;
+          return (
+            <button
+              key={o.id}
+              type="button"
+              data-floor-text-align={o.id}
+              aria-pressed={active}
+              onClick={() => {
+                setDraft((d) => ({ ...d, textAlign: o.id }));
+                updateMarkup({ textAlign: o.id });
+              }}
+              style={{
+                fontSize: 10,
+                padding: "2px 10px",
+                borderRadius: 5,
+                border: active ? "1.5px solid #c084fc" : "1px solid #334155",
+                background: "#0f172a",
+                color: "#e2e8f0",
+                cursor: "pointer",
+                fontWeight: active ? 700 : 400,
+              }}
+            >
+              {o.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── 背景色 ── */}

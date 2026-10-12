@@ -1777,6 +1777,7 @@ function EditorPageContent({
       fontWeight: fw,
       xPct: round2Pct(floorTextPlaceSession.xPct),
       yPct: round2Pct(floorTextPlaceSession.yPct),
+      textAlign: floorTextPlaceSession.textAlign ?? "left",
     };
 
     if (editTargetId) {

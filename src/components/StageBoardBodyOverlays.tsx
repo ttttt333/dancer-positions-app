@@ -69,6 +69,7 @@ export const StageBoardBodyOverlays = memo(function StageBoardBodyOverlays({
           fontFamily={floorTextDraft.fontFamily}
           textColor={floorTextDraftColorHex(floorTextDraft.color)}
           markupScale={floorTextInlineMarkupScale}
+          textAlign={floorTextDraft.textAlign}
           onRequestClose={onFloorTextInlineRequestClose}
         />
       ) : null}

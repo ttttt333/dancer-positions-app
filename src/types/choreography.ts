@@ -140,7 +140,11 @@ export type StageFloorTextMarkup = {
   isLocked?: boolean;
   /** 回転角度（度）。0 = 水平 */
   rotation?: number;
+  /** 複数行の寄せ方。未指定は左寄せ */
+  textAlign?: FloorTextAlign;
 };
+
+export type FloorTextAlign = "left" | "center" | "right";
 
 /** ステージ床の手描き線（折れ線・% 座標） */
 export type StageFloorLineMarkup = {
@@ -270,6 +274,8 @@ export type FloorTextPlaceSession = {
   scope?: "formation" | "global";
   /** 既存テキスト編集モード: このIDのテキストを更新する（undefined = 新規配置） */
   editTargetId?: string;
+  /** 複数行の寄せ方（未指定は左寄せ） */
+  textAlign?: FloorTextAlign;
 };
 
 export type Formation = {

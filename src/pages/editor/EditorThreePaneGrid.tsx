@@ -1094,6 +1094,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         xPct: markup?.xPct ?? 50,
                         yPct: markup?.yPct ?? 50,
                         scale: markup?.scale ?? 1,
+                        textAlign: markup?.textAlign ?? "left",
                         scope: isGlobal ? "global" : "formation",
                       });
                       setFloorTextSideSheetOpen(true);

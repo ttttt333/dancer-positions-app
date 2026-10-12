@@ -170,6 +170,7 @@ import {
   type DancerFigure3dApplyScope,
 } from "../lib/applyDancerFigure3d";
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
+import type { FloorTextDraftShape } from "./FloorTextDraftEditorForm";
 import {
   applyDancerMarkerLook,
   useDancerMarkerLookScopeStore,
@@ -485,7 +486,7 @@ export function StageBoardBody({
     session: FloorTextPlaceSession;
   } | null>(null);
   /** 床テキストツール：入力内容と次に置くときの書式 */
-  const [floorTextDraft, setFloorTextDraft] = useState({
+  const [floorTextDraft, setFloorTextDraft] = useState<FloorTextDraftShape>({
     ...EMPTY_FLOOR_TEXT_DRAFT,
   });
   /** 選択中の床テキスト id（スライダー・本文はこの項目を更新、空床クリックで移動） */
@@ -1440,7 +1441,7 @@ export function StageBoardBody({
     (markupId: string, draft: FloorTextDraftPayload) => {
       setFloorTextEditId(markupId);
       setSelectedFloorTextId(markupId);
-      setFloorTextDraft(draft);
+      setFloorTextDraft((d) => ({ ...d, ...draft }));
     },
     [],
   );
@@ -1460,7 +1461,7 @@ export function StageBoardBody({
       });
       setFloorTextEditId(m.id);
       setSelectedFloorTextId(m.id);
-      setFloorTextDraft(draft);
+      setFloorTextDraft((d) => ({ ...d, ...draft }));
     },
     [],
   );
@@ -1518,7 +1519,7 @@ export function StageBoardBody({
       // floorMarkupTool は触らない（floorTextPlaceSession系と競合するため）
       setFloorTextEditId(m.id);
       setSelectedFloorTextId(m.id);
-      setFloorTextDraft(draft);
+      setFloorTextDraft((d) => ({ ...d, ...draft }));
       onOpenTextEditSheet?.(m.id, draft, isGlobal, m);
     },
     [globalFloorMarkup, onOpenTextEditSheet],
@@ -1545,6 +1546,9 @@ export function StageBoardBody({
         fontSizePx: fs,
         fontWeight: fw,
         ...(floorTextDraft.bgColor ? { bgColor: floorTextDraft.bgColor } : {}),
+        ...(floorTextDraft.textAlign && floorTextDraft.textAlign !== "left"
+          ? { textAlign: floorTextDraft.textAlign }
+          : {}),
       };
       if (floorTextDraft.scope === "global" && onUpdateGlobalFloorMarkup) {
         onUpdateGlobalFloorMarkup((prev) => [...prev, newText]);
@@ -3012,6 +3016,9 @@ export function StageBoardBody({
           fontSizePx: fs,
           fontWeight: fw,
           ...(floorTextDraft.bgColor ? { bgColor: floorTextDraft.bgColor } : {}),
+          ...(floorTextDraft.textAlign && floorTextDraft.textAlign !== "left"
+            ? { textAlign: floorTextDraft.textAlign }
+            : {}),
         };
         if (root) {
           const rr = root.getBoundingClientRect();

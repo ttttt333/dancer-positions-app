@@ -20,6 +20,7 @@ export type FloorTextInlineEditPortalProps = {
   /** `floorTextDraftColorHex` などで解決済みの文字色 */
   textColor: string;
   markupScale: number;
+  textAlign?: "left" | "center" | "right";
   onRequestClose: () => void;
 };
 
@@ -33,6 +34,7 @@ export function FloorTextInlineEditPortal({
   fontFamily,
   textColor,
   markupScale,
+  textAlign = "left",
   onRequestClose,
 }: FloorTextInlineEditPortalProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -113,6 +115,7 @@ export function FloorTextInlineEditPortal({
         textShadow: "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
         whiteSpace: "pre-wrap",
         wordBreak: "break-word",
+        textAlign,
       }}
     />,
     document.body
