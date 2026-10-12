@@ -53,7 +53,49 @@ describe("dancersAtTime cache", () => {
     expect(mid[0]!.xPct).toBeLessThan(50);
   });
 
-  it("smoothly moves across abutting cues (implicit carve)", () => {
+  it("switches instantly between abutting cues (no in-between frame)", () => {
+    clearDancersAtTimeCache();
+    const formations: Formation[] = [
+      {
+        id: "f1",
+        name: "A",
+        dancers: [{ id: "d1", label: "1", xPct: 0, yPct: 0, colorIndex: 0 }],
+      },
+      {
+        id: "f2",
+        name: "B",
+        dancers: [{ id: "d1", label: "1", xPct: 100, yPct: 0, colorIndex: 3 }],
+      },
+    ];
+    const cues: Cue[] = [
+      { id: "c1", tStartSec: 0, tEndSec: 10, formationId: "f1" },
+      { id: "c2", tStartSec: 10, tEndSec: 20, formationId: "f2" },
+    ];
+    for (const t of [8, 9.5, 9.99, 9.9999]) {
+      const d = dancersAtTime(t, cues, formations, "f1", { bpm: 120 })[0]!;
+      expect(d.xPct).toBe(0);
+      expect(d.colorIndex).toBe(0);
+    }
+    const at = dancersAtTime(10, cues, formations, "f1", { bpm: 120 })[0]!;
+    expect(at.xPct).toBe(100);
+    expect(at.colorIndex).toBe(3);
+  });
+
+  it("switches instantly across a tiny gap too", () => {
+    clearDancersAtTimeCache();
+    const formations: Formation[] = [
+      { id: "f1", name: "A", dancers: [{ id: "d1", label: "1", xPct: 0, yPct: 0, colorIndex: 0 }] },
+      { id: "f2", name: "B", dancers: [{ id: "d1", label: "1", xPct: 100, yPct: 0, colorIndex: 0 }] },
+    ];
+    const cues: Cue[] = [
+      { id: "c1", tStartSec: 0, tEndSec: 10, formationId: "f1" },
+      { id: "c2", tStartSec: 10.1, tEndSec: 20, formationId: "f2" },
+    ];
+    expect(dancersAtTime(10.05, cues, formations, "f1")[0]!.xPct).toBe(0);
+    expect(dancersAtTime(10.1, cues, formations, "f1")[0]!.xPct).toBe(100);
+  });
+
+  it("still moves across abutting cues when a personal path is set", () => {
     clearDancersAtTimeCache();
     const formations: Formation[] = [
       {
@@ -69,7 +111,13 @@ describe("dancersAtTime cache", () => {
     ];
     const cues: Cue[] = [
       { id: "c1", tStartSec: 0, tEndSec: 10, formationId: "f1" },
-      { id: "c2", tStartSec: 10, tEndSec: 20, formationId: "f2" },
+      {
+        id: "c2",
+        tStartSec: 10,
+        tEndSec: 20,
+        formationId: "f2",
+        dancerCustomPaths: { d1: { cpX: 50, cpY: 20 } },
+      },
     ];
     const early = dancersAtTime(1, cues, formations, "f1", { bpm: 120 });
     expect(early[0]!.xPct).toBe(0);

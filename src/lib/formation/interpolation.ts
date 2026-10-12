@@ -80,6 +80,8 @@ export function resolveTransitionWindow(opts: {
   nextStartSec: number;
   moveInSec?: number | null;
   bpm?: number | null;
+  /** false なら隣接/微小ギャップでは移動を作らず、次キュー開始で一瞬で切り替える */
+  implicitCarve?: boolean;
 }): TransitionWindow {
   const arrival = opts.nextStartSec;
   const gapSpan = arrival - opts.prevEndSec;
@@ -88,6 +90,13 @@ export function resolveTransitionWindow(opts: {
       holdEndSec: opts.prevEndSec,
       arrivalSec: arrival,
       kind: "explicit-gap",
+    };
+  }
+  if (opts.implicitCarve === false) {
+    return {
+      holdEndSec: Math.max(opts.prevStartSec, arrival),
+      arrivalSec: arrival,
+      kind: "implicit-carve",
     };
   }
   const holdDur = Math.max(0, opts.prevEndSec - opts.prevStartSec);

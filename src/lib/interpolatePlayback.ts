@@ -88,6 +88,9 @@ function buildCache(
       nextStartSec: next.tStartSec,
       moveInSec: next.moveInSec,
       bpm,
+      implicitCarve:
+        (next.moveInSec != null && next.moveInSec > 0) ||
+        Object.keys(next.dancerCustomPaths ?? {}).length > 0,
     });
 
     holds.push({
@@ -176,7 +179,8 @@ export function clearDancersAtTimeCache(): void {
 /**
  * 再生時刻 t（秒）→ ステージに描くダンサー配置。
  * - キュー内ホールドは静止
- * - 明示ギャップ、または隣接キューの暗黙遷移（ホールド末尾を削った移動）で補間
+ * - 明示ギャップで補間。隣接キューは次キュー開始で一瞬で切り替える
+ *   （移動秒数や個人軌道が設定されている場合だけ、ホールド末尾を削って移動）
  * キュー配列参照が同じあいだはキャッシュし、RAF ごとの再計算をギャップ補間だけに抑える。
  */
 export function dancersAtTime(
@@ -203,6 +207,8 @@ export function dancersAtTime(
   for (let i = 0; i < c.holds.length; i++) {
     const hold = c.holds[i]!;
     if (t >= hold.t0 && t <= hold.t1) {
+      const nextHold = c.holds[i + 1];
+      if (nextHold && t >= nextHold.t0) continue;
       return hold.dancers;
     }
     const gap = c.gaps[i];
