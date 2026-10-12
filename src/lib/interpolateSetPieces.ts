@@ -39,7 +39,7 @@ function roundPiece(p: SetPiece): SetPiece {
 
 /**
  * インデックス対応で補間（同一スロット想定）。両方 interpolateInGaps のときのみ数値を lerp。
- * 色・名前などの見た目はギャップ中は前キューのまま（次キュー開始で切り替え）。
+ * 色・名前などの見た目は、移動（ギャップ）が始まったら次キューに切り替える。
  */
 function lerpSetPiecesAtIndex(
   from: SetPiece[],
@@ -55,11 +55,11 @@ function lerpSetPiecesAtIndex(
       out.push(
         roundPiece({
           ...a,
-          id: alpha < 1 ? a.id : b.id,
-          kind: alpha < 1 ? a.kind : b.kind,
-          label: alpha < 1 ? a.label : b.label,
-          fillColor: alpha < 1 ? a.fillColor : b.fillColor,
-          layer: alpha < 1 ? a.layer : b.layer,
+          id: alpha <= 0 ? a.id : b.id,
+          kind: alpha <= 0 ? a.kind : b.kind,
+          label: alpha <= 0 ? a.label : b.label,
+          fillColor: alpha <= 0 ? a.fillColor : b.fillColor,
+          layer: alpha <= 0 ? a.layer : b.layer,
           xPct: lerp(a.xPct, b.xPct, alpha),
           yPct: lerp(a.yPct, b.yPct, alpha),
           wPct: lerp(a.wPct, b.wPct, alpha),
@@ -73,7 +73,7 @@ function lerpSetPiecesAtIndex(
         })
       );
     } else if (a && b) {
-      out.push(alpha < 1 ? { ...a } : { ...b });
+      out.push(alpha <= 0 ? { ...a } : { ...b });
     } else if (a) {
       out.push({ ...a });
     } else if (b) {
@@ -139,7 +139,7 @@ export function setPiecesAtTime(
 
 /**
  * 再生時刻 t における床マーク（コメント・線）。区間内はそのフォーメーションのデータ。
- * ギャップは直前キューのまま、次キュー開始で切り替える（照明・印の色と同じタイミング）。
+ * 移動（ギャップ）中はテキストを出さず、線などは次キューのものを表示する。
  */
 export function floorMarkupAtTime(
   t: number,
@@ -169,8 +169,8 @@ export function floorMarkupAtTime(
       return [...(f?.floorMarkup ?? [])];
     }
     if (next && t > cur.tEndSec && t < next.tStartSec) {
-      const f0 = formationById(formations, cur.formationId);
-      return [...(f0?.floorMarkup ?? [])];
+      const f1 = formationById(formations, next.formationId);
+      return (f1?.floorMarkup ?? []).filter((m) => m.kind !== "text");
     }
   }
 

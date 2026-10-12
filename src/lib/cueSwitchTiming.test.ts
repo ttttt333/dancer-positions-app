@@ -61,14 +61,15 @@ function snapshot(cues: Cue[], t: number) {
   return { text, color: d.colorIndex, fill: piece.fillColor, light };
 }
 
-describe("キュー切り替えで文字・照明・色が同時に変わる", () => {
-  it("すき間があるとき: すき間中は前のまま、次キュー開始で全部切り替わる", () => {
+describe("キュー間の移動で文字は消え、色は次のキューに変わる", () => {
+  it("すき間（移動）があるとき: 移動が始まったら文字なし・色と照明は次のキュー", () => {
     const cues: Cue[] = [
       { id: "c1", tStartSec: 0, tEndSec: 10, formationId: "f1" },
       { id: "c2", tStartSec: 12, tEndSec: 20, formationId: "f2" },
     ];
-    for (const t of [10.5, 11, 11.5, 11.99]) {
-      expect(snapshot(cues, t)).toEqual({ text: "前", color: 0, fill: "#ff0000", light: "L1" });
+    expect(snapshot(cues, 10)).toEqual({ text: "前", color: 0, fill: "#ff0000", light: "L1" });
+    for (const t of [10.01, 10.5, 11, 11.5, 11.99]) {
+      expect(snapshot(cues, t)).toEqual({ text: "", color: 4, fill: "#0000ff", light: "L2" });
     }
     expect(snapshot(cues, 12)).toEqual({ text: "次", color: 4, fill: "#0000ff", light: "L2" });
   });

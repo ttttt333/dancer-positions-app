@@ -295,7 +295,8 @@ export type ActiveStageLightsOptions = {
    */
   focusCueId?: string | null;
   /**
-   * キューとキューのあいだで、直前キューの照明を引き継ぐ（既定 true）。
+   * キューとキューのあいだ（移動中）に、次キューの照明を出す（既定 true）。
+   * 最後のキューの後は直前キューの照明を残す。
    * その区間に専用の全体照明があるときは引き継がない。
    */
   carryPrevCueLights?: boolean;
@@ -349,7 +350,7 @@ export function gapHasDedicatedLights(
 /**
  * 現在時刻（と任意でフォーカス中キュー）で点灯中の照明。
  * - cueId あり + focusCueId あり → そのキューの灯だけ（他キューは時間外でも出さない）
- * - cueId あり + focus なし → キュー区間内。ギャップでは直前キューを引き継ぐ（専用灯が無いとき）
+ * - cueId あり + focus なし → キュー区間内。ギャップでは次キューの灯（専用灯が無いとき）
  * - cueId なし → tStart/tEnd（全体）
  */
 export function activeStageLightsAtTime(
@@ -382,13 +383,16 @@ export function activeStageLightsAtTime(
         const prevIdx = sorted.findIndex((c) => c.id === activeCueId);
         const prev = prevIdx >= 0 ? sorted[prevIdx]! : null;
         const next = prevIdx >= 0 ? sorted[prevIdx + 1] : undefined;
-        // 次キューまでのギャップに専用全体照明があれば、キュー灯の引き継ぎはしない
+        // 次キューまでのギャップに専用全体照明があれば、キュー灯は出さない
         if (
           prev &&
           next &&
           gapHasDedicatedLights(lights, prev.tEndSec, next.tStartSec)
         ) {
           activeCueId = null;
+        } else if (next) {
+          // 移動（ギャップ）が始まったら次キューの照明に切り替える
+          activeCueId = next.id;
         }
       } else if (!inCue && !carryPrev) {
         activeCueId = null;

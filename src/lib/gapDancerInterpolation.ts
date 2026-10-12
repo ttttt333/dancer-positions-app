@@ -387,8 +387,8 @@ export function lerpDancersAcrossGap(
   customPaths?: Record<string, { cpX: number; cpY: number }>
 ): DancerSpot[] {
   const r: GapApproachRoute = route ?? "linear";
-  /** 色・名前・形などの見た目はギャップ中は前キューのまま。次キュー開始で文字・照明と同時に切り替える */
-  const keepPrevLook = alpha < 1;
+  /** 色・名前・形などの見た目は、移動（ギャップ）が始まったら次キューに切り替える（照明と同時） */
+  const keepPrevLook = alpha <= 0;
   const xs = from.map((d) => d.xPct);
   const ys = from.map((d) => d.yPct);
   const medX = median(xs);

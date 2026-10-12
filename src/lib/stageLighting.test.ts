@@ -92,7 +92,7 @@ describe("stageLighting / architecture guides", () => {
     ).toEqual(["cue2L", "g"]);
   });
 
-  it("carries previous cue lights across gaps until next cue", () => {
+  it("switches to the next cue lights as soon as the gap (move) starts", () => {
     const cues = [
       { id: "c1", tStartSec: 0, tEndSec: 10 },
       { id: "c2", tStartSec: 15, tEndSec: 25 },
@@ -109,7 +109,7 @@ describe("stageLighting / architecture guides", () => {
     };
     expect(
       activeStageLightsAtTime([cueLight, cue2], 12, { cues }).map((L) => L.id)
-    ).toEqual(["cueL"]);
+    ).toEqual(["cue2L"]);
     expect(
       activeStageLightsAtTime([cueLight, cue2], 12, {
         cues,
