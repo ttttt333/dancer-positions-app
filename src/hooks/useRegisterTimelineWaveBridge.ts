@@ -54,7 +54,7 @@ export function useRegisterTimelineWaveBridge(
       if (!c || duration <= 0) return false;
       const portion = Math.min(
         1,
-        Math.max(0.02, p.canvas.viewPortionRef.current ?? p.viewport.viewPortion)
+        Math.max(0.01, p.canvas.viewPortionRef.current ?? p.viewport.viewPortion)
       );
       const playhead = p.canvas.currentTimePropRef.current;
       const override = p.canvas.waveViewStartOverrideRef.current;

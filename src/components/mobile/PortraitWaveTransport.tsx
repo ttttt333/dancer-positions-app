@@ -50,7 +50,7 @@ import {
 } from "../../lib/waveEdgeScrollDuringScrub";
 
 const MIN_ZOOM = 1;
-const MAX_ZOOM = 48;
+const MAX_ZOOM = 96;
 /** +/- ボタン: 1回あたり 10% ずつ拡大・縮小 */
 const ZOOM_BUTTON_STEP = 1.1;
 /** 選択キューがないときの「調整用」フォールバック（画面に約 10 秒分） */
@@ -222,7 +222,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const waveSlideRef = useRef<{ lastX: number; pointerId: number } | null>(null);
 
   const viewDuration = duration > 0 ? duration / zoom : 0;
-  const viewPortion = Math.min(1, Math.max(0.02, zoom > 0 ? 1 / zoom : 1));
+  const viewPortion = Math.min(1, Math.max(0.01, zoom > 0 ? 1 / zoom : 1));
 
   const playheadSecForUi = useMemo(() => {
     if (
@@ -699,7 +699,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       const newT = Math.max(0, Math.min(duration, base + dt));
       startScrubSession();
       seekDuringScrub(newT);
-      const portion = Math.min(1, Math.max(0.02, 1 / z));
+      const portion = Math.min(1, Math.max(0.01, 1 / z));
       const start = resolveWavePlayheadFollowViewStart(
         newT,
         duration,
@@ -1202,7 +1202,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             ensureFodiSlideZoom();
             const z = zoomRef.current;
             const span = duration / z;
-            const portion = Math.min(1, Math.max(0.02, 1 / z));
+            const portion = Math.min(1, Math.max(0.01, 1 / z));
             const start = resolveWavePlayheadFollowViewStart(
               t,
               duration,

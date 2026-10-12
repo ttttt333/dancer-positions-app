@@ -115,7 +115,7 @@ export const useTimelineWaveBridgeStore = create<TimelineWaveBridgeStore>((set, 
     const api = get().api;
     if (!api || api.duration <= 0) return;
     const z = Math.max(1, zoom);
-    const portion = Math.min(1, Math.max(0.02, 1 / z));
+    const portion = Math.min(1, Math.max(0.01, 1 / z));
     api.setViewPortion(portion);
     /**
      * 縦画面: 再生中も viewStart を渡す。
