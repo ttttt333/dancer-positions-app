@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -33,6 +33,34 @@ function ffmpegCoreStaticPlugin(): Plugin {
     },
     configureServer() {
       syncFfmpegCoreAssets();
+    },
+  };
+}
+
+/**
+ * 共有閲覧（/view/*）用の HTML。manifest（start_url="/"）を含めないことで、
+ * iOS の「ホーム画面に追加」が本体ではなく共有 URL を全画面で開く。
+ */
+function shareViewHtmlPlugin(): Plugin {
+  let outDir = "dist";
+  return {
+    name: "share-view-html",
+    apply: "build",
+    enforce: "post",
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    closeBundle: {
+      order: "post",
+      handler() {
+        const src = join(outDir, "index.html");
+        if (!existsSync(src)) return;
+        const html = readFileSync(src, "utf8").replace(
+          /<link[^>]*rel=["']manifest["'][^>]*>\s*/gi,
+          ""
+        );
+        writeFileSync(join(outDir, "view.html"), html);
+      },
     },
   };
 }
@@ -96,6 +124,7 @@ export default defineConfig({
     react(),
     ffmpegCoreStaticPlugin(),
     devOpenBrowserPlugin(),
+    shareViewHtmlPlugin(),
     VitePWA({
       registerType: "autoUpdate",
       /** main.tsx で registerSW するため自動注入はオフ（二重登録防止） */
@@ -133,7 +162,7 @@ export default defineConfig({
         /** SPA ルート直アクセス時も index.html を返す */
         navigateFallback: "/index.html",
         /** 静的アセット欠落時に HTML を返すと MIME エラーで真っ黒になる */
-        navigateFallbackDenylist: [/^\/api/, /^\/assets\//],
+        navigateFallbackDenylist: [/^\/api/, /^\/assets\//, /^\/view\//],
         runtimeCaching: [
           {
             /** ナビ（HTML）は常にネットワーク優先で最新シェルを取る */
