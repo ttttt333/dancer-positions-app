@@ -9,6 +9,7 @@ export type ProjectSheetAction =
   | "share"
   | "collab"
   | "exportPdf"
+  | "exportImages"
   | "delete"
   | "close";
 
@@ -26,6 +27,7 @@ type Props = {
     manageAccess: string;
     copyLink: string;
     exportPdf: string;
+    exportImages: string;
     delete: string;
     close: string;
   };
@@ -183,6 +185,12 @@ export function ProjectActionSheet({
           label={labels.exportPdf}
           disabled={busy}
           onClick={() => onAction("exportPdf")}
+        />
+        <SheetRow
+          icon="🖼"
+          label={labels.exportImages}
+          disabled={busy}
+          onClick={() => onAction("exportImages")}
         />
 
         <div style={homeDivider} />
