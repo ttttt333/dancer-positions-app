@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { zipSync } from "fflate";
 import {
   buildChoreographyPdfPages,
   type ChoreographyPdfLabels,
@@ -35,6 +36,39 @@ function safeFileBase(name: string): string {
   );
 }
 
+/** ZIP 内ファイル名用（ページ番号 + 短いタイトル） */
+export function cueImageFileName(pageIndex: number, pageTitle: string): string {
+  const n = String(pageIndex + 1).padStart(2, "0");
+  const slug = safeFileBase(pageTitle).slice(0, 40);
+  return `${n}-${slug || "cue"}.png`;
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** fflate の Uint8Array が BlobPart と厳密一致しない環境向け */
+function bytesToBlob(bytes: Uint8Array, type: string): Blob {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return new Blob([copy], { type });
+}
+
+async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("PNG の生成に失敗しました"))),
+      "image/png"
+    );
+  });
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
 /** 指定幅に収まるよう折り返し（最大 maxLines、超えたら末尾を…） */
 function wrapTextLines(
   ctx: CanvasRenderingContext2D,
@@ -69,7 +103,6 @@ function wrapTextLines(
       continue;
     }
     if (!current) {
-      // 1文字でも幅超過 → 省略して終了
       lines.push(fit(chars[i]!));
       return lines.slice(0, maxLines);
     }
@@ -113,7 +146,6 @@ function drawPrintPage(
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(side, 0, W - side, H);
 
-  // サイドバー: 再生時間
   ctx.fillStyle = "#6b7280";
   ctx.font = `600 ${11 * s}px "Noto Sans JP", system-ui, sans-serif`;
   ctx.textAlign = "left";
@@ -127,7 +159,6 @@ function drawPrintPage(
     ctx.fillText(line, 16 * s, (48 + i * 20) * s);
   });
 
-  // ヘッダー: タイトル（折り返し）+ 作品名
   ctx.fillStyle = "#111827";
   ctx.font = `700 ${18 * s}px "Noto Sans JP", system-ui, sans-serif`;
   const titleLines = wrapTextLines(ctx, page.title, titleMaxW, 2);
@@ -177,7 +208,6 @@ function drawPrintPage(
   );
   ctx.drawImage(stageCanvas, stageX, stageY);
 
-  // フッター
   ctx.fillStyle = "#111827";
   ctx.font = `700 ${12 * s}px "Noto Sans JP", system-ui, sans-serif`;
   ctx.textAlign = "left";
@@ -197,15 +227,19 @@ function drawPrintPage(
   ctx.fillText(`${pageIndex + 1} / ${pageCount}`, (side + W) / 2, H - 14 * s);
 }
 
-/**
- * 作品の立ち位置を、参考PDFのようにキュー（またはフォーメーション）ごとに
- * 見やすい印刷用 PDF として書き出す。エディタを開かなくても可。
- */
-export async function exportChoreographyPdf(params: {
+type PreparedExport = {
+  pages: ChoreographyPdfPage[];
+  appearance: StageExportAppearance;
+  pieceTitle: string;
+  fileBase: string;
+  playbackTime: string;
+};
+
+function prepareChoreographyExport(params: {
   project: ChoreographyProjectJson;
   projectName: string;
   labels?: Partial<ExportChoreographyPdfLabels>;
-}): Promise<void> {
+}): PreparedExport {
   const { project, projectName, labels = {} } = params;
   const pdfLabels: ChoreographyPdfLabels = {
     cueN: labels.cueN ?? ((n) => `キュー ${n}`),
@@ -232,7 +266,26 @@ export async function exportChoreographyPdf(params: {
   };
   const pieceTitle =
     project.pieceTitle?.trim() || projectName.trim() || untitled;
-  const fileBase = safeFileBase(pieceTitle);
+  return {
+    pages,
+    appearance,
+    pieceTitle,
+    fileBase: safeFileBase(pieceTitle),
+    playbackTime,
+  };
+}
+
+/**
+ * 作品の立ち位置を、参考PDFのようにキュー（またはフォーメーション）ごとに
+ * 見やすい印刷用 PDF として書き出す。エディタを開かなくても可。
+ */
+export async function exportChoreographyPdf(params: {
+  project: ChoreographyProjectJson;
+  projectName: string;
+  labels?: Partial<ExportChoreographyPdfLabels>;
+}): Promise<void> {
+  const prepared = prepareChoreographyExport(params);
+  const { pages, appearance, pieceTitle, fileBase, playbackTime } = prepared;
 
   const pageCanvas = document.createElement("canvas");
   pageCanvas.width = PAGE_W * RENDER_SCALE;
@@ -265,4 +318,51 @@ export async function exportChoreographyPdf(params: {
   }
 
   doc.save(`${fileBase}.pdf`);
+}
+
+/**
+ * PDF と同じレイアウトのキュー図を PNG で書き出す。
+ * 1 ページなら単体 PNG、複数なら ZIP。
+ */
+export async function exportChoreographyImages(params: {
+  project: ChoreographyProjectJson;
+  projectName: string;
+  labels?: Partial<ExportChoreographyPdfLabels>;
+}): Promise<void> {
+  const prepared = prepareChoreographyExport(params);
+  const { pages, appearance, pieceTitle, fileBase, playbackTime } = prepared;
+
+  const pageCanvas = document.createElement("canvas");
+  pageCanvas.width = PAGE_W * RENDER_SCALE;
+  pageCanvas.height = PAGE_H * RENDER_SCALE;
+  const ctx = pageCanvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas を初期化できませんでした");
+
+  if (pages.length === 1) {
+    const page = pages[0]!;
+    ctx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
+    drawPrintPage(ctx, page, 0, 1, pieceTitle, appearance, playbackTime);
+    const bytes = await canvasToPngBytes(pageCanvas);
+    downloadBlob(bytesToBlob(bytes, "image/png"), cueImageFileName(0, page.title));
+    return;
+  }
+
+  const files: Record<string, Uint8Array> = {};
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i]!;
+    ctx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
+    drawPrintPage(
+      ctx,
+      page,
+      i,
+      pages.length,
+      pieceTitle,
+      appearance,
+      playbackTime
+    );
+    files[cueImageFileName(i, page.title)] = await canvasToPngBytes(pageCanvas);
+  }
+
+  const zipped = zipSync(files, { level: 6 });
+  downloadBlob(bytesToBlob(zipped, "application/zip"), `${fileBase}-cues.zip`);
 }
