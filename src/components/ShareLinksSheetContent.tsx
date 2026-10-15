@@ -10,7 +10,10 @@ import {
   projectShareLinks,
   shareLinksSafeFilenameBase,
 } from "../lib/shareProjectLinks";
-import { exportChoreographyPdf } from "../lib/exportChoreographyPdf";
+import {
+  exportChoreographyImages,
+  exportChoreographyPdf,
+} from "../lib/exportChoreographyPdf";
 import { downloadStagePngFile, getStageExportElement } from "../lib/captureStagePng";
 import { shell } from "../theme/choreoShell";
 import { isSupabaseBackend } from "../lib/supabaseClient";
@@ -23,7 +26,7 @@ import {
 } from "../lib/buildRangeExcerptProject";
 
 type ShareKind = "collab" | "view";
-type FlashKey = ShareKind | "pdf" | "csv" | "png";
+type FlashKey = ShareKind | "pdf" | "images" | "csv" | "png";
 type BtnVariant = "gold" | "ghost";
 
 type Props = {
@@ -288,8 +291,10 @@ export function ShareLinksSheetContent({
   const [copyKind, setCopyKind] = useState<ShareKind | null>(null);
   const [flash, setFlash] = useState<FlashKey | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [imagesBusy, setImagesBusy] = useState(false);
   const [pngBusy, setPngBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [imagesError, setImagesError] = useState<string | null>(null);
   const [pngError, setPngError] = useState<string | null>(null);
 
   const useJoinLink = isSupabaseBackend() && serverId != null;
@@ -339,8 +344,10 @@ export function ShareLinksSheetContent({
       setCopyKind(null);
       setFlash(null);
       setPdfBusy(false);
+      setImagesBusy(false);
       setPngBusy(false);
       setPdfError(null);
+      setImagesError(null);
       setPngError(null);
     }
   }, [open]);
@@ -380,31 +387,53 @@ export function ShareLinksSheetContent({
     [collabUrl, viewUrl, title, fileBase, pulseFlash]
   );
 
+  const choreographyExportLabels = () => ({
+    playbackTime: t("pdf.playbackTime"),
+    untitled,
+    cueN: (n: number) => t("pdf.cueN", { n }),
+    formationN: (n: number) => t("pdf.formationN", { n }),
+    formationFallback: t("pdf.formation"),
+    backstage: t("pdf.backstage"),
+    side: t("pdf.side"),
+    audience: t("pdf.audience"),
+    emptyError: t("pdf.emptyError"),
+  });
+
   const onExportPdf = async () => {
-    if (!project || pdfBusy) return;
+    if (!project || pdfBusy || imagesBusy) return;
     setPdfError(null);
     setPdfBusy(true);
     try {
       await exportChoreographyPdf({
         project,
         projectName: title,
-        labels: {
-          playbackTime: t("pdf.playbackTime"),
-          untitled,
-          cueN: (n) => t("pdf.cueN", { n }),
-          formationN: (n) => t("pdf.formationN", { n }),
-          formationFallback: t("pdf.formation"),
-          backstage: t("pdf.backstage"),
-          side: t("pdf.side"),
-          audience: t("pdf.audience"),
-          emptyError: t("pdf.emptyError"),
-        },
+        labels: choreographyExportLabels(),
       });
       pulseFlash("pdf");
     } catch (e) {
       setPdfError(e instanceof Error ? e.message : t("home.sheet.exportPdfFail"));
     } finally {
       setPdfBusy(false);
+    }
+  };
+
+  const onExportImages = async () => {
+    if (!project || pdfBusy || imagesBusy) return;
+    setImagesError(null);
+    setImagesBusy(true);
+    try {
+      await exportChoreographyImages({
+        project,
+        projectName: title,
+        labels: choreographyExportLabels(),
+      });
+      pulseFlash("images");
+    } catch (e) {
+      setImagesError(
+        e instanceof Error ? e.message : t("home.sheet.exportImagesFail")
+      );
+    } finally {
+      setImagesBusy(false);
     }
   };
 
@@ -678,21 +707,41 @@ export function ShareLinksSheetContent({
           title={t("shareSheet.pdfTitle")}
           desc={t("shareSheet.pdfDesc")}
         >
-          <ActionBtn
-            variant="gold"
-            fill
-            onClick={() => void onExportPdf()}
-            disabled={!project || pdfBusy}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 8,
+            }}
           >
-            {pdfBusy
-              ? t("shareSheet.pdfBusy")
-              : flash === "pdf"
-                ? t("shareSheet.pdfDone")
-                : t("shareSheet.pdfButton")}
-          </ActionBtn>
-          {pdfError ? (
+            <ActionBtn
+              variant="gold"
+              fill
+              onClick={() => void onExportPdf()}
+              disabled={!project || pdfBusy || imagesBusy}
+            >
+              {pdfBusy
+                ? t("shareSheet.pdfBusy")
+                : flash === "pdf"
+                  ? t("shareSheet.pdfDone")
+                  : t("shareSheet.pdfButton")}
+            </ActionBtn>
+            <ActionBtn
+              variant="ghost"
+              fill
+              onClick={() => void onExportImages()}
+              disabled={!project || pdfBusy || imagesBusy}
+            >
+              {imagesBusy
+                ? t("shareSheet.imagesBusy")
+                : flash === "images"
+                  ? t("shareSheet.imagesDone")
+                  : t("shareSheet.imagesButton")}
+            </ActionBtn>
+          </div>
+          {pdfError || imagesError ? (
             <p style={{ margin: "10px 0 0", fontSize: 12, color: "#f0a8a8", lineHeight: 1.45 }}>
-              {pdfError}
+              {pdfError || imagesError}
             </p>
           ) : null}
         </ShareCard>

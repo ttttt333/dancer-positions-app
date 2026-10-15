@@ -22,7 +22,10 @@ import {
   copyTextToClipboard,
   projectShareLinks,
 } from "../../lib/shareProjectLinks";
-import { exportChoreographyPdf } from "../../lib/exportChoreographyPdf";
+import {
+  exportChoreographyImages,
+  exportChoreographyPdf,
+} from "../../lib/exportChoreographyPdf";
 import { normalizeProject } from "../../lib/normalizeProject";
 import { FREE_CLOUD_PROJECT_LIMIT, hasStripeCustomerId, isProMe } from "../../lib/supabaseBilling";
 import { getEntitlements } from "../../lib/entitlements";
@@ -321,6 +324,31 @@ export function HomeLibrary() {
     else startStripeSubscription();
   };
 
+  const choreographyExportLabels = () => ({
+    playbackTime: t("pdf.playbackTime"),
+    untitled: t("pdf.untitled"),
+    cueN: (n: number) => t("pdf.cueN", { n }),
+    formationN: (n: number) => t("pdf.formationN", { n }),
+    formationFallback: t("pdf.formation"),
+    backstage: t("pdf.backstage"),
+    side: t("pdf.side"),
+    audience: t("pdf.audience"),
+    emptyError: t("pdf.emptyError"),
+  });
+
+  const runChoreographyExport = async (
+    kind: "pdf" | "images",
+    project: Parameters<typeof exportChoreographyPdf>[0]["project"],
+    projectName: string
+  ) => {
+    const labels = choreographyExportLabels();
+    if (kind === "pdf") {
+      await exportChoreographyPdf({ project, projectName, labels });
+    } else {
+      await exportChoreographyImages({ project, projectName, labels });
+    }
+  };
+
   const handleSheetAction = async (action: ProjectSheetAction) => {
     if (action === "close") {
       setActionEntry(null);
@@ -376,29 +404,22 @@ export function HomeLibrary() {
         return;
       }
 
-      if (action === "exportPdf") {
+      if (action === "exportPdf" || action === "exportImages") {
+        const kind = action === "exportPdf" ? "pdf" : "images";
         setBusy(true);
         try {
           const row = await projectApi.get(p.id);
           const project = normalizeProject(row.json);
-          await exportChoreographyPdf({
-            project,
-            projectName: row.name || p.name,
-            labels: {
-              playbackTime: t("pdf.playbackTime"),
-              untitled: t("pdf.untitled"),
-              cueN: (n) => t("pdf.cueN", { n }),
-              formationN: (n) => t("pdf.formationN", { n }),
-              formationFallback: t("pdf.formation"),
-              backstage: t("pdf.backstage"),
-              side: t("pdf.side"),
-              audience: t("pdf.audience"),
-              emptyError: t("pdf.emptyError"),
-            },
-          });
+          await runChoreographyExport(kind, project, row.name || p.name);
         } catch (e) {
           window.alert(
-            e instanceof Error ? e.message : t("home.sheet.exportPdfFail")
+            e instanceof Error
+              ? e.message
+              : t(
+                  kind === "pdf"
+                    ? "home.sheet.exportPdfFail"
+                    : "home.sheet.exportImagesFail"
+                )
           );
         } finally {
           setBusy(false);
@@ -479,29 +500,22 @@ export function HomeLibrary() {
       return;
     }
 
-    if (action === "exportPdf") {
+    if (action === "exportPdf" || action === "exportImages") {
+      const kind = action === "exportPdf" ? "pdf" : "images";
       setBusy(true);
       try {
         const full = (await getFlowLibraryItemAsync(it.id)) ?? it;
         const project = materializeFlowLibraryItemAsProject(full);
-        await exportChoreographyPdf({
-          project,
-          projectName: it.name,
-          labels: {
-            playbackTime: t("pdf.playbackTime"),
-            untitled: t("pdf.untitled"),
-            cueN: (n) => t("pdf.cueN", { n }),
-            formationN: (n) => t("pdf.formationN", { n }),
-            formationFallback: t("pdf.formation"),
-            backstage: t("pdf.backstage"),
-            side: t("pdf.side"),
-            audience: t("pdf.audience"),
-            emptyError: t("pdf.emptyError"),
-          },
-        });
+        await runChoreographyExport(kind, project, it.name);
       } catch (e) {
         window.alert(
-          e instanceof Error ? e.message : t("home.sheet.exportPdfFail")
+          e instanceof Error
+            ? e.message
+            : t(
+                kind === "pdf"
+                  ? "home.sheet.exportPdfFail"
+                  : "home.sheet.exportImagesFail"
+              )
         );
       } finally {
         setBusy(false);
@@ -839,6 +853,7 @@ export function HomeLibrary() {
           manageAccess: t("home.sheet.manageAccess"),
           copyLink: t("home.sheet.copyLink"),
           exportPdf: t("home.sheet.exportPdf"),
+          exportImages: t("home.sheet.exportImages"),
           delete: t("dashboard.delete"),
           close: t("home.menu.close"),
         }}
