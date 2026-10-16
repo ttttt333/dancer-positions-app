@@ -219,7 +219,7 @@ export function saveStagePreset(
     return {
       ok: false,
       reason: "unknown",
-      message: "保存する寸法が何も入っていません。",
+      message: "保存する寸法・ヘソ・そで幕が何も入っていません。",
     };
   }
   const now = Date.now();
