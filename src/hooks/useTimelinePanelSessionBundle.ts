@@ -208,6 +208,8 @@ export function useTimelinePanelSessionBundle(
     selectedCueIdsRef,
     setProject,
     onSelectedCueIdsChange,
+    durationRef,
+    onFormationChosenFromCueList,
   });
 
   const openAudioImport = onOpenAudioImport ?? (() => {});

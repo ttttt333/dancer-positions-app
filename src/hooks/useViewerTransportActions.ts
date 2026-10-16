@@ -5,7 +5,7 @@ import type { TimelinePanelHandle } from "../components/timelinePanelTypes";
 import { playbackEngine } from "../core/playbackEngine";
 import {
   seekPlaybackClampedAndSyncStore,
-  stopPlaybackAtTrimStart,
+  stopOrRewindPlayback,
 } from "../lib/playbackTransport";
 import { primeAudioForUserGesture } from "../lib/playbackViewerIntent";
 import {
@@ -88,7 +88,7 @@ export function useViewerTransportActions({
   const stopPlayback = useCallback(() => {
     onBeforeTransport?.();
     if (playbackEngine.getMediaSourceUrl()) {
-      stopPlaybackAtTrimStart(trimStartSec);
+      stopOrRewindPlayback(trimStartSec);
       return;
     }
     timelineRef?.current?.stopPlayback();

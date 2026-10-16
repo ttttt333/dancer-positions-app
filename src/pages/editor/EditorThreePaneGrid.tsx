@@ -20,6 +20,11 @@ import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import { useViewerChromeStore } from "../../store/viewerChromeStore";
 import { sortCuesByStart } from "../../core/timelineController";
+import { pickCueAfterDelete } from "../../lib/cueSelectionAfterDelete";
+import {
+  notifyFormationChosenWhenStopped,
+  syncPlaybackHeadAfterCueEditWhenStopped,
+} from "../../lib/playbackTransport";
 import { cueSelectionExtentSec } from "../../lib/cueSelectionExtent";
 import { TransportIconUndo, TransportIconRedo } from "../../components/mobile/TransportIcons";
 import type { DancerSpot } from "../../types/choreography";
@@ -415,11 +420,49 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
             ? selectedCueId
             : null;
         if (!id || !cues.some((c) => c.id === id)) return;
-        setProjectSafe((prev: { cues: Array<{ id: string }> } & Record<string, unknown>) => ({
-          ...prev,
-          cues: sortCuesByStart(prev.cues.filter((c) => c.id !== id)),
-        }));
-        setSelectedCueIds((prev: string[]) => prev.filter((x) => x !== id));
+        const deleted = new Set([id]);
+        let nextSelected: string[] = [];
+        let seekT: number | null = null;
+        let trimStartSec = 0;
+        let trimEndSec: number | null = null;
+        setProjectSafe(
+          (
+            prev: {
+              cues: Array<{
+                id: string;
+                tStartSec: number;
+                tEndSec: number;
+                formationId: string;
+              }>;
+              trimStartSec?: number;
+              trimEndSec?: number | null;
+              activeFormationId?: string;
+            } & Record<string, unknown>
+          ) => {
+            const pick = pickCueAfterDelete(prev.cues, deleted);
+            nextSelected = pick ? [pick.id] : [];
+            seekT = pick ? pick.tStartSec : null;
+            trimStartSec =
+              typeof prev.trimStartSec === "number" ? prev.trimStartSec : 0;
+            trimEndSec = prev.trimEndSec ?? null;
+            return {
+              ...prev,
+              cues: sortCuesByStart(prev.cues.filter((c) => c.id !== id)),
+              ...(pick ? { activeFormationId: pick.formationId } : {}),
+            };
+          }
+        );
+        setSelectedCueIds(nextSelected);
+        if (seekT != null) {
+          const dur = typeof duration === "number" ? duration : 0;
+          syncPlaybackHeadAfterCueEditWhenStopped({
+            t: seekT,
+            durationSec: dur,
+            trimStartSec,
+            trimEndSec,
+          });
+          notifyFormationChosenWhenStopped(undefined);
+        }
       },
       canDeleteSelectedCue:
         (project as { viewMode?: string }).viewMode !== "view" &&
@@ -491,6 +534,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     setFormationPresetPickerOpen,
     setProjectSafe,
     setSelectedCueIds,
+    duration,
     stageView,
     onStageViewChange,
   ]);

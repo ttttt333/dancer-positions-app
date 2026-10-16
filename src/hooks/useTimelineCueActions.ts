@@ -16,6 +16,7 @@ import {
   notifyFormationChosenWhenStopped,
   syncPlaybackHeadAfterCueEditWhenStopped,
 } from "../lib/playbackTransport";
+import { pickCueAfterDelete } from "../lib/cueSelectionAfterDelete";
 import { listFormationBoxItemsByCount, saveFormationToBox } from "../lib/formationBox";
 import { dancersForLayoutPreset } from "../lib/formationLayouts";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
@@ -142,13 +143,38 @@ export function useTimelineCueActions({
 
   const removeCue = useCallback(
     (id: string) => {
-      setProject((p) => ({
-        ...p,
-        cues: sortCuesByStart(p.cues.filter((c) => c.id !== id)),
-      }));
-      onSelectedCueIdsChange((prev) => prev.filter((x) => x !== id));
+      let nextSelected: string[] = [];
+      let seekT: number | null = null;
+      setProject((p) => {
+        const deleted = new Set([id]);
+        const pick = pickCueAfterDelete(p.cues, deleted);
+        nextSelected = pick ? [pick.id] : [];
+        seekT = pick ? pick.tStartSec : null;
+        return {
+          ...p,
+          cues: sortCuesByStart(p.cues.filter((c) => c.id !== id)),
+          ...(pick ? { activeFormationId: pick.formationId } : {}),
+        };
+      });
+      onSelectedCueIdsChange(nextSelected);
+      if (seekT != null) {
+        syncPlaybackHeadAfterCueEditWhenStopped({
+          t: seekT,
+          durationSec: durationRef.current,
+          trimStartSec: project.trimStartSec,
+          trimEndSec: project.trimEndSec,
+        });
+        notifyFormationChosenWhenStopped(onFormationChosenFromCueList);
+      }
     },
-    [setProject, onSelectedCueIdsChange]
+    [
+      setProject,
+      onSelectedCueIdsChange,
+      durationRef,
+      project.trimStartSec,
+      project.trimEndSec,
+      onFormationChosenFromCueList,
+    ]
   );
 
   const updateCue = useCallback(

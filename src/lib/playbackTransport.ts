@@ -17,7 +17,8 @@ import {
  *
  * - 通常シーク（波形クリック・±秒など）: `seekPlaybackClampedAndSyncStore`
  * - キュー作成／複製直後（停止中のみヘッド合わせ）: `syncPlaybackHeadAfterCueEditWhenStopped`
- * - 停止・トリム先頭: `stopPlaybackAtTrimStart` / `pauseAndSeekPlaybackToSec`
+ * - 停止ボタン: `stopOrRewindPlayback`（1回目=その場停止、2回目=トリム先頭）
+ * - 即先頭停止: `stopPlaybackAtTrimStart` / `pauseAndSeekPlaybackToSec`
  * - 再生トグル: `togglePlaybackRespectingTrimStart`
  *
  * キュー境界・ヘッド秒の純関数は `core/timelineController`（`playbackTrim`）へ集約。
@@ -237,7 +238,7 @@ export function pauseAndSeekPlaybackToSec(
 }
 
 /**
- * 再生を止めてトリム左端へシークする（タイムライン停止 UI・ステージ床タップなど共通）。
+ * 再生を止めてトリム左端へシークする（ステージ床タップなど「即先頭へ」用）。
  */
 export function stopPlaybackAtTrimStart(trimStartSec: number): void {
   if (!playbackEngine.getMediaSourceUrl()) return;
@@ -250,6 +251,35 @@ export function stopPlaybackAtTrimStart(trimStartSec: number): void {
     playbackEngine.seek(t);
     usePlaybackUiStore.getState().setCurrentTimeSec(t);
   }
+}
+
+function isPlaybackActivelyRunning(): boolean {
+  if (isPlaybackCountInActive() || usePracticePlaybackStore.getState().isCountingIn) {
+    return true;
+  }
+  if (usePlaybackUiStore.getState().isPlaying) return true;
+  if (playbackEngine.getMediaSourceUrl() && !playbackEngine.isPaused()) return true;
+  return false;
+}
+
+/**
+ * 停止ボタン用: 1 回目はその場で一時停止、すでに停止中ならトリム先頭へ戻す。
+ */
+export function stopOrRewindPlayback(trimStartSec: number): void {
+  if (isPlaybackActivelyRunning()) {
+    cancelPlaybackCountIn();
+    usePracticePlaybackStore.getState().setIsCountingIn(false);
+    usePlaybackUiStore.getState().setIsPlaying(false);
+    if (playbackEngine.getMediaSourceUrl()) {
+      playbackEngine.pause();
+      const t = playbackEngine.getCurrentTime();
+      if (Number.isFinite(t)) {
+        usePlaybackUiStore.getState().setCurrentTimeSec(t);
+      }
+    }
+    return;
+  }
+  stopPlaybackAtTrimStart(trimStartSec);
 }
 
 /**

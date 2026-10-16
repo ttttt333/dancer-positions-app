@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { playbackEngine } from "../core/playbackEngine";
 import {
   seekPlaybackClampedAndSyncStore,
-  stopPlaybackAtTrimStart,
+  stopOrRewindPlayback,
   togglePlaybackRespectingTrimStart,
 } from "../lib/playbackTransport";
 
@@ -43,7 +43,7 @@ export function useTimelinePlayback({
   }, [durationSec, trimEndSec, trimStartSec]);
 
   const stopPlayback = useCallback(() => {
-    stopPlaybackAtTrimStart(trimStartSec);
+    stopOrRewindPlayback(trimStartSec);
   }, [trimStartSec]);
 
   return {

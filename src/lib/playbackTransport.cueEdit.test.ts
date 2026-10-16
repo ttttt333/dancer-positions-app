@@ -11,6 +11,20 @@ vi.mock("../core/playbackEngine", () => ({
   },
 }));
 
+vi.mock("./playbackCountIn", () => ({
+  cancelPlaybackCountIn: vi.fn(),
+  isPlaybackCountInActive: vi.fn(() => false),
+}));
+
+vi.mock("../store/practicePlaybackStore", () => ({
+  usePracticePlaybackStore: {
+    getState: () => ({
+      isCountingIn: false,
+      setIsCountingIn: vi.fn(),
+    }),
+  },
+}));
+
 vi.mock("../store/usePlaybackUiStore", () => {
   let isPlaying = false;
   let currentTimeSec = 0;
@@ -28,6 +42,7 @@ vi.mock("../store/usePlaybackUiStore", () => {
         __setPlaying: (v: boolean) => {
           isPlaying = v;
         },
+        __getPlaying: () => isPlaying,
         __getCurrentTimeSec: () => currentTimeSec,
       }),
     },
@@ -39,6 +54,7 @@ import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import {
   isLivePlaybackActive,
   notifyFormationChosenWhenStopped,
+  stopOrRewindPlayback,
   syncPlaybackHeadAfterCueEditWhenStopped,
 } from "./playbackTransport";
 
@@ -95,5 +111,48 @@ describe("playback continuity during cue edits", () => {
 
     expect(playbackEngine.seek).toHaveBeenCalled();
     expect(onChosen).toHaveBeenCalledTimes(1);
+  });
+
+  it("stopOrRewindPlayback pauses in place while playing", () => {
+    (usePlaybackUiStore.getState() as { __setPlaying: (v: boolean) => void }).__setPlaying(
+      true
+    );
+    vi.mocked(playbackEngine.getMediaSourceUrl).mockReturnValue("blob:x");
+    vi.mocked(playbackEngine.isPaused).mockReturnValue(false);
+    vi.mocked(playbackEngine.getCurrentTime).mockReturnValue(12.5);
+    vi.mocked(playbackEngine.pause).mockClear();
+    vi.mocked(playbackEngine.seek).mockClear();
+
+    stopOrRewindPlayback(0);
+
+    expect(playbackEngine.pause).toHaveBeenCalledTimes(1);
+    expect(playbackEngine.seek).not.toHaveBeenCalled();
+    expect(
+      (usePlaybackUiStore.getState() as { __getPlaying: () => boolean }).__getPlaying()
+    ).toBe(false);
+    expect(
+      (
+        usePlaybackUiStore.getState() as { __getCurrentTimeSec: () => number }
+      ).__getCurrentTimeSec()
+    ).toBe(12.5);
+  });
+
+  it("stopOrRewindPlayback seeks to trim start when already stopped", () => {
+    (usePlaybackUiStore.getState() as { __setPlaying: (v: boolean) => void }).__setPlaying(
+      false
+    );
+    vi.mocked(playbackEngine.getMediaSourceUrl).mockReturnValue("blob:x");
+    vi.mocked(playbackEngine.isPaused).mockReturnValue(true);
+    vi.mocked(playbackEngine.pause).mockClear();
+    vi.mocked(playbackEngine.seek).mockClear();
+
+    stopOrRewindPlayback(1.5);
+
+    expect(playbackEngine.seek).toHaveBeenCalledWith(1.5);
+    expect(
+      (
+        usePlaybackUiStore.getState() as { __getCurrentTimeSec: () => number }
+      ).__getCurrentTimeSec()
+    ).toBe(1.5);
   });
 });

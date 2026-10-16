@@ -26,7 +26,7 @@ import { useMobileShellBridgeStore } from "./store/useMobileShellBridgeStore";
 import { playbackEngine } from "./core/playbackEngine";
 import {
   seekPlaybackClampedAndSyncStore,
-  stopPlaybackAtTrimStart,
+  stopOrRewindPlayback,
   togglePlaybackRespectingTrimStart,
 } from "./lib/playbackTransport";
 
@@ -209,7 +209,7 @@ function MobileEditorRoute() {
   }, [trimStartSec]);
 
   const onStop = useCallback(() => {
-    stopPlaybackAtTrimStart(trimStartSec);
+    stopOrRewindPlayback(trimStartSec);
   }, [trimStartSec]);
 
   const onSeek = useCallback(
