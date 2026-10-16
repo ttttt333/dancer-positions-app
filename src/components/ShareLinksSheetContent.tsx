@@ -400,7 +400,7 @@ export function ShareLinksSheetContent({
   });
 
   const onExportPdf = async () => {
-    if (!project || pdfBusy || imagesBusy) return;
+    if (!project || pdfBusy) return;
     setPdfError(null);
     setPdfBusy(true);
     try {
@@ -418,7 +418,7 @@ export function ShareLinksSheetContent({
   };
 
   const onExportImages = async () => {
-    if (!project || pdfBusy || imagesBusy) return;
+    if (!project || imagesBusy) return;
     setImagesError(null);
     setImagesBusy(true);
     try {
@@ -707,41 +707,21 @@ export function ShareLinksSheetContent({
           title={t("shareSheet.pdfTitle")}
           desc={t("shareSheet.pdfDesc")}
         >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 8,
-            }}
+          <ActionBtn
+            variant="gold"
+            fill
+            onClick={() => void onExportPdf()}
+            disabled={!project || pdfBusy}
           >
-            <ActionBtn
-              variant="gold"
-              fill
-              onClick={() => void onExportPdf()}
-              disabled={!project || pdfBusy || imagesBusy}
-            >
-              {pdfBusy
-                ? t("shareSheet.pdfBusy")
-                : flash === "pdf"
-                  ? t("shareSheet.pdfDone")
-                  : t("shareSheet.pdfButton")}
-            </ActionBtn>
-            <ActionBtn
-              variant="ghost"
-              fill
-              onClick={() => void onExportImages()}
-              disabled={!project || pdfBusy || imagesBusy}
-            >
-              {imagesBusy
-                ? t("shareSheet.imagesBusy")
-                : flash === "images"
-                  ? t("shareSheet.imagesDone")
-                  : t("shareSheet.imagesButton")}
-            </ActionBtn>
-          </div>
-          {pdfError || imagesError ? (
+            {pdfBusy
+              ? t("shareSheet.pdfBusy")
+              : flash === "pdf"
+                ? t("shareSheet.pdfDone")
+                : t("shareSheet.pdfButton")}
+          </ActionBtn>
+          {pdfError ? (
             <p style={{ margin: "10px 0 0", fontSize: 12, color: "#f0a8a8", lineHeight: 1.45 }}>
-              {pdfError || imagesError}
+              {pdfError}
             </p>
           ) : null}
         </ShareCard>
@@ -774,13 +754,32 @@ export function ShareLinksSheetContent({
                     : t("shareSheet.pngButton")
               }
               hint={t("shareSheet.pngDesc")}
-              disabled={pngBusy}
+              disabled={pngBusy || imagesBusy}
               onClick={() => void onExportPng()}
             />
+            <div style={{ gridColumn: "1 / -1" }}>
+              <FileTile
+                label={
+                  imagesBusy
+                    ? t("shareSheet.imagesBusy")
+                    : flash === "images"
+                      ? t("shareSheet.imagesDone")
+                      : t("shareSheet.allPngButton")
+                }
+                hint={t("shareSheet.allPngDesc")}
+                disabled={!project || cueCount === 0 || imagesBusy || pngBusy}
+                onClick={() => void onExportImages()}
+              />
+            </div>
           </div>
           {cueCount === 0 ? (
             <p style={{ margin: "8px 0 0", fontSize: 11, color: shell.textSubtle, lineHeight: 1.45 }}>
               {t("shareSheet.csvNeedCues")}
+            </p>
+          ) : null}
+          {imagesError ? (
+            <p style={{ margin: "8px 0 0", fontSize: 12, color: "#f0a8a8", lineHeight: 1.45 }}>
+              {imagesError}
             </p>
           ) : null}
           {pngError ? (
