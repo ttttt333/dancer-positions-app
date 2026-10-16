@@ -59,6 +59,7 @@ import {
   ensureCenterMarksWhenVisible,
   mmToMeterCmDraft,
   parseMeterCmDraftToMm,
+  stagePresetPayloadFromAreaDraft,
   type StageAreaSettingsDraft,
 } from "./stageAreaSettingsDraft";
 import {
@@ -2147,13 +2148,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 onSavePreset={() => {
                   if (project.viewMode === "view") return;
                   const d = stageAreaSettingsDraftRef.current;
-                  const dims = {
-                    stageWidthMm: parseMeterCmDraftToMm(d.width),
-                    stageDepthMm: parseMeterCmDraftToMm(d.depth),
-                    sideStageMm: parseMeterCmDraftToMm(d.side),
-                    backStageMm: parseMeterCmDraftToMm(d.back),
-                    centerFieldGuideIntervalMm: parseMeterCmDraftToMm(d.guide),
-                  };
+                  const dims = stagePresetPayloadFromAreaDraft(d);
                   const defaultName = t("editor.layout.savePresetDefaultName", { n: stageAreaPresetList.length + 1 });
                   const name = window.prompt(t("editor.layout.savePresetPrompt"), defaultName);
                   if (name === null) return;

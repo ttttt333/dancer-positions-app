@@ -13,7 +13,7 @@ import { listStagePresets, saveStagePreset, type StagePresetItem } from "../../l
 import type { ChoreographyProjectJson } from "../../types/choreography";
 import {
   STAGE_AREA_DIM_ROWS,
-  mmToMeterCmDraft,
+  applyStagePresetToAreaDraft,
   type StageAreaSettingsDraft,
 } from "./stageAreaSettingsDraft";
 import { useI18n } from "../../i18n/I18nContext";
@@ -201,14 +201,7 @@ export const StageAreaPresetBlock = memo(function StageAreaPresetBlock({
             if (!id) return;
             const item = stageAreaPresetList.find((x) => x.id === id);
             if (!item) return;
-            onChangeDraft((d) => ({
-              ...d,
-              width: mmToMeterCmDraft(item.stageWidthMm),
-              depth: mmToMeterCmDraft(item.stageDepthMm),
-              side: mmToMeterCmDraft(item.sideStageMm),
-              back: mmToMeterCmDraft(item.backStageMm),
-              guide: mmToMeterCmDraft(item.centerFieldGuideIntervalMm),
-            }));
+            onChangeDraft((d) => applyStagePresetToAreaDraft(d, item));
             onBumpPresetNonce();
           }}
           style={{

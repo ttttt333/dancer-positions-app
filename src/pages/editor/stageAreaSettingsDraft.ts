@@ -23,6 +23,12 @@ import {
   createDefaultCenterMark,
   normalizeStageCenterMarks,
 } from "../../lib/stageCenterMarks";
+import {
+  stagePresetGuideSnapshot,
+  stagePresetHasGuideFields,
+  type StagePresetDimensions,
+  type StagePresetItem,
+} from "../../lib/stagePresets";
 
 export type StageAreaMeterCmDraft = { m: string; cm: string };
 
@@ -310,4 +316,63 @@ export function ensureCenterMarksWhenVisible(
   if (!visible) return [...marks];
   if (marks.length > 0) return [...marks];
   return [createDefaultCenterMark(50, 50, "ヘソ")];
+}
+
+/** 舞台設定ドラフトからプリセット保存用ペイロードを作る（寸法＋ヘソ＋そで幕） */
+export function stagePresetPayloadFromAreaDraft(
+  draft: StageAreaSettingsDraft
+): StagePresetDimensions {
+  const curtains = draft.stageSleeves.map(sleeveDraftToCurtain);
+  const guides = stagePresetGuideSnapshot({
+    stageHesoVisible: draft.stageHesoVisible,
+    stageCenterMarks: draft.stageHesoVisible
+      ? ensureCenterMarksWhenVisible(true, draft.stageCenterMarks)
+      : draft.stageCenterMarks,
+    stageSleeveCurtains: curtains,
+  });
+  return {
+    stageWidthMm: parseMeterCmDraftToMm(draft.width),
+    stageDepthMm: parseMeterCmDraftToMm(draft.depth),
+    sideStageMm: parseMeterCmDraftToMm(draft.side),
+    backStageMm: parseMeterCmDraftToMm(draft.back),
+    centerFieldGuideIntervalMm: clampGuideIntervalToWidth(
+      parseMeterCmDraftToMm(draft.width),
+      parseMeterCmDraftToMm(draft.guide)
+    ),
+    ...guides,
+  };
+}
+
+/**
+ * プリセットをドラフトへ適用。
+ * 旧プリセット（ガイド未収録）は寸法だけ更新し、ヘソ／幕は現状維持。
+ */
+export function applyStagePresetToAreaDraft(
+  draft: StageAreaSettingsDraft,
+  item: StagePresetItem
+): StageAreaSettingsDraft {
+  const next: StageAreaSettingsDraft = {
+    ...draft,
+    width: mmToMeterCmDraft(item.stageWidthMm),
+    depth: mmToMeterCmDraft(item.stageDepthMm),
+    side: mmToMeterCmDraft(item.sideStageMm),
+    back: mmToMeterCmDraft(item.backStageMm),
+    guide: mmToMeterCmDraft(item.centerFieldGuideIntervalMm),
+  };
+  if (!stagePresetHasGuideFields(item)) return next;
+
+  const hesoVisible = item.stageHesoVisible === true;
+  const marks = normalizeStageCenterMarks(item.stageCenterMarks, {
+    seedCenterIfEmpty: hesoVisible,
+  });
+  const curtains = normalizeStageSleeveCurtains(
+    item.stageSleeveCurtains,
+    undefined
+  );
+  return {
+    ...next,
+    stageHesoVisible: hesoVisible,
+    stageCenterMarks: marks,
+    stageSleeves: curtains.map(sleeveToDraft),
+  };
 }
