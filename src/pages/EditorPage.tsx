@@ -108,6 +108,7 @@ import {
 import { pickSpotForAppendedDancer } from "../lib/dancerAppendPlacement";
 import {
   buildCrewFromRows,
+  ROSTER_NAME_IMPORT_MODE_OPTIONS,
   type RosterNameImportMode,
 } from "../lib/crewCsvImport";
 import { appendCrewAndPlaceOnStage } from "../lib/rosterPlaceOnStage";
@@ -439,7 +440,7 @@ function EditorPageContent({
     notice?: string;
   } | null>(null);
   const [rosterImportNameMode, setRosterImportNameMode] =
-    useState<RosterNameImportMode>("full");
+    useState<RosterNameImportMode>("kanji_full");
   /** 名簿取り込み確認ダイアログ: ファイル以外に手入力で追加するメンバー（各行が 1 名） */
   const [rosterImportExtraNames, setRosterImportExtraNames] = useState<string[]>(
     []
@@ -1910,7 +1911,7 @@ function EditorPageContent({
         const result = await parseRosterFile(f);
         const defaultName =
           result.baseName || `名簿 ${(project.crews?.length ?? 0) + 1}`;
-        setRosterImportNameMode("full");
+        setRosterImportNameMode("kanji_full");
         setRosterImportExtraNames([]);
         setRosterImportDraft({
           rows: result.rows,
@@ -2243,7 +2244,7 @@ function EditorPageContent({
         <EditorSideSheet
           open
           zIndex={60}
-          width="min(320px, 90vw)"
+          width="min(360px, 92vw)"
           onClose={() => {
             setRosterImportDraft(null);
             setRosterImportExtraNames([]);
@@ -2258,65 +2259,40 @@ function EditorPageContent({
               名簿を取り込みます
             </div>
             <p style={{ margin: "0 0 10px", fontSize: "11px", color: "#94a3b8", lineHeight: 1.45, wordBreak: "break-all" }}>
-              ステージ表示は最大8文字。同名の場合は苗字の頭1文字を自動付加。「出欠」列があれば参加行のみ取込。フリガナ列があれば下の設定で表示名を選択できます。
+              ステージ表示は最大8文字。同名の場合は苗字の頭1文字を自動付加。「出欠」列があれば参加行のみ取込。ひらがな表示にはフリガナ列（またはひらがなの氏名）が必要です。無いときは漢字にフォールバックします。
             </p>
             <div style={{ fontSize: "11px", fontWeight: 600, color: "#cbd5e1", marginBottom: "6px" }}>
               表示名の取り込み方
             </div>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                marginBottom: "6px",
-                cursor: "pointer",
-                fontSize: "12px",
-              }}
-            >
-              <input
-                type="radio"
-                name="roster-import-name-mode"
-                checked={rosterImportNameMode === "full"}
-                onChange={() => setRosterImportNameMode("full")}
-              />
-              <span><strong>フルネーム</strong><span style={{ color: "#64748b", marginLeft: 4 }}>（姓＋名）</span></span>
-            </label>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                marginBottom: "6px",
-                cursor: "pointer",
-                fontSize: "12px",
-              }}
-            >
-              <input
-                type="radio"
-                name="roster-import-name-mode"
-                checked={rosterImportNameMode === "family_only"}
-                onChange={() => setRosterImportNameMode("family_only")}
-              />
-              <span><strong>苗字だけ</strong><span style={{ color: "#64748b", marginLeft: 4 }}>（姓のみ）</span></span>
-            </label>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                marginBottom: "12px",
-                cursor: "pointer",
-                fontSize: "12px",
-              }}
-            >
-              <input
-                type="radio"
-                name="roster-import-name-mode"
-                checked={rosterImportNameMode === "given_only"}
-                onChange={() => setRosterImportNameMode("given_only")}
-              />
-              <span><strong>名前だけ</strong><span style={{ color: "#64748b", marginLeft: 4 }}>（名のみ）</span></span>
-            </label>
+            {ROSTER_NAME_IMPORT_MODE_OPTIONS.map((opt, idx) => (
+              <label
+                key={opt.value}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  marginBottom:
+                    idx === ROSTER_NAME_IMPORT_MODE_OPTIONS.length - 1
+                      ? "12px"
+                      : "6px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="roster-import-name-mode"
+                  checked={rosterImportNameMode === opt.value}
+                  onChange={() => setRosterImportNameMode(opt.value)}
+                />
+                <span>
+                  <strong>{opt.label}</strong>
+                  <span style={{ color: "#64748b", marginLeft: 4 }}>
+                    （{opt.hint}）
+                  </span>
+                </span>
+              </label>
+            ))}
             <div
               style={{
                 marginBottom: "12px",

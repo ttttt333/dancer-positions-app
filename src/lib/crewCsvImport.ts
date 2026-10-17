@@ -185,8 +185,64 @@ const READING_FIRST_HEADER_KEYS = [
 
 const MEMBER_LABEL_MAX = 8;
 
-/** 名簿取り込み時の表示名の作り方 */
-export type RosterNameImportMode = "full" | "given_only" | "family_only";
+/**
+ * 名簿取り込み時の表示名の作り方（正本）。
+ * ひらがな系はフリガナ列、または氏名セルがすでにかなのときに使う。
+ */
+export type RosterNameImportModeCanonical =
+  | "kanji_full"
+  | "kanji_family"
+  | "kanji_given"
+  | "hiragana_full"
+  | "hiragana_family"
+  | "hiragana_given";
+
+/** 旧 3 択も含む（写真ヒント等の後方互換） */
+export type RosterNameImportMode =
+  | RosterNameImportModeCanonical
+  | "full"
+  | "given_only"
+  | "family_only";
+
+export const ROSTER_NAME_IMPORT_MODE_OPTIONS: {
+  value: RosterNameImportModeCanonical;
+  label: string;
+  hint: string;
+}[] = [
+  { value: "kanji_full", label: "漢字でフルネーム", hint: "姓＋名（漢字）" },
+  { value: "kanji_family", label: "漢字の名字のみ", hint: "姓のみ" },
+  { value: "kanji_given", label: "漢字の名前のみ", hint: "名のみ" },
+  {
+    value: "hiragana_full",
+    label: "ひらがなのフルネーム",
+    hint: "みょうじ＋なまえ（読み）",
+  },
+  { value: "hiragana_family", label: "みょうじのみ", hint: "苗字の読み" },
+  { value: "hiragana_given", label: "なまえのみ", hint: "名の読み" },
+];
+
+/** 旧モード・未指定を正本の 6 択へ寄せる */
+export function canonicalizeRosterNameImportMode(
+  mode: RosterNameImportMode | undefined
+): RosterNameImportModeCanonical {
+  switch (mode) {
+    case "family_only":
+      return "kanji_family";
+    case "given_only":
+      return "kanji_given";
+    case "full":
+      return "kanji_full";
+    case "kanji_full":
+    case "kanji_family":
+    case "kanji_given":
+    case "hiragana_full":
+    case "hiragana_family":
+    case "hiragana_given":
+      return mode;
+    default:
+      return "kanji_full";
+  }
+}
 
 export type CrewImportOptions = {
   nameMode?: RosterNameImportMode;
@@ -543,89 +599,164 @@ function rowToParsedName(
   };
 }
 
+/** セルがほぼかな（ひらがな／カタカナ）か */
+function looksLikeKanaName(s: string): boolean {
+  const t = s.trim();
+  if (!t) return false;
+  if (!/[\u3040-\u309f\u30a0-\u30ff]/u.test(t)) return false;
+  return /^[\u3040-\u309f\u30a0-\u30ffー\s\u3000]+$/u.test(t);
+}
+
+function kanjiFamilyOf(p: ParsedNameRow): string {
+  const fam = p.familyRaw.trim();
+  const gvn = p.givenRaw.trim();
+  if (fam && gvn) return fam;
+  return guessFamilyFromFullCell(p.fullRaw) || p.fullRaw.trim();
+}
+
+function kanjiGivenOf(p: ParsedNameRow): string {
+  const fam = p.familyRaw.trim();
+  const gvn = p.givenRaw.trim();
+  if (fam && gvn) return gvn;
+  return guessGivenFromFullCell(p.fullRaw) || p.fullRaw.trim();
+}
+
+function kanjiFullOf(p: ParsedNameRow): string {
+  const fam = p.familyRaw.trim();
+  const gvn = p.givenRaw.trim();
+  if (fam && gvn) return `${fam}${gvn}`;
+  return p.fullRaw.trim();
+}
+
+function hiraganaFamilyOf(p: ParsedNameRow): string {
+  const r = p.familyReading.trim();
+  if (r) return r;
+  const fam = kanjiFamilyOf(p);
+  if (looksLikeKanaName(fam)) return kanaToHiragana(fam);
+  if (looksLikeKanaName(p.fullRaw)) {
+    return (
+      splitReadingFamilyGiven(kanaToHiragana(p.fullRaw)).familyReading ||
+      kanaToHiragana(p.fullRaw)
+    );
+  }
+  return fam;
+}
+
+function hiraganaGivenOf(p: ParsedNameRow): string {
+  const r = p.givenReading.trim();
+  if (r) return r;
+  const gvn = kanjiGivenOf(p);
+  if (looksLikeKanaName(gvn)) return kanaToHiragana(gvn);
+  if (looksLikeKanaName(p.fullRaw)) {
+    return (
+      splitReadingFamilyGiven(kanaToHiragana(p.fullRaw)).givenReading ||
+      kanaToHiragana(p.fullRaw)
+    );
+  }
+  return gvn;
+}
+
+function hiraganaFullOf(p: ParsedNameRow): string {
+  const famR = p.familyReading.trim();
+  const gvnR = p.givenReading.trim();
+  if (famR && gvnR) return `${famR}${gvnR}`;
+  if (famR || gvnR) return `${famR}${gvnR}`;
+  if (looksLikeKanaName(p.fullRaw)) return kanaToHiragana(p.fullRaw);
+  return kanjiFullOf(p);
+}
+
+function baseLabelForMode(
+  p: ParsedNameRow,
+  mode: RosterNameImportModeCanonical
+): string {
+  switch (mode) {
+    case "kanji_full":
+      return kanjiFullOf(p);
+    case "kanji_family":
+      return kanjiFamilyOf(p);
+    case "kanji_given":
+      return kanjiGivenOf(p);
+    case "hiragana_full":
+      return hiraganaFullOf(p);
+    case "hiragana_family":
+      return hiraganaFamilyOf(p);
+    case "hiragana_given":
+      return hiraganaGivenOf(p);
+  }
+}
+
+/** 同名区別用の前置候補。表示スクリプトに合わせて漢字／読みを優先する */
+function duplicatePrefixSource(
+  p: ParsedNameRow,
+  mode: RosterNameImportModeCanonical
+): string {
+  const preferHira = mode.startsWith("hiragana_");
+  if (mode === "kanji_given" || mode === "hiragana_given") {
+    if (preferHira) {
+      return (
+        p.familyReading.trim() ||
+        hiraganaFamilyOf(p) ||
+        p.familyRaw.trim() ||
+        guessFamilyFromFullCell(p.fullRaw) ||
+        p.fullRaw
+      );
+    }
+    return (
+      p.familyRaw.trim() ||
+      guessFamilyFromFullCell(p.fullRaw) ||
+      p.familyReading.trim() ||
+      p.fullRaw
+    );
+  }
+  if (mode === "kanji_family" || mode === "hiragana_family") {
+    if (preferHira) {
+      return (
+        p.givenReading.trim() ||
+        hiraganaGivenOf(p) ||
+        (p.familyRaw.trim() && p.givenRaw.trim() ? p.givenRaw.trim() : "") ||
+        guessGivenFromFullCell(p.fullRaw)
+      );
+    }
+    return (
+      (p.familyRaw.trim() && p.givenRaw.trim() ? p.givenRaw.trim() : "") ||
+      guessGivenFromFullCell(p.fullRaw) ||
+      p.givenReading.trim()
+    );
+  }
+  if (preferHira) {
+    return (
+      p.familyReading.trim() ||
+      hiraganaFamilyOf(p) ||
+      p.familyRaw.trim() ||
+      guessFamilyFromFullCell(p.fullRaw) ||
+      p.fullRaw
+    );
+  }
+  return (
+    p.familyRaw.trim() ||
+    guessFamilyFromFullCell(p.fullRaw) ||
+    p.familyReading.trim() ||
+    p.fullRaw
+  );
+}
+
 function buildLabelsWithDuplicateHandling(
   parsed: ParsedNameRow[],
   nameMode: RosterNameImportMode
 ): { label: string; labelPrefix?: string; colorIndex: number }[] {
+  const mode = canonicalizeRosterNameImportMode(nameMode);
   type Item = {
     base: string;
     prefix: string;
-    /** true: 重複でなくても苗字頭を付ける（フルネーム＋姓名読み） */
-    forcePrefix: boolean;
     colorIndex: number;
     order: number;
   };
   const items: Item[] = parsed.map((p, order) => {
-    const famR = p.familyReading.trim();
-    const gvnR = p.givenReading.trim();
-    const famK = p.familyRaw.trim();
-    const gvnK = p.givenRaw.trim();
-
-    if (famR && gvnR) {
-      if (nameMode === "full") {
-        return {
-          base: sliceLabel(gvnR),
-          prefix: firstGrapheme(famR),
-          forcePrefix: true,
-          colorIndex: p.colorIndex,
-          order,
-        };
-      }
-      if (nameMode === "family_only") {
-        const raw = famK || famR;
-        return {
-          base: sliceLabel(raw),
-          prefix: "",
-          forcePrefix: false,
-          colorIndex: p.colorIndex,
-          order,
-        };
-      }
-      const raw = gvnK || gvnR;
-      return {
-        base: sliceLabel(raw),
-        prefix: firstGrapheme(famR),
-        forcePrefix: false,
-        colorIndex: p.colorIndex,
-        order,
-      };
-    }
-
-    let baseRaw: string;
-    if (p.givenReading.trim()) {
-      baseRaw =
-        nameMode === "family_only"
-          ? famK || guessFamilyFromFullCell(p.fullRaw) || p.fullRaw.trim()
-          : p.givenReading.trim();
-    } else {
-      const givenDisplay =
-        famK && gvnK
-          ? gvnK
-          : nameMode === "given_only"
-            ? guessGivenFromFullCell(p.fullRaw)
-            : p.fullRaw;
-      if (nameMode === "full") {
-        baseRaw = p.fullRaw.trim();
-      } else if (nameMode === "family_only") {
-        baseRaw =
-          famK && gvnK
-            ? famK
-            : guessFamilyFromFullCell(p.fullRaw) || p.fullRaw.trim();
-      } else {
-        baseRaw = givenDisplay.trim() || p.fullRaw.trim();
-      }
-    }
-    const base = sliceLabel(baseRaw);
-    const prefixSource = p.familyReading.trim()
-      ? p.familyReading
-      : p.familyRaw.trim()
-        ? p.familyRaw
-        : p.fullRaw;
-    const prefix = firstGrapheme(prefixSource) || "";
+    const base = sliceLabel(baseLabelForMode(p, mode));
+    const prefix = firstGrapheme(duplicatePrefixSource(p, mode)) || "";
     return {
       base,
       prefix,
-      forcePrefix: false,
       colorIndex: p.colorIndex,
       order,
     };
@@ -647,12 +778,12 @@ function buildLabelsWithDuplicateHandling(
   for (const [, group] of groups) {
     group.sort((a, b) => a.order - b.order);
     const usedLocal = new Set<string>();
-    /** 同一 base が 2 人以上いるときは、全員に苗字（読み）先頭 1 文字を付けて区別する（1 人目だけ素の名、はやめる） */
+    /** 同一 base が 2 人以上いるときは、全員に前置文字を付けて区別する */
     const duplicateBase = group.length > 1;
 
     for (const it of group) {
       let pfx = it.prefix;
-      const wantPrefix = Boolean(pfx) && (duplicateBase || it.forcePrefix);
+      const wantPrefix = Boolean(pfx) && duplicateBase;
       let candidate: string;
       let usedPrefix = "";
       if (wantPrefix && pfx) {
@@ -665,14 +796,14 @@ function buildLabelsWithDuplicateHandling(
       let extra = 0;
       while (usedLocal.has(candidate) || usedGlobal.has(candidate)) {
         extra += 1;
-        const famR = parsed[it.order]?.familyReading.trim() ?? "";
-        const fam = parsed[it.order]?.familyRaw.trim() ?? "";
-        if (famR.length > extra) {
-          pfx = famR.slice(0, extra + 1);
-        } else if (fam.length > extra) {
-          pfx = fam.slice(0, extra + 1);
+        const src = duplicatePrefixSource(
+          parsed[it.order]!,
+          mode
+        );
+        if (src.length > extra) {
+          pfx = src.slice(0, extra + 1);
         } else {
-          pfx = `${it.prefix}${extra}`;
+          pfx = `${it.prefix || firstGrapheme(src) || "名"}${extra}`;
         }
         candidate = sliceLabel(`${pfx}${it.base}`);
         usedPrefix = pfx;
@@ -722,11 +853,10 @@ function smartSplitFallback(text: string): string[][] {
 
 /**
  * 行データから名簿メンバーを生成する。
- * - `full`: 姓＋名または氏名列のフル表記をそのまま短縮表示（フリガナが姓・名で分かるときは従来どおり短い読み表記）
- * - `given_only`: 「名」列があればそれのみ。単一列のときは先頭漢字を除く簡易推定やスペース区切りの末尾を使用
- * - `family_only`: 「姓」列があればそれのみ。単一列のときは先頭漢字ブロックやスペース区切りの先頭を使用
- * - 同一表示名が複数あるときは、該当する全員に苗字の先頭 1 文字を前置（読み苗字があればその先頭、なければ漢字姓）
- * - フリガナ列があるときは名の読みを表示のベースにする（例: たけし が重複 → さたけし / なたけし）
+ * - `kanji_full` / `kanji_family` / `kanji_given`: 漢字（または氏名セル）から表示
+ * - `hiragana_full` / `hiragana_family` / `hiragana_given`: フリガナ列（なければかな氏名）から表示。無いときは漢字にフォールバック
+ * - 旧 `full` / `family_only` / `given_only` はそれぞれ漢字系に読み替える
+ * - 同一表示名が複数あるときは、該当する全員に苗字（など）の先頭を前置して区別
  * - 出欠は見出し列に加え、氏名列の左右隣が ○・参加 等の列なら自動で参加行のみ抽出
  */
 export function rowsToCrewMembers(
@@ -797,7 +927,7 @@ export function rowsToCrewMembers(
     }
   }
 
-  const nameMode = opts?.nameMode ?? "full";
+  const nameMode = opts?.nameMode ?? "kanji_full";
   const parsed: ParsedNameRow[] = [];
   let memberCounter = 0;
   let excludedByAttendance = 0;
@@ -888,9 +1018,9 @@ export function rowsToCrewMembers(
   return members;
 }
 
-/** 後方互換: フルネーム既定（旧 `dedupeRowsToMembers` と同じ） */
+/** 後方互換: 漢字フルネーム既定（旧 `dedupeRowsToMembers` と同じ） */
 export function dedupeRowsToMembers(rows: string[][]): CrewMember[] {
-  return rowsToCrewMembers(rows, { nameMode: "full" });
+  return rowsToCrewMembers(rows, { nameMode: "kanji_full" });
 }
 
 /** CSV / TSV テキストから名簿メンバー配列を作る（ヘッダ自動検出） */
