@@ -47,6 +47,16 @@ import {
 import { EditorSideSheet } from "./EditorSideSheet";
 import { useFormationPresetFavorites } from "../hooks/useFormationPresetFavorites";
 import { filterPresetItemsByFavorites } from "../lib/formationPresetFavorites";
+import {
+  dancersFromFormationBoxItem,
+  FORMATION_BOX_CHANGE_EVENT,
+  listFormationBoxItems,
+  mergeFormationBoxSnapshotWithStageIdentities,
+  type FormationBoxItem,
+} from "../lib/formationBox";
+import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
+
+type PickerSourceTab = "preset" | "box";
 
 type Props = {
   open: boolean;
@@ -230,6 +240,10 @@ export function FormationPresetPickerSheet({
   const [selectedPresetId, setSelectedPresetId] = useState<LayoutPresetId | null>(
     null
   );
+  const [sourceTab, setSourceTab] = useState<PickerSourceTab>("preset");
+  const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
+  const [boxRev, setBoxRev] = useState(0);
+  const [showAllBoxCounts, setShowAllBoxCounts] = useState(false);
   const [showAllTiers, setShowAllTiers] = useState(false);
   /** true = 定番の提案のみ（BASIC タブ）。初期は全カテゴリ表示 */
   const [basicTab, setBasicTab] = useState(false);
@@ -282,8 +296,50 @@ export function FormationPresetPickerSheet({
     []
   );
 
+  useEffect(() => {
+    if (!open) return;
+    const onBoxChanged = () => setBoxRev((n) => n + 1);
+    window.addEventListener(FORMATION_BOX_CHANGE_EVENT, onBoxChanged);
+    return () =>
+      window.removeEventListener(FORMATION_BOX_CHANGE_EVENT, onBoxChanged);
+  }, [open]);
+
+  const allBoxItems = useMemo(
+    () => listFormationBoxItems(),
+    [boxRev, open]
+  );
+
+  /** 現在人数に合う保存形を優先。無ければ全件（空にしない） */
+  const boxItems = useMemo((): FormationBoxItem[] => {
+    if (showAllBoxCounts) return allBoxItems;
+    const matched = allBoxItems.filter((it) => it.dancerCount === count);
+    return matched.length > 0 ? matched : allBoxItems;
+  }, [allBoxItems, showAllBoxCounts, count]);
+
+  const selectedBoxItem = useMemo(
+    () =>
+      selectedBoxId
+        ? allBoxItems.find((b) => b.id === selectedBoxId) ?? null
+        : null,
+    [allBoxItems, selectedBoxId]
+  );
+
   const previewDancers = useMemo(() => {
-    if (!selectedPresetId || !targetFormation) return null;
+    if (!targetFormation) return null;
+    if (sourceTab === "box") {
+      if (!selectedBoxItem) return null;
+      const restored = dancersFromFormationBoxItem(selectedBoxItem);
+      const stage =
+        nearestMatchSource.length > 0
+          ? nearestMatchSource
+          : targetFormation.dancers;
+      return mergeFormationBoxSnapshotWithStageIdentities(
+        restored,
+        stage,
+        selectedBoxItem
+      );
+    }
+    if (!selectedPresetId) return null;
     return applyLayoutPresetToTargetDancers(
       targetFormation.dancers,
       targetIds,
@@ -295,6 +351,8 @@ export function FormationPresetPickerSheet({
     targetFormation,
     targetIds,
     selectedPresetId,
+    selectedBoxItem,
+    sourceTab,
     spacingOpts,
     nearestMatchSource,
   ]);
@@ -304,24 +362,40 @@ export function FormationPresetPickerSheet({
     onClose();
   }, [onClose, onStagePreviewChange]);
 
+  const selectSourceTab = useCallback((tab: PickerSourceTab) => {
+    setSourceTab(tab);
+    if (tab === "preset") {
+      setSelectedBoxId(null);
+    } else {
+      setSelectedPresetId(null);
+    }
+  }, []);
+
   useEffect(() => {
     if (open && !wasOpenRef.current) {
       setShowAllTiers(false);
       setFavoritesOnly(false);
       setBasicTab(false);
       setSelectedPresetId(null);
+      setSelectedBoxId(null);
+      setSourceTab("preset");
+      setShowAllBoxCounts(false);
+      setBoxRev((n) => n + 1);
     }
     wasOpenRef.current = open;
     if (!open) {
       setSelectedPresetId(null);
+      setSelectedBoxId(null);
+      setSourceTab("preset");
       setShowAllTiers(false);
       setFavoritesOnly(false);
       setBasicTab(false);
+      setShowAllBoxCounts(false);
     }
   }, [open, setFavoritesOnly]);
 
   useEffect(() => {
-    if (!open || !selectedPresetId) return;
+    if (!open || sourceTab !== "preset" || !selectedPresetId) return;
     const maxTier = showAllTiers ? 3 : DEFAULT_UI_PRESET_MAX_TIER;
     const stillVisible = visiblePresetCategories.some((cat) =>
       cat.items.some((item) => item.id === selectedPresetId)
@@ -338,6 +412,7 @@ export function FormationPresetPickerSheet({
     selectedPresetId,
     visiblePresetCategories,
     basicTab,
+    sourceTab,
   ]);
 
   useEffect(() => {
@@ -359,7 +434,18 @@ export function FormationPresetPickerSheet({
   }, [open, closeAndCleanup]);
 
   const apply = useCallback(() => {
-    if (!targetFormation || !selectedPresetId || !previewDancers) return;
+    const canApplyPreset = sourceTab === "preset" && selectedPresetId;
+    const canApplyBox = sourceTab === "box" && selectedBoxItem;
+    if (!targetFormation || !previewDancers || (!canApplyPreset && !canApplyBox))
+      return;
+    const dancersToWrite =
+      sourceTab === "box" && selectedBoxItem
+        ? mergeFormationBoxSnapshotWithStageIdentities(
+            previewDancers,
+            targetFormation.dancers,
+            selectedBoxItem
+          )
+        : previewDancers;
     if (createCueAtPlayhead) {
       const newCueId = crypto.randomUUID();
       const build = (p: ChoreographyProjectJson): ChoreographyProjectJson | null => {
@@ -368,8 +454,8 @@ export function FormationPresetPickerSheet({
         if (!src) return null;
         const newFm = {
           ...cloneFormationForNewCue(src),
-          dancers: previewDancers.map((d) => ({ ...d })),
-          confirmedDancerCount: previewDancers.length,
+          dancers: dancersToWrite.map((d) => ({ ...d })),
+          confirmedDancerCount: dancersToWrite.length,
         };
         const trimLo = p.trimStartSec;
         const trimHi = trimHiSecForCueTimeline(
@@ -415,8 +501,8 @@ export function FormationPresetPickerSheet({
         f.id === targetFormation.id
           ? {
               ...f,
-              dancers: previewDancers,
-              confirmedDancerCount: previewDancers.length,
+              dancers: dancersToWrite,
+              confirmedDancerCount: dancersToWrite.length,
             }
           : f
       ),
@@ -425,6 +511,8 @@ export function FormationPresetPickerSheet({
   }, [
     targetFormation,
     selectedPresetId,
+    selectedBoxItem,
+    sourceTab,
     previewDancers,
     setProject,
     closeAndCleanup,
@@ -445,7 +533,11 @@ export function FormationPresetPickerSheet({
   const untouchedCount = (targetFormation?.dancers.length ?? 0) - targetIds.length;
   const subtitle = noTarget
     ? "適用先のフォーメーションがありません"
-    : createCueAtPlayhead
+    : sourceTab === "box"
+      ? selectedBoxItem
+        ? `保存「${selectedBoxItem.name || `${selectedBoxItem.dancerCount}人`}」を適用（${selectedBoxItem.dancerCount} 人）`
+        : `保存した立ち位置から選ぶ（いま ${count} 人）`
+      : createCueAtPlayhead
       ? `再生位置 ${formatMmSsFloor(playheadSec)} に新しいキューとして追加（${
           targetFormation?.dancers.length ?? count
         } 人）`
@@ -458,30 +550,97 @@ export function FormationPresetPickerSheet({
   /** スマホ全画面: フッター固定。PC: ヘッダー下 sticky */
   const actionsDocked = portraitFullscreen || landscapeHorizontal;
 
-  const filterControls = (
-    <>
+  const sourceTabControls = (
+    <div
+      role="tablist"
+      aria-label="雛形または保存した立ち位置"
+      style={{ display: "flex", gap: 4, flexShrink: 0 }}
+    >
       <button
         type="button"
-        onClick={() => setBasicTab((v) => !v)}
-        aria-pressed={basicTab}
-        title={basicTab ? "すべての雛形カテゴリを表示" : "定番の提案だけを表示"}
+        role="tab"
+        aria-selected={sourceTab === "preset"}
+        onClick={() => selectSourceTab("preset")}
         style={{
-          ...basicTabBtnStyle,
-          ...(basicTab ? basicTabBtnActiveStyle : null),
-          flexShrink: 0,
+          ...sourceTabBtnStyle,
+          ...(sourceTab === "preset" ? sourceTabBtnActiveStyle : null),
         }}
       >
-        BASIC
+        雛形
       </button>
-      <FormationPresetFavoritesFilter
-        active={favoritesOnly}
-        onToggle={toggleFavoritesOnly}
-        count={favoriteCount}
-      />
+      <button
+        type="button"
+        role="tab"
+        aria-selected={sourceTab === "box"}
+        onClick={() => selectSourceTab("box")}
+        title="立ち位置保存で入れた形の箱から選ぶ"
+        style={{
+          ...sourceTabBtnStyle,
+          ...(sourceTab === "box" ? sourceTabBtnActiveStyle : null),
+        }}
+      >
+        保存
+        {allBoxItems.length > 0 ? (
+          <span style={{ opacity: 0.75, fontWeight: 600 }}>
+            {" "}
+            {allBoxItems.length}
+          </span>
+        ) : null}
+      </button>
+    </div>
+  );
+
+  const filterControls = (
+    <>
+      {sourceTabControls}
+      {sourceTab === "preset" ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setBasicTab((v) => !v)}
+            aria-pressed={basicTab}
+            title={
+              basicTab ? "すべての雛形カテゴリを表示" : "定番の提案だけを表示"
+            }
+            style={{
+              ...basicTabBtnStyle,
+              ...(basicTab ? basicTabBtnActiveStyle : null),
+              flexShrink: 0,
+            }}
+          >
+            BASIC
+          </button>
+          <FormationPresetFavoritesFilter
+            active={favoritesOnly}
+            onToggle={toggleFavoritesOnly}
+            count={favoriteCount}
+          />
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowAllBoxCounts((v) => !v)}
+          aria-pressed={showAllBoxCounts}
+          title={
+            showAllBoxCounts
+              ? `${count}人の保存だけ表示`
+              : "人数を問わずすべての保存を表示"
+          }
+          style={{
+            ...basicTabBtnStyle,
+            ...(showAllBoxCounts ? basicTabBtnActiveStyle : null),
+            flexShrink: 0,
+          }}
+        >
+          {showAllBoxCounts ? "全員数" : `${count}人`}
+        </button>
+      )}
     </>
   );
 
-  const applyDisabled = noTarget || !selectedPresetId;
+  const applyDisabled =
+    noTarget ||
+    (sourceTab === "preset" ? !selectedPresetId : !selectedBoxItem);
 
   const footerActions = (
     <div
@@ -530,18 +689,130 @@ export function FormationPresetPickerSheet({
     <div className="formation-preset-picker-mobile-toolbar">
       {filterControls}
       <span style={{ flex: 1, minWidth: 4 }} aria-hidden />
-      <FormationPresetTierToggle
-        showAll={showAllTiers}
-        onToggle={() => setShowAllTiers((v) => !v)}
-        hiddenCount={hiddenTierCount}
-        style={{
-          flexShrink: 0,
-          visibility: basicTab ? "hidden" : "visible",
-          pointerEvents: basicTab ? "none" : "auto",
-        }}
-      />
+      {sourceTab === "preset" ? (
+        <FormationPresetTierToggle
+          showAll={showAllTiers}
+          onToggle={() => setShowAllTiers((v) => !v)}
+          hiddenCount={hiddenTierCount}
+          style={{
+            flexShrink: 0,
+            visibility: basicTab ? "hidden" : "visible",
+            pointerEvents: basicTab ? "none" : "auto",
+          }}
+        />
+      ) : null}
     </div>
   ) : null;
+
+  const emptyHintStyle: CSSProperties = {
+    padding: "24px 12px",
+    textAlign: "center",
+    color: "#64748b",
+    fontSize: 12,
+    lineHeight: 1.5,
+  };
+
+  const boxGrid = (
+    <div
+      className={
+        useBigGrid
+          ? "formation-preset-picker-sheet-body formation-preset-picker-sheet-body--portrait-full"
+          : "formation-preset-picker-sheet-body"
+      }
+      style={
+        useBigGrid
+          ? undefined
+          : {
+              flex: 1,
+              minHeight: 0,
+              overflowY: "auto",
+              padding: "12px 14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }
+      }
+    >
+      {allBoxItems.length === 0 ? (
+        <div style={emptyHintStyle}>
+          保存した立ち位置はまだありません。
+          <br />
+          ステージの「立ち位置保存」から形の箱へ入れてください。
+        </div>
+      ) : boxItems.length === 0 ? (
+        <div style={emptyHintStyle}>表示できる保存がありません。</div>
+      ) : (
+        <div className="formation-preset-picker-category">
+          <div
+            className="formation-preset-picker-category-heading"
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#94a3b8",
+              marginBottom: 8,
+            }}
+          >
+            形の箱
+            {!showAllBoxCounts &&
+            allBoxItems.some((b) => b.dancerCount === count)
+              ? `（${count}人）`
+              : `（全${allBoxItems.length}件）`}
+          </div>
+          <div
+            className={
+              useBigGrid
+                ? "add-cue-preset-grid formation-preset-picker-grid formation-preset-picker-grid--large"
+                : "add-cue-preset-grid formation-preset-picker-grid"
+            }
+          >
+            {boxItems.map((item) => {
+              const active = selectedBoxId === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="add-cue-preset-btn formation-preset-picker-preset-btn"
+                  disabled={noTarget}
+                  onClick={() => setSelectedBoxId(item.id)}
+                  title={`${item.name || "無題"}（${item.dancerCount}人）`}
+                  style={{
+                    ...presetBtnStyle,
+                    position: "relative",
+                    border: active ? "2px solid #d4af37" : presetBtnStyle.border,
+                    background: active
+                      ? "rgba(212,175,55,0.15)"
+                      : presetBtnStyle.background,
+                    boxShadow: active
+                      ? "0 0 0 1px rgba(212,175,55,0.35)"
+                      : "none",
+                    opacity: noTarget ? 0.45 : 1,
+                    cursor: noTarget ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <FormationBoxItemThumb
+                    item={item}
+                    width={useBigGrid ? 72 : 44}
+                  />
+                  <span className="add-cue-preset-label formation-preset-picker-preset-label">
+                    {item.name || `${item.dancerCount}人`}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 9,
+                      color: "#64748b",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {item.dancerCount}人
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const presetGrid = (
     <div
@@ -565,15 +836,7 @@ export function FormationPresetPickerSheet({
       }
     >
       {visiblePresetCategories.length === 0 ? (
-        <div
-          style={{
-            padding: "24px 12px",
-            textAlign: "center",
-            color: "#64748b",
-            fontSize: 12,
-            lineHeight: 1.5,
-          }}
-        >
+        <div style={emptyHintStyle}>
           {favoritesOnly
             ? "お気に入りの雛形がありません。☆を押して追加できます。"
             : basicTab
@@ -654,6 +917,9 @@ export function FormationPresetPickerSheet({
     </div>
   );
 
+  const pickerTitle =
+    sourceTab === "box" ? "保存した立ち位置" : "立ち位置の雛形";
+
   const sheetHeader = (
     <div className="formation-preset-picker-sheet-header">
       <div
@@ -665,10 +931,10 @@ export function FormationPresetPickerSheet({
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <h2 id="formation-preset-picker-title">立ち位置の雛形</h2>
+          <h2 id="formation-preset-picker-title">{pickerTitle}</h2>
           <p>{subtitle}</p>
         </div>
-        {actionsDocked ? null : (
+        {actionsDocked || sourceTab === "box" ? null : (
           <FormationPresetTierToggle
             showAll={showAllTiers}
             onToggle={() => setShowAllTiers((v) => !v)}
@@ -684,6 +950,8 @@ export function FormationPresetPickerSheet({
       </div>
     </div>
   );
+
+  const pickerBody = sourceTab === "box" ? boxGrid : presetGrid;
 
   if (!open) return null;
 
@@ -702,7 +970,7 @@ export function FormationPresetPickerSheet({
       >
         {sheetHeader}
         {mobileToolbar}
-        {presetGrid}
+        {pickerBody}
         {footerActions}
       </div>,
       document.body
@@ -720,7 +988,7 @@ export function FormationPresetPickerSheet({
       >
         {sheetHeader}
         {mobileToolbar}
-        {presetGrid}
+        {pickerBody}
         {footerActions}
       </div>,
       document.body
@@ -769,27 +1037,29 @@ export function FormationPresetPickerSheet({
                 id="formation-preset-picker-title"
                 style={{ margin: 0, fontSize: "15px", fontWeight: 700 }}
               >
-                立ち位置の雛形
+                {pickerTitle}
               </h2>
               <p style={{ margin: "6px 0 0", fontSize: "11px", color: "#94a3b8", lineHeight: 1.45 }}>
                 {subtitle}
               </p>
             </div>
-            <FormationPresetTierToggle
-              showAll={showAllTiers}
-              onToggle={() => setShowAllTiers((v) => !v)}
-              hiddenCount={hiddenTierCount}
-              style={{
-                flexShrink: 0,
-                marginTop: 2,
-                visibility: basicTab ? "hidden" : "visible",
-                pointerEvents: basicTab ? "none" : "auto",
-              }}
-            />
+            {sourceTab === "preset" ? (
+              <FormationPresetTierToggle
+                showAll={showAllTiers}
+                onToggle={() => setShowAllTiers((v) => !v)}
+                hiddenCount={hiddenTierCount}
+                style={{
+                  flexShrink: 0,
+                  marginTop: 2,
+                  visibility: basicTab ? "hidden" : "visible",
+                  pointerEvents: basicTab ? "none" : "auto",
+                }}
+              />
+            ) : null}
           </div>
         </div>
         {footerActions}
-        {presetGrid}
+        {pickerBody}
       </div>
     </EditorSideSheet>
   );
@@ -841,6 +1111,24 @@ const basicTabBtnStyle: CSSProperties = {
 };
 
 const basicTabBtnActiveStyle: CSSProperties = {
+  border: "1px solid #d4af37",
+  background: "rgba(212,175,55,0.22)",
+  color: "#fef3c7",
+};
+
+const sourceTabBtnStyle: CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: "8px",
+  border: "1px solid #334155",
+  background: "rgba(15,23,42,0.94)",
+  color: "#94a3b8",
+  fontSize: "11px",
+  fontWeight: 700,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const sourceTabBtnActiveStyle: CSSProperties = {
   border: "1px solid #d4af37",
   background: "rgba(212,175,55,0.22)",
   color: "#fef3c7",
