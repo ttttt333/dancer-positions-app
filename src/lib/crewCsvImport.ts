@@ -91,6 +91,25 @@ const SKILL_RANK_HEADER_KEYS = [
   "dancerank",
 ];
 
+const GENDER_HEADER_KEYS = [
+  "gender",
+  "sex",
+  "性別",
+  "せいべつ",
+  "genderlabel",
+];
+
+const NOTE_HEADER_KEYS = [
+  "note",
+  "notes",
+  "memo",
+  "comment",
+  "メモ",
+  "備考",
+  "コメント",
+  "备注",
+];
+
 /** 「ダンス」単独の部分一致は「ダンス部」等にかぶるため、複合語だけ列挙 */
 const SKILL_RANK_HEADER_COMPOUNDS = [
   "スキルランク",
@@ -276,6 +295,8 @@ type ParsedNameRow = {
   heightCm?: number;
   gradeLabel?: string;
   skillRankLabel?: string;
+  genderLabel?: string;
+  note?: string;
 };
 
 /** 身長セル（162 / 162.5 / 162cm 等）を cm に正規化 */
@@ -302,6 +323,8 @@ function parseHeaderRowIndices(headerNorm: string[]): {
   heightIdx: number;
   gradeIdx: number;
   skillRankIdx: number;
+  genderIdx: number;
+  noteIdx: number;
   looksLikeHeader: boolean;
 } {
   const looksLikeHeader = headerNorm.some(
@@ -316,6 +339,8 @@ function parseHeaderRowIndices(headerNorm: string[]): {
       READING_FIRST_HEADER_KEYS.includes(h) ||
       HEIGHT_HEADER_KEYS.includes(h) ||
       GRADE_HEADER_KEYS.includes(h) ||
+      GENDER_HEADER_KEYS.includes(h) ||
+      NOTE_HEADER_KEYS.includes(h) ||
       headerMatchesSkillRank(h)
   );
   let lastIdx = -1;
@@ -329,6 +354,8 @@ function parseHeaderRowIndices(headerNorm: string[]): {
   let heightIdx = -1;
   let gradeIdx = -1;
   let skillRankIdx = -1;
+  let genderIdx = -1;
+  let noteIdx = -1;
   if (looksLikeHeader) {
     lastIdx = headerNorm.findIndex((h) => LAST_NAME_HEADER_KEYS.includes(h));
     firstIdx = headerNorm.findIndex((h) => FIRST_NAME_HEADER_KEYS.includes(h));
@@ -349,6 +376,8 @@ function parseHeaderRowIndices(headerNorm: string[]): {
     heightIdx = headerNorm.findIndex((h) => HEIGHT_HEADER_KEYS.includes(h));
     gradeIdx = headerNorm.findIndex((h) => GRADE_HEADER_KEYS.includes(h));
     skillRankIdx = headerNorm.findIndex((h) => headerMatchesSkillRank(h));
+    genderIdx = headerNorm.findIndex((h) => GENDER_HEADER_KEYS.includes(h));
+    noteIdx = headerNorm.findIndex((h) => NOTE_HEADER_KEYS.includes(h));
   }
   return {
     lastIdx,
@@ -362,6 +391,8 @@ function parseHeaderRowIndices(headerNorm: string[]): {
     heightIdx,
     gradeIdx,
     skillRankIdx,
+    genderIdx,
+    noteIdx,
     looksLikeHeader,
   };
 }
@@ -717,6 +748,8 @@ export function rowsToCrewMembers(
     heightIdx,
     gradeIdx,
     skillRankIdx,
+    genderIdx,
+    noteIdx,
     looksLikeHeader,
   } = parseHeaderRowIndices(headerNorm);
 
@@ -743,6 +776,8 @@ export function rowsToCrewMembers(
       heightIdx,
       gradeIdx,
       skillRankIdx,
+      genderIdx,
+      noteIdx,
     ].filter((i) => i >= 0)
   );
   const nameColForAdjacent = nameIdx >= 0 ? nameIdx : fallbackNameCol;
@@ -808,6 +843,14 @@ export function rowsToCrewMembers(
       const s = (row[skillRankIdx] ?? "").trim().slice(0, 24);
       if (s) pr.skillRankLabel = s;
     }
+    if (genderIdx >= 0) {
+      const g = (row[genderIdx] ?? "").trim().slice(0, 32);
+      if (g) pr.genderLabel = g;
+    }
+    if (noteIdx >= 0) {
+      const n = (row[noteIdx] ?? "").trim().slice(0, 2000);
+      if (n) pr.note = n;
+    }
     memberCounter++;
     parsed.push(pr);
   }
@@ -834,6 +877,8 @@ export function rowsToCrewMembers(
     if (typeof pr.heightCm === "number") m.heightCm = pr.heightCm;
     if (pr.gradeLabel) m.gradeLabel = pr.gradeLabel;
     if (pr.skillRankLabel) m.skillRankLabel = pr.skillRankLabel;
+    if (pr.genderLabel) m.genderLabel = pr.genderLabel;
+    if (pr.note) m.note = pr.note;
     return m;
   });
   opts?.onAttendanceFiltered?.({

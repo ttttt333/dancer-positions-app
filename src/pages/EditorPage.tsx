@@ -1927,6 +1927,35 @@ function EditorPageContent({
     input.click();
   }, [project, setProjectSafe]);
 
+  const exportCrewRosterSpreadsheet = useCallback(() => {
+    if (!project || project.viewMode === "view") return;
+    const crews = project.crews ?? [];
+    if (!crews.some((c) => c.members.length > 0)) {
+      window.alert("書き出す名簿メンバーがいません。");
+      return;
+    }
+    const title =
+      project.pieceTitle?.trim() ||
+      crews.find((c) => c.members.length > 0)?.name ||
+      "名簿";
+    void (async () => {
+      try {
+        const { downloadRosterXlsx, downloadRosterCsv } = await import(
+          "../lib/crewCsvExport"
+        );
+        try {
+          await downloadRosterXlsx(crews, { pieceTitle: title });
+        } catch {
+          downloadRosterCsv(crews, { pieceTitle: title });
+        }
+      } catch (e) {
+        window.alert(
+          e instanceof Error ? e.message : "名簿の書き出しに失敗しました"
+        );
+      }
+    })();
+  }, [project]);
+
   const openSetPiecePicker = useCallback(() => {
     if (!project || project.viewMode === "view") return;
     const fid =
@@ -3049,6 +3078,7 @@ function EditorPageContent({
     setFlowLibraryOpen,
     addDancerFromStageToolbar,
     importCrewCsvFromStageToolbar,
+    exportCrewRosterSpreadsheet,
     stageView,
     setStageView,
     floorTextPlaceSession,
@@ -3149,6 +3179,7 @@ function EditorPageContent({
     getWavePeaksSnapshot,
     hasRosterMembers,
     importCrewCsvFromStageToolbar,
+    exportCrewRosterSpreadsheet,
     isPlaying,
     jumpToPagerSlot,
     historyOverlayEpoch,
