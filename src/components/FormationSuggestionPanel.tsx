@@ -7,13 +7,15 @@ import {
   type LayoutPresetId,
 } from "../lib/formationLayouts";
 import {
+  applyFormationBoxItemToStage,
   dancersFromFormationBoxItem,
   deleteFormationBoxItem,
+  FORMATION_BOX_APPLY_MODE_OPTIONS,
   listFormationBoxItems,
-  mergeFormationBoxSnapshotWithStageIdentities,
   renameFormationBoxItem,
   saveFormationToBox,
   updateFormationBoxItem,
+  type FormationBoxApplyMode,
   type FormationBoxItem,
 } from "../lib/formationBox";
 import { btnPrimary, btnSecondary } from "./stageButtonStyles";
@@ -77,6 +79,8 @@ export function FormationSuggestionPanel({
   );
   /** 箱からプレビュー中のアイテム id（現在ステージへの一時表示用） */
   const [pendingBoxItemId, setPendingBoxItemId] = useState<string | null>(null);
+  const [boxApplyMode, setBoxApplyMode] =
+    useState<FormationBoxApplyMode>("positions");
   /** 現在人数のみ表示するか、全件表示するか */
   const [boxShowAllCounts, setBoxShowAllCounts] = useState(false);
 
@@ -238,9 +242,18 @@ export function FormationSuggestionPanel({
       setPendingPreset(null);
       setPendingBoxItemId(item.id);
       setCount(item.dancerCount);
-      onStagePreviewChange?.(dancersFromFormationBoxItem(item));
+      const f0 = project.formations.find((x) => x.id === targetFormationId);
+      onStagePreviewChange?.(
+        applyFormationBoxItemToStage(item, f0?.dancers ?? [], boxApplyMode)
+      );
     },
-    [viewMode, onStagePreviewChange]
+    [
+      viewMode,
+      onStagePreviewChange,
+      project.formations,
+      targetFormationId,
+      boxApplyMode,
+    ]
   );
 
   /** 形の箱: プレビュー中のアイテムを現在のフォーメーションに反映 */
@@ -248,10 +261,10 @@ export function FormationSuggestionPanel({
     (item: FormationBoxItem) => {
       if (viewMode === "view") return;
       const f0 = project.formations.find((x) => x.id === targetFormationId);
-      const dancers = mergeFormationBoxSnapshotWithStageIdentities(
-        dancersFromFormationBoxItem(item),
+      const dancers = applyFormationBoxItemToStage(
+        item,
         f0?.dancers ?? [],
-        item
+        boxApplyMode
       );
       setProject((p) => ({
         ...p,
@@ -273,6 +286,7 @@ export function FormationSuggestionPanel({
       onStagePreviewChange,
       onAfterApply,
       project.formations,
+      boxApplyMode,
     ]
   );
 
@@ -547,6 +561,57 @@ export function FormationSuggestionPanel({
                 現在を保存
               </button>
             </div>
+          </div>
+          <div
+            role="radiogroup"
+            aria-label="保存データの引き継ぎ方"
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 6,
+              marginBottom: 8,
+            }}
+          >
+            {FORMATION_BOX_APPLY_MODE_OPTIONS.map((opt) => {
+              const active = boxApplyMode === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  title={opt.hint}
+                  onClick={() => {
+                    setBoxApplyMode(opt.value);
+                    if (pendingBoxItemId) {
+                      const item = boxItems.find((x) => x.id === pendingBoxItemId);
+                      if (item) {
+                        const f0 = project.formations.find(
+                          (x) => x.id === targetFormationId
+                        );
+                        onStagePreviewChange?.(
+                          applyFormationBoxItemToStage(
+                            item,
+                            f0?.dancers ?? [],
+                            opt.value
+                          )
+                        );
+                      }
+                    }
+                  }}
+                  style={{
+                    ...btnSecondary,
+                    padding: "3px 8px",
+                    fontSize: "11px",
+                    borderColor: active ? "#d4af37" : undefined,
+                    background: active ? "rgba(212,175,55,0.2)" : undefined,
+                    color: active ? "#fef3c7" : undefined,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
           {visibleBoxItems.length === 0 ? (
             <p

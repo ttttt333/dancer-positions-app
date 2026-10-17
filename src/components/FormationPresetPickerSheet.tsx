@@ -48,10 +48,11 @@ import { EditorSideSheet } from "./EditorSideSheet";
 import { useFormationPresetFavorites } from "../hooks/useFormationPresetFavorites";
 import { filterPresetItemsByFavorites } from "../lib/formationPresetFavorites";
 import {
-  dancersFromFormationBoxItem,
+  applyFormationBoxItemToStage,
+  FORMATION_BOX_APPLY_MODE_OPTIONS,
   FORMATION_BOX_CHANGE_EVENT,
   listFormationBoxItems,
-  mergeFormationBoxSnapshotWithStageIdentities,
+  type FormationBoxApplyMode,
   type FormationBoxItem,
 } from "../lib/formationBox";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
@@ -242,6 +243,8 @@ export function FormationPresetPickerSheet({
   );
   const [sourceTab, setSourceTab] = useState<PickerSourceTab>("preset");
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
+  const [boxApplyMode, setBoxApplyMode] =
+    useState<FormationBoxApplyMode>("positions");
   const [boxRev, setBoxRev] = useState(0);
   const [showAllBoxCounts, setShowAllBoxCounts] = useState(false);
   const [showAllTiers, setShowAllTiers] = useState(false);
@@ -328,15 +331,14 @@ export function FormationPresetPickerSheet({
     if (!targetFormation) return null;
     if (sourceTab === "box") {
       if (!selectedBoxItem) return null;
-      const restored = dancersFromFormationBoxItem(selectedBoxItem);
       const stage =
         nearestMatchSource.length > 0
           ? nearestMatchSource
           : targetFormation.dancers;
-      return mergeFormationBoxSnapshotWithStageIdentities(
-        restored,
+      return applyFormationBoxItemToStage(
+        selectedBoxItem,
         stage,
-        selectedBoxItem
+        boxApplyMode
       );
     }
     if (!selectedPresetId) return null;
@@ -353,6 +355,7 @@ export function FormationPresetPickerSheet({
     selectedPresetId,
     selectedBoxItem,
     sourceTab,
+    boxApplyMode,
     spacingOpts,
     nearestMatchSource,
   ]);
@@ -379,6 +382,7 @@ export function FormationPresetPickerSheet({
       setSelectedPresetId(null);
       setSelectedBoxId(null);
       setSourceTab("preset");
+      setBoxApplyMode("positions");
       setShowAllBoxCounts(false);
       setBoxRev((n) => n + 1);
     }
@@ -387,6 +391,7 @@ export function FormationPresetPickerSheet({
       setSelectedPresetId(null);
       setSelectedBoxId(null);
       setSourceTab("preset");
+      setBoxApplyMode("positions");
       setShowAllTiers(false);
       setFavoritesOnly(false);
       setBasicTab(false);
@@ -438,12 +443,13 @@ export function FormationPresetPickerSheet({
     const canApplyBox = sourceTab === "box" && selectedBoxItem;
     if (!targetFormation || !previewDancers || (!canApplyPreset && !canApplyBox))
       return;
+    /** プレビューは既に applyMode 反映済み。適用先の現行メンバーへ再マージして id を安定させる */
     const dancersToWrite =
       sourceTab === "box" && selectedBoxItem
-        ? mergeFormationBoxSnapshotWithStageIdentities(
-            previewDancers,
+        ? applyFormationBoxItemToStage(
+            selectedBoxItem,
             targetFormation.dancers,
-            selectedBoxItem
+            boxApplyMode
           )
         : previewDancers;
     if (createCueAtPlayhead) {
@@ -513,6 +519,7 @@ export function FormationPresetPickerSheet({
     selectedPresetId,
     selectedBoxItem,
     sourceTab,
+    boxApplyMode,
     previewDancers,
     setProject,
     closeAndCleanup,
@@ -535,8 +542,10 @@ export function FormationPresetPickerSheet({
     ? "適用先のフォーメーションがありません"
     : sourceTab === "box"
       ? selectedBoxItem
-        ? `保存「${selectedBoxItem.name || `${selectedBoxItem.dancerCount}人`}」を適用（${selectedBoxItem.dancerCount} 人）`
-        : `保存した立ち位置から選ぶ（いま ${count} 人）`
+        ? `保存「${selectedBoxItem.name || `${selectedBoxItem.dancerCount}人`}」を${
+            boxApplyMode === "positions" ? "位置のみ" : "データすべて"
+          }で適用`
+        : `保存した立ち位置から選ぶ（いま ${count} 人）・引き継ぎは下で選択`
       : createCueAtPlayhead
       ? `再生位置 ${formatMmSsFloor(playheadSec)} に新しいキューとして追加（${
           targetFormation?.dancers.length ?? count
@@ -712,6 +721,57 @@ export function FormationPresetPickerSheet({
     lineHeight: 1.5,
   };
 
+  const boxApplyModePicker = (
+    <div
+      role="radiogroup"
+      aria-label="保存データの引き継ぎ方"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        padding: "8px 10px",
+        borderRadius: 10,
+        border: "1px solid #334155",
+        background: "rgba(15,23,42,0.75)",
+        flexShrink: 0,
+      }}
+    >
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#cbd5e1" }}>
+        引き継ぐ内容
+      </div>
+      {FORMATION_BOX_APPLY_MODE_OPTIONS.map((opt) => {
+        const active = boxApplyMode === opt.value;
+        return (
+          <label
+            key={opt.value}
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              cursor: "pointer",
+              fontSize: 12,
+              color: "#e2e8f0",
+            }}
+          >
+            <input
+              type="radio"
+              name="formation-box-apply-mode"
+              checked={active}
+              onChange={() => setBoxApplyMode(opt.value)}
+              style={{ marginTop: 2 }}
+            />
+            <span>
+              <strong>{opt.label}</strong>
+              <span style={{ display: "block", color: "#94a3b8", fontSize: 11, marginTop: 2 }}>
+                {opt.hint}
+              </span>
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  );
+
   const boxGrid = (
     <div
       className={
@@ -739,7 +799,10 @@ export function FormationPresetPickerSheet({
           <br />
           ステージの「立ち位置保存」から形の箱へ入れてください。
         </div>
-      ) : boxItems.length === 0 ? (
+      ) : (
+        <>
+      {boxApplyModePicker}
+      {boxItems.length === 0 ? (
         <div style={emptyHintStyle}>表示できる保存がありません。</div>
       ) : (
         <div className="formation-preset-picker-category">
@@ -810,6 +873,8 @@ export function FormationPresetPickerSheet({
             })}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

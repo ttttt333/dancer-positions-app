@@ -24,10 +24,12 @@ import {
   stripFormationStageSnapshots,
 } from "../lib/savedSpotStageSnapshot";
 import {
+  applyFormationBoxItemToStage,
   dancersFromFormationBoxItem,
+  FORMATION_BOX_APPLY_MODE_OPTIONS,
   FORMATION_BOX_CHANGE_EVENT,
   listFormationBoxItems,
-  mergeFormationBoxSnapshotWithStageIdentities,
+  type FormationBoxApplyMode,
   type FormationBoxItem,
 } from "../lib/formationBox";
 
@@ -85,6 +87,8 @@ export function QuickFormationBar({
   const [pending, setPending] = useState<PendingSource | null>(null);
   const [pendingDancers, setPendingDancers] = useState<DancerSpot[] | null>(null);
   const [showAllBox, setShowAllBox] = useState(false);
+  const [boxApplyMode, setBoxApplyMode] =
+    useState<FormationBoxApplyMode>("positions");
   /** 形の箱はローカルストレージなので、自前で再読み込みできるようバージョンキー */
   const [boxRev, setBoxRev] = useState(0);
 
@@ -141,7 +145,11 @@ export function QuickFormationBar({
   const pickBox = useCallback(
     (item: FormationBoxItem) => {
       if (disabled || !targetFormation) return;
-      const dancers = dancersFromFormationBoxItem(item);
+      const dancers = applyFormationBoxItemToStage(
+        item,
+        targetFormation.dancers,
+        boxApplyMode
+      );
       const pendingSrc: PendingSource = {
         kind: "box",
         itemId: item.id,
@@ -151,7 +159,7 @@ export function QuickFormationBar({
       setPendingDancers(dancers);
       onPreviewChange(dancers);
     },
-    [disabled, targetFormation, onPreviewChange]
+    [disabled, targetFormation, onPreviewChange, boxApplyMode]
   );
 
   const pickSlot = useCallback(
@@ -207,10 +215,10 @@ export function QuickFormationBar({
       pending?.kind === "slot"
         ? pendingDancers.map((d) => ({ ...d }))
         : boxItem != null
-          ? mergeFormationBoxSnapshotWithStageIdentities(
-              pendingDancers,
+          ? applyFormationBoxItemToStage(
+              boxItem,
               targetFormation.dancers,
-              boxItem
+              boxApplyMode
             )
           : transferDancerIdentitiesByOrder(pendingDancers, targetFormation.dancers);
     setProject((p) => {
@@ -238,9 +246,24 @@ export function QuickFormationBar({
     targetFormation,
     pendingDancers,
     pending,
+    boxApplyMode,
     setProject,
     clearPending,
   ]);
+
+  /** 引き継ぎモードを変えたら、形の箱プレビューを作り直す */
+  useEffect(() => {
+    if (pending?.kind !== "box" || !targetFormation) return;
+    const item = listFormationBoxItems().find((b) => b.id === pending.itemId);
+    if (!item) return;
+    const dancers = applyFormationBoxItemToStage(
+      item,
+      targetFormation.dancers,
+      boxApplyMode
+    );
+    setPendingDancers(dancers);
+    onPreviewChange(dancers);
+  }, [boxApplyMode, pending, targetFormation, onPreviewChange]);
 
   /** スロットへ「いまの立ち位置」を保存（既存があれば上書き確認） */
   const saveSlot = useCallback(
@@ -523,6 +546,33 @@ export function QuickFormationBar({
         >
           形の箱
         </SectionLabel>
+        <div
+          role="radiogroup"
+          aria-label="保存データの引き継ぎ方"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 4,
+            marginBottom: 6,
+          }}
+        >
+          {FORMATION_BOX_APPLY_MODE_OPTIONS.map((opt) => {
+            const active = boxApplyMode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                title={opt.hint}
+                onClick={() => setBoxApplyMode(opt.value)}
+                style={miniToggleStyle(active)}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
         {boxItems.length === 0 ? (
           <EmptyHint>
             形の箱はまだ空。ステージの「保存」→「作った立ち位置を保存」で貯まります
