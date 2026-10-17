@@ -39,6 +39,9 @@ import {
 import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
+  nudgeXPctForAltArrow,
+  nudgeYPctForAltArrow,
+  resolveStageArrowNudgeKey,
   snapXPctToCenterDistanceMmGrid,
 } from "../lib/dancerSpacing";
 import {
@@ -4140,39 +4143,40 @@ export function StageBoardBody({
       }
       /** 選択中が 1 件以上なら Alt+矢印で微移動。複数選択時は群全体を動かす。 */
       if (!e.altKey || selectedDancerIds.length === 0) return;
-      const dk = e.key;
-      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(dk))
-        return;
+      const dk = resolveStageArrowNudgeKey(e);
+      if (!dk) return;
       e.preventDefault();
-      const stepPx = e.shiftKey ? 0.05 : 0.25;
+      const stepPct = e.shiftKey ? 0.05 : 0.25;
       const shiftFine = e.shiftKey;
-      const afterSnap = (nx: number, ny: number) => {
-        const mode: StageDancerSnapMode = snapGrid ? "fine" : "free";
-        let xPct = quantizeCoord(nx, "x", mode);
-        const yPct = quantizeCoord(ny, "y", mode);
-        if (
-          !shiftFine &&
-          typeof stageWidthMm === "number" &&
-          stageWidthMm > 0 &&
-          (dk === "ArrowLeft" || dk === "ArrowRight")
-        ) {
-          xPct = round2(snapXPctToCenterDistanceMmGrid(xPct, stageWidthMm, 50));
-        }
-        return { xPct, yPct };
-      };
       const idSet = new Set(selectedDancerIds);
       updateActiveFormation((f) => ({
         ...f,
         dancers: f.dancers.map((x) => {
           if (!idSet.has(x.id)) return x;
-          let nx = x.xPct;
-          let ny = x.yPct;
-          if (dk === "ArrowLeft") nx -= stepPx;
-          if (dk === "ArrowRight") nx += stepPx;
-          if (dk === "ArrowUp") ny -= stepPx;
-          if (dk === "ArrowDown") ny += stepPx;
-          const q = afterSnap(nx, ny);
-          return { ...x, xPct: q.xPct, yPct: q.yPct };
+          let xPct = x.xPct;
+          let yPct = x.yPct;
+          if (dk === "ArrowLeft" || dk === "ArrowRight") {
+            const dir: -1 | 1 = dk === "ArrowLeft" ? -1 : 1;
+            xPct = shiftFine
+              ? nudgeXPctForAltArrow(xPct, dir, { stepPct })
+              : nudgeXPctForAltArrow(xPct, dir, {
+                  stageWidthMm,
+                  stepPct,
+                });
+          } else {
+            const dir: -1 | 1 = dk === "ArrowUp" ? -1 : 1;
+            yPct = shiftFine
+              ? nudgeYPctForAltArrow(yPct, dir, { stepPct })
+              : nudgeYPctForAltArrow(yPct, dir, {
+                  stageDepthMm,
+                  stepPct,
+                });
+          }
+          return {
+            ...x,
+            xPct: round2(xPct),
+            yPct: round2(yPct),
+          };
         }),
       }));
     };
@@ -4184,12 +4188,10 @@ export function StageBoardBody({
     previewDancers,
     dancerQuickEditId,
     selectedDancerIds,
-    snapGrid,
-    quantizeCoord,
     updateActiveFormation,
-    mmSnapGrid,
     duplicateDancerIds,
     stageWidthMm,
+    stageDepthMm,
     clearSelectedDancers,
     shapePreviewById,
     depthPreviewById,

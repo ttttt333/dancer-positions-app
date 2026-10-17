@@ -267,6 +267,102 @@ export function snapXPctToCenterDistanceMmGrid(
 }
 
 /**
+ * 奥行方向: フロント（yPct=0）からの距離が `gridMm` の倍数になるよう yPct を丸める。
+ * Alt+↑↓ 微移動で左右の 5cm スナップと対になる。
+ */
+export function snapYPctToDepthMmGrid(
+  yPct: number,
+  stageDepthMm: number,
+  gridMm: number = 50
+): number {
+  if (!(stageDepthMm > 0) || !(gridMm > 0)) return yPct;
+  const depthMm = (yPct / 100) * stageDepthMm;
+  const snapped = Math.round(depthMm / gridMm) * gridMm;
+  const newPct = (snapped / stageDepthMm) * 100;
+  return clampPct(newPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI);
+}
+
+export type StageArrowNudgeKey =
+  | "ArrowLeft"
+  | "ArrowRight"
+  | "ArrowUp"
+  | "ArrowDown";
+
+/**
+ * Mac Option（Alt）付き矢印はレイアウトによって `key` が記号になることがある。
+ * `code` を優先して Arrow* を拾う。
+ */
+export function resolveStageArrowNudgeKey(
+  e: Pick<KeyboardEvent, "key" | "code">
+): StageArrowNudgeKey | null {
+  const fromCode = e.code;
+  if (
+    fromCode === "ArrowLeft" ||
+    fromCode === "ArrowRight" ||
+    fromCode === "ArrowUp" ||
+    fromCode === "ArrowDown"
+  ) {
+    return fromCode;
+  }
+  const fromKey = e.key;
+  if (
+    fromKey === "ArrowLeft" ||
+    fromKey === "ArrowRight" ||
+    fromKey === "ArrowUp" ||
+    fromKey === "ArrowDown"
+  ) {
+    return fromKey;
+  }
+  return null;
+}
+
+/**
+ * Alt+左右: センター距離 5cm 格子を 1 コマ動かす（幅不明時は pct ステップ）。
+ * direction: -1=左 / +1=右
+ */
+export function nudgeXPctForAltArrow(
+  xPct: number,
+  direction: -1 | 1,
+  opts: { stageWidthMm?: number | null; stepPct: number; gridMm?: number }
+): number {
+  const gridMm = opts.gridMm ?? 50;
+  const W = opts.stageWidthMm;
+  if (typeof W === "number" && W > 0) {
+    const snapped = snapXPctToCenterDistanceMmGrid(xPct, W, gridMm);
+    const deltaPct = (gridMm / W) * 100 * direction;
+    return snapXPctToCenterDistanceMmGrid(snapped + deltaPct, W, gridMm);
+  }
+  return clampPct(
+    xPct + opts.stepPct * direction,
+    DANCER_STAGE_POSITION_PCT_LO,
+    DANCER_STAGE_POSITION_PCT_HI
+  );
+}
+
+/**
+ * Alt+上下: 奥行 5cm 格子を 1 コマ動かす（奥行不明時は pct ステップ）。
+ * direction: -1=上（フロント寄り） / +1=下
+ */
+export function nudgeYPctForAltArrow(
+  yPct: number,
+  direction: -1 | 1,
+  opts: { stageDepthMm?: number | null; stepPct: number; gridMm?: number }
+): number {
+  const gridMm = opts.gridMm ?? 50;
+  const D = opts.stageDepthMm;
+  if (typeof D === "number" && D > 0) {
+    const snapped = snapYPctToDepthMmGrid(yPct, D, gridMm);
+    const deltaPct = (gridMm / D) * 100 * direction;
+    return snapYPctToDepthMmGrid(snapped + deltaPct, D, gridMm);
+  }
+  return clampPct(
+    yPct + opts.stepPct * direction,
+    DANCER_STAGE_POSITION_PCT_LO,
+    DANCER_STAGE_POSITION_PCT_HI
+  );
+}
+
+/**
  * ステージ上に「規格スロット」のドットを薄く可視化するための座標列（％）。
  *
  * `maxAbsHalfStep` 個までセンターから両側に並べる（端を超えるものは間引く）。
