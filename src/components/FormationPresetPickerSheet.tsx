@@ -651,43 +651,75 @@ export function FormationPresetPickerSheet({
     noTarget ||
     (sourceTab === "preset" ? !selectedPresetId : !selectedBoxItem);
 
+  const closeButton = (
+    <button
+      type="button"
+      onClick={closeAndCleanup}
+      className="formation-preset-picker-footer-cancel"
+      style={actionsDocked ? undefined : cancelBtnCompactStyle}
+    >
+      閉じる
+    </button>
+  );
+
+  const applyButton = (
+    <button
+      type="button"
+      onClick={apply}
+      disabled={applyDisabled}
+      className="formation-preset-picker-footer-apply"
+      title={
+        applyDisabled
+          ? sourceTab === "box"
+            ? "保存した立ち位置を選んでから適用できます"
+            : "雛形を選んでから適用できます"
+          : "選んだ立ち位置を反映する"
+      }
+      style={
+        actionsDocked
+          ? undefined
+          : {
+              ...applyBtnCompactStyle,
+              opacity: applyDisabled ? 0.45 : 1,
+              cursor: applyDisabled ? "not-allowed" : "pointer",
+            }
+      }
+    >
+      適用
+    </button>
+  );
+
+  /** スマホ全画面／横ドック: フッターに閉じる＋適用 */
   const footerActions = (
     <div
       role="group"
       aria-label="立ち位置雛形の操作"
-      className={
-        actionsDocked
-          ? "formation-preset-picker-footer"
-          : "formation-preset-picker-actions-sticky"
-      }
+      className="formation-preset-picker-footer"
     >
-      {!actionsDocked ? filterControls : null}
-      {!actionsDocked ? <span style={{ flex: 1, minWidth: 8 }} aria-hidden /> : null}
-      <button
-        type="button"
-        onClick={closeAndCleanup}
-        className="formation-preset-picker-footer-cancel"
-        style={actionsDocked ? undefined : cancelBtnCompactStyle}
-      >
-        閉じる
-      </button>
-      <button
-        type="button"
-        onClick={apply}
-        disabled={applyDisabled}
-        className="formation-preset-picker-footer-apply"
-        style={
-          actionsDocked
-            ? undefined
-            : {
-                ...applyBtnCompactStyle,
-                opacity: applyDisabled ? 0.45 : 1,
-                cursor: applyDisabled ? "not-allowed" : "pointer",
-              }
-        }
-      >
-        適用
-      </button>
+      {closeButton}
+      {applyButton}
+    </div>
+  );
+
+  /** PC: フィルターは折り返し可。適用は下端に固定して切れないようにする */
+  const desktopFilterBar = (
+    <div
+      className="formation-preset-picker-filter-bar"
+      role="toolbar"
+      aria-label="雛形の表示切り替え"
+    >
+      {filterControls}
+    </div>
+  );
+
+  const desktopActionFooter = (
+    <div
+      role="group"
+      aria-label="立ち位置雛形の操作"
+      className="formation-preset-picker-desktop-footer"
+    >
+      {closeButton}
+      {applyButton}
     </div>
   );
 
@@ -1065,7 +1097,7 @@ export function FormationPresetPickerSheet({
       open={open}
       onClose={closeAndCleanup}
       zIndex={200}
-      width="min(360px, 92vw)"
+      width="min(380px, 94vw)"
       ariaLabelledBy="formation-preset-picker-title"
       sheetId="formation-preset-picker"
     >
@@ -1123,8 +1155,11 @@ export function FormationPresetPickerSheet({
             ) : null}
           </div>
         </div>
-        {footerActions}
-        {pickerBody}
+        {desktopFilterBar}
+        <div style={{ flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" }}>
+          {pickerBody}
+        </div>
+        {desktopActionFooter}
       </div>
     </EditorSideSheet>
   );
@@ -1139,27 +1174,30 @@ const presetBtnStyle: CSSProperties = {
 };
 
 const cancelBtnCompactStyle: CSSProperties = {
-  padding: "6px 12px",
+  padding: "8px 14px",
   borderRadius: "8px",
   border: "1px solid #334155",
   background: "rgba(15,23,42,0.94)",
   color: "#cbd5e1",
-  fontSize: "12px",
+  fontSize: "13px",
   fontWeight: 600,
   cursor: "pointer",
   whiteSpace: "nowrap",
+  flexShrink: 0,
 };
 
 const applyBtnCompactStyle: CSSProperties = {
-  padding: "6px 14px",
+  padding: "8px 16px",
   borderRadius: "8px",
   border: "1px solid #d4af37",
   background: "rgba(212,175,55,0.28)",
   color: "#fef3c7",
-  fontSize: "12px",
-  fontWeight: 700,
+  fontSize: "13px",
+  fontWeight: 800,
   cursor: "pointer",
   whiteSpace: "nowrap",
+  flex: "1 1 auto",
+  minWidth: 96,
 };
 
 const basicTabBtnStyle: CSSProperties = {

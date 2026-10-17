@@ -3619,11 +3619,55 @@ body > [data-editor-sheet-root] {
   flex-direction: column !important;
 }
 
-/** PC: 閉じる・適用・☆をヘッダー直下の左寄せに常時表示（一覧だけスクロール） */
+/** PC: 雛形／保存などのフィルター（折り返し可） */
+.formation-preset-picker-filter-bar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 8px 14px 10px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
+  background: #07090f;
+  z-index: 8;
+}
+
+/** PC: 閉じる・適用をシート下端に固定（一覧スクロールでも常に見える） */
+.formation-preset-picker-desktop-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+  padding: 10px 14px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(212, 175, 55, 0.28);
+  background: #07090f;
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.4);
+  z-index: 9;
+}
+
+.formation-preset-picker-desktop-footer .formation-preset-picker-footer-cancel {
+  flex: 0 0 auto;
+  min-width: 88px;
+  min-height: 44px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.formation-preset-picker-desktop-footer .formation-preset-picker-footer-apply {
+  flex: 1 1 auto;
+  min-height: 44px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+/** 旧クラス互換（他画面から参照されない想定だが残す） */
 .formation-preset-picker-actions-sticky {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
   gap: 8px;
