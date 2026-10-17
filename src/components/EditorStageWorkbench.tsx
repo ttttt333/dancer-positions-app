@@ -324,6 +324,8 @@ export type EditorStageWorkbenchProps = {
   setFlowLibraryOpen: Dispatch<SetStateAction<boolean>>;
   addDancerFromStageToolbar: () => void;
   importCrewCsvFromStageToolbar: () => void;
+  /** 編集済み名簿をスプレッドシート（XLSX）へ書き出す */
+  exportCrewRosterSpreadsheet?: () => void;
   stageView: "2d" | "3d";
   setStageView: Dispatch<SetStateAction<"2d" | "3d">>;
   floorTextPlaceSession: FloorTextPlaceSession | null;
@@ -386,6 +388,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     setFlowLibraryOpen,
     addDancerFromStageToolbar,
     importCrewCsvFromStageToolbar,
+    exportCrewRosterSpreadsheet,
     stageView,
     setStageView,
     floorTextPlaceSession,
@@ -644,6 +647,22 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             <span>{t("editor.comp.k065")}</span>
             <span>{t("editor.comp.k062")}</span>
           </button>
+          {exportCrewRosterSpreadsheet ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={btnSecondary}
+              disabled={
+                project.viewMode === "view" ||
+                !project.crews.some((c) => c.members.length > 0)
+              }
+              title="編集した名簿を Excel / スプレッドシート用に書き出します"
+              onClick={() => exportCrewRosterSpreadsheet()}
+            >
+              <span>{t("editor.comp.k065")}</span>
+              <span>書出</span>
+            </button>
+          ) : null}
           {choreo ? (
             <ChoreoCoreToolbar
               embedInPanel
@@ -1081,6 +1100,20 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     >
       名簿取り込み
     </button>
+    {exportCrewRosterSpreadsheet ? (
+      <button
+        type="button"
+        style={btnSecondary}
+        disabled={
+          project.viewMode === "view" ||
+          !project.crews.some((c) => c.members.length > 0)
+        }
+        title="編集した名簿（スキル・学年・身長など）を Excel 用ファイルに書き出します"
+        onClick={() => exportCrewRosterSpreadsheet()}
+      >
+        名簿書き出し
+      </button>
+    ) : null}
     {!rail ? (
       <div
         style={{

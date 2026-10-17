@@ -37,6 +37,11 @@ import {
   genderLabelForColor,
   resolveDancerDisplayHex,
 } from "../lib/dancerGender";
+import {
+  countExportableRosterMembers,
+  downloadRosterCsv,
+  downloadRosterXlsx,
+} from "../lib/crewCsvExport";
 import { dancerMarkerDiameterAfterRosterImport } from "../lib/projectDefaults";
 import { useI18n } from "../i18n/I18nContext";
 import {
@@ -227,6 +232,23 @@ export function RosterTimelineStrip({
   const showTimelineAgain = useCallback(() => {
     setProject((p) => ({ ...p, rosterHidesTimeline: false }));
   }, [setProject]);
+
+  const exportRosterSpreadsheet = useCallback(async () => {
+    const crews = project.crews ?? [];
+    if (countExportableRosterMembers(crews) === 0) {
+      window.alert("書き出す名簿メンバーがいません。");
+      return;
+    }
+    const title =
+      project.pieceTitle?.trim() ||
+      crews.find((c) => c.members.length > 0)?.name ||
+      "名簿";
+    try {
+      await downloadRosterXlsx(crews, { pieceTitle: title });
+    } catch {
+      downloadRosterCsv(crews, { pieceTitle: title });
+    }
+  }, [project.crews, project.pieceTitle]);
 
   const onSortModeChange = useCallback(
     (next: RosterStripSortMode) => {
@@ -1019,6 +1041,32 @@ export function RosterTimelineStrip({
             </button>
             <button
               type="button"
+              onClick={() => void exportRosterSpreadsheet()}
+              disabled={
+                project.viewMode === "view" || flatRows.length === 0
+              }
+              title="アプリで編集したスキル・学年・身長などを Excel / スプレッドシート用ファイルに書き出します。書き出したファイルを編集して、再び「名簿取り込み」で読み込めます。"
+              style={{
+                fontSize: "10px",
+                padding: "2px 8px",
+                borderRadius: "6px",
+                border: "1px solid #334155",
+                background: "#0f172a",
+                color: "#e2e8f0",
+                cursor:
+                  project.viewMode === "view" || flatRows.length === 0
+                    ? "not-allowed"
+                    : "pointer",
+                whiteSpace: "nowrap",
+                fontWeight: 600,
+                lineHeight: 1.2,
+                flexShrink: 0,
+              }}
+            >
+              表に書き出し
+            </button>
+            <button
+              type="button"
               onClick={toggleCollapsed}
               title={t("editor.comp.k072")}
               style={{
@@ -1452,7 +1500,7 @@ export function RosterTimelineStrip({
           })}
         </div>
         <div style={{ fontSize: "9px", color: "#64748b", flexShrink: 0, lineHeight: 1.3, marginTop: "1px" }}>
-          上部の「メンバー追加」で行を足せます。表示名・身長・学年・スキルを編集したうえで「追加」、「削除」で名簿からすぐ除外できます（取り消しは戻る）。並び順は上のプルダウンまたは雛形モーダル内で選べます。約{" "}
+          上部の「メンバー追加」で行を足せます。表示名・身長・学年・スキルを編集したうえで「追加」、「削除」で名簿からすぐ除外できます（取り消しは戻る）。並び順は上のプルダウンまたは雛形モーダル内で選べます。「表に書き出し」で Excel 用ファイルに保存し、スプレッドシートで直してから再び「名簿取り込み」できます。約{" "}
           {ROWS_PER_PAGE} 行が収まるよう行高を調整しています。
         </div>
       </div>
