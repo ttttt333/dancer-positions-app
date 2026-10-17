@@ -15,6 +15,11 @@ import type {
   StageLightFixture,
   StageLightKind,
 } from "../types/choreography";
+import {
+  buildFloorLineMarkupFromPoints,
+  isFloorLineInGlobalMarkup,
+  mergeFloorLineMarkupsForDisplay,
+} from "../lib/floorLineMarkup";
 import { useStageBoardController } from "../hooks/useStageBoardController";
 import { useStageBoardStageResize } from "../hooks/useStageBoardStageResize";
 import { useStageBoardLayoutAfterDraft } from "../hooks/useStageBoardLayoutAfterDraft";
@@ -342,6 +347,8 @@ export function StageBoardBody({
     setFloorMarkupTool,
     floorLineDraft,
     setFloorLineDraft,
+    floorLineScope,
+    setFloorLineScope,
     floorLineSessionRef,
     stageMainFloorRef,
     setMainFloorPxWidth,
@@ -1646,9 +1653,28 @@ export function StageBoardBody({
     [floorTextPlaceSession],
   );
 
+  const removeFloorLineById = useCallback(
+    (id: string) => {
+      if (isFloorLineInGlobalMarkup(id, globalFloorMarkup)) {
+        removeGlobalFloorMarkupById(id);
+        return;
+      }
+      removeFloorMarkupById(id);
+    },
+    [globalFloorMarkup, removeGlobalFloorMarkupById, removeFloorMarkupById]
+  );
+
+  const displayFloorLines = useMemo(
+    () =>
+      mergeFloorLineMarkupsForDisplay(displayFloorMarkup, globalFloorMarkup),
+    [displayFloorMarkup, globalFloorMarkup]
+  );
+
   const beginFloorLineDraw = useCallback(
     (clientX: number, clientY: number, r: DOMRect) => {
-      if (!writeFormation || !setPiecesEditable) return;
+      if (!setPiecesEditable) return;
+      if (floorLineScope === "formation" && !writeFormation) return;
+      if (floorLineScope === "global" && !onUpdateGlobalFloorMarkup) return;
       const xPct = round2(clamp(((clientX - r.left) / r.width) * 100, 0, 100));
       const yPct = round2(clamp(((clientY - r.top) / r.height) * 100, 0, 100));
       const session = {
@@ -1683,21 +1709,14 @@ export function StageBoardBody({
         const s = floorLineSessionRef.current;
         floorLineSessionRef.current = null;
         setFloorLineDraft(null);
-        if (!s || s.points.length < 2) return;
-        let len = 0;
-        for (let i = 1; i < s.points.length; i++) {
-          const a = s.points[i - 1]!;
-          const b = s.points[i]!;
-          len += Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (!s) return;
+        const newLine = buildFloorLineMarkupFromPoints(s.points);
+        if (!newLine) return;
+        if (floorLineScope === "global" && onUpdateGlobalFloorMarkup) {
+          onUpdateGlobalFloorMarkup((prev) => [...prev, newLine]);
+          return;
         }
-        if (len < 0.35) return;
-        const newLine: StageFloorMarkup = {
-          kind: "line",
-          id: crypto.randomUUID(),
-          pointsPct: s.points,
-          widthPx: 3,
-          color: "#fbbf24",
-        };
+        if (!writeFormation) return;
         updateActiveFormation((f) => ({
           ...f,
           floorMarkup: [...(f.floorMarkup ?? []), newLine],
@@ -1707,7 +1726,13 @@ export function StageBoardBody({
       window.addEventListener("pointerup", up);
       window.addEventListener("pointercancel", up);
     },
-    [writeFormation, setPiecesEditable, updateActiveFormation],
+    [
+      writeFormation,
+      setPiecesEditable,
+      updateActiveFormation,
+      floorLineScope,
+      onUpdateGlobalFloorMarkup,
+    ],
   );
 
   const removeDancerById = useCallback(
@@ -3045,7 +3070,13 @@ export function StageBoardBody({
         return;
       }
 
-      if (setPiecesEditable && writeFormation && floorMarkupTool === "line") {
+      if (
+        setPiecesEditable &&
+        floorMarkupTool === "line" &&
+        (floorLineScope === "global"
+          ? Boolean(onUpdateGlobalFloorMarkup)
+          : Boolean(writeFormation))
+      ) {
         if (target.closest("[data-floor-markup]")) return;
         e.preventDefault();
         e.stopPropagation();
@@ -3116,6 +3147,8 @@ export function StageBoardBody({
       onFloorTextPlaceSessionChange,
       setPiecesEditable,
       writeFormation,
+      floorLineScope,
+      onUpdateGlobalFloorMarkup,
       viewportTextOverlayRoot,
       floorMarkupTool,
       floorTextDraft,
@@ -6081,6 +6114,8 @@ export function StageBoardBody({
           ? (globalFloorMarkup ?? []).some((x) => x.id === floorTextEditId)
           : floorTextDraft.scope === "global",
         onUpdateGlobalMarkup: onUpdateGlobalFloorMarkup,
+        floorLineScope,
+        setFloorLineScope,
       },
       /* 床下オーバーレイ（形状・格子・ガイド・床線／テキスト） */
       baseOverlaysWithoutShow: {
@@ -6099,12 +6134,13 @@ export function StageBoardBody({
         activeStageLights,
         stageMainFloorRef,
         displayFloorMarkup,
+        displayFloorLines,
         globalFloorMarkup: globalFloorMarkup ?? undefined,
         onRemoveGlobalFloorMarkupById: removeGlobalFloorMarkupById,
         floorLineDraft,
         floorMarkupTool,
         setPiecesEditable,
-        onRemoveFloorLineById: removeFloorMarkupById,
+        onRemoveFloorLineById: removeFloorLineById,
         textShared: floorTextMarkupSharedProps,
         floorTextPlaceSession: floorTextPlaceSession ?? null,
         viewportTextOverlayRoot,
@@ -6117,8 +6153,10 @@ export function StageBoardBody({
         hideFloorText: hideStageFloorTextMarkup,
       },
       showStageFloorMarkup:
-        displayFloorMarkup.some((m) => m.kind === "line") ||
+        displayFloorLines.length > 0 ||
         !!floorLineDraft ||
+        floorMarkupTool === "line" ||
+        floorMarkupTool === "erase" ||
         (!hideStageFloorTextMarkup &&
           (displayFloorMarkup.some((m) => m.kind === "text") ||
             (globalFloorMarkup ?? []).some((m) => m.kind === "text") ||

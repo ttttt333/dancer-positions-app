@@ -5,6 +5,10 @@ import type {
 } from "react";
 import type { Formation, StageFloorMarkup } from "../types/choreography";
 import { EMPTY_FLOOR_TEXT_DRAFT } from "../lib/stageBoardModelHelpers";
+import {
+  FLOOR_LINE_SCOPE_OPTIONS,
+  type FloorLineMarkupScope,
+} from "../lib/floorLineMarkup";
 import { btnSecondary } from "./stageButtonStyles";
 import {
   FloorTextDraftEditorForm,
@@ -42,6 +46,13 @@ export type StageFloorMarkupFloatingToolbarsProps = {
   onAddTemplateText?: (text: string) => void;
   floorTextEditIsGlobal?: boolean;
   onUpdateGlobalMarkup?: (updater: (prev: StageFloorMarkup[]) => StageFloorMarkup[]) => void;
+  floorLineScope?: FloorLineMarkupScope;
+  setFloorLineScope?: Dispatch<SetStateAction<FloorLineMarkupScope>>;
+  /**
+   * true: テキスト帯を出さず落書きだけ（上部ドック時など、テキストはサイドシート側）。
+   * 落書きは常にステージ上から起動できるようにする。
+   */
+  hideTextToolbar?: boolean;
 };
 
 /** メイン床左上: 床テキストツールバー＋線／消しゴムツールバー＋ヒント */
@@ -59,6 +70,9 @@ export function StageFloorMarkupFloatingToolbars({
   onAddTemplateText,
   floorTextEditIsGlobal,
   onUpdateGlobalMarkup,
+  floorLineScope = "formation",
+  setFloorLineScope,
+  hideTextToolbar = false,
 }: StageFloorMarkupFloatingToolbarsProps) {
   const clearAllMarkupTools = () => {
     setFloorMarkupTool(null);
@@ -71,17 +85,104 @@ export function StageFloorMarkupFloatingToolbars({
 
   return (
     <div className="stage-floor-markup-floating-cluster">
+      {!hideTextToolbar ? (
+        <div
+          role="toolbar"
+          aria-label="ステージ床テキスト"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            padding: "8px 10px",
+            borderRadius: "8px",
+            border: "1px solid #334155",
+            background: "rgba(15, 23, 42, 0.95)",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                fontSize: "10px",
+                color: "#94a3b8",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+              }}
+            >
+              テキスト
+            </span>
+            <button
+              type="button"
+              title="文面とサイズを指定し、床をクリックして配置（Esc で終了）"
+              onClick={() => {
+                setFloorMarkupTool((t) => {
+                  if (t === "text") {
+                    setFloorTextEditId(null);
+                    return null;
+                  }
+                  return "text";
+                });
+              }}
+              style={{
+                ...btnSecondary,
+                padding: "4px 10px",
+                fontSize: "11px",
+                fontWeight: 600,
+                borderColor:
+                  floorMarkupTool === "text"
+                    ? "rgba(99,102,241,0.9)"
+                    : undefined,
+                color: floorMarkupTool === "text" ? "#e0e7ff" : undefined,
+              }}
+            >
+              書き込み
+            </button>
+            {floorMarkupTool === "text" && floorTextEditId ? (
+              <button
+                type="button"
+                title="選択を解除し、新しいテキストを置けるようにします"
+                onClick={() => setFloorTextEditId(null)}
+                style={{
+                  ...btnSecondary,
+                  padding: "4px 8px",
+                  fontSize: "11px",
+                }}
+              >
+                新規へ
+              </button>
+            ) : null}
+          </div>
+          {floorMarkupTool === "text" ? (
+            <FloorTextDraftEditorForm
+              draft={floorTextDraft}
+              setDraft={setFloorTextDraft}
+              floorTextEditId={floorTextEditId}
+              updateActiveFormation={updateActiveFormation}
+              onAddTemplateText={onAddTemplateText}
+              floorTextEditIsGlobal={floorTextEditIsGlobal}
+              onUpdateGlobalMarkup={onUpdateGlobalMarkup}
+            />
+          ) : null}
+        </div>
+      ) : null}
       <div
         role="toolbar"
-        aria-label="ステージ床テキスト"
+        aria-label="床に落書きを書く・消す"
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 8,
-          padding: "8px 10px",
+          gap: 6,
+          padding: "6px 8px",
           borderRadius: "8px",
           border: "1px solid #334155",
-          background: "rgba(15, 23, 42, 0.95)",
+          background: "rgba(15, 23, 42, 0.92)",
           boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
         }}
       >
@@ -89,151 +190,131 @@ export function StageFloorMarkupFloatingToolbars({
           style={{
             display: "flex",
             flexWrap: "wrap",
+            gap: 6,
             alignItems: "center",
-            gap: 8,
           }}
         >
           <span
             style={{
-              fontSize: "10px",
-              color: "#94a3b8",
+              fontSize: "9px",
+              color: "#64748b",
               fontWeight: 700,
               letterSpacing: "0.06em",
             }}
           >
-            テキスト
+            落書き
           </span>
           <button
             type="button"
-            title="文面とサイズを指定し、床をクリックして配置（Esc で終了）"
-            onClick={() => {
-              setFloorMarkupTool((t) => {
-                if (t === "text") {
-                  setFloorTextEditId(null);
-                  return null;
-                }
-                return "text";
-              });
-            }}
+            title="ドラッグで手描き線（ペア囲みなど・Esc で終了）"
+            onClick={() =>
+              setFloorMarkupTool((t) => (t === "line" ? null : "line"))
+            }
             style={{
               ...btnSecondary,
-              padding: "4px 10px",
+              padding: "4px 8px",
               fontSize: "11px",
               fontWeight: 600,
               borderColor:
-                floorMarkupTool === "text"
+                floorMarkupTool === "line"
                   ? "rgba(99,102,241,0.9)"
                   : undefined,
-              color: floorMarkupTool === "text" ? "#e0e7ff" : undefined,
+              color: floorMarkupTool === "line" ? "#e0e7ff" : undefined,
             }}
           >
-            書き込み
+            書く
           </button>
-          {floorMarkupTool === "text" && floorTextEditId ? (
+          <button
+            type="button"
+            title="落書きやメモをタップしてすぐ消す"
+            onClick={() =>
+              setFloorMarkupTool((t) => (t === "erase" ? null : "erase"))
+            }
+            style={{
+              ...btnSecondary,
+              padding: "4px 8px",
+              fontSize: "11px",
+              fontWeight: 600,
+              borderColor:
+                floorMarkupTool === "erase"
+                  ? "rgba(248,113,113,0.85)"
+                  : undefined,
+              color: floorMarkupTool === "erase" ? "#fecaca" : undefined,
+            }}
+          >
+            消す
+          </button>
+          {floorMarkupTool === "line" || floorMarkupTool === "erase" ? (
             <button
               type="button"
-              title="選択を解除し、新しいテキストを置けるようにします"
-              onClick={() => setFloorTextEditId(null)}
+              title="ツールを終了（Esc でも可）"
+              onClick={clearAllMarkupTools}
               style={{
                 ...btnSecondary,
                 padding: "4px 8px",
                 fontSize: "11px",
               }}
             >
-              新規へ
+              完了
             </button>
           ) : null}
         </div>
-        {floorMarkupTool === "text" ? (
-          <FloorTextDraftEditorForm
-            draft={floorTextDraft}
-            setDraft={setFloorTextDraft}
-            floorTextEditId={floorTextEditId}
-            updateActiveFormation={updateActiveFormation}
-            onAddTemplateText={onAddTemplateText}
-            floorTextEditIsGlobal={floorTextEditIsGlobal}
-            onUpdateGlobalMarkup={onUpdateGlobalMarkup}
-          />
-        ) : null}
-      </div>
-      <div
-        role="toolbar"
-        aria-label="床に線を引く・消す"
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 6,
-          alignItems: "center",
-          padding: "4px 8px",
-          borderRadius: "8px",
-          border: "1px solid #334155",
-          background: "rgba(15, 23, 42, 0.92)",
-          boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
-        }}
-      >
-        <span
-          style={{
-            fontSize: "9px",
-            color: "#64748b",
-            fontWeight: 700,
-            letterSpacing: "0.06em",
-          }}
-        >
-          床
-        </span>
-        <button
-          type="button"
-          title="ドラッグで線（手描きの折れ線・Esc で終了）"
-          onClick={() =>
-            setFloorMarkupTool((t) => (t === "line" ? null : "line"))
-          }
-          style={{
-            ...btnSecondary,
-            padding: "4px 8px",
-            fontSize: "11px",
-            fontWeight: 600,
-            borderColor:
-              floorMarkupTool === "line"
-                ? "rgba(99,102,241,0.9)"
-                : undefined,
-            color: floorMarkupTool === "line" ? "#e0e7ff" : undefined,
-          }}
-        >
-          線
-        </button>
-        <button
-          type="button"
-          title="コメントや線をタップして削除"
-          onClick={() =>
-            setFloorMarkupTool((t) => (t === "erase" ? null : "erase"))
-          }
-          style={{
-            ...btnSecondary,
-            padding: "4px 8px",
-            fontSize: "11px",
-            fontWeight: 600,
-            borderColor:
-              floorMarkupTool === "erase"
-                ? "rgba(248,113,113,0.85)"
-                : undefined,
-            color: floorMarkupTool === "erase" ? "#fecaca" : undefined,
-          }}
-        >
-          消す
-        </button>
-        {floorMarkupTool ? (
-          <button
-            type="button"
-            title="ツールを終了（Esc でも可）"
-            onClick={clearAllMarkupTools}
+        {floorMarkupTool === "line" && setFloorLineScope ? (
+          <div
+            role="radiogroup"
+            aria-label="落書きの表示範囲"
             style={{
-              ...btnSecondary,
-              padding: "4px 8px",
-              fontSize: "11px",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 4,
             }}
           >
-            完了
-          </button>
+            {FLOOR_LINE_SCOPE_OPTIONS.map((opt) => {
+              const active = floorLineScope === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  title={opt.hint}
+                  onClick={() => setFloorLineScope(opt.value)}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: 1,
+                    padding: "5px 7px",
+                    borderRadius: 7,
+                    border: active
+                      ? "2px solid #d4af37"
+                      : "1px solid #334155",
+                    background: active
+                      ? "rgba(212,175,55,0.13)"
+                      : "#0a0f1e",
+                    color: active ? "#f5e199" : "#94a3b8",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <span
+                    style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.2 }}
+                  >
+                    {opt.label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 9.5,
+                      color: active ? "#d4af37" : "#64748b",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {opt.hint}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         ) : null}
       </div>
       {floorMarkupTool === "line" || floorMarkupTool === "erase" ? (

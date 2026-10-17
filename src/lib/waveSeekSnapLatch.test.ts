@@ -15,11 +15,13 @@ describe("waveSeekSnapLatch", () => {
       viewStartOverride: 30,
       isPlaying: true,
     });
+    const startedAtMs = latchRef.current!.startedAtMs;
     const snap = resolveWaveSeekSnapPaint({
       latch: latchRef.current,
       engineSec: 10,
       fallbackSec: 10,
-      nowMs: 1000,
+      // startedAtMs 基準（絶対時刻 1000 だと MAX_MS 超過で即解除される）
+      nowMs: startedAtMs + 50,
     });
     expect(snap.pinned).toBe(true);
     expect(snap.paintSec).toBe(42);
@@ -33,11 +35,12 @@ describe("waveSeekSnapLatch", () => {
       viewStartOverride: 30,
       isPlaying: true,
     });
+    const startedAtMs = latchRef.current!.startedAtMs;
     const snap = resolveWaveSeekSnapPaint({
       latch: latchRef.current,
       engineSec: 42 + WAVE_SEEK_SNAP_ENGINE_EPS_SEC * 0.5,
       fallbackSec: 10,
-      nowMs: 1100,
+      nowMs: startedAtMs + 100,
     });
     expect(snap.pinned).toBe(false);
     advanceWaveSeekSnapLatch(latchRef, 42);

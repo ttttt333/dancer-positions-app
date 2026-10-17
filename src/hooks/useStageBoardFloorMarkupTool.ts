@@ -1,6 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useRef, useState } from "react";
 import type { StageFloorMarkupTool } from "../components/stageBoardTypes";
+import type { FloorLineMarkupScope } from "../lib/floorLineMarkup";
 
 export type UseStageBoardFloorMarkupToolParams = {
   floorMarkupToolProp: StageFloorMarkupTool | undefined;
@@ -12,6 +13,8 @@ export type StageBoardFloorMarkupToolBundle = {
   setFloorMarkupTool: Dispatch<SetStateAction<StageFloorMarkupTool>>;
   floorLineDraft: [number, number][] | null;
   setFloorLineDraft: Dispatch<SetStateAction<[number, number][] | null>>;
+  floorLineScope: FloorLineMarkupScope;
+  setFloorLineScope: Dispatch<SetStateAction<FloorLineMarkupScope>>;
   floorLineSessionRef: MutableRefObject<{
     points: [number, number][];
     lastClientX: number;
@@ -38,6 +41,8 @@ export function useStageBoardFloorMarkupTool({
   const [floorLineDraft, setFloorLineDraft] = useState<
     [number, number][] | null
   >(null);
+  const [floorLineScope, setFloorLineScope] =
+    useState<FloorLineMarkupScope>("formation");
   const floorLineSessionRef = useRef<{
     points: [number, number][];
     lastClientX: number;
@@ -49,6 +54,8 @@ export function useStageBoardFloorMarkupTool({
     setFloorMarkupTool,
     floorLineDraft,
     setFloorLineDraft,
+    floorLineScope,
+    setFloorLineScope,
     floorLineSessionRef,
   };
 }

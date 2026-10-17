@@ -14,8 +14,9 @@ export function StageFloorMarkupLineEraseInlineHint({
         color: "#94a3b8",
       }}
     >
-      {tool === "line" && "床で押したまま動かして線を描きます"}
-      {tool === "erase" && "削除したいメモや線をタップ"}
+      {tool === "line" &&
+        "床で押したまま動かして落書きします（ペア囲みなど）"}
+      {tool === "erase" && "消したい落書きやメモをタップ"}
     </div>
   );
 }
