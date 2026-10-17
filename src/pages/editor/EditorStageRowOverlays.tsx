@@ -181,6 +181,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const gridWidthCmInput = props.gridWidthCmInput as never;
   const hasRosterMembers = props.hasRosterMembers as never;
   const importCrewCsvFromStageToolbar = props.importCrewCsvFromStageToolbar as never;
+  const exportCrewRosterSpreadsheet = props.exportCrewRosterSpreadsheet as
+    | (() => void)
+    | undefined;
   const input = props.input as never;
   const isPlaying = props.isPlaying as never;
   const jumpToPagerSlot = props.jumpToPagerSlot as never;
@@ -550,6 +553,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             <h2 id="member-roster-sheet-title" style={{
               margin: 0, fontSize: "13px", fontWeight: 700, color: shell.text,
               display: "flex", alignItems: "center", gap: 7, letterSpacing: "0.03em",
+              minWidth: 0,
             }}>
               <span style={{ color: shell.accent, display: "flex", opacity: 0.9 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -559,12 +563,48 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               </span>
               メンバー
             </h2>
-            <button
-              type="button"
-              aria-label={t("editor.layout.close")}
-              onClick={() => setMemberRosterSheetOpen(false)}
-              style={{ background: "transparent", border: `1px solid ${shell.border}`, borderRadius: 6, color: shell.textMuted, fontSize: 16, lineHeight: 1, padding: "3px 9px", cursor: "pointer" }}
-            >×</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              {exportCrewRosterSpreadsheet ? (
+                <button
+                  type="button"
+                  disabled={
+                    project?.viewMode === "view" ||
+                    !(project?.crews?.some((c) => c.members.length > 0) ?? false)
+                  }
+                  title="アプリで編集したスキル・学年・身長などを Excel / スプレッドシート用ファイルに書き出します"
+                  onClick={() => exportCrewRosterSpreadsheet()}
+                  style={{
+                    height: 28,
+                    padding: "0 10px",
+                    borderRadius: 6,
+                    border: `1px solid ${shell.border}`,
+                    background: "rgba(255,255,255,0.06)",
+                    color: shell.text,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor:
+                      project?.viewMode === "view" ||
+                      !(project?.crews?.some((c) => c.members.length > 0) ?? false)
+                        ? "not-allowed"
+                        : "pointer",
+                    opacity:
+                      project?.viewMode === "view" ||
+                      !(project?.crews?.some((c) => c.members.length > 0) ?? false)
+                        ? 0.45
+                        : 1,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  表に書き出し
+                </button>
+              ) : null}
+              <button
+                type="button"
+                aria-label={t("editor.layout.close")}
+                onClick={() => setMemberRosterSheetOpen(false)}
+                style={{ background: "transparent", border: `1px solid ${shell.border}`, borderRadius: 6, color: shell.textMuted, fontSize: 16, lineHeight: 1, padding: "3px 9px", cursor: "pointer" }}
+              >×</button>
+            </div>
           </div>
           {/* 本文 */}
           <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "8px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
