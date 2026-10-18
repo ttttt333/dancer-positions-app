@@ -461,13 +461,17 @@ function EditorPageContent({
   const [floorMarkupTool, setFloorMarkupTool] = useState<
     null | "text" | "line" | "erase"
   >(null);
+  /** 落書き線の表示範囲（サイドシート「落書き」タブと StageBoard で共有） */
+  const [floorLineScope, setFloorLineScope] = useState<"formation" | "global">(
+    "formation"
+  );
   /** メンバー表示 SideSheet */
   const [memberRosterSheetOpen, setMemberRosterSheetOpen] = useState(false);
   /** wideEditorLayout 時: テキストパネルを右サイドシートに表示するか */
   const [floorTextSideSheetOpen, setFloorTextSideSheetOpen] = useState(false);
   /** サイドシートを開くときの初期タブ（キューメニュー「照明設定」用） */
   const [floorTextPreferredTab, setFloorTextPreferredTab] = useState<
-    "text" | "lights" | null
+    "text" | "lights" | "scribble" | null
   >(null);
   /** 動線矢印オーバーレイ表示フラグ */
   const [showMotionArrows, setShowMotionArrows] = useState(false);
@@ -3143,6 +3147,7 @@ function EditorPageContent({
     endTopDockResize,
     exportDialogEl,
     floorMarkupTool,
+    floorLineScope,
     floorTextPlaceSession,
     floorTextSideSheetOpen,
     floorTextPreferredTab,
@@ -3230,6 +3235,7 @@ function EditorPageContent({
     setEditorViewerPreviewPick,
     setEditorViewerSheetOpen,
     setFloorMarkupTool,
+    setFloorLineScope,
     setFloorTextPlaceSession,
     setFloorTextSideSheetOpen,
     setFloorTextPreferredTab,

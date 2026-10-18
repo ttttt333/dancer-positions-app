@@ -292,6 +292,8 @@ export function StageBoardBody({
   viewportTextOverlayRoot = null,
   floorMarkupTool: floorMarkupToolProp,
   onFloorMarkupToolChange,
+  floorLineScope: floorLineScopeProp,
+  onFloorLineScopeChange,
   hideFloorMarkupFloatingToolbars = false,
   textPanelPortalTarget,
   onGestureHistoryBegin,
@@ -362,6 +364,8 @@ export function StageBoardBody({
     project,
     floorMarkupTool: floorMarkupToolProp,
     onFloorMarkupToolChange,
+    floorLineScopeProp,
+    onFloorLineScopeChange,
   });
   const audienceEdge = audienceEdgeOverride ?? projectAudienceEdge;
 

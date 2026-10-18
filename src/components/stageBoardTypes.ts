@@ -17,6 +17,7 @@ import type {
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
 import type { FloorTextDraftPayload } from "./FloorTextMarkupBlock";
 import type { TrashDropEdge } from "../lib/stageBoardRosterAndTrash";
+import type { FloorLineMarkupScope } from "../lib/floorLineMarkup";
 
 /** `StageBoardLayout` に渡す3スロット（screen オーバーレイ・メイン列・ステージ上コンテキストメニュー） */
 export type StageBoardLayoutSlots = {
@@ -109,6 +110,9 @@ export type StageBoardBodyProps = {
   /** 親と共有する床マークアップツール（未指定なら内部 state） */
   floorMarkupTool?: StageFloorMarkupTool;
   onFloorMarkupToolChange?: Dispatch<SetStateAction<StageFloorMarkupTool>>;
+  /** 落書き線の表示範囲（サイドシートと共有。未指定なら内部 state） */
+  floorLineScope?: FloorLineMarkupScope;
+  onFloorLineScopeChange?: Dispatch<SetStateAction<FloorLineMarkupScope>>;
   /** true のときステージ左上のテキスト／線トグル帯を出さず、編集 UI のみ出す */
   hideFloorMarkupFloatingToolbars?: boolean;
   /** テキストパネルをこの要素にポータル表示する（右サイドシート内 div）。指定時はステージ上に表示しない */

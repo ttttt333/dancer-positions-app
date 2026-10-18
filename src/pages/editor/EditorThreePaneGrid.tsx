@@ -83,6 +83,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const f = props.f as never;
   const fid = props.fid as never;
   const floorMarkupTool = props.floorMarkupTool as never;
+  const floorLineScope = props.floorLineScope as never;
   const floorTextPlaceSession = props.floorTextPlaceSession as never;
   const floorTextSideSheetOpen = props.floorTextSideSheetOpen as never;
   const flowLibraryDialogEl = props.flowLibraryDialogEl as never;
@@ -164,6 +165,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const setEditorViewerPreviewPick = props.setEditorViewerPreviewPick as never;
   const setEditorViewerSheetOpen = props.setEditorViewerSheetOpen as never;
   const setFloorMarkupTool = props.setFloorMarkupTool as never;
+  const setFloorLineScope = props.setFloorLineScope as never;
   const setFloorTextPlaceSession = props.setFloorTextPlaceSession as never;
   const setFloorTextSideSheetOpen = props.setFloorTextSideSheetOpen as never;
   const setFlowLibraryOpen = props.setFlowLibraryOpen as never;
@@ -1124,6 +1126,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     onFloorTextPlaceSessionChange={onFloorTextPlaceSessionChange}
                     floorMarkupTool={floorMarkupTool}
                     onFloorMarkupToolChange={setFloorMarkupTool}
+                    floorLineScope={floorLineScope}
+                    onFloorLineScopeChange={setFloorLineScope}
                     hideFloorMarkupFloatingToolbars={showTopWaveDock}
                     textPanelPortalTarget={showTopWaveDock ? textPanelPortalEl : null}
                     onOpenTextEditSheet={showTopWaveDock ? (id, draft, isGlobal, markup) => {

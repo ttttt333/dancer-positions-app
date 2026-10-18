@@ -6,6 +6,8 @@ import type { FloorLineMarkupScope } from "../lib/floorLineMarkup";
 export type UseStageBoardFloorMarkupToolParams = {
   floorMarkupToolProp: StageFloorMarkupTool | undefined;
   onFloorMarkupToolChange?: Dispatch<SetStateAction<StageFloorMarkupTool>>;
+  floorLineScopeProp?: FloorLineMarkupScope;
+  onFloorLineScopeChange?: Dispatch<SetStateAction<FloorLineMarkupScope>>;
 };
 
 export type StageBoardFloorMarkupToolBundle = {
@@ -28,6 +30,8 @@ export type StageBoardFloorMarkupToolBundle = {
 export function useStageBoardFloorMarkupTool({
   floorMarkupToolProp,
   onFloorMarkupToolChange,
+  floorLineScopeProp,
+  onFloorLineScopeChange,
 }: UseStageBoardFloorMarkupToolParams): StageBoardFloorMarkupToolBundle {
   const [floorMarkupToolUncontrolled, setFloorMarkupToolUncontrolled] =
     useState<StageFloorMarkupTool>(null);
@@ -41,8 +45,15 @@ export function useStageBoardFloorMarkupTool({
   const [floorLineDraft, setFloorLineDraft] = useState<
     [number, number][] | null
   >(null);
-  const [floorLineScope, setFloorLineScope] =
+  const [floorLineScopeUncontrolled, setFloorLineScopeUncontrolled] =
     useState<FloorLineMarkupScope>("formation");
+  const scopeControlled = typeof onFloorLineScopeChange === "function";
+  const floorLineScope = scopeControlled
+    ? (floorLineScopeProp ?? "formation")
+    : floorLineScopeUncontrolled;
+  const setFloorLineScope = scopeControlled
+    ? onFloorLineScopeChange!
+    : setFloorLineScopeUncontrolled;
   const floorLineSessionRef = useRef<{
     points: [number, number][];
     lastClientX: number;
