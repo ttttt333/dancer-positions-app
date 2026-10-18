@@ -158,15 +158,17 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const f = props.f as never;
   const fid = props.fid as never;
   const floorMarkupTool = props.floorMarkupTool as never;
+  const floorLineScope = props.floorLineScope as "formation" | "global" | undefined;
   const floorTextPlaceSession = props.floorTextPlaceSession as never;
   const floorTextSideSheetOpen = props.floorTextSideSheetOpen as never;
   const floorTextPreferredTab = props.floorTextPreferredTab as
     | "text"
     | "lights"
+    | "scribble"
     | null
     | undefined;
   const setFloorTextPreferredTab = props.setFloorTextPreferredTab as
-    | ((v: "text" | "lights" | null) => void)
+    | ((v: "text" | "lights" | "scribble" | null) => void)
     | undefined;
   const flowLibraryDialogEl = props.flowLibraryDialogEl as never;
   const fontFamily = props.fontFamily as never;
@@ -261,6 +263,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const setEditorViewerPreviewPick = props.setEditorViewerPreviewPick as never;
   const setEditorViewerSheetOpen = props.setEditorViewerSheetOpen as never;
   const setFloorMarkupTool = props.setFloorMarkupTool as never;
+  const setFloorLineScope = props.setFloorLineScope as
+    | ((v: "formation" | "global" | ((prev: "formation" | "global") => "formation" | "global")) => void)
+    | undefined;
   const setFloorTextPlaceSession = props.setFloorTextPlaceSession as never;
   const setFloorTextSideSheetOpen = props.setFloorTextSideSheetOpen as never;
   const setFlowLibraryOpen = props.setFlowLibraryOpen as never;
@@ -2694,6 +2699,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             setFloorTextPlaceSession(null);
             setFloorTextSideSheetOpen(false);
             setFloorTextPreferredTab?.(null);
+            setFloorMarkupTool(null);
           }}
           zIndex={75}
           width="min(360px, 94vw)"
@@ -2709,11 +2715,13 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               setFloorTextPlaceSession(null);
               setFloorTextSideSheetOpen(false);
               setFloorTextPreferredTab?.(null);
+              setFloorMarkupTool(null);
             }}
             onCancel={() => {
               setFloorTextPlaceSession(null);
               setFloorTextSideSheetOpen(false);
               setFloorTextPreferredTab?.(null);
+              setFloorMarkupTool(null);
             }}
             onCommitted={() => {
               setFloorTextPlaceSession(null);
@@ -2735,6 +2743,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             }
             onSelectLightId={setSelectedStageLightId}
             preferredTab={floorTextPreferredTab ?? null}
+            floorMarkupTool={floorMarkupTool}
+            setFloorMarkupTool={setFloorMarkupTool}
+            floorLineScope={floorLineScope ?? "formation"}
+            setFloorLineScope={setFloorLineScope}
           />
         </EditorSideSheet>
       ) : null}

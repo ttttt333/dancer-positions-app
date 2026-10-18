@@ -9,6 +9,9 @@ import {
   FLOOR_TEXT_BODY_MAX_LEN,
 } from "../lib/floorTextPlaceSession";
 import { StageLightingSettingsPanel } from "./StageLightingSettingsPanel";
+import { FloorScribblePanel } from "./FloorScribblePanel";
+import type { FloorMarkupTool } from "./StageFloorMarkupFloatingToolbars";
+import type { FloorLineMarkupScope } from "../lib/floorLineMarkup";
 import styles from "./FloorTextSideSheetContent.module.css";
 
 const COLOR_SWATCHES = [
@@ -32,7 +35,7 @@ const TEXT_ALIGN_OPTIONS = [
   { id: "right", label: "右寄せ" },
 ] as const;
 
-type SheetTab = "text" | "lights";
+type SheetTab = "text" | "lights" | "scribble";
 
 export type FloorTextSideSheetContentProps = {
   open: boolean;
@@ -50,8 +53,13 @@ export type FloorTextSideSheetContentProps = {
   selectedCueId?: string | null;
   selectedLightId?: string | null;
   onSelectLightId?: (id: string | null) => void;
-  /** 開いたときに初期表示するタブ（照明設定など） */
+  /** 開いたときに初期表示するタブ（照明設定・落書きなど） */
   preferredTab?: SheetTab | null;
+  /** 落書きタブ用（渡したときだけタブを出す） */
+  floorMarkupTool?: FloorMarkupTool;
+  setFloorMarkupTool?: Dispatch<SetStateAction<FloorMarkupTool>>;
+  floorLineScope?: FloorLineMarkupScope;
+  setFloorLineScope?: Dispatch<SetStateAction<FloorLineMarkupScope>>;
 };
 
 export function FloorTextSideSheetContent({
@@ -71,11 +79,16 @@ export function FloorTextSideSheetContent({
   selectedLightId = null,
   onSelectLightId,
   preferredTab = null,
+  floorMarkupTool = null,
+  setFloorMarkupTool,
+  floorLineScope = "formation",
+  setFloorLineScope,
 }: FloorTextSideSheetContentProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [tab, setTab] = useState<SheetTab>("text");
   const lightsEnabled = Boolean(project && setProject);
+  const scribbleEnabled = typeof setFloorMarkupTool === "function";
 
   useEffect(() => {
     if (!open) {
@@ -85,15 +98,17 @@ export function FloorTextSideSheetContent({
     }
     if (preferredTab === "lights" && lightsEnabled) {
       setTab("lights");
+    } else if (preferredTab === "scribble" && scribbleEnabled) {
+      setTab("scribble");
     } else if (preferredTab === "text") {
       setTab("text");
     }
-  }, [open, preferredTab, lightsEnabled]);
+  }, [open, preferredTab, lightsEnabled, scribbleEnabled]);
 
-  /** テキストタブのみ配置セッションを用意。照明タブで立てると舞台の範囲選択を奪う */
+  /** テキストタブのみ配置セッションを用意。照明／落書きタブで立てると舞台操作を奪う */
   useEffect(() => {
     if (!open) return;
-    if (tab === "lights") {
+    if (tab === "lights" || tab === "scribble") {
       if (
         floorTextPlaceSession &&
         !floorTextPlaceSession.editTargetId &&
@@ -155,9 +170,17 @@ export function FloorTextSideSheetContent({
   const title =
     tab === "lights"
       ? "テキスト・照明"
-      : floorTextPlaceSession?.editTargetId
-        ? "テキストを編集"
-        : "床テキスト";
+      : tab === "scribble"
+        ? "落書き"
+        : floorTextPlaceSession?.editTargetId
+          ? "テキストを編集"
+          : "床テキスト";
+
+  const sheetTabs: { id: SheetTab; label: string }[] = [
+    { id: "text", label: "テキスト" },
+    ...(lightsEnabled ? [{ id: "lights" as const, label: "照明設定" }] : []),
+    ...(scribbleEnabled ? [{ id: "scribble" as const, label: "落書き" }] : []),
+  ];
 
   return (
     <div className={styles.root}>
@@ -192,10 +215,10 @@ export function FloorTextSideSheetContent({
         </button>
       </div>
 
-      {lightsEnabled ? (
+      {sheetTabs.length > 1 ? (
         <div
           role="tablist"
-          aria-label="テキストと照明"
+          aria-label="テキスト・照明・落書き"
           style={{
             display: "flex",
             gap: 4,
@@ -204,12 +227,7 @@ export function FloorTextSideSheetContent({
             flexShrink: 0,
           }}
         >
-          {(
-            [
-              { id: "text" as const, label: "テキスト" },
-              { id: "lights" as const, label: "照明設定" },
-            ] as const
-          ).map((item) => {
+          {sheetTabs.map((item) => {
             const active = tab === item.id;
             return (
               <button
@@ -255,6 +273,14 @@ export function FloorTextSideSheetContent({
             }
             selectedLightId={selectedLightId}
             onSelectLightId={onSelectLightId}
+          />
+        ) : tab === "scribble" && scribbleEnabled && setFloorMarkupTool && setFloorLineScope ? (
+          <FloorScribblePanel
+            floorMarkupTool={floorMarkupTool}
+            setFloorMarkupTool={setFloorMarkupTool}
+            floorLineScope={floorLineScope}
+            setFloorLineScope={setFloorLineScope}
+            disabled={viewOnly}
           />
         ) : (
           <>

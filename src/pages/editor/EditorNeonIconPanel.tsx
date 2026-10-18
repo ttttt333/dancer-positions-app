@@ -24,7 +24,7 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   const setFloorTextPlaceSession = props.setFloorTextPlaceSession as (v: unknown) => void;
   const setFloorTextSideSheetOpen = props.setFloorTextSideSheetOpen as (open: boolean) => void;
   const setFloorTextPreferredTab = props.setFloorTextPreferredTab as
-    | ((v: "text" | "lights" | null) => void)
+    | ((v: "text" | "lights" | "scribble" | null) => void)
     | undefined;
   const setEditorViewerSheetOpen = props.setEditorViewerSheetOpen as (open: boolean) => void;
   const setStageZenFullscreen = props.setStageZenFullscreen as (v: boolean) => void;
