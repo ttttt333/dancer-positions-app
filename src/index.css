@@ -3401,7 +3401,7 @@ body > [data-editor-sheet-root] {
   padding: 0 !important;
 }
 
-/* Change → 立ち位置雛形：適用・閉じる（PC / 横画面はシート内フッター） */
+/* Change → 立ち位置雛形：閉じる（PC / 横画面はシート内フッター。タップで即配置） */
 .formation-preset-picker-actions {
   flex-shrink: 0;
   display: flex;
@@ -3434,8 +3434,8 @@ body > [data-editor-sheet-root] {
 }
 
 /*
-  縦画面 Change 雛形: 画面いっぱい + 下部固定フッター（適用を押しやすく）
-  一覧だけ縦スクロールできるようにする
+  縦画面 Change 雛形: 画面いっぱい + 下部固定フッター（閉じる）
+  一覧だけ縦スクロールできるようにする（雛形タップで即配置）
 */
 [data-shell-portrait] {
   --portrait-bottom-bar-h: 152px;
@@ -3541,7 +3541,7 @@ body > [data-editor-sheet-root] {
   max-height: 2.6em;
 }
 
-/* 下部固定フッター: 閉じる + 大きめの適用 */
+/* 下部固定フッター: 閉じる（雛形はタップで即配置） */
 .formation-preset-picker-footer {
   flex-shrink: 0;
   display: flex;
@@ -3557,7 +3557,7 @@ body > [data-editor-sheet-root] {
 }
 
 .formation-preset-picker-footer-cancel {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-width: 88px;
   min-height: 52px;
   padding: 12px 16px;
@@ -3568,25 +3568,6 @@ body > [data-editor-sheet-root] {
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-}
-
-.formation-preset-picker-footer-apply {
-  flex: 1 1 auto;
-  min-height: 52px;
-  padding: 12px 18px;
-  border-radius: 12px;
-  border: 1px solid #d4af37;
-  background: rgba(212, 175, 55, 0.32);
-  color: #fef3c7;
-  font-size: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  letter-spacing: 0.04em;
-}
-
-.formation-preset-picker-footer-apply:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .formation-preset-picker-category-label {

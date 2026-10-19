@@ -15,7 +15,6 @@ import {
   getPresetTier,
 } from "../lib/formationPresetTiers";
 import {
-  firstPresetIdInCategories,
   splitClassicPresetCategories,
   useFormationPresetCategoryPreviews,
 } from "../hooks/useFormationPresetCategoryPreviews";
@@ -41,7 +40,7 @@ type Props = {
   /** 配置前に並び順を選ぶ（名簿ストリップと同じ基準） */
   rosterSortMode: RosterStripSortMode;
   onRosterSortModeChange: (mode: RosterStripSortMode) => void;
-  /** 雛形を選択するたびにステージプレビューを更新するコールバック（null でクリア） */
+  /** 閉じる／適用時にステージプレビューをクリアする（null でクリア） */
   onPreviewPreset?: (presetId: LayoutPresetId | null) => void;
 };
 
@@ -105,24 +104,17 @@ export function RosterPresetPickModal({
     []
   );
 
-  /** 雛形をクリック → プレビュー表示（まだ適用しない） */
+  /** 雛形をタップ → すぐ配置してモーダルを閉じる */
   const handleSelect = useCallback(
     (presetId: LayoutPresetId) => {
       if (disabled) return;
-      setSelectedPresetId(presetId);
-      onPreviewPreset?.(presetId);
+      onPreviewPreset?.(null);
+      onPickPreset(presetId);
+      setSelectedPresetId(null);
+      onClose();
     },
-    [disabled, onPreviewPreset]
+    [disabled, onPreviewPreset, onPickPreset, onClose]
   );
-
-  /** 決定ボタン → 適用してモーダルを閉じる */
-  const handleConfirm = useCallback(() => {
-    if (!selectedPresetId || disabled) return;
-    onPreviewPreset?.(null);
-    onPickPreset(selectedPresetId);
-    setSelectedPresetId(null);
-    onClose();
-  }, [selectedPresetId, disabled, onPreviewPreset, onPickPreset, onClose]);
 
   /** 閉じる（キャンセル） → プレビューをクリアして閉じる */
   const handleClose = useCallback(() => {
@@ -148,9 +140,8 @@ export function RosterPresetPickModal({
       cat.items.some((item) => item.id === selectedPresetId)
     );
     if ((!basicTab && getPresetTier(selectedPresetId) > maxTier) || !stillVisible) {
-      const next = firstPresetIdInCategories(visibleCategories);
-      setSelectedPresetId(next);
-      onPreviewPreset?.(next);
+      setSelectedPresetId(null);
+      onPreviewPreset?.(null);
     }
   }, [
     open,
@@ -286,8 +277,6 @@ export function RosterPresetPickModal({
                 disabled={disabled}
                 onChange={(e) => {
                   onRosterSortModeChange(e.target.value as RosterStripSortMode);
-                  /** 並び順を変えたら即プレビューを再要求（presetId は変わらないので親側で再計算させる） */
-                  if (selectedPresetId) onPreviewPreset?.(selectedPresetId);
                 }}
                 style={{
                   fontSize: "12px",
@@ -419,7 +408,6 @@ export function RosterPresetPickModal({
           </div>
         </div>
 
-        {/* 決定フッター（常に表示・選択前はグレーアウト） */}
         <div
           style={{
             flexShrink: 0,
@@ -431,15 +419,9 @@ export function RosterPresetPickModal({
             background: "#020617",
           }}
         >
-          {selectedPresetId ? (
-            <span style={{ flex: 1, fontSize: "11px", color: "#a5b4fc" }}>
-              「{PRESET_LABEL_MAP[selectedPresetId] ?? selectedPresetId}」を選択中
-            </span>
-          ) : (
-            <span style={{ flex: 1, fontSize: "11px", color: "#475569" }}>
-              雛形をタップするとステージにプレビューが表示されます
-            </span>
-          )}
+          <span style={{ flex: 1, fontSize: "11px", color: "#475569" }}>
+            雛形をタップするとすぐに配置されます
+          </span>
           <button
             type="button"
             onClick={handleClose}
@@ -454,25 +436,7 @@ export function RosterPresetPickModal({
               cursor: "pointer",
             }}
           >
-            キャンセル
-          </button>
-          <button
-            type="button"
-            disabled={!selectedPresetId || disabled}
-            onClick={handleConfirm}
-            style={{
-              padding: "7px 20px",
-              borderRadius: "8px",
-              border: "none",
-              background: !selectedPresetId || disabled ? "#1e293b" : "#4f46e5",
-              color: !selectedPresetId || disabled ? "#475569" : "#fff",
-              fontSize: "12px",
-              fontWeight: 700,
-              cursor: !selectedPresetId || disabled ? "not-allowed" : "pointer",
-              transition: "background 0.15s",
-            }}
-          >
-            ✓ 決定
+            閉じる
           </button>
         </div>
       </div>
