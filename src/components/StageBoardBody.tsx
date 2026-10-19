@@ -45,6 +45,7 @@ import {
   resolveStageArrowNudgeKey,
   snapXPctToCenterDistanceMmGrid,
 } from "../lib/dancerSpacing";
+import { resolveAlignmentGuides } from "../lib/stageAlignmentGuides";
 import {
   screenDeltaPctToStageDelta,
   screenPctToStagePct,
@@ -2238,8 +2239,8 @@ export function StageBoardBody({
       let snappedX = quantizeCoord(xPct, "x", mode);
       const snappedY = quantizeCoord(yPct, "y", mode);
       /**
-       * ダンサー移動時: センターからの水平距離が 5cm（50mm）刻みになるよう x を丸める。
-       * Shift 押下時は抑止。大道具の移動では使わない。
+       * ダンサー移動の 5cm 格子吸着は行わない（補助線のみ。Alt+矢印の 5cm は別経路）。
+       * 互換のため引数は残すが、呼び出し側は常に false。
        */
       const widthMm = stageResizeDraft?.stageWidthMm ?? stageWidthMm ?? null;
       if (
@@ -2248,7 +2249,6 @@ export function StageBoardBody({
         typeof widthMm === "number" &&
         widthMm > 0
       ) {
-        // round2 すると 5cm 格子から微妙にずれ、ラベルが ±5cm 飛ぶことがある
         snappedX = snapXPctToCenterDistanceMmGrid(snappedX, widthMm, 50);
       }
       return { xPct: snappedX, yPct: snappedY };
@@ -2293,14 +2293,13 @@ export function StageBoardBody({
   });
 
   /**
-   * ドラッグ中の立ち位置を、ステージのセンター線（x=50 / y=50）および
-   * 他ダンサーの x/y 座標に揃えて吸着させる。
-   * 揃った方向は guideX/guideY として返し、SVG 補助線に反映される。
+   * ドラッグ中、センター線（x=50 / y=50）や他ダンサーの x/y に近づいたら
+   * 補助線（guideX/guideY）だけ出す。座標は動かさない（引っ張られない）。
    *
    * @param xPct       現在の x（％）
    * @param yPct       現在の y（％）
-   * @param excludeIds ドラッグ中のダンサー自身（スナップ候補から除外）
-   * @param strong     Shift 等で一時的にスナップを無効化したい場合は false
+   * @param excludeIds ドラッグ中のダンサー自身（ガイド候補から除外）
+   * @param strong     Shift 等で一時的にガイドを消したい場合は false
    */
   const computeAlignmentSnap = useCallback(
     (
@@ -2317,41 +2316,22 @@ export function StageBoardBody({
       if (!strong) {
         return { xPct, yPct, guideX: null, guideY: null };
       }
-      /** 吸着する距離しきい値（％）。ステージ幅の約 1.2% 程度 */
-      const THRESHOLD = 1.2;
-      /** センター + 他ダンサーの座標をスナップ候補に追加 */
-      const xCandidates: number[] = [50];
-      const yCandidates: number[] = [50];
+      const peerX: number[] = [];
+      const peerY: number[] = [];
       for (const d of displayDancersSnapRef.current) {
         if (excludeIds.has(d.id)) continue;
-        xCandidates.push(d.xPct);
-        yCandidates.push(d.yPct);
+        peerX.push(d.xPct);
+        peerY.push(d.yPct);
       }
-      let bestXDist = THRESHOLD;
-      let guideX: number | null = null;
-      let snappedX = xPct;
-      for (const cx of xCandidates) {
-        const dist = Math.abs(xPct - cx);
-        if (dist < bestXDist) {
-          bestXDist = dist;
-          guideX = cx;
-          snappedX = cx;
-        }
-      }
-      let bestYDist = THRESHOLD;
-      let guideY: number | null = null;
-      let snappedY = yPct;
-      for (const cy of yCandidates) {
-        const dist = Math.abs(yPct - cy);
-        if (dist < bestYDist) {
-          bestYDist = dist;
-          guideY = cy;
-          snappedY = cy;
-        }
-      }
+      const { guideX, guideY } = resolveAlignmentGuides(
+        xPct,
+        yPct,
+        peerX,
+        peerY,
+      );
       return {
-        xPct: round2(snappedX),
-        yPct: round2(snappedY),
+        xPct: round2(xPct),
+        yPct: round2(yPct),
         guideX,
         guideY,
       };
@@ -3221,7 +3201,7 @@ export function StageBoardBody({
           e.clientX - d.offsetXPx,
           e.clientY - d.offsetYPx,
           e.shiftKey,
-          true,
+          false,
         );
         if (!next) return;
         const reveal = pointerInViewportTrashRevealZone(
@@ -3241,24 +3221,24 @@ export function StageBoardBody({
           }
           return;
         }
-        /** 中央線・他ダンサーに近づいたら吸着し、揃っている方向をガイド線で示す */
-        const snapped = computeAlignmentSnap(
+        /** 中央線・他ダンサーに近づいたらガイド線だけ出す（座標は引っ張らない） */
+        const aligned = computeAlignmentSnap(
           next.xPct,
           next.yPct,
           new Set([d.dancerId]),
           !e.shiftKey,
         );
         if (
-          snapped.guideX !== alignGuides.x ||
-          snapped.guideY !== alignGuides.y
+          aligned.guideX !== alignGuides.x ||
+          aligned.guideY !== alignGuides.y
         ) {
-          setAlignGuides({ x: snapped.guideX, y: snapped.guideY });
+          setAlignGuides({ x: aligned.guideX, y: aligned.guideY });
         }
         queueFormationUpdate((f) => ({
           ...f,
           dancers: f.dancers.map((x) =>
             x.id === d.dancerId
-              ? { ...x, xPct: snapped.xPct, yPct: snapped.yPct }
+              ? { ...x, xPct: aligned.xPct, yPct: aligned.yPct }
               : x,
           ),
         }));
@@ -3505,7 +3485,7 @@ export function StageBoardBody({
           return;
         }
         /**
-         * 群移動では先頭を代表にセンター線（50%）へだけ吸着し、全体を同じデルタで動かす。
+         * 群移動でも先頭を代表にガイド線だけ出す（座標は引っ張らない）。
          */
         let guideX: number | null = null;
         let guideY: number | null = null;
@@ -3514,11 +3494,9 @@ export function StageBoardBody({
         if (leadStart && !e.shiftKey) {
           const leadX = leadStart.xPct + dxPct;
           const leadY = leadStart.yPct + dyPct;
-          const snapped = computeAlignmentSnap(leadX, leadY, idSet, true);
-          dxPct += snapped.xPct - leadX;
-          dyPct += snapped.yPct - leadY;
-          guideX = snapped.guideX;
-          guideY = snapped.guideY;
+          const aligned = computeAlignmentSnap(leadX, leadY, idSet, true);
+          guideX = aligned.guideX;
+          guideY = aligned.guideY;
         }
         /**
          * 先頭がスナップしなかった場合も、選択中の誰かがセンター線または
