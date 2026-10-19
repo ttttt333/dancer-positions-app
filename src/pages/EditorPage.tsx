@@ -1580,7 +1580,8 @@ function EditorPageContent({
         sideStageMm: s,
         backStageMm: b,
         centerFieldGuideIntervalMm: g,
-        snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
+        /** 縦線・横線はガイド表示のみ。立ち位置吸着はしない */
+        snapGrid: false,
         gridStep: d.gridStep,
         stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
         stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
@@ -1645,7 +1646,8 @@ function EditorPageContent({
       sideStageMm: s,
       backStageMm: b,
       centerFieldGuideIntervalMm: g,
-      snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
+      /** 縦線・横線はガイド表示のみ。立ち位置吸着はしない */
+      snapGrid: false,
       gridStep: d.gridStep,
       stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
       stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
