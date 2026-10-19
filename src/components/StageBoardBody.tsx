@@ -39,6 +39,7 @@ import {
 import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
+  equalizeXPctByStartCenterDistanceSlot,
   nudgeXPctForAltArrow,
   nudgeYPctForAltArrow,
   resolveStageArrowNudgeKey,
@@ -2247,9 +2248,8 @@ export function StageBoardBody({
         typeof widthMm === "number" &&
         widthMm > 0
       ) {
-        snappedX = round2(
-          snapXPctToCenterDistanceMmGrid(snappedX, widthMm, 50),
-        );
+        // round2 すると 5cm 格子から微妙にずれ、ラベルが ±5cm 飛ぶことがある
+        snappedX = snapXPctToCenterDistanceMmGrid(snappedX, widthMm, 50);
       }
       return { xPct: snappedX, yPct: snappedY };
     },
@@ -3627,23 +3627,57 @@ export function StageBoardBody({
           { x: grabXPct, y: grabYPct },
         );
         const idSet = new Set(g.ids);
+        const rawNextX = new Map<string, number>();
+        const rawNextY = new Map<string, number>();
+        const startX = new Map<string, number>();
+        for (const id of g.ids) {
+          const s = g.startPositions.get(id);
+          if (!s) continue;
+          startX.set(id, s.xPct);
+          rawNextX.set(
+            id,
+            clamp(
+              ax + (s.xPct - ax) * sx,
+              DANCER_STAGE_POSITION_PCT_LO,
+              DANCER_STAGE_POSITION_PCT_HI,
+            ),
+          );
+          rawNextY.set(
+            id,
+            clamp(
+              ay + (s.yPct - ay) * sy,
+              DANCER_STAGE_POSITION_PCT_LO,
+              DANCER_STAGE_POSITION_PCT_HI,
+            ),
+          );
+        }
+        const widthMm =
+          stageResizeDraft?.stageWidthMm ?? stageWidthMm ?? null;
+        const equalizedX =
+          typeof widthMm === "number" && widthMm > 0
+            ? equalizeXPctByStartCenterDistanceSlot(
+                rawNextX,
+                startX,
+                widthMm,
+                50,
+              )
+            : rawNextX;
         queueFormationUpdate((f) => ({
           ...f,
           dancers: f.dancers.map((x) => {
             if (!idSet.has(x.id)) return x;
-            const s = g.startPositions.get(x.id);
-            if (!s) return x;
-            const nx = clamp(
-              ax + (s.xPct - ax) * sx,
-              DANCER_STAGE_POSITION_PCT_LO,
-              DANCER_STAGE_POSITION_PCT_HI,
-            );
-            const ny = clamp(
-              ay + (s.yPct - ay) * sy,
-              DANCER_STAGE_POSITION_PCT_LO,
-              DANCER_STAGE_POSITION_PCT_HI,
-            );
-            return { ...x, xPct: round2(nx), yPct: round2(ny) };
+            if (!equalizedX.has(x.id) || !rawNextY.has(x.id)) return x;
+            const nx = equalizedX.get(x.id)!;
+            const ny = rawNextY.get(x.id)!;
+            return {
+              ...x,
+              // X は 5cm 格子の mm 復元値をそのまま（round2 で格子崩れしない）
+              xPct:
+                typeof widthMm === "number" && widthMm > 0
+                  ? nx
+                  : round2(nx),
+              yPct: round2(ny),
+            };
           }),
         }));
         setTrashHotIfChanged(false);
@@ -4082,6 +4116,8 @@ export function StageBoardBody({
     displayFloorMarkup,
     setSelectedFloorTextIds,
     rot,
+    stageWidthMm,
+    stageResizeDraft?.stageWidthMm,
   ]);
 
   const cancelShapePreview = useCallback(() => {
@@ -4178,8 +4214,21 @@ export function StageBoardBody({
           }
           return {
             ...x,
-            xPct: round2(xPct),
-            yPct: round2(yPct),
+            // mm スナップ結果は round2 しない（5cm 格子の崩れ防止）
+            xPct:
+              !shiftFine &&
+              (dk === "ArrowLeft" || dk === "ArrowRight") &&
+              typeof stageWidthMm === "number" &&
+              stageWidthMm > 0
+                ? xPct
+                : round2(xPct),
+            yPct:
+              !shiftFine &&
+              (dk === "ArrowUp" || dk === "ArrowDown") &&
+              typeof stageDepthMm === "number" &&
+              stageDepthMm > 0
+                ? yPct
+                : round2(yPct),
           };
         }),
       }));

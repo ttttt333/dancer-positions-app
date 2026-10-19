@@ -214,6 +214,17 @@ export function gridWidthCenterDistanceMmFromMarkerCenter(
 }
 
 /**
+ * ステージ横幅センターからの符号付き水平距離（mm）。客席正面で右が正。
+ */
+export function signedHorizontalDistanceFromStageCenterMm(
+  xPct: number,
+  stageWidthMm: number
+): number {
+  if (!(stageWidthMm > 0)) return 0;
+  return ((xPct - 50) / 100) * stageWidthMm;
+}
+
+/**
  * 印の中心 xPct からステージ横幅センターまでの水平距離（mm、非負）。
  * 規格スロットには寄せず、実寸のまま（○内「センター距離」自動表示用）。
  */
@@ -221,13 +232,40 @@ export function rawHorizontalDistanceFromStageCenterMm(
   xPct: number,
   stageWidthMm: number
 ): number {
-  if (!(stageWidthMm > 0)) return 0;
-  return Math.abs(((xPct - 50) / 100) * stageWidthMm);
+  return Math.abs(
+    signedHorizontalDistanceFromStageCenterMm(xPct, stageWidthMm)
+  );
+}
+
+/** 非負のセンター距離を `gridMm` 格子へ（半分は上へ。左右共通のため必ず非負に対して丸める）。 */
+export function snapAbsCenterDistanceMm(
+  distMm: number,
+  gridMm: number = 50
+): number {
+  if (!(gridMm > 0) || !Number.isFinite(distMm)) return 0;
+  return Math.max(0, Math.round(Math.abs(distMm) / gridMm) * gridMm);
+}
+
+/**
+ * 符号付き距離（mm）→ xPct。
+ * `round2` は使わない（0.01% 丸めで 5cm 格子からずれるのを防ぐ）。
+ */
+export function xPctFromSignedCenterDistanceMm(
+  distMm: number,
+  stageWidthMm: number
+): number {
+  if (!(stageWidthMm > 0)) return 50;
+  const xPct = 50 + (distMm / stageWidthMm) * 100;
+  return clampPct(
+    xPct,
+    DANCER_STAGE_POSITION_PCT_LO,
+    DANCER_STAGE_POSITION_PCT_HI
+  );
 }
 
 /**
  * ○内「センター距離」表示用 mm。
- * 5cm 格子に x を揃えてから距離を出し、上手・下手で同じ数字になるようにする。
+ * 5cm 格子に揃えてから距離を出し、上手・下手で同じ数字になるようにする。
  */
 export function centerDistanceLabelMmFromMarkerCenter(
   xPct: number,
@@ -235,12 +273,10 @@ export function centerDistanceLabelMmFromMarkerCenter(
   gridMm = 50
 ): number {
   if (!(stageWidthMm > 0)) return 0;
-  const snappedXPct = snapXPctToCenterDistanceMmGrid(
-    xPct,
-    stageWidthMm,
+  return snapAbsCenterDistanceMm(
+    rawHorizontalDistanceFromStageCenterMm(xPct, stageWidthMm),
     gridMm
   );
-  return rawHorizontalDistanceFromStageCenterMm(snappedXPct, stageWidthMm);
 }
 
 /** ○内「センターからの距離」表示用。センターからの水平距離を 5cm 刻みの整数（cm）に丸める。 */
@@ -258,12 +294,66 @@ export function snapXPctToCenterDistanceMmGrid(
   gridMm: number = 50
 ): number {
   if (!(stageWidthMm > 0) || !(gridMm > 0)) return xPct;
-  const distMm = Math.abs(((xPct - 50) / 100) * stageWidthMm);
-  const snappedDist = Math.round(distMm / gridMm) * gridMm;
-  const sign = xPct >= 50 ? 1 : -1;
-  const xMmFromLeft = stageWidthMm / 2 + sign * snappedDist;
-  const newPct = (xMmFromLeft / stageWidthMm) * 100;
-  return clampPct(newPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI);
+  const signed = signedHorizontalDistanceFromStageCenterMm(xPct, stageWidthMm);
+  if (Math.abs(signed) < 1e-9) {
+    return clampPct(50, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI);
+  }
+  const sign: 1 | -1 = signed < 0 ? -1 : 1;
+  const snappedAbs = snapAbsCenterDistanceMm(signed, gridMm);
+  return xPctFromSignedCenterDistanceMm(sign * snappedAbs, stageWidthMm);
+}
+
+/**
+ * 群スケール後: 開始時に同じ 5cm スロットだった印は、新しい距離も平均→1回スナップで共有する。
+ * 左右でラベルが半コマずれて別タイミングで変わるのを防ぐ。
+ */
+export function equalizeXPctByStartCenterDistanceSlot(
+  nextXPctById: ReadonlyMap<string, number>,
+  startXPctById: ReadonlyMap<string, number>,
+  stageWidthMm: number,
+  gridMm: number = 50
+): Map<string, number> {
+  const out = new Map<string, number>();
+  if (!(stageWidthMm > 0) || !(gridMm > 0) || nextXPctById.size === 0) {
+    for (const [id, x] of nextXPctById) out.set(id, x);
+    return out;
+  }
+
+  type Member = { id: string; sign: 1 | -1; nextAbs: number };
+  const groups = new Map<number, Member[]>();
+
+  for (const [id, nextX] of nextXPctById) {
+    const startX = startXPctById.get(id) ?? nextX;
+    const startSigned = signedHorizontalDistanceFromStageCenterMm(
+      startX,
+      stageWidthMm
+    );
+    const slot = snapAbsCenterDistanceMm(startSigned, gridMm);
+    const nextSigned = signedHorizontalDistanceFromStageCenterMm(
+      nextX,
+      stageWidthMm
+    );
+    const startSign: 1 | -1 = startSigned < 0 ? -1 : 1;
+    const nextSign: 1 | -1 = nextSigned < 0 ? -1 : 1;
+    const sign =
+      Math.abs(nextSigned) < 1e-6 ? startSign : nextSign;
+    const list = groups.get(slot) ?? [];
+    list.push({ id, sign, nextAbs: Math.abs(nextSigned) });
+    groups.set(slot, list);
+  }
+
+  for (const members of groups.values()) {
+    const meanAbs =
+      members.reduce((sum, m) => sum + m.nextAbs, 0) / members.length;
+    const snappedAbs = snapAbsCenterDistanceMm(meanAbs, gridMm);
+    for (const m of members) {
+      out.set(
+        m.id,
+        xPctFromSignedCenterDistanceMm(m.sign * snappedAbs, stageWidthMm)
+      );
+    }
+  }
+  return out;
 }
 
 /**
