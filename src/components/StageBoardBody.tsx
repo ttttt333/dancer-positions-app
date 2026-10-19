@@ -2231,13 +2231,12 @@ export function StageBoardBody({
         rotationDeg,
       );
       const { xPct, yPct } = point;
-      const mode: StageDancerSnapMode = snapGrid
-        ? shiftKey
-          ? "fine"
-          : "grid"
-        : "free";
-      let snappedX = quantizeCoord(xPct, "x", mode);
-      const snappedY = quantizeCoord(yPct, "y", mode);
+      /**
+       * 縦線・横線は表示専用。立ち位置／印のドラッグは常に free（格子へ引っ張らない）。
+       * 大道具リサイズ等の snapDim は別経路のまま。
+       */
+      let snappedX = quantizeCoord(xPct, "x", "free");
+      const snappedY = quantizeCoord(yPct, "y", "free");
       /**
        * ダンサー移動の 5cm 格子吸着は行わない（補助線のみ。Alt+矢印の 5cm は別経路）。
        * 互換のため引数は残すが、呼び出し側は常に false。
@@ -2253,13 +2252,7 @@ export function StageBoardBody({
       }
       return { xPct: snappedX, yPct: snappedY };
     },
-    [
-      snapGrid,
-      quantizeCoord,
-      stageWidthMm,
-      mmSnapGrid,
-      stageResizeDraft?.stageWidthMm,
-    ],
+    [quantizeCoord, stageWidthMm, stageResizeDraft?.stageWidthMm],
   );
 
   const pxToPct = useCallback(
