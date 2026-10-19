@@ -115,8 +115,12 @@ describe("applyLayoutPresetToTargetDancers", () => {
       undefined,
       prev
     );
-    const fromPrev = transferDancerIdentitiesByNearestPosition(
+    const slots = translateSpotsToMatchFrontRow(
       dancersForLayoutPreset(2, "line"),
+      prev
+    );
+    const fromPrev = transferDancerIdentitiesByNearestPosition(
+      slots,
       resolveNearestMatchSpots(current, prev)
     );
     expect(next.find((d) => d.id === "a")!.xPct).toBe(
@@ -127,6 +131,38 @@ describe("applyLayoutPresetToTargetDancers", () => {
     );
     expect(next.find((d) => d.id === "a")!.xPct).toBeLessThan(
       next.find((d) => d.id === "b")!.xPct
+    );
+  });
+
+  it("assigns on final slots (front-row anchored) so travel from prev cue is shortest", () => {
+    /** 前キュー: A は左奥、B は右手前。中央寄せ後に割当すると交差しやすい配置 */
+    const prev = [spot("a", 15, 35), spot("b", 85, 75)];
+    const current = [spot("a", 40, 50), spot("b", 60, 50)];
+    const next = applyLayoutPresetToTargetDancers(
+      current,
+      current.map((d) => d.id),
+      "line",
+      undefined,
+      prev
+    );
+    const slots = translateSpotsToMatchFrontRow(
+      dancersForLayoutPreset(2, "line"),
+      prev
+    );
+    const matchSpots = resolveNearestMatchSpots(current, prev);
+    const optimal = transferDancerIdentitiesByNearestPosition(slots, matchSpots);
+    expect(next.find((d) => d.id === "a")!.xPct).toBe(
+      optimal.find((d) => d.id === "a")!.xPct
+    );
+    expect(next.find((d) => d.id === "b")!.xPct).toBe(
+      optimal.find((d) => d.id === "b")!.xPct
+    );
+    /** 交差しない: 左にいた A は左スロットへ */
+    expect(next.find((d) => d.id === "a")!.xPct).toBeLessThan(
+      next.find((d) => d.id === "b")!.xPct
+    );
+    expect(totalTravelSq(matchSpots, next)).toBeLessThanOrEqual(
+      totalTravelSq(matchSpots, optimal) + 1e-6
     );
   });
 
