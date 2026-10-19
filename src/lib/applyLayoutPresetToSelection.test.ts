@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { DancerSpot } from "../types/choreography";
 import {
   applyLayoutPresetToTargetDancers,
+  frontRowCentroidOf,
   layoutPresetPositionsById,
   resolveChangeTargetIds,
   resolveNearestMatchSpots,
   translateSpotsToMatchCentroid,
+  translateSpotsToMatchFrontRow,
 } from "./applyLayoutPresetToSelection";
 import {
   dancersForLayoutPreset,
@@ -213,6 +215,53 @@ describe("translateSpotsToMatchCentroid", () => {
     expect(from.x).toBeCloseTo(30, 5);
     expect(from.y).toBeCloseTo(80, 5);
     expect(next[1]!.xPct - next[0]!.xPct).toBeCloseTo(20, 5);
+  });
+});
+
+describe("translateSpotsToMatchFrontRow", () => {
+  it("anchors the new front row to the previous cue's front row depth", () => {
+    const prev = [
+      spot("b1", 30, 30),
+      spot("b2", 50, 30),
+      spot("b3", 70, 30),
+      spot("f1", 25, 72),
+      spot("f2", 50, 72),
+      spot("f3", 75, 72),
+    ];
+    const centeredLine = dancersForLayoutPreset(3, "line");
+    const next = translateSpotsToMatchFrontRow(centeredLine, prev);
+    const front = frontRowCentroidOf(next)!;
+    expect(front.y).toBeCloseTo(72, 0);
+  });
+
+  it("full-formation Change with matchSource places line near previous front row", () => {
+    const prev = [
+      spot("a", 20, 70),
+      spot("b", 50, 70),
+      spot("c", 80, 70),
+    ];
+    const current = [
+      spot("a", 20, 40),
+      spot("b", 50, 40),
+      spot("c", 80, 40),
+    ];
+    const withoutPrev = applyLayoutPresetToTargetDancers(
+      current,
+      current.map((d) => d.id),
+      "line"
+    );
+    const withPrev = applyLayoutPresetToTargetDancers(
+      current,
+      current.map((d) => d.id),
+      "line",
+      undefined,
+      prev
+    );
+    const yWithout =
+      withoutPrev.reduce((s, d) => s + d.yPct, 0) / withoutPrev.length;
+    const yWith = withPrev.reduce((s, d) => s + d.yPct, 0) / withPrev.length;
+    expect(yWith).toBeGreaterThan(yWithout + 10);
+    expect(yWith).toBeCloseTo(70, 0);
   });
 });
 
