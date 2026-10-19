@@ -14,9 +14,11 @@ import type {
 import {
   COMMON_QUICK_LAYOUT_PRESETS,
   dancersForLayoutPreset,
-  transferDancerIdentitiesByOrder,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
+import { applyLayoutPresetToTargetDancers } from "../lib/applyLayoutPresetToSelection";
+import { resolvePreviousCueDancers } from "../lib/stagePrevCueCompare";
+import { sortCuesByStart } from "../lib/cueInterval";
 import {
   captureStageSnapshot,
   mergeStageSnapshotIntoProject,
@@ -152,17 +154,40 @@ export function QuickFormationBar({
     [disabled, targetFormation, setProject, onPreviewChange]
   );
 
-  /** ボタン押下: すぐ配置する */
+  /** ボタン押下: すぐ配置する（直前キューの一列目をベースに） */
   const pickPreset = useCallback(
     (presetId: LayoutPresetId, _label: string) => {
       if (disabled || !targetFormation) return;
-      const dancers = transferDancerIdentitiesByOrder(
-        buildPresetDancers(presetId),
-        targetFormation.dancers
+      const sorted = sortCuesByStart(project.cues);
+      const cueUsingFormation = sorted.find(
+        (c) => c.formationId === targetFormation.id
+      );
+      const matchSource = resolvePreviousCueDancers(
+        project.cues,
+        project.formations,
+        cueUsingFormation?.id ?? null
+      );
+      const dancers = applyLayoutPresetToTargetDancers(
+        targetFormation.dancers,
+        targetFormation.dancers.map((d) => d.id),
+        presetId,
+        {
+          dancerSpacingMm: project.dancerSpacingMm,
+          stageWidthMm: project.stageWidthMm,
+        },
+        matchSource
       );
       writeFormationDancers(dancers, { highlightKey: `preset:${presetId}` });
     },
-    [disabled, targetFormation, buildPresetDancers, writeFormationDancers]
+    [
+      disabled,
+      targetFormation,
+      project.cues,
+      project.formations,
+      project.dancerSpacingMm,
+      project.stageWidthMm,
+      writeFormationDancers,
+    ]
   );
 
   const pickBox = useCallback(

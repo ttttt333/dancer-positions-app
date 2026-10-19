@@ -6,6 +6,9 @@ import {
   transferDancerIdentitiesByNearestPosition,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
+import { translateSpotsToMatchFrontRow } from "../lib/applyLayoutPresetToSelection";
+import { resolvePreviousCueDancers } from "../lib/stagePrevCueCompare";
+import { sortCuesByStart } from "../lib/cueInterval";
 import {
   applyFormationBoxItemToStage,
   deleteFormationBoxItem,
@@ -133,13 +136,25 @@ export function FormationSuggestionPanel({
         f0 && f0.dancers.length > 0
           ? f0.confirmedDancerCount ?? f0.dancers.length
           : f0?.confirmedDancerCount ?? n;
-      const dancers = transferDancerIdentitiesByNearestPosition(
+      const assigned = transferDancerIdentitiesByNearestPosition(
         dancersWithPresetAndWingSurplus(n, preset, prev, surplusToWings, {
           dancerSpacingMm: project.dancerSpacingMm,
           stageWidthMm: project.stageWidthMm,
         }),
         f0?.dancers ?? []
       );
+      const cueUsingFormation = sortCuesByStart(project.cues).find(
+        (c) => c.formationId === targetFormationId
+      );
+      const matchSource = resolvePreviousCueDancers(
+        project.cues,
+        project.formations,
+        cueUsingFormation?.id ?? null
+      );
+      const dancers =
+        matchSource && matchSource.length > 0
+          ? translateSpotsToMatchFrontRow(assigned, matchSource)
+          : assigned;
       setProject((p) => ({
         ...p,
         formations: p.formations.map((f) =>
@@ -160,6 +175,7 @@ export function FormationSuggestionPanel({
       targetFormationId,
       surplusToWings,
       project.formations,
+      project.cues,
       project.dancerSpacingMm,
       project.stageWidthMm,
       me,

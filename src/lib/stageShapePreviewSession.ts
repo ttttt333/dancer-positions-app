@@ -85,6 +85,8 @@ export function draftLayoutPresetPreview(input: {
   selectedIds: readonly string[];
   presetId: LayoutPresetId;
   layoutOpts?: ShapeGeneratorInput["layoutOpts"];
+  /** 直前キュー等。全員適用時の一列目アンカー／最短割当に使う */
+  matchSource?: readonly DancerSpot[] | null;
 }): ShapePreviewDraft | null {
   const targetIds = resolveChangeTargetIds(
     input.dancers.map((d) => d.id),
@@ -94,7 +96,8 @@ export function draftLayoutPresetPreview(input: {
     input.dancers,
     targetIds,
     input.presetId,
-    input.layoutOpts
+    input.layoutOpts,
+    input.matchSource
   );
   if (positions.size === 0) return null;
   const prevById = new Map(input.dancers.map((d) => [d.id, d] as const));

@@ -4737,6 +4737,7 @@ export function StageBoardBody({
           dancerSpacingMm: project.dancerSpacingMm,
           stageWidthMm: project.stageWidthMm,
         },
+        matchSource: prevCueDancers,
       });
       if (!draft) {
         showShapePreviewToast({
@@ -4767,6 +4768,7 @@ export function StageBoardBody({
       writeFormation,
       activeFormation,
       selectedDancerIds,
+      prevCueDancers,
       project.dancerSpacingMm,
       project.stageWidthMm,
       showShapePreviewToast,
