@@ -3541,33 +3541,56 @@ body > [data-editor-sheet-root] {
   max-height: 2.6em;
 }
 
-/* 下部固定フッター: 閉じる（雛形はタップで即配置） */
+/*
+  操作バー: 雛形 / BASIC / ☆ / 保存 / 適用 / 閉じる
+  ヘッダー直下に固定し、一覧スクロールでも隠れない
+*/
 .formation-preset-picker-footer {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
-  align-items: stretch;
-  gap: 10px;
-  padding: 10px 12px;
-  padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid rgba(212, 175, 55, 0.28);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  border-bottom: 1px solid rgba(212, 175, 55, 0.22);
   background: #07090f;
-  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.45);
-  z-index: 2;
+  z-index: 8;
 }
 
 .formation-preset-picker-footer-cancel {
-  flex: 1 1 auto;
-  min-width: 88px;
-  min-height: 52px;
-  padding: 12px 16px;
-  border-radius: 12px;
+  flex: 0 0 auto;
+  min-width: 72px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
   border: 1px solid #334155;
   background: rgba(15, 23, 42, 0.96);
   color: #e2e8f0;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.formation-preset-picker-footer-apply {
+  flex: 1 1 auto;
+  min-width: 88px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #d4af37;
+  background: rgba(212, 175, 55, 0.32);
+  color: #fef3c7;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+
+.formation-preset-picker-footer-apply:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .formation-preset-picker-category-label {
@@ -3600,11 +3623,12 @@ body > [data-editor-sheet-root] {
   flex-direction: column !important;
 }
 
-/** PC: 閉じる・適用・☆をヘッダー直下の左寄せに常時表示（一覧だけスクロール） */
+/** PC: 雛形 / BASIC / ☆ / 保存 / 適用 / 閉じるをヘッダー直下に常時表示 */
 .formation-preset-picker-actions-sticky {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
   gap: 8px;
