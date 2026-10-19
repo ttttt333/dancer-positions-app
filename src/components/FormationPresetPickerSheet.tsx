@@ -438,96 +438,111 @@ export function FormationPresetPickerSheet({
       window.removeEventListener("keydown", onKey, { capture: true } as EventListenerOptions);
   }, [open, closeAndCleanup]);
 
-  const apply = useCallback(() => {
-    const canApplyPreset = sourceTab === "preset" && selectedPresetId;
-    const canApplyBox = sourceTab === "box" && selectedBoxItem;
-    if (!targetFormation || !previewDancers || (!canApplyPreset && !canApplyBox))
-      return;
-    /** プレビューは既に applyMode 反映済み。適用先の現行メンバーへ再マージして id を安定させる */
-    const dancersToWrite =
-      sourceTab === "box" && selectedBoxItem
-        ? applyFormationBoxItemToStage(
-            selectedBoxItem,
-            targetFormation.dancers,
-            boxApplyMode
-          )
-        : previewDancers;
-    if (createCueAtPlayhead) {
-      const newCueId = crypto.randomUUID();
-      const build = (p: ChoreographyProjectJson): ChoreographyProjectJson | null => {
-        if (p.cues.length >= 100) return null;
-        const src = p.formations.find((f) => f.id === targetFormation.id);
-        if (!src) return null;
-        const newFm = {
-          ...cloneFormationForNewCue(src),
-          dancers: dancersToWrite.map((d) => ({ ...d })),
-          confirmedDancerCount: dancersToWrite.length,
-        };
-        const trimLo = p.trimStartSec;
-        const trimHi = trimHiSecForCueTimeline(
-          p.trimEndSec,
-          usePlaybackUiStore.getState().durationSec
+  /**
+   * タップで即配置。selectedPresetId / previewDancers に依存しないよう、
+   * 引数で指定された雛形・保存 ID から同期的に座標を計算する。
+   */
+  const apply = useCallback(
+    (opts?: { presetId?: LayoutPresetId; boxItem?: FormationBoxItem }) => {
+      if (!targetFormation) return;
+      const boxItem = opts?.boxItem ?? null;
+      const presetId = opts?.presetId ?? null;
+      let dancersToWrite: DancerSpot[] | null = null;
+      if (boxItem) {
+        dancersToWrite = applyFormationBoxItemToStage(
+          boxItem,
+          targetFormation.dancers,
+          boxApplyMode
         );
-        const t0 = Math.max(
-          trimLo,
-          Math.min(trimHi - MIN_CUE_DURATION_SEC, playheadSec)
+      } else if (presetId) {
+        dancersToWrite = applyLayoutPresetToTargetDancers(
+          targetFormation.dancers,
+          targetIds,
+          presetId,
+          spacingOpts,
+          nearestMatchSource
         );
-        const { tStartSec, tEndSec } = resolveCueIntervalNonOverlap(
-          p.cues,
-          newCueId,
-          t0,
-          Math.min(trimHi, t0 + DEFAULT_CUE_SPAN_WITH_AUDIO_SEC),
-          trimLo,
-          trimHi
-        );
-        if (!(tEndSec > tStartSec)) return null;
-        const cue: Cue = {
-          id: newCueId,
-          tStartSec,
-          tEndSec,
-          formationId: newFm.id,
-        };
-        return {
-          ...p,
-          formations: [...p.formations, newFm],
-          cues: sortCuesByStart([...p.cues, cue]),
-          activeFormationId: newFm.id,
-        };
-      };
-      if (build(project)) {
-        setProject((p) => build(p) ?? p);
-        onCueCreated?.(newCueId);
-        closeAndCleanup();
-        return;
       }
-    }
-    setProject((p) => ({
-      ...p,
-      formations: p.formations.map((f) =>
-        f.id === targetFormation.id
-          ? {
-              ...f,
-              dancers: dancersToWrite,
-              confirmedDancerCount: dancersToWrite.length,
-            }
-          : f
-      ),
-    }));
-    closeAndCleanup();
-  }, [
-    targetFormation,
-    selectedPresetId,
-    selectedBoxItem,
-    sourceTab,
-    boxApplyMode,
-    previewDancers,
-    setProject,
-    closeAndCleanup,
-    createCueAtPlayhead,
-    playheadSec,
-    onCueCreated,
-    project,
-  ]);
+      if (!dancersToWrite) return;
+      if (createCueAtPlayhead) {
+        const newCueId = crypto.randomUUID();
+        const build = (
+          p: ChoreographyProjectJson
+        ): ChoreographyProjectJson | null => {
+          if (p.cues.length >= 100) return null;
+          const src = p.formations.find((f) => f.id === targetFormation.id);
+          if (!src) return null;
+          const newFm = {
+            ...cloneFormationForNewCue(src),
+            dancers: dancersToWrite.map((d) => ({ ...d })),
+            confirmedDancerCount: dancersToWrite.length,
+          };
+          const trimLo = p.trimStartSec;
+          const trimHi = trimHiSecForCueTimeline(
+            p.trimEndSec,
+            usePlaybackUiStore.getState().durationSec
+          );
+          const t0 = Math.max(
+            trimLo,
+            Math.min(trimHi - MIN_CUE_DURATION_SEC, playheadSec)
+          );
+          const { tStartSec, tEndSec } = resolveCueIntervalNonOverlap(
+            p.cues,
+            newCueId,
+            t0,
+            Math.min(trimHi, t0 + DEFAULT_CUE_SPAN_WITH_AUDIO_SEC),
+            trimLo,
+            trimHi
+          );
+          if (!(tEndSec > tStartSec)) return null;
+          const cue: Cue = {
+            id: newCueId,
+            tStartSec,
+            tEndSec,
+            formationId: newFm.id,
+          };
+          return {
+            ...p,
+            formations: [...p.formations, newFm],
+            cues: sortCuesByStart([...p.cues, cue]),
+            activeFormationId: newFm.id,
+          };
+        };
+        if (build(project)) {
+          setProject((p) => build(p) ?? p);
+          onCueCreated?.(newCueId);
+          closeAndCleanup();
+          return;
+        }
+      }
+      setProject((p) => ({
+        ...p,
+        formations: p.formations.map((f) =>
+          f.id === targetFormation.id
+            ? {
+                ...f,
+                dancers: dancersToWrite,
+                confirmedDancerCount: dancersToWrite.length,
+              }
+            : f
+        ),
+      }));
+      closeAndCleanup();
+    },
+    [
+      targetFormation,
+      targetIds,
+      spacingOpts,
+      nearestMatchSource,
+      boxApplyMode,
+      setProject,
+      closeAndCleanup,
+      createCueAtPlayhead,
+      playheadSec,
+      onCueCreated,
+      project,
+    ]
+  );
 
   const cueLabel = useMemo(() => {
     if (!selectedCueId) return null;
@@ -541,20 +556,18 @@ export function FormationPresetPickerSheet({
   const subtitle = noTarget
     ? "適用先のフォーメーションがありません"
     : sourceTab === "box"
-      ? selectedBoxItem
-        ? `保存「${selectedBoxItem.name || `${selectedBoxItem.dancerCount}人`}」を${
-            boxApplyMode === "positions" ? "位置のみ" : "データすべて"
-          }で適用`
-        : `保存した立ち位置から選ぶ（いま ${count} 人）・引き継ぎは下で選択`
+      ? `タップですぐ配置（いま ${count} 人）・引き継ぎは下で選択（${
+          boxApplyMode === "positions" ? "位置のみ" : "データすべて"
+        }）`
       : createCueAtPlayhead
-      ? `再生位置 ${formatMmSsFloor(playheadSec)} に新しいキューとして追加（${
+      ? `タップで再生位置 ${formatMmSsFloor(playheadSec)} に新しいキューとして追加（${
           targetFormation?.dancers.length ?? count
         } 人）`
       : isSubsetApply
-      ? `選択中の ${targetIds.length} 人に反映（他の ${untouchedCount} 人はそのまま）`
+      ? `タップで選択中の ${targetIds.length} 人に反映（他の ${untouchedCount} 人はそのまま）`
       : cueLabel
-        ? `「${cueLabel}」に反映（${count} 人）`
-        : `現在のフォーメーションに反映（${count} 人）`;
+        ? `タップで「${cueLabel}」に反映（${count} 人）`
+        : `タップで現在のフォーメーションに反映（${count} 人）`;
 
   /** スマホ全画面: フッター固定。PC: ヘッダー下 sticky */
   const actionsDocked = portraitFullscreen || landscapeHorizontal;
@@ -647,10 +660,6 @@ export function FormationPresetPickerSheet({
     </>
   );
 
-  const applyDisabled =
-    noTarget ||
-    (sourceTab === "preset" ? !selectedPresetId : !selectedBoxItem);
-
   const footerActions = (
     <div
       role="group"
@@ -670,23 +679,6 @@ export function FormationPresetPickerSheet({
         style={actionsDocked ? undefined : cancelBtnCompactStyle}
       >
         閉じる
-      </button>
-      <button
-        type="button"
-        onClick={apply}
-        disabled={applyDisabled}
-        className="formation-preset-picker-footer-apply"
-        style={
-          actionsDocked
-            ? undefined
-            : {
-                ...applyBtnCompactStyle,
-                opacity: applyDisabled ? 0.45 : 1,
-                cursor: applyDisabled ? "not-allowed" : "pointer",
-              }
-        }
-      >
-        適用
       </button>
     </div>
   );
@@ -836,8 +828,8 @@ export function FormationPresetPickerSheet({
                   type="button"
                   className="add-cue-preset-btn formation-preset-picker-preset-btn"
                   disabled={noTarget}
-                  onClick={() => setSelectedBoxId(item.id)}
-                  title={`${item.name || "無題"}（${item.dancerCount}人）`}
+                  onClick={() => apply({ boxItem: item })}
+                  title={`${item.name || "無題"}（${item.dancerCount}人）・タップで配置`}
                   style={{
                     ...presetBtnStyle,
                     position: "relative",
@@ -949,8 +941,8 @@ export function FormationPresetPickerSheet({
                   type="button"
                   className="add-cue-preset-btn formation-preset-picker-preset-btn"
                   disabled={noTarget}
-                  onClick={() => setSelectedPresetId(item.id)}
-                  title={item.label}
+                  onClick={() => apply({ presetId: item.id })}
+                  title={`${item.label}・タップで配置`}
                   style={{
                     ...presetBtnStyle,
                     position: "relative",
@@ -1146,18 +1138,6 @@ const cancelBtnCompactStyle: CSSProperties = {
   color: "#cbd5e1",
   fontSize: "12px",
   fontWeight: 600,
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-};
-
-const applyBtnCompactStyle: CSSProperties = {
-  padding: "6px 14px",
-  borderRadius: "8px",
-  border: "1px solid #d4af37",
-  background: "rgba(212,175,55,0.28)",
-  color: "#fef3c7",
-  fontSize: "12px",
-  fontWeight: 700,
   cursor: "pointer",
   whiteSpace: "nowrap",
 };

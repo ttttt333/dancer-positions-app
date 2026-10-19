@@ -1,5 +1,4 @@
 import {
-  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -41,12 +40,10 @@ import {
  * 右上に閉じるボタンを描画する。
  *
  * - 現在選択しているキューのフォーメーションに対して、
- *   定番プリセット／形の箱のスナップショット／プロジェクト保存スロットから
- *   ワンクリックでプレビュー → 「適用」確定で書き換える。
- * - プレビュー中は `onPreviewChange` でステージ側にダンサーを渡す。
- *   プレビューだけでは元の立ち位置は変わらないので、誤タップしても安全。
+ *   定番プリセット／形の箱のスナップショット／プロジェクト保存スロットを
+ *   ワンクリックで即配置する。
  * - スロットは `project.savedSpotLayouts` を背番号 1〜9 として並べる。
- *   空きスロットは「保存」、保存済みはクリックでプレビュー＆「↻上書き」「✕削除」。
+ *   空きスロットは「保存」、保存済みはクリックで配置＆「↻上書き」「✕削除」。
  *
  * 同じ formationId が複数キューに紐付くと、適用結果は当該フォーメーションを
  * 共有しているキューすべてに反映される（既存の編集モデルと同じ）。
@@ -55,17 +52,12 @@ import {
 /** 1 プロジェクトに置けるクイックスロットの最大本数（背番号 1〜9） */
 const MAX_QUICK_SLOTS = 9;
 
-type PendingSource =
-  | { kind: "preset"; presetId: LayoutPresetId; label: string }
-  | { kind: "box"; itemId: string; label: string }
-  | { kind: "slot"; slotId: string; label: string };
-
 type Props = {
   project: ChoreographyProjectJson;
   setProject: React.Dispatch<React.SetStateAction<ChoreographyProjectJson>>;
   /** 適用先フォーメーション ID（通常は selectedCue?.formationId ?? activeFormationId） */
   targetFormationId: string | null;
-  /** ステージへの一時表示。null で解除。 */
+  /** 互換用（即配置のためプレビューは使わない。呼び出し側のクリア用に null を渡すことがある）。 */
   onPreviewChange: (dancers: DancerSpot[] | null) => void;
   /** 操作対象のキュー名（あれば「キュー A 用」とラベル表示） */
   targetCueLabel?: string | null;
@@ -84,13 +76,13 @@ export function QuickFormationBar({
   disabled,
   onClose,
 }: Props) {
-  const [pending, setPending] = useState<PendingSource | null>(null);
-  const [pendingDancers, setPendingDancers] = useState<DancerSpot[] | null>(null);
   const [showAllBox, setShowAllBox] = useState(false);
   const [boxApplyMode, setBoxApplyMode] =
     useState<FormationBoxApplyMode>("positions");
   /** 形の箱はローカルストレージなので、自前で再読み込みできるようバージョンキー */
   const [boxRev, setBoxRev] = useState(0);
+  /** 直近で配置した項目（ハイライト用） */
+  const [lastAppliedKey, setLastAppliedKey] = useState<string | null>(null);
 
   const targetFormation = useMemo(
     () =>
@@ -129,17 +121,48 @@ export function QuickFormationBar({
     [currentCount, project.dancerSpacingMm, project.stageWidthMm]
   );
 
-  /** ボタン押下: プレビューに乗せる（形の箱は人数差があるとそのまま反映できないので注意） */
-  const pickPreset = useCallback(
-    (presetId: LayoutPresetId, label: string) => {
+  const writeFormationDancers = useCallback(
+    (
+      dancers: DancerSpot[],
+      opts?: { slotId?: string; highlightKey?: string }
+    ) => {
       if (disabled || !targetFormation) return;
-      const dancers = buildPresetDancers(presetId);
-      const pendingSrc: PendingSource = { kind: "preset", presetId, label };
-      setPending(pendingSrc);
-      setPendingDancers(dancers);
-      onPreviewChange(dancers);
+      setProject((p) => {
+        let next: typeof p = {
+          ...p,
+          formations: p.formations.map((f) =>
+            f.id === targetFormation.id
+              ? { ...f, dancers, confirmedDancerCount: dancers.length }
+              : f
+          ),
+        };
+        if (opts?.slotId) {
+          const slot = p.savedSpotLayouts.find((s) => s.id === opts.slotId);
+          if (slot?.stageSnapshot) {
+            next = stripFormationStageSnapshots(
+              mergeStageSnapshotIntoProject(next, slot.stageSnapshot)
+            );
+          }
+        }
+        return next;
+      });
+      onPreviewChange(null);
+      setLastAppliedKey(opts?.highlightKey ?? null);
     },
-    [disabled, targetFormation, buildPresetDancers, onPreviewChange]
+    [disabled, targetFormation, setProject, onPreviewChange]
+  );
+
+  /** ボタン押下: すぐ配置する */
+  const pickPreset = useCallback(
+    (presetId: LayoutPresetId, _label: string) => {
+      if (disabled || !targetFormation) return;
+      const dancers = transferDancerIdentitiesByOrder(
+        buildPresetDancers(presetId),
+        targetFormation.dancers
+      );
+      writeFormationDancers(dancers, { highlightKey: `preset:${presetId}` });
+    },
+    [disabled, targetFormation, buildPresetDancers, writeFormationDancers]
   );
 
   const pickBox = useCallback(
@@ -150,120 +173,28 @@ export function QuickFormationBar({
         targetFormation.dancers,
         boxApplyMode
       );
-      const pendingSrc: PendingSource = {
-        kind: "box",
-        itemId: item.id,
-        label: item.name || `${item.dancerCount}人`,
-      };
-      setPending(pendingSrc);
-      setPendingDancers(dancers);
-      onPreviewChange(dancers);
+      writeFormationDancers(dancers, { highlightKey: `box:${item.id}` });
     },
-    [disabled, targetFormation, onPreviewChange, boxApplyMode]
+    [disabled, targetFormation, boxApplyMode, writeFormationDancers]
   );
 
   const pickSlot = useCallback(
     (slot: SavedSpotLayout) => {
       if (disabled || !targetFormation) return;
       const dancers = slot.dancers.map((d) => ({ ...d }));
-      const pendingSrc: PendingSource = {
-        kind: "slot",
+      writeFormationDancers(dancers, {
         slotId: slot.id,
-        label: slot.name,
-      };
-      setPending(pendingSrc);
-      setPendingDancers(dancers);
-      onPreviewChange(dancers);
+        highlightKey: `slot:${slot.id}`,
+      });
     },
-    [disabled, targetFormation, onPreviewChange]
+    [disabled, targetFormation, writeFormationDancers]
   );
 
-  const clearPending = useCallback(() => {
-    setPending(null);
-    setPendingDancers(null);
+  /** ターゲットフォーメーションが切り替わったらハイライトをクリア。 */
+  useEffect(() => {
+    setLastAppliedKey(null);
     onPreviewChange(null);
-  }, [onPreviewChange]);
-
-  /** ターゲットフォーメーションが切り替わったら、プレビューも自動でクリア。 */
-  useEffect(() => {
-    clearPending();
-  }, [targetFormationId, clearPending]);
-
-  /** プレビュー中に Esc で解除（バー以外でフォーカス取られていなければ） */
-  useEffect(() => {
-    if (!pending) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        const tgt = e.target as HTMLElement | null;
-        if (tgt && /^(INPUT|TEXTAREA|SELECT)$/.test(tgt.tagName)) return;
-        clearPending();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [pending, clearPending]);
-
-  /** プレビューを正式に確定して、現在のフォーメーションに書き戻す。 */
-  const apply = useCallback(() => {
-    if (disabled || !targetFormation || !pendingDancers) return;
-    const boxItem =
-      pending?.kind === "box"
-        ? listFormationBoxItems().find((b) => b.id === pending.itemId)
-        : undefined;
-    /** プロジェクトに保存したスロットは人数・名簿・座標をスナップショットどおり優先 */
-    const dancers =
-      pending?.kind === "slot"
-        ? pendingDancers.map((d) => ({ ...d }))
-        : boxItem != null
-          ? applyFormationBoxItemToStage(
-              boxItem,
-              targetFormation.dancers,
-              boxApplyMode
-            )
-          : transferDancerIdentitiesByOrder(pendingDancers, targetFormation.dancers);
-    setProject((p) => {
-      let next: typeof p = {
-        ...p,
-        formations: p.formations.map((f) =>
-          f.id === targetFormation.id
-            ? { ...f, dancers, confirmedDancerCount: dancers.length }
-            : f
-        ),
-      };
-      if (pending?.kind === "slot") {
-        const slot = p.savedSpotLayouts.find((s) => s.id === pending.slotId);
-        if (slot?.stageSnapshot) {
-          next = stripFormationStageSnapshots(
-            mergeStageSnapshotIntoProject(next, slot.stageSnapshot)
-          );
-        }
-      }
-      return next;
-    });
-    clearPending();
-  }, [
-    disabled,
-    targetFormation,
-    pendingDancers,
-    pending,
-    boxApplyMode,
-    setProject,
-    clearPending,
-  ]);
-
-  /** 引き継ぎモードを変えたら、形の箱プレビューを作り直す */
-  useEffect(() => {
-    if (pending?.kind !== "box" || !targetFormation) return;
-    const item = listFormationBoxItems().find((b) => b.id === pending.itemId);
-    if (!item) return;
-    const dancers = applyFormationBoxItemToStage(
-      item,
-      targetFormation.dancers,
-      boxApplyMode
-    );
-    setPendingDancers(dancers);
-    onPreviewChange(dancers);
-  }, [boxApplyMode, pending, targetFormation, onPreviewChange]);
+  }, [targetFormationId, onPreviewChange]);
 
   /** スロットへ「いまの立ち位置」を保存（既存があれば上書き確認） */
   const saveSlot = useCallback(
@@ -321,9 +252,11 @@ export function QuickFormationBar({
         ...p,
         savedSpotLayouts: p.savedSpotLayouts.filter((s) => s.id !== slot.id),
       }));
-      if (pending?.kind === "slot" && pending.slotId === slot.id) clearPending();
+      setLastAppliedKey((key) =>
+        key === `slot:${slot.id}` ? null : key
+      );
     },
-    [disabled, setProject, pending, clearPending]
+    [disabled, setProject]
   );
 
   /**
@@ -346,7 +279,6 @@ export function QuickFormationBar({
 
   const noTarget = !targetFormation;
   const hardDisabled = !!disabled || noTarget;
-  const previewing = pending != null;
 
   return (
     <div
@@ -358,7 +290,7 @@ export function QuickFormationBar({
         gap: "8px",
         padding: "10px 10px 12px",
         borderRadius: "12px",
-        border: previewing ? "1px solid #38bdf8" : "1px solid #1e293b",
+        border: "1px solid #1e293b",
         background: "#0b1220",
         boxShadow: "0 12px 32px rgba(0,0,0,0.45)",
         overflow: "hidden",
@@ -394,7 +326,7 @@ export function QuickFormationBar({
             style={{
               fontSize: "13px",
               lineHeight: 1,
-              color: previewing ? "#67e8f9" : "#64748b",
+              color: "#64748b",
               flexShrink: 0,
             }}
             aria-hidden
@@ -414,7 +346,7 @@ export function QuickFormationBar({
             <span
               style={{
                 fontWeight: 700,
-                color: previewing ? "#e2e8f0" : "#cbd5e1",
+                color: "#cbd5e1",
                 fontSize: "12px",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -443,65 +375,24 @@ export function QuickFormationBar({
         ) : null}
       </div>
 
-      {/* ── プレビュー操作 ───────────────────── */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: "6px",
           flexShrink: 0,
-          minHeight: "30px",
+          minHeight: "24px",
         }}
       >
-        {previewing ? (
-          <Fragment>
-            <button
-              type="button"
-              onClick={apply}
-              disabled={hardDisabled}
-              title="プレビュー中の立ち位置を このキュー に書き込みます"
-              style={{
-                ...applyBtnStyle,
-                opacity: hardDisabled ? 0.4 : 1,
-                cursor: hardDisabled ? "not-allowed" : "pointer",
-              }}
-            >
-              ✓ 適用
-            </button>
-            <button
-              type="button"
-              onClick={clearPending}
-              title="プレビューを解除（Esc）"
-              style={cancelBtnStyle}
-            >
-              ✕
-            </button>
-            <span
-              style={{
-                fontSize: "11px",
-                color: "#67e8f9",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                flex: 1,
-                minWidth: 0,
-              }}
-              title={pending?.label ?? ""}
-            >
-              {pending?.label}
-            </span>
-          </Fragment>
-        ) : (
-          <span
-            style={{
-              fontSize: "10px",
-              color: "#475569",
-              lineHeight: 1.3,
-            }}
-          >
-            クリックで試す → 適用で確定
-          </span>
-        )}
+        <span
+          style={{
+            fontSize: "10px",
+            color: "#475569",
+            lineHeight: 1.3,
+          }}
+        >
+          タップですぐ配置
+        </span>
       </div>
 
       <Divider />
@@ -511,15 +402,14 @@ export function QuickFormationBar({
         <SectionLabel>定番</SectionLabel>
         <ChipGrid>
           {COMMON_QUICK_LAYOUT_PRESETS.map((p) => {
-            const isActive =
-              pending?.kind === "preset" && pending.presetId === p.id;
+            const isActive = lastAppliedKey === `preset:${p.id}`;
             return (
               <ChipButton
                 key={`pre-${p.id}`}
                 active={isActive}
                 onClick={() => pickPreset(p.id, p.label)}
                 disabled={hardDisabled}
-                title={`${p.label}（${currentCount} 人）`}
+                title={`${p.label}（${currentCount} 人）・タップで配置`}
               >
                 <SpotThumb dancers={buildPresetDancers(p.id)} />
                 <ChipLabel>{p.label}</ChipLabel>
@@ -580,8 +470,7 @@ export function QuickFormationBar({
         ) : (
           <ChipGrid>
             {boxItems.map((it) => {
-              const isActive =
-                pending?.kind === "box" && pending.itemId === it.id;
+              const isActive = lastAppliedKey === `box:${it.id}`;
               const dancers = dancersFromFormationBoxItem(it);
               return (
                 <ChipButton
@@ -589,7 +478,7 @@ export function QuickFormationBar({
                   active={isActive}
                   onClick={() => pickBox(it)}
                   disabled={hardDisabled}
-                  title={`${it.name}（${it.dancerCount} 人）${
+                  title={`${it.name}（${it.dancerCount} 人）・タップで配置${
                     it.dancerCount !== currentCount
                       ? "\n※ 人数が違うと現在のキューに当てると人物の対応がずれることがあります"
                       : ""
@@ -627,8 +516,7 @@ export function QuickFormationBar({
                 </button>
               );
             }
-            const isActive =
-              pending?.kind === "slot" && pending.slotId === slot.id;
+            const isActive = lastAppliedKey === `slot:${slot.id}`;
             return (
               <div
                 key={`slot-${slot.id}`}
@@ -638,7 +526,7 @@ export function QuickFormationBar({
                   active={isActive}
                   onClick={() => pickSlot(slot)}
                   disabled={hardDisabled}
-                  title={`${slot.name}（${slot.savedAtCount} 人）`}
+                  title={`${slot.name}（${slot.savedAtCount} 人）・タップで配置`}
                 >
                   <span
                     style={{
@@ -704,8 +592,7 @@ export function QuickFormationBar({
               }}
             >
               {project.savedSpotLayouts.slice(MAX_QUICK_SLOTS).map((slot) => {
-                const isActive =
-                  pending?.kind === "slot" && pending.slotId === slot.id;
+                const isActive = lastAppliedKey === `slot:${slot.id}`;
                 return (
                   <div
                     key={`slot-overflow-${slot.id}`}
@@ -720,7 +607,7 @@ export function QuickFormationBar({
                       type="button"
                       onClick={() => pickSlot(slot)}
                       disabled={hardDisabled}
-                      title={`${slot.name}（${slot.savedAtCount} 人）をプレビュー`}
+                      title={`${slot.name}（${slot.savedAtCount} 人）・タップで配置`}
                       style={{
                         flex: 1,
                         minWidth: 0,
@@ -775,28 +662,6 @@ export function QuickFormationBar({
 /* ────────────────────────────────────────────
  * UI 部品（このファイル内専用、軽量に保つ）
  * ──────────────────────────────────────────── */
-
-const applyBtnStyle: CSSProperties = {
-  padding: "4px 10px",
-  borderRadius: "6px",
-  border: "1px solid #0ea5e9",
-  background: "#0284c7",
-  color: "#f0f9ff",
-  fontSize: "12px",
-  fontWeight: 700,
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-};
-
-const cancelBtnStyle: CSSProperties = {
-  padding: "3px 7px",
-  borderRadius: "6px",
-  border: "1px solid #334155",
-  background: "#0f172a",
-  color: "#cbd5e1",
-  fontSize: "11px",
-  cursor: "pointer",
-};
 
 const panelScrollAreaStyle: CSSProperties = {
   display: "flex",
