@@ -439,8 +439,8 @@ export function FormationPresetPickerSheet({
   }, [open, closeAndCleanup]);
 
   /**
-   * タップで即配置。selectedPresetId / previewDancers に依存しないよう、
-   * 引数で指定された雛形・保存 ID から同期的に座標を計算する。
+   * 選択中の雛形／保存を適用する。
+   * 引数で ID を渡すか、フッター「適用」から selected* 経由で呼ぶ。
    */
   const apply = useCallback(
     (opts?: { presetId?: LayoutPresetId; boxItem?: FormationBoxItem }) => {
@@ -556,27 +556,51 @@ export function FormationPresetPickerSheet({
   const subtitle = noTarget
     ? "適用先のフォーメーションがありません"
     : sourceTab === "box"
-      ? `タップですぐ配置（いま ${count} 人）・引き継ぎは下で選択（${
-          boxApplyMode === "positions" ? "位置のみ" : "データすべて"
-        }）`
+      ? selectedBoxItem
+        ? `保存「${selectedBoxItem.name || `${selectedBoxItem.dancerCount}人`}」を選びました。適用で反映（${
+            boxApplyMode === "positions" ? "位置のみ" : "データすべて"
+          }）`
+        : `保存した立ち位置を選んで適用（いま ${count} 人）`
       : createCueAtPlayhead
-      ? `タップで再生位置 ${formatMmSsFloor(playheadSec)} に新しいキューとして追加（${
+      ? `雛形を選んで適用 → 再生位置 ${formatMmSsFloor(playheadSec)} に新しいキュー（${
           targetFormation?.dancers.length ?? count
         } 人）`
       : isSubsetApply
-      ? `タップで選択中の ${targetIds.length} 人に反映（他の ${untouchedCount} 人はそのまま）`
+      ? `雛形を選んで適用 → 選択中の ${targetIds.length} 人に反映`
       : cueLabel
-        ? `タップで「${cueLabel}」に反映（${count} 人）`
-        : `タップで現在のフォーメーションに反映（${count} 人）`;
+        ? `雛形を選んで適用 → 「${cueLabel}」に反映（${count} 人）`
+        : `雛形を選んで適用 → 現在のフォーメーションに反映（${count} 人）`;
 
-  /** スマホ全画面: フッター固定。PC: ヘッダー下 sticky */
+  /** スマホ全画面: 操作バー固定。PC: ヘッダー下 sticky */
   const actionsDocked = portraitFullscreen || landscapeHorizontal;
 
-  const sourceTabControls = (
+  const applyDisabled =
+    noTarget ||
+    (sourceTab === "preset" ? !selectedPresetId : !selectedBoxItem);
+
+  const commitSelection = () => {
+    if (sourceTab === "box") {
+      if (!selectedBoxItem) return;
+      apply({ boxItem: selectedBoxItem });
+      return;
+    }
+    if (!selectedPresetId) return;
+    apply({ presetId: selectedPresetId });
+  };
+
+  /**
+   * 順番: 雛形 → BASIC → ☆ → 保存 → 適用 → 閉じる
+   * スクロールしても隠れないよう sticky / 下部固定フッターに置く。
+   */
+  const actionBar = (
     <div
-      role="tablist"
-      aria-label="雛形または保存した立ち位置"
-      style={{ display: "flex", gap: 4, flexShrink: 0 }}
+      role="group"
+      aria-label="立ち位置雛形の操作"
+      className={
+        actionsDocked
+          ? "formation-preset-picker-footer"
+          : "formation-preset-picker-actions-sticky"
+      }
     >
       <button
         type="button"
@@ -586,10 +610,41 @@ export function FormationPresetPickerSheet({
         style={{
           ...sourceTabBtnStyle,
           ...(sourceTab === "preset" ? sourceTabBtnActiveStyle : null),
+          flexShrink: 0,
         }}
       >
         雛形
       </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (sourceTab !== "preset") selectSourceTab("preset");
+          setBasicTab((v) => (sourceTab === "preset" ? !v : true));
+        }}
+        aria-pressed={sourceTab === "preset" && basicTab}
+        title={
+          basicTab && sourceTab === "preset"
+            ? "すべての雛形カテゴリを表示"
+            : "定番の提案だけを表示"
+        }
+        style={{
+          ...basicTabBtnStyle,
+          ...(sourceTab === "preset" && basicTab
+            ? basicTabBtnActiveStyle
+            : null),
+          flexShrink: 0,
+        }}
+      >
+        BASIC
+      </button>
+      <FormationPresetFavoritesFilter
+        active={favoritesOnly}
+        onToggle={() => {
+          if (sourceTab !== "preset") selectSourceTab("preset");
+          toggleFavoritesOnly();
+        }}
+        count={favoriteCount}
+      />
       <button
         type="button"
         role="tab"
@@ -599,6 +654,7 @@ export function FormationPresetPickerSheet({
         style={{
           ...sourceTabBtnStyle,
           ...(sourceTab === "box" ? sourceTabBtnActiveStyle : null),
+          flexShrink: 0,
         }}
       >
         保存
@@ -609,36 +665,41 @@ export function FormationPresetPickerSheet({
           </span>
         ) : null}
       </button>
+      <span style={{ flex: 1, minWidth: 4 }} aria-hidden />
+      <button
+        type="button"
+        onClick={commitSelection}
+        disabled={applyDisabled}
+        className="formation-preset-picker-footer-apply"
+        style={
+          actionsDocked
+            ? undefined
+            : {
+                ...applyBtnCompactStyle,
+                opacity: applyDisabled ? 0.45 : 1,
+                cursor: applyDisabled ? "not-allowed" : "pointer",
+              }
+        }
+      >
+        適用
+      </button>
+      <button
+        type="button"
+        onClick={closeAndCleanup}
+        className="formation-preset-picker-footer-cancel"
+        style={actionsDocked ? undefined : cancelBtnCompactStyle}
+      >
+        閉じる
+      </button>
     </div>
   );
 
-  const filterControls = (
-    <>
-      {sourceTabControls}
-      {sourceTab === "preset" ? (
-        <>
-          <button
-            type="button"
-            onClick={() => setBasicTab((v) => !v)}
-            aria-pressed={basicTab}
-            title={
-              basicTab ? "すべての雛形カテゴリを表示" : "定番の提案だけを表示"
-            }
-            style={{
-              ...basicTabBtnStyle,
-              ...(basicTab ? basicTabBtnActiveStyle : null),
-              flexShrink: 0,
-            }}
-          >
-            BASIC
-          </button>
-          <FormationPresetFavoritesFilter
-            active={favoritesOnly}
-            onToggle={toggleFavoritesOnly}
-            count={favoriteCount}
-          />
-        </>
-      ) : (
+  // 横画面はドック表示・波形たたみ表示のどちらも同じ大きな正方グリッドを使い、見やすさを揃える
+  const useBigGrid = portraitFullscreen || landscapeHorizontal;
+
+  const mobileToolbar = actionsDocked ? (
+    <div className="formation-preset-picker-mobile-toolbar">
+      {sourceTab === "box" ? (
         <button
           type="button"
           onClick={() => setShowAllBoxCounts((v) => !v)}
@@ -656,41 +717,7 @@ export function FormationPresetPickerSheet({
         >
           {showAllBoxCounts ? "全員数" : `${count}人`}
         </button>
-      )}
-    </>
-  );
-
-  const footerActions = (
-    <div
-      role="group"
-      aria-label="立ち位置雛形の操作"
-      className={
-        actionsDocked
-          ? "formation-preset-picker-footer"
-          : "formation-preset-picker-actions-sticky"
-      }
-    >
-      {!actionsDocked ? filterControls : null}
-      {!actionsDocked ? <span style={{ flex: 1, minWidth: 8 }} aria-hidden /> : null}
-      <button
-        type="button"
-        onClick={closeAndCleanup}
-        className="formation-preset-picker-footer-cancel"
-        style={actionsDocked ? undefined : cancelBtnCompactStyle}
-      >
-        閉じる
-      </button>
-    </div>
-  );
-
-  // 横画面はドック表示・波形たたみ表示のどちらも同じ大きな正方グリッドを使い、見やすさを揃える
-  const useBigGrid = portraitFullscreen || landscapeHorizontal;
-
-  const mobileToolbar = actionsDocked ? (
-    <div className="formation-preset-picker-mobile-toolbar">
-      {filterControls}
-      <span style={{ flex: 1, minWidth: 4 }} aria-hidden />
-      {sourceTab === "preset" ? (
+      ) : (
         <FormationPresetTierToggle
           showAll={showAllTiers}
           onToggle={() => setShowAllTiers((v) => !v)}
@@ -701,7 +728,8 @@ export function FormationPresetPickerSheet({
             pointerEvents: basicTab ? "none" : "auto",
           }}
         />
-      ) : null}
+      )}
+      <span style={{ flex: 1, minWidth: 4 }} aria-hidden />
     </div>
   ) : null;
 
@@ -828,8 +856,8 @@ export function FormationPresetPickerSheet({
                   type="button"
                   className="add-cue-preset-btn formation-preset-picker-preset-btn"
                   disabled={noTarget}
-                  onClick={() => apply({ boxItem: item })}
-                  title={`${item.name || "無題"}（${item.dancerCount}人）・タップで配置`}
+                  onClick={() => setSelectedBoxId(item.id)}
+                  title={`${item.name || "無題"}（${item.dancerCount}人）・選んで適用`}
                   style={{
                     ...presetBtnStyle,
                     position: "relative",
@@ -941,8 +969,8 @@ export function FormationPresetPickerSheet({
                   type="button"
                   className="add-cue-preset-btn formation-preset-picker-preset-btn"
                   disabled={noTarget}
-                  onClick={() => apply({ presetId: item.id })}
-                  title={`${item.label}・タップで配置`}
+                  onClick={() => setSelectedPresetId(item.id)}
+                  title={`${item.label}・選んで適用`}
                   style={{
                     ...presetBtnStyle,
                     position: "relative",
@@ -1026,9 +1054,9 @@ export function FormationPresetPickerSheet({
         }
       >
         {sheetHeader}
+        {actionBar}
         {mobileToolbar}
         {pickerBody}
-        {footerActions}
       </div>,
       document.body
     );
@@ -1044,9 +1072,9 @@ export function FormationPresetPickerSheet({
         className="formation-preset-picker-fullscreen"
       >
         {sheetHeader}
+        {actionBar}
         {mobileToolbar}
         {pickerBody}
-        {footerActions}
       </div>,
       document.body
     );
@@ -1115,7 +1143,7 @@ export function FormationPresetPickerSheet({
             ) : null}
           </div>
         </div>
-        {footerActions}
+        {actionBar}
         {pickerBody}
       </div>
     </EditorSideSheet>
@@ -1138,6 +1166,18 @@ const cancelBtnCompactStyle: CSSProperties = {
   color: "#cbd5e1",
   fontSize: "12px",
   fontWeight: 600,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+const applyBtnCompactStyle: CSSProperties = {
+  padding: "6px 14px",
+  borderRadius: "8px",
+  border: "1px solid #d4af37",
+  background: "rgba(212,175,55,0.28)",
+  color: "#fef3c7",
+  fontSize: "12px",
+  fontWeight: 700,
   cursor: "pointer",
   whiteSpace: "nowrap",
 };
