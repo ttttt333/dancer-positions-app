@@ -1,10 +1,20 @@
-import { useMemo, type Dispatch, type SetStateAction } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   DANCER_COLOR_RANDOM,
 } from "../lib/dancerColorPalette";
 import { DancerColorRandomSwatch } from "./DancerColorRandomSwatch";
+import {
+  defaultTravelMatchCueId,
+  type TravelMatchCueOption,
+} from "../lib/stagePrevCueCompare";
 import {
   lineUpByGradeAsc,
   lineUpByGradeDesc,
@@ -67,8 +77,10 @@ export type StageDancerContextMenuProps = {
   applyDancerArrange: (
     fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
   ) => void;
-  /** 直前 Cue の立ち位置（最短距離並び替え） */
+  /** 直前 Cue の立ち位置（最短距離並び替え・後方互換） */
   prevCueDancers?: readonly DancerSpot[] | null;
+  /** 最短距離並び替えの参照キュー候補（前／次／指定） */
+  travelMatchOptions?: readonly TravelMatchCueOption[];
   onCloseMenu: () => void;
   onOpenPathEditor?: () => void;
   /** contextMenu=右クリック小窓 / sheet=範囲選択の緑ボタンからの大パネル */
@@ -93,6 +105,7 @@ export function StageDancerContextMenu({
   applyPermuteArrange,
   applyDancerArrange,
   prevCueDancers = null,
+  travelMatchOptions,
   onCloseMenu,
   onOpenPathEditor,
   presentation = "menu",
@@ -102,6 +115,35 @@ export function StageDancerContextMenu({
     () => resolveArrangeTargetIds(anchorDancerId, selectedDancerIds),
     [anchorDancerId, selectedDancerIds]
   );
+  const matchOptions = useMemo((): TravelMatchCueOption[] => {
+    if (travelMatchOptions && travelMatchOptions.length > 0) {
+      return [...travelMatchOptions];
+    }
+    if (prevCueDancers && prevCueDancers.length > 0) {
+      return [
+        {
+          cueId: "__prev__",
+          ordinal: 0,
+          kind: "previous",
+          label: "前のキュー",
+          dancers: prevCueDancers,
+        },
+      ];
+    }
+    return [];
+  }, [travelMatchOptions, prevCueDancers]);
+  const [matchCueId, setMatchCueId] = useState<string | null>(null);
+  useEffect(() => {
+    if (matchOptions.length === 0) {
+      setMatchCueId(null);
+      return;
+    }
+    if (matchCueId && matchOptions.some((o) => o.cueId === matchCueId)) return;
+    setMatchCueId(defaultTravelMatchCueId(matchOptions));
+  }, [matchOptions, matchCueId]);
+  const selectedMatch =
+    matchOptions.find((o) => o.cueId === matchCueId) ?? null;
+  const matchDancers = selectedMatch?.dancers ?? null;
   const selectionColumns = useMemo(() => {
     try {
       return clusterSelectionColumns(formationDancers, arrangeTargetIds);
@@ -567,27 +609,64 @@ menuInteractionDisabled
   >
     印の形は変えず、身長・学年・スキル順に人だけ割当。
   </div>
+  {matchOptions.length > 0 ? (
+    <label
+      style={{
+        display: "block",
+        fontSize: sheet ? "12px" : "9px",
+        color: "#94a3b8",
+        marginBottom: sheet ? 8 : 4,
+      }}
+    >
+      参照キュー
+      <select
+        value={matchCueId ?? ""}
+        onChange={(e) => setMatchCueId(e.target.value || null)}
+        style={{
+          display: "block",
+          width: "100%",
+          marginTop: 4,
+          padding: sheet ? "8px 10px" : "5px 6px",
+          borderRadius: 6,
+          border: "1px solid #334155",
+          background: "#020617",
+          color: "#e2e8f0",
+          fontSize: sheet ? "13px" : "10px",
+        }}
+      >
+        {matchOptions.map((o) => (
+          <option key={o.cueId} value={o.cueId}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  ) : null}
   <button
     type="button"
     style={{
       ...btnSecondary,
       width: "100%",
-      fontSize: "9px",
-      padding: "5px 6px",
+      fontSize: sheet ? "13px" : "9px",
+      padding: sheet ? "10px 12px" : "5px 6px",
       textAlign: "center",
       marginBottom: "5px",
       opacity:
         arrangeTargetIds.length >= 2 &&
-        prevCueDancers &&
-        prevCueDancers.length > 0
+        matchDancers &&
+        matchDancers.length > 0
           ? 1
           : 0.55,
     }}
-    title="直前キューからの移動距離が全体で最短になるよう入れ替え"
+    title={
+      selectedMatch
+        ? `${selectedMatch.label} からの移動距離が全体で最短になるよう入れ替え`
+        : "参照キューからの移動距離が全体で最短になるよう入れ替え"
+    }
     disabled={
       arrangeTargetIds.length < 2 ||
-      !prevCueDancers ||
-      prevCueDancers.length === 0
+      !matchDancers ||
+      matchDancers.length === 0
     }
     onClick={() => {
       if (arrangeTargetIds.length < 2) {
@@ -595,17 +674,17 @@ menuInteractionDisabled
         onCloseMenu();
         return;
       }
-      if (!prevCueDancers || prevCueDancers.length === 0) {
-        window.alert("直前のキューがありません。");
+      if (!matchDancers || matchDancers.length === 0) {
+        window.alert("参照できるキューがありません。");
         onCloseMenu();
         return;
       }
       applyPermuteArrange((dancers, t) =>
-        permuteSlotsMinimizeTravelFromPrev(dancers, t, prevCueDancers)
+        permuteSlotsMinimizeTravelFromPrev(dancers, t, matchDancers)
       );
     }}
   >
-    前の立ち位置から最短距離に並び替え
+    参照キューから最短距離に並び替え
   </button>
   <div
     style={{

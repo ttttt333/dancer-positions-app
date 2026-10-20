@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { createEmptyProject } from "./projectDefaults";
 import {
   buildPrevCueCompareMarks,
+  defaultTravelMatchCueId,
+  listTravelMatchCueOptions,
+  listTravelMatchCueOptionsForInsert,
+  resolveCueDancersById,
   resolvePreviousCueDancers,
   resolvePreviousCueOrdinal,
   resolveNextCueDancers,
@@ -83,6 +87,81 @@ describe("resolveNextCueDancers", () => {
     ];
     expect(resolveNextCueDancers(p.cues, p.formations, "a")).toBe(fB.dancers);
     expect(resolveNextCueDancers(p.cues, p.formations, "b")).toBeNull();
+  });
+});
+
+describe("resolveCueDancersById", () => {
+  it("returns dancers for the named cue", () => {
+    const p = createEmptyProject();
+    const fA = {
+      ...p.formations[0]!,
+      id: "fa",
+      dancers: [spot("d1", 11, 22)],
+    };
+    p.formations = [fA];
+    p.cues = [{ id: "a", tStartSec: 0, tEndSec: 8, formationId: "fa" }];
+    expect(resolveCueDancersById(p.cues, p.formations, "a")).toBe(fA.dancers);
+    expect(resolveCueDancersById(p.cues, p.formations, "missing")).toBeNull();
+  });
+});
+
+describe("listTravelMatchCueOptions", () => {
+  it("labels previous/next and lists other cues for picking", () => {
+    const p = createEmptyProject();
+    const mk = (id: string, x: number) => ({
+      ...p.formations[0]!,
+      id,
+      dancers: [spot("d1", x, 40)],
+    });
+    p.formations = [mk("fa", 10), mk("fb", 50), mk("fc", 90)];
+    p.cues = [
+      { id: "a", tStartSec: 0, tEndSec: 8, formationId: "fa" },
+      { id: "b", tStartSec: 8, tEndSec: 16, formationId: "fb" },
+      { id: "c", tStartSec: 16, tEndSec: 24, formationId: "fc" },
+    ];
+    const opts = listTravelMatchCueOptions(p.cues, p.formations, "b");
+    expect(opts.map((o) => o.kind)).toEqual(["previous", "next"]);
+    expect(opts[0]).toMatchObject({
+      cueId: "a",
+      label: "前のキュー（1）",
+    });
+    expect(opts[1]).toMatchObject({
+      cueId: "c",
+      label: "次のキュー（3）",
+    });
+    expect(defaultTravelMatchCueId(opts)).toBe("a");
+
+    const fromFirst = listTravelMatchCueOptions(p.cues, p.formations, "a");
+    expect(fromFirst.map((o) => o.kind)).toEqual(["next", "other"]);
+    expect(fromFirst[0]!.cueId).toBe("b");
+    expect(fromFirst[1]).toMatchObject({
+      cueId: "c",
+      kind: "other",
+      label: "キュー 3",
+    });
+    expect(defaultTravelMatchCueId(fromFirst)).toBe("b");
+  });
+});
+
+describe("listTravelMatchCueOptionsForInsert", () => {
+  it("labels the cue before playhead as previous and after as next", () => {
+    const p = createEmptyProject();
+    const mk = (id: string, x: number) => ({
+      ...p.formations[0]!,
+      id,
+      dancers: [spot("d1", x, 40)],
+    });
+    p.formations = [mk("fa", 10), mk("fb", 50), mk("fc", 90)];
+    /** ギャップ 10〜14 に新規キューを挿す想定 */
+    p.cues = [
+      { id: "a", tStartSec: 0, tEndSec: 8, formationId: "fa" },
+      { id: "b", tStartSec: 8, tEndSec: 10, formationId: "fb" },
+      { id: "c", tStartSec: 14, tEndSec: 24, formationId: "fc" },
+    ];
+    const opts = listTravelMatchCueOptionsForInsert(p.cues, p.formations, 12);
+    expect(opts.find((o) => o.kind === "previous")?.cueId).toBe("b");
+    expect(opts.find((o) => o.kind === "next")?.cueId).toBe("c");
+    expect(defaultTravelMatchCueId(opts)).toBe("b");
   });
 });
 

@@ -119,6 +119,7 @@ import {
 } from "../lib/stageEditDockHost";
 import {
   buildPrevCueCompareMarks,
+  listTravelMatchCueOptions,
   resolvePreviousCueDancers,
   resolvePreviousCueOrdinal,
   resolveNextCueDancers,
@@ -1158,6 +1159,10 @@ export function StageBoardBody({
   );
   const nextCueDancers = useMemo(
     () => resolveNextCueDancers(project.cues, formations, editCueId),
+    [project.cues, formations, editCueId],
+  );
+  const travelMatchOptions = useMemo(
+    () => listTravelMatchCueOptions(project.cues, formations, editCueId),
     [project.cues, formations, editCueId],
   );
   const stageDancerById = useMemo(
@@ -5573,6 +5578,7 @@ export function StageBoardBody({
       applyPermuteArrange,
       applyDancerArrange,
       prevCueDancers,
+      travelMatchOptions,
     }),
     [
       selectedDancerIds,
@@ -5593,6 +5599,7 @@ export function StageBoardBody({
       applyPermuteArrange,
       applyDancerArrange,
       prevCueDancers,
+      travelMatchOptions,
     ],
   );
 
@@ -6482,6 +6489,7 @@ export function StageBoardBody({
       prevCueFromOrdinal={prevCueFromOrdinal}
       prevCueToOrdinal={editCueOrdinal}
       prevCueDancers={prevCueDancers}
+      travelMatchOptions={travelMatchOptions}
       onTogglePrevCueMotionView={
         prevCueCompareAvailable
           ? () => {
