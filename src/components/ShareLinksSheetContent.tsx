@@ -1,4 +1,11 @@
-import { useState, useCallback, useEffect, type CSSProperties, type ReactNode } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { useI18n } from "../i18n/I18nContext";
 import {
@@ -11,8 +18,12 @@ import {
   shareLinksSafeFilenameBase,
 } from "../lib/shareProjectLinks";
 import {
+  buildChoreographyPdfPages,
+  CUE_IMAGE_EXPORT_FORMATS,
   exportChoreographyImages,
   exportChoreographyPdf,
+  parseCueImageExportFormat,
+  type CueImageExportFormat,
 } from "../lib/exportChoreographyPdf";
 import { downloadStagePngFile, getStageExportElement } from "../lib/captureStagePng";
 import { shell } from "../theme/choreoShell";
@@ -296,6 +307,12 @@ export function ShareLinksSheetContent({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [imagesError, setImagesError] = useState<string | null>(null);
   const [pngError, setPngError] = useState<string | null>(null);
+  /** 画像書き出し用：0 始まりページ番号 */
+  const [selectedImagePages, setSelectedImagePages] = useState<number[]>([]);
+  const [imageRangeFrom, setImageRangeFrom] = useState(1);
+  const [imageRangeTo, setImageRangeTo] = useState(1);
+  const [imageExportFormat, setImageExportFormat] =
+    useState<CueImageExportFormat>("png");
 
   const useJoinLink = isSupabaseBackend() && serverId != null;
   const [editToken, setEditToken] = useState<string | null>(null);
@@ -356,6 +373,28 @@ export function ShareLinksSheetContent({
   const title = pieceTitle.trim() || projectName.trim() || untitled;
   const fileBase = shareLinksSafeFilenameBase(title);
   const cueCount = project?.cues?.length ?? 0;
+
+  const imageCueChoices = useMemo(() => {
+    if (!project) return [] as { index: number; title: string; timeLabel: string }[];
+    const pages = buildChoreographyPdfPages(project, {
+      cueN: (n) => t("pdf.cueN", { n }),
+      formationN: (n) => t("pdf.formationN", { n }),
+      formationFallback: t("pdf.formation"),
+    });
+    return pages.map((page, index) => ({
+      index,
+      title: page.title,
+      timeLabel: page.timeLabel,
+    }));
+  }, [project, t]);
+
+  useEffect(() => {
+    if (!open) return;
+    const n = imageCueChoices.length;
+    setSelectedImagePages(Array.from({ length: n }, (_, i) => i));
+    setImageRangeFrom(1);
+    setImageRangeTo(Math.max(1, n));
+  }, [open, imageCueChoices]);
 
   const pulseFlash = useCallback((key: FlashKey) => {
     setFlash(key);
@@ -419,6 +458,10 @@ export function ShareLinksSheetContent({
 
   const onExportImages = async () => {
     if (!project || imagesBusy) return;
+    if (selectedImagePages.length === 0) {
+      setImagesError(t("shareSheet.imagesNeedSelection"));
+      return;
+    }
     setImagesError(null);
     setImagesBusy(true);
     try {
@@ -426,6 +469,8 @@ export function ShareLinksSheetContent({
         project,
         projectName: title,
         labels: choreographyExportLabels(),
+        pageIndexes: selectedImagePages,
+        format: imageExportFormat,
       });
       pulseFlash("images");
     } catch (e) {
@@ -435,6 +480,35 @@ export function ShareLinksSheetContent({
     } finally {
       setImagesBusy(false);
     }
+  };
+
+  const toggleImagePage = (index: number) => {
+    setSelectedImagePages((prev) => {
+      if (prev.includes(index)) return prev.filter((i) => i !== index);
+      return [...prev, index].sort((a, b) => a - b);
+    });
+  };
+
+  const selectAllImagePages = () => {
+    setSelectedImagePages(imageCueChoices.map((c) => c.index));
+  };
+
+  const clearImagePages = () => {
+    setSelectedImagePages([]);
+  };
+
+  const applyImageRange = () => {
+    const n = imageCueChoices.length;
+    if (n === 0) return;
+    const from = Math.min(n, Math.max(1, Math.floor(imageRangeFrom) || 1));
+    const to = Math.min(n, Math.max(1, Math.floor(imageRangeTo) || 1));
+    const lo = Math.min(from, to);
+    const hi = Math.max(from, to);
+    setImageRangeFrom(lo);
+    setImageRangeTo(hi);
+    setSelectedImagePages(
+      Array.from({ length: hi - lo + 1 }, (_, i) => lo - 1 + i)
+    );
   };
 
   const onExportCsv = () => {
@@ -758,21 +832,294 @@ export function ShareLinksSheetContent({
               onClick={() => void onExportPng()}
             />
             <div style={{ gridColumn: "1 / -1" }}>
-              <FileTile
-                label={
-                  imagesBusy
+              <div
+                style={{
+                  borderRadius: 14,
+                  border: `1px solid ${shell.borderStrong}`,
+                  background: "rgba(0,0,0,0.28)",
+                  padding: "12px 12px 13px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: "0.01em",
+                      lineHeight: 1.35,
+                      color: shell.text,
+                    }}
+                  >
+                    {t("shareSheet.allPngButton")}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 11,
+                      color: shell.textMuted,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {t("shareSheet.allPngSelectDesc")}
+                  </div>
+                </div>
+
+                {imageCueChoices.length > 0 ? (
+                  <>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 6,
+                        alignItems: "center",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={selectAllImagePages}
+                        disabled={imagesBusy || pngBusy}
+                        style={cueSelectChipStyle}
+                      >
+                        {t("shareSheet.imagesSelectAll")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearImagePages}
+                        disabled={imagesBusy || pngBusy}
+                        style={cueSelectChipStyle}
+                      >
+                        {t("shareSheet.imagesClearAll")}
+                      </button>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: shell.textMuted,
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        {t("shareSheet.imagesSelectedCount", {
+                          selected: selectedImagePages.length,
+                          total: imageCueChoices.length,
+                        })}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 6,
+                        alignItems: "center",
+                        fontSize: 11,
+                        color: shell.textMuted,
+                      }}
+                    >
+                      <span>{t("shareSheet.imagesRangeLabel")}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={Math.max(1, imageCueChoices.length)}
+                        value={imageRangeFrom}
+                        disabled={imagesBusy || pngBusy}
+                        onChange={(e) =>
+                          setImageRangeFrom(Number(e.target.value) || 1)
+                        }
+                        aria-label={t("shareSheet.imagesRangeFrom")}
+                        style={cueRangeInputStyle}
+                      />
+                      <span>〜</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={Math.max(1, imageCueChoices.length)}
+                        value={imageRangeTo}
+                        disabled={imagesBusy || pngBusy}
+                        onChange={(e) =>
+                          setImageRangeTo(Number(e.target.value) || 1)
+                        }
+                        aria-label={t("shareSheet.imagesRangeTo")}
+                        style={cueRangeInputStyle}
+                      />
+                      <button
+                        type="button"
+                        onClick={applyImageRange}
+                        disabled={imagesBusy || pngBusy}
+                        style={cueSelectChipStyle}
+                      >
+                        {t("shareSheet.imagesApplyRange")}
+                      </button>
+                    </div>
+
+                    <div
+                      role="group"
+                      aria-label={t("shareSheet.imagesCueListAria")}
+                      style={{
+                        maxHeight: 180,
+                        overflowY: "auto",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                        paddingRight: 2,
+                      }}
+                    >
+                      {imageCueChoices.map((cue) => {
+                        const checked = selectedImagePages.includes(cue.index);
+                        return (
+                          <label
+                            key={cue.index}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "6px 8px",
+                              borderRadius: 8,
+                              border: checked
+                                ? "1px solid rgba(212,175,55,0.45)"
+                                : "1px solid transparent",
+                              background: checked
+                                ? "rgba(212,175,55,0.1)"
+                                : "transparent",
+                              cursor: imagesBusy || pngBusy ? "default" : "pointer",
+                              opacity: imagesBusy || pngBusy ? 0.55 : 1,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={imagesBusy || pngBusy}
+                              onChange={() => toggleImagePage(cue.index)}
+                            />
+                            <span
+                              style={{
+                                flex: 1,
+                                minWidth: 0,
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: shell.text,
+                              }}
+                            >
+                              {cue.title}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                color: shell.textMuted,
+                                fontVariantNumeric: "tabular-nums",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {cue.timeLabel}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 8,
+                        alignItems: "center",
+                        fontSize: 11,
+                        color: shell.textMuted,
+                      }}
+                    >
+                      <label
+                        htmlFor="cue-image-export-format"
+                        style={{ fontWeight: 600 }}
+                      >
+                        {t("shareSheet.imagesFormatLabel")}
+                      </label>
+                      <select
+                        id="cue-image-export-format"
+                        value={imageExportFormat}
+                        disabled={imagesBusy || pngBusy}
+                        aria-label={t("shareSheet.imagesFormatAria")}
+                        onChange={(e) =>
+                          setImageExportFormat(
+                            parseCueImageExportFormat(e.target.value)
+                          )
+                        }
+                        style={{
+                          ...cueRangeInputStyle,
+                          width: "auto",
+                          minWidth: 88,
+                          paddingRight: 28,
+                          cursor:
+                            imagesBusy || pngBusy ? "not-allowed" : "pointer",
+                          opacity: imagesBusy || pngBusy ? 0.55 : 1,
+                        }}
+                      >
+                        {CUE_IMAGE_EXPORT_FORMATS.map((fmt) => (
+                          <option key={fmt} value={fmt}>
+                            .{fmt}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                ) : null}
+
+                <button
+                  type="button"
+                  disabled={
+                    !project ||
+                    imageCueChoices.length === 0 ||
+                    selectedImagePages.length === 0 ||
+                    imagesBusy ||
+                    pngBusy
+                  }
+                  onClick={() => void onExportImages()}
+                  style={{
+                    ...cueSelectChipStyle,
+                    width: "100%",
+                    justifyContent: "center",
+                    padding: "10px 12px",
+                    fontWeight: 700,
+                    borderColor:
+                      selectedImagePages.length > 0 && !imagesBusy
+                        ? "rgba(212,175,55,0.55)"
+                        : shell.borderStrong,
+                    background:
+                      selectedImagePages.length > 0 && !imagesBusy
+                        ? "rgba(212,175,55,0.16)"
+                        : "rgba(0,0,0,0.2)",
+                    color: shell.text,
+                    opacity:
+                      !project ||
+                      imageCueChoices.length === 0 ||
+                      selectedImagePages.length === 0 ||
+                      imagesBusy ||
+                      pngBusy
+                        ? 0.45
+                        : 1,
+                    cursor:
+                      !project ||
+                      imageCueChoices.length === 0 ||
+                      selectedImagePages.length === 0 ||
+                      imagesBusy ||
+                      pngBusy
+                        ? "not-allowed"
+                        : "pointer",
+                  }}
+                >
+                  {imagesBusy
                     ? t("shareSheet.imagesBusy")
                     : flash === "images"
                       ? t("shareSheet.imagesDone")
-                      : t("shareSheet.allPngButton")
-                }
-                hint={t("shareSheet.allPngDesc")}
-                disabled={!project || cueCount === 0 || imagesBusy || pngBusy}
-                onClick={() => void onExportImages()}
-              />
+                      : t("shareSheet.imagesDownloadSelected", {
+                          count: selectedImagePages.length,
+                          format: imageExportFormat,
+                        })}
+                </button>
+              </div>
             </div>
           </div>
-          {cueCount === 0 ? (
+          {cueCount === 0 && imageCueChoices.length === 0 ? (
             <p style={{ margin: "8px 0 0", fontSize: 11, color: shell.textSubtle, lineHeight: 1.45 }}>
               {t("shareSheet.csvNeedCues")}
             </p>
@@ -796,6 +1143,28 @@ export function ShareLinksSheetContent({
     </div>
   );
 }
+
+const cueSelectChipStyle: CSSProperties = {
+  padding: "5px 10px",
+  borderRadius: 8,
+  border: `1px solid ${shell.borderStrong}`,
+  background: "rgba(0,0,0,0.22)",
+  color: shell.textMuted,
+  fontSize: 11,
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const cueRangeInputStyle: CSSProperties = {
+  width: 56,
+  padding: "5px 6px",
+  borderRadius: 6,
+  border: `1px solid ${shell.borderStrong}`,
+  background: "#020617",
+  color: shell.text,
+  fontSize: 12,
+  fontVariantNumeric: "tabular-nums",
+};
 
 function FileTile({
   label,

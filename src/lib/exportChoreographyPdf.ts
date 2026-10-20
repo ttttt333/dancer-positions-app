@@ -36,11 +36,38 @@ function safeFileBase(name: string): string {
   );
 }
 
-/** ZIP 内ファイル名用（ページ番号 + 短いタイトル） */
-export function cueImageFileName(pageIndex: number, pageTitle: string): string {
+/** キュー画像ダウンロードで選べる拡張子 */
+export type CueImageExportFormat = "png" | "jpg" | "webp";
+
+export const CUE_IMAGE_EXPORT_FORMATS: readonly CueImageExportFormat[] = [
+  "png",
+  "jpg",
+  "webp",
+] as const;
+
+export function parseCueImageExportFormat(
+  raw: unknown
+): CueImageExportFormat {
+  if (raw === "jpg" || raw === "jpeg") return "jpg";
+  if (raw === "webp") return "webp";
+  return "png";
+}
+
+function cueImageMimeType(format: CueImageExportFormat): string {
+  if (format === "jpg") return "image/jpeg";
+  if (format === "webp") return "image/webp";
+  return "image/png";
+}
+
+/** ZIP 内／単体ファイル名用（ページ番号 + 短いタイトル + 拡張子） */
+export function cueImageFileName(
+  pageIndex: number,
+  pageTitle: string,
+  format: CueImageExportFormat = "png"
+): string {
   const n = String(pageIndex + 1).padStart(2, "0");
   const slug = safeFileBase(pageTitle).slice(0, 40);
-  return `${n}-${slug || "cue"}.png`;
+  return `${n}-${slug || "cue"}.${format}`;
 }
 
 function downloadBlob(blob: Blob, filename: string): void {
@@ -59,11 +86,23 @@ function bytesToBlob(bytes: Uint8Array, type: string): Blob {
   return new Blob([copy], { type });
 }
 
-async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+async function canvasToImageBytes(
+  canvas: HTMLCanvasElement,
+  format: CueImageExportFormat
+): Promise<Uint8Array> {
+  const mime = cueImageMimeType(format);
+  const quality = format === "png" ? undefined : 0.92;
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("PNG の生成に失敗しました"))),
-      "image/png"
+      (b) => {
+        if (b) {
+          resolve(b);
+          return;
+        }
+        reject(new Error(`${format.toUpperCase()} の生成に失敗しました`));
+      },
+      mime,
+      quality
     );
   });
   return new Uint8Array(await blob.arrayBuffer());
@@ -321,16 +360,52 @@ export async function exportChoreographyPdf(params: {
 }
 
 /**
- * PDF と同じレイアウトのキュー図を PNG で書き出す。
- * 1 ページなら単体 PNG、複数なら ZIP。
+ * 書き出し対象のページ番号（0 始まり）を正規化する。
+ * 未指定・空 → 全ページ。範囲外は捨て、重複は除き、昇順。
+ */
+export function resolveExportPageIndexes(
+  totalPages: number,
+  pageIndexes?: readonly number[] | null
+): number[] {
+  if (totalPages <= 0) return [];
+  if (!pageIndexes || pageIndexes.length === 0) {
+    return Array.from({ length: totalPages }, (_, i) => i);
+  }
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const raw of pageIndexes) {
+    if (!Number.isInteger(raw) || raw < 0 || raw >= totalPages) continue;
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    out.push(raw);
+  }
+  out.sort((a, b) => a - b);
+  return out;
+}
+
+/**
+ * PDF と同じレイアウトのキュー図を画像で書き出す。
+ * 1 枚なら単体ファイル、複数なら ZIP。
+ * `pageIndexes` で 0 始まりのページ（キュー順）を選べる。
+ * `format` で png / jpg / webp を指定（既定 png）。
  */
 export async function exportChoreographyImages(params: {
   project: ChoreographyProjectJson;
   projectName: string;
   labels?: Partial<ExportChoreographyPdfLabels>;
+  /** 0 始まり・キュー開始時刻順。省略時は全キュー */
+  pageIndexes?: readonly number[];
+  /** 画像拡張子。省略時 png */
+  format?: CueImageExportFormat;
 }): Promise<void> {
   const prepared = prepareChoreographyExport(params);
   const { pages, appearance, pieceTitle, fileBase, playbackTime } = prepared;
+  const selected = resolveExportPageIndexes(pages.length, params.pageIndexes);
+  if (selected.length === 0) {
+    throw new Error(params.labels?.emptyError ?? "書き出すフォーメーションがありません");
+  }
+  const format = parseCueImageExportFormat(params.format);
+  const mime = cueImageMimeType(format);
 
   const pageCanvas = document.createElement("canvas");
   pageCanvas.width = PAGE_W * RENDER_SCALE;
@@ -338,29 +413,42 @@ export async function exportChoreographyImages(params: {
   const ctx = pageCanvas.getContext("2d");
   if (!ctx) throw new Error("Canvas を初期化できませんでした");
 
-  if (pages.length === 1) {
-    const page = pages[0]!;
-    ctx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
-    drawPrintPage(ctx, page, 0, 1, pieceTitle, appearance, playbackTime);
-    const bytes = await canvasToPngBytes(pageCanvas);
-    downloadBlob(bytesToBlob(bytes, "image/png"), cueImageFileName(0, page.title));
-    return;
-  }
-
-  const files: Record<string, Uint8Array> = {};
-  for (let i = 0; i < pages.length; i++) {
-    const page = pages[i]!;
+  if (selected.length === 1) {
+    const pageIndex = selected[0]!;
+    const page = pages[pageIndex]!;
     ctx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
     drawPrintPage(
       ctx,
       page,
-      i,
+      pageIndex,
       pages.length,
       pieceTitle,
       appearance,
       playbackTime
     );
-    files[cueImageFileName(i, page.title)] = await canvasToPngBytes(pageCanvas);
+    const bytes = await canvasToImageBytes(pageCanvas, format);
+    downloadBlob(
+      bytesToBlob(bytes, mime),
+      cueImageFileName(pageIndex, page.title, format)
+    );
+    return;
+  }
+
+  const files: Record<string, Uint8Array> = {};
+  for (const pageIndex of selected) {
+    const page = pages[pageIndex]!;
+    ctx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
+    drawPrintPage(
+      ctx,
+      page,
+      pageIndex,
+      pages.length,
+      pieceTitle,
+      appearance,
+      playbackTime
+    );
+    files[cueImageFileName(pageIndex, page.title, format)] =
+      await canvasToImageBytes(pageCanvas, format);
   }
 
   const zipped = zipSync(files, { level: 6 });
