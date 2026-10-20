@@ -1,3 +1,9 @@
+import type { DancerFaceStampId } from "../lib/dancerFaceStamp";
+import type { DancerFigure3dId } from "../lib/dancerFigure3d";
+import type { DancerMarkerShape } from "../lib/dancerMarkerShape";
+
+export type { DancerFaceStampId, DancerFigure3dId };
+
 /** 客席は画面の上辺または下辺のみ（旧 JSON の left/right は読み込み時に正規化される） */
 export type AudienceEdge = "top" | "bottom";
 
@@ -12,6 +18,11 @@ export type RosterStripSortMode =
 export type DancerSpot = {
   id: string;
   label: string;
+  /**
+   * 同名区別などで label 先頭に付けた苗字（読み）の 1 文字以上。
+   * 名下表示ではこの部分だけ小さく上付きにする。未指定時は通常の label 表示。
+   */
+  labelPrefix?: string;
   /**
    * 名前を○の下に出すとき、○の中に表示する数字・略号（最大 3 文字）。
    * 未指定のときは、フォーメーション内の並びで 1 からの番号を表示する（見た目のみ）。
@@ -34,6 +45,8 @@ export type DancerSpot = {
    * 座標 (xPct,yPct) は変えず、表示だけ回す。
    */
   facingDeg?: number;
+  /** 印の形。未指定は丸。三角・矢印は向き 0 で客席側を指す */
+  markerShape?: DancerMarkerShape;
   colorIndex: number;
   /** メンバー名簿のメンバー id（反映時のみ。ステージで名前変更と名簿を同期） */
   crewMemberId?: string;
@@ -52,6 +65,8 @@ export type DancerSpot = {
   gradeLabel?: string;
   /** 性別などの表示ラベル（名簿と同期可） */
   genderLabel?: string;
+  /** true のとき性別色（男子青・女子ピンク）より colorIndex を優先 */
+  colorOverridesGender?: boolean;
   /** スキルランク表示（名簿未紐付け時も並び替え・再配置に使用） */
   skillRankLabel?: string;
   /**
@@ -64,6 +79,15 @@ export type DancerSpot = {
    * 未指定時は○直径に連動した既定サイズ。
    */
   nameBelowFontPx?: number;
+  /**
+   * ○の中に出す LINE スタンプ風の表情。未指定／不正値はなし。
+   * 設定時は○内の名前・番号の代わりに表情を描き、名前は○の下に出す。
+   */
+  faceStamp?: DancerFaceStampId;
+  /**
+   * 3D 表示のフィギュア種類（人型・犬・猫など）。未指定は人型。
+   */
+  figure3d?: DancerFigure3dId;
 };
 
 /** 大道具（ChoreoCore §9）。バウンディングボックス内の図形。 */
@@ -116,7 +140,11 @@ export type StageFloorTextMarkup = {
   isLocked?: boolean;
   /** 回転角度（度）。0 = 水平 */
   rotation?: number;
+  /** 複数行の寄せ方。未指定は左寄せ */
+  textAlign?: FloorTextAlign;
 };
+
+export type FloorTextAlign = "left" | "center" | "right";
 
 /** ステージ床の手描き線（折れ線・% 座標） */
 export type StageFloorLineMarkup = {
@@ -129,6 +157,107 @@ export type StageFloorLineMarkup = {
 };
 
 export type StageFloorMarkup = StageFloorTextMarkup | StageFloorLineMarkup;
+
+/**
+ * ヘソと同じ見た目のセンターマーク（位置可変・複数可）。
+ * メイン床上の %（0–100）。舞台設定中のみドラッグ。
+ */
+export type StageCenterMark = {
+  id: string;
+  xPct: number;
+  yPct: number;
+  label?: string;
+  /**
+   * 横半径（メイン床幅に対する %）。未指定時は既定サイズ。
+   */
+  rxPct?: number;
+  /**
+   * 縦半径（メイン床奥行に対する %）。
+   * shape=ellipse のとき使用。circle のときは見た目正円になるよう自動補正。
+   */
+  ryPct?: number;
+  /**
+   * circle = 見た目の正円（舞台の縦横比を補正）。
+   * ellipse = 縦横を独立に調整。
+   */
+  shape?: "circle" | "ellipse";
+};
+
+/** そで幕の表示側 */
+export type StageSleeveCurtainSide = "both" | "left" | "right";
+
+/**
+ * そで幕1枚分。客席側からの奥行で位置を決め、ステージ上でドラッグ調整できる。
+ */
+export type StageSleeveCurtain = {
+  id: string;
+  /** 客席側（手前）からの距離 mm */
+  depthMm: number;
+  label?: string;
+  /** 左右どちらに出す。省略時 both */
+  side?: StageSleeveCurtainSide;
+  /**
+   * 舞台端からメイン床側へ伸ばす長さ（mm）。0＝舞台端にぴったり。
+   */
+  insetMm?: number;
+  /**
+   * 舞台端からそでスペース側へ伸ばす長さ（mm）。
+   * 未指定かつサイド寸法ありのときはサイド全幅。0＝舞台端で止まる。
+   */
+  wingExtentMm?: number;
+};
+
+/** ステージ照明の種類 */
+export type StageLightKind =
+  | "suspension"
+  | "sideSpot"
+  | "backlight"
+  | "footlight"
+  | "pinSpot";
+
+/**
+ * 舞台上の照明フィクスチャ。
+ * 時間帯（tStart〜tEnd）内、または紐づくキューの区間内だけ色・濃さを床に重ねる。
+ */
+export type StageLightFixture = {
+  id: string;
+  kind: StageLightKind;
+  label?: string;
+  /** メイン床 %（0–100） */
+  xPct: number;
+  yPct: number;
+  /** #rrggbb */
+  color: string;
+  /** 0〜1。床への色の濃さ */
+  intensity: number;
+  /**
+   * ビーム横半径（メイン床幅に対する %）。未指定時は種類ごとの既定。
+   * 互換のため radiusPct も同義で読む。
+   */
+  rxPct?: number;
+  /**
+   * ビーム縦半径（メイン床奥行に対する %）。
+   * 未指定かつ shape=ellipse のときは rx の 0.72 倍。
+   */
+  ryPct?: number;
+  /** @deprecated rxPct を使う。読み込み時に rxPct へ移行 */
+  radiusPct?: number;
+  /**
+   * circle = 見た目の正円（舞台の縦横比を補正）。
+   * ellipse = 縦横を独立に調整。
+   */
+  shape?: "circle" | "ellipse";
+  /**
+   * 紐づくキュー ID。未指定／null = 全体（全キュー共通）。
+   * 指定時はそのキュー区間でのみ点灯（全体の tStart/tEnd は使わない）。
+   */
+  cueId?: string | null;
+  /** 有効開始秒。null/省略 = 先頭から（全体スコープ時） */
+  tStartSec?: number | null;
+  /** 有効終了秒。null/省略 = 末尾まで（全体スコープ時） */
+  tEndSec?: number | null;
+  enabled?: boolean;
+};
 
 /** ヘッダ「テキスト」から床へ置く前のプレビュー（親が状態を持つ） */
 export type FloorTextPlaceSession = {
@@ -145,6 +274,8 @@ export type FloorTextPlaceSession = {
   scope?: "formation" | "global";
   /** 既存テキスト編集モード: このIDのテキストを更新する（undefined = 新規配置） */
   editTargetId?: string;
+  /** 複数行の寄せ方（未指定は左寄せ） */
+  textAlign?: FloorTextAlign;
 };
 
 export type Formation = {
@@ -206,6 +337,10 @@ export type StageShape = {
 export type CrewMember = {
   id: string;
   label: string;
+  /**
+   * 同名区別などで label 先頭に付けた苗字（読み）。ステージ名下で小さく上付き表示する。
+   */
+  labelPrefix?: string;
   colorIndex: number;
   /** 身長（cm）。名簿取り込み・並び替え用 */
   heightCm?: number;
@@ -213,6 +348,8 @@ export type CrewMember = {
   gradeLabel?: string;
   /** 性別など（例: 男・女） */
   genderLabel?: string;
+  /** true のとき性別色より colorIndex を優先 */
+  colorOverridesGender?: boolean;
   /** ダンス等スキルランクの表示（例: A、上級） */
   skillRankLabel?: string;
   /** メンバー単位メモ（立ち位置の備考と同期する場合あり） */
@@ -239,7 +376,7 @@ export type GapApproachRoute =
   | "front_half_via_shimote"
   | "detour_bulge";
 
-/** タイムライン上の区間キュー（区間内は立ち位置一定。区間の隙間のみ補間）。 */
+/** タイムライン上の区間キュー（区間内は立ち位置ホールド。ギャップ／隣接時は補間移動）。 */
 export type Cue = {
   id: string;
   /** 区間開始（秒・ソース音源上） */
@@ -253,8 +390,15 @@ export type Cue = {
   /**
    * このキューに入る直前のギャップ（前キュー tEnd 〜 この tStart）での移動経路。
    * 先頭キューでは無視される。未指定は線形補間。
+   * 隣接キュー（ギャップ無し）の場合も、前ホールド末尾の暗黙遷移で同じ経路が使われる。
    */
   gapApproachFromPrev?: GapApproachRoute;
+  /**
+   * このキューへ向かう移動に使う秒数（任意）。
+   * 未指定時は BPM×8カウント相当を前ホールド末尾から自動切出し。
+   * 明示ギャップが十分ある場合はギャップ全体が移動時間になり、この値は使わない。
+   */
+  moveInSec?: number;
   /**
    * ダンサーごとの個別軌道（二次ベジェ制御点）。
    * キー = dancerId、値 = 制御点のステージ座標（%）。
@@ -412,6 +556,35 @@ export type ChoreographyProjectJson = {
    * - "below"  : ○の下に名前を表示（人物が視認しやすい・色印を活かしたい場合）
    */
   dancerLabelPosition?: "inside" | "below";
+  /**
+   * ヘソ／センターマーク群を表示する。
+   * 位置は `stageCenterMarks`。旧データで marks が空かつ true のときは中央 1 点を補う。
+   */
+  stageHesoVisible?: boolean;
+  /**
+   * ヘソと同じ見た目のセンターマーク（複数可）。メイン床 %（0–100）。
+   * 舞台設定パネル表示中のみドラッグ移動可能（立ち位置編集を邪魔しない）。
+   */
+  stageCenterMarks?: StageCenterMark[];
+  /**
+   * @deprecated 奥行グリッド間隔 `stageGridSpacingDepthMm` に統合。読み込み時のみ互換。
+   * 客席側（手前）からの距離で引く横グリッド線（mm）。
+   */
+  stageFrontGridLinesMm?: number[];
+  /**
+   * @deprecated `stageSleeveCurtains` に移行。読み込み時のみ互換。
+   * そで幕の奥行位置（手前からの mm）。
+   */
+  stageSleeveCurtainDepthsMm?: number[];
+  /**
+   * そで幕（複数可）。ステージ上でドラッグして奥行を調整できる。
+   */
+  stageSleeveCurtains?: StageSleeveCurtain[];
+  /**
+   * ステージ照明フィクスチャ（テキスト／照明シートで編集）。
+   * 時間帯内だけ床に色を重ねる。
+   */
+  stageLights?: StageLightFixture[];
   viewMode: "edit" | "view";
   crews: Crew[];
   /** サーバに保存した楽曲アセット ID（未ログイン時は null） */

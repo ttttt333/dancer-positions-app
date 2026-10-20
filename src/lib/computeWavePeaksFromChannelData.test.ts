@@ -22,8 +22,11 @@ describe("computeWavePeaksFromChannelData", () => {
   });
 
   it("scales bin count with duration", () => {
-    expect(resolveWavePeakBinCount(30)).toBe(WAVE_PEAK_BIN_COUNT);
-    expect(resolveWavePeakBinCount(180)).toBe(23040);
+    // duration × 384 bins/s を [MIN, MAX] にクランプ
+    expect(resolveWavePeakBinCount(30)).toBe(11520);
+    expect(resolveWavePeakBinCount(0)).toBe(WAVE_PEAK_BIN_COUNT);
+    expect(resolveWavePeakBinCount(60)).toBe(23040);
+    expect(resolveWavePeakBinCount(180)).toBe(WAVE_PEAK_BIN_MAX);
     expect(resolveWavePeakBinCount(600)).toBe(WAVE_PEAK_BIN_MAX);
   });
 

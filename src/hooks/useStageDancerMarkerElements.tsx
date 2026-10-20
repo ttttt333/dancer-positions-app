@@ -10,12 +10,12 @@ import {
   normalizeDancerFacingDeg,
 } from "../lib/dancerColorPalette";
 import {
-  dancerCircleInnerBelowLabel,
-  layoutMarkerCircleInnerLabel,
-} from "../lib/stageBoardModelHelpers";
-import {
-  dancerNameBelowLabelOffsetPx,
-} from "../lib/stageNameBelowFontSizing";
+  genderLabelForColor,
+  resolveDancerDisplayHex,
+} from "../lib/dancerGender";
+import { dancerNameBelowLabelOffsetPx } from "../lib/stageNameBelowFontSizing";
+import { dancerCircleInnerBelowLabel } from "../lib/stageBoardModelHelpers";
+import { resolveMarkerCircleContent } from "../lib/resolveMarkerCircleContent";
 import { dancerMatchesStudentViewerPick } from "../lib/viewRoster";
 import {
   poseLevelLabelJa,
@@ -50,11 +50,11 @@ export type UseStageDancerMarkerElementsParams = {
   previewDancers: DancerSpot[] | null;
   stageInteractionsEnabled: boolean;
   /** 複数選択時の枠線色（`shell.ruby` 相当） */
-  rubyAccent: string;
   dancerQuickEditId: string | null;
   setShowStageDancerColorToolbar: Dispatch<SetStateAction<boolean>>;
   setStageContextMenu: Dispatch<SetStateAction<StageBoardContextMenuState>>;
   setDancerQuickEditId: Dispatch<SetStateAction<string | null>>;
+  setSelectedDancerIds?: Dispatch<SetStateAction<string[]>>;
   studentViewerFocus:
     | null
     | { kind: "all" }
@@ -81,11 +81,11 @@ export function useStageDancerMarkerElements(
     playbackDancers,
     previewDancers,
     stageInteractionsEnabled,
-    rubyAccent,
     dancerQuickEditId,
     setShowStageDancerColorToolbar,
     setStageContextMenu,
     setDancerQuickEditId,
+    setSelectedDancerIds,
     studentViewerFocus,
   } = params;
 
@@ -115,11 +115,15 @@ export function useStageDancerMarkerElements(
           markerLabelWmm > 0
             ? { effXPct: labelXPct, stageWidthMm: markerLabelWmm }
             : undefined;
-        const circleLabel = dancerLabelBelow
-          ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsMarker)
-          : d.label || "?";
+        const circleContent = resolveMarkerCircleContent(d, di, {
+          markerPx: dMarkerPx,
+          dancerLabelBelow,
+          screenUnrotateDeg,
+          circleInnerOpts: circleInnerOptsMarker,
+        });
+        const circleLabel = circleContent.circleLabel;
         const centerDistanceAboveLabel =
-          showCenterDistanceAbove && markerLabelWmm > 0
+          showCenterDistanceAbove && markerLabelWmm > 0 && !circleContent.faceStamp
             ? {
                 text: dancerCircleInnerBelowLabel(d, di, {
                   effXPct: d.xPct,
@@ -132,12 +136,8 @@ export function useStageDancerMarkerElements(
                 screenUnrotateDeg,
               }
             : undefined;
-        const circleInnerLabelLayout = layoutMarkerCircleInnerLabel(
-          dMarkerPx,
-          circleLabel,
-          screenUnrotateDeg
-        );
-        const dLabelFontPx = circleInnerLabelLayout.fontSizePx;
+        const dLabelFontPx = circleContent.fontSizePx;
+        const circleInnerLabelLayout = { spanStyle: circleContent.spanStyle };
         const labelOffsetPx = dancerNameBelowLabelOffsetPx(
           dMarkerPx,
           nameBelowClearanceExtraPx
@@ -177,7 +177,7 @@ export function useStageDancerMarkerElements(
             ? "2px solid rgba(99,102,241,0.95)"
             : selectedDancerIds.includes(d.id)
               ? selectedDancerIds.length >= 2
-                ? `2px solid ${rubyAccent}`
+                ? "1.5px solid rgba(255,255,255,0.95)"
                 : "2px solid rgba(251,191,36,0.92)"
               : "2px solid rgba(255,255,255,0.35)";
         const cursorCss =
@@ -208,6 +208,7 @@ export function useStageDancerMarkerElements(
             xPct={d.xPct}
             yPct={d.yPct}
             nameBelowLabel={d.label || "?"}
+            nameBelowPrefix={d.labelPrefix}
             pivotTransform={pivotTransform}
             zMark={zMark}
             playbackOrPreview={playbackOrPreview}
@@ -220,9 +221,11 @@ export function useStageDancerMarkerElements(
               if (interactionLocked) return;
               e.preventDefault();
               e.stopPropagation();
-              setShowStageDancerColorToolbar(true);
+              if (!selectedDancerIds.includes(d.id)) {
+                setSelectedDancerIds?.([d.id]);
+              }
               setStageContextMenu({
-                kind: "dancer",
+                kind: "dancerDock",
                 clientX: e.clientX,
                 clientY: e.clientY,
                 dancerId: d.id,
@@ -232,13 +235,29 @@ export function useStageDancerMarkerElements(
               e.preventDefault();
               e.stopPropagation();
               if (interactionLocked) return;
-              if (selectedDancerIds.length >= 2) return;
+              if (selectedDancerIds.length >= 2) {
+                if (!selectedDancerIds.includes(d.id)) {
+                  setSelectedDancerIds?.([d.id]);
+                  setDancerQuickEditId(d.id);
+                  return;
+                }
+                setStageContextMenu({
+                  kind: "dancerDock",
+                  clientX: e.clientX,
+                  clientY: e.clientY,
+                  dancerId: d.id,
+                });
+                return;
+              }
               setDancerQuickEditId(d.id);
             }}
             halfMarker={halfMarker}
             markerPx={dMarkerPx}
             borderCss={borderCss}
-            fillHex={DANCER_PALETTE[modDancerColorIndex(d.colorIndex)]}
+            fillHex={resolveDancerDisplayHex(
+              genderLabelForColor(d),
+              DANCER_PALETTE[modDancerColorIndex(d.colorIndex)]!
+            )}
             labelFontPx={dLabelFontPx}
             cursorCss={cursorCss}
             pointerEventsCss={pointerEventsCss}
@@ -249,12 +268,17 @@ export function useStageDancerMarkerElements(
             circleInnerLabelSpanStyle={circleInnerLabelLayout.spanStyle}
             centerDistanceAboveLabel={centerDistanceAboveLabel}
             screenUnrotateDeg={screenUnrotateDeg}
-            showNameBelow={dancerLabelBelow && !hideGlyph}
+            showNameBelow={
+              circleContent.showNameBelow &&
+              !hideGlyph &&
+              !(onePersonMode && !isStudentHighlight)
+            }
             labelOffsetPx={labelOffsetPx}
             belowLabelOriginYpx={belowLabelOriginYpx}
             belowNameFontPx={belowNameFontPx}
             isStudentHighlight={isStudentHighlight}
             onePersonMode={onePersonMode}
+            shape={d.markerShape}
           />
         );
       }),
@@ -275,11 +299,11 @@ export function useStageDancerMarkerElements(
       playbackDancers,
       previewDancers,
       stageInteractionsEnabled,
-      rubyAccent,
       dancerQuickEditId,
       setShowStageDancerColorToolbar,
       setStageContextMenu,
       setDancerQuickEditId,
+      setSelectedDancerIds,
       studentViewerFocus,
     ]
   );

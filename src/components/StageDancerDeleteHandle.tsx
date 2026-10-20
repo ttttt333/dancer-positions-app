@@ -3,6 +3,7 @@ import {
   STAGE_AUX_HANDLE_CORNER_OFFSET_PX,
   stageAuxHandleHitStyle,
 } from "../lib/stageSelectionAuxHandleStyles";
+import { STAGE_INTERACTIVE_ATTR } from "../lib/stageBoardGestureAbort";
 
 export type StageDancerDeleteHandleProps = {
   xPct: number;
@@ -11,9 +12,11 @@ export type StageDancerDeleteHandleProps = {
   markerPx: number;
   selectedCount: number;
   onPointerDown: PointerEventHandler<HTMLButtonElement>;
+  /** 選択解除（移動せずキャンセル） */
+  onClearSelection?: () => void;
 };
 
-/** 1 人選択時：印の左下のゴミ箱（ドラッグ削除のほかタップでも削除） */
+/** 1 人選択時：印の左下のゴミ箱＋選択解除（×） */
 export function StageDancerDeleteHandle({
   xPct,
   yPct,
@@ -21,6 +24,7 @@ export function StageDancerDeleteHandle({
   markerPx,
   selectedCount,
   onPointerDown,
+  onClearSelection,
 }: StageDancerDeleteHandleProps) {
   const inset = Math.round(markerPx / 2) + 14;
   const o = STAGE_AUX_HANDLE_CORNER_OFFSET_PX;
@@ -28,6 +32,8 @@ export function StageDancerDeleteHandle({
     typeof window !== "undefined" &&
     window.matchMedia("(pointer: coarse)").matches;
   const visualPx = coarsePointer ? 22 : 18;
+  /** ゴミ箱のさらに外側（左）に × を並べる */
+  const cancelGapPx = coarsePointer ? 40 : 34;
 
   return (
     <div
@@ -44,9 +50,53 @@ export function StageDancerDeleteHandle({
         pointerEvents: "none",
       }}
     >
+      {onClearSelection ? (
+        <button
+          type="button"
+          data-selection-cancel-handle
+          {...{ [STAGE_INTERACTIVE_ATTR]: "" }}
+          aria-label="選択を解除"
+          title="選択解除"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onClearSelection();
+          }}
+          style={{
+            position: "absolute",
+            left: `calc(50% - ${inset}px - ${o}px - ${cancelGapPx}px)`,
+            top: `calc(50% + ${inset}px + ${o}px)`,
+            transform: `translate(-50%, -50%) rotate(${-facingDeg}deg)`,
+            zIndex: 15,
+            ...stageAuxHandleHitStyle("pointer"),
+            borderRadius: "50%",
+            background: "rgba(30, 41, 59, 0.95)",
+            border: "1.5px solid #fff",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.45)",
+            color: "#fff",
+            touchAction: "manipulation",
+          }}
+        >
+          <svg
+            width={visualPx}
+            height={visualPx}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M18 6L6 18" />
+            <path d="M6 6l12 12" />
+          </svg>
+        </button>
+      ) : null}
       <button
         type="button"
         data-dancer-delete-handle
+        {...{ [STAGE_INTERACTIVE_ATTR]: "" }}
         aria-label={
           selectedCount >= 2
             ? `選択中の ${selectedCount} 人を削除`

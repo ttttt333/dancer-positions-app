@@ -14,6 +14,8 @@ export type UseEditorKeyboardShortcutsArgs = {
   setStageZenFullscreen: (next: boolean) => void;
   cloudSaveDialogOpen: boolean;
   setCloudSaveDialogOpen: (open: boolean) => void;
+  /** ⌘S / Ctrl+S: クラウドへ上書き保存（未ログイン等では no-op） */
+  onCloudSave?: () => void;
   stageAreaSettingsOpen: boolean;
   onCloseStageAreaSettings: () => void;
   stageSettingsOpen: boolean;
@@ -42,12 +44,56 @@ export type UseEditorKeyboardShortcutsArgs = {
   } | null;
 };
 
-/** Escape で各種モーダルを閉じ、Space で再生、←/→ でシークまたはキュー送り、⌘Z/⌘⇧Z で Undo/Redo。 */
+/** 文字入力中だけブラウザ／IME の Undo に任せる */
+export function isTextEditingKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  if (target instanceof HTMLTextAreaElement) return true;
+  if (target instanceof HTMLInputElement) {
+    const type = (target.type || "text").toLowerCase();
+    // チェックボックス等はアプリ Undo を優先
+    return (
+      type === "text" ||
+      type === "search" ||
+      type === "url" ||
+      type === "tel" ||
+      type === "email" ||
+      type === "password" ||
+      type === "number" ||
+      type === "" ||
+      type === "datetime-local" ||
+      type === "date" ||
+      type === "time" ||
+      type === "month" ||
+      type === "week"
+    );
+  }
+  return false;
+}
+
+/** Space / 矢印など「フォーム操作を優先」したいフォーカス先（⌘Z は別判定） */
+export function isFormFieldKeyboardTarget(target: EventTarget | null): boolean {
+  if (isTextEditingKeyboardTarget(target)) return true;
+  return target instanceof HTMLSelectElement;
+}
+
+export function isModSaveKey(e: Pick<KeyboardEvent, "metaKey" | "ctrlKey" | "altKey" | "shiftKey" | "key" | "code">): boolean {
+  if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return false;
+  return e.code === "KeyS" || e.key.toLowerCase() === "s";
+}
+
+export function isModUndoKey(e: Pick<KeyboardEvent, "metaKey" | "ctrlKey" | "altKey" | "shiftKey" | "key" | "code">): boolean {
+  if (!(e.metaKey || e.ctrlKey) || e.altKey) return false;
+  return e.code === "KeyZ" || e.key.toLowerCase() === "z";
+}
+
+/** Escape で各種モーダルを閉じ、Space で再生、←/→ でシークまたはキュー送り、⌘Z/⌘⇧Z で Undo/Redo、⌘S で保存。 */
 export function useEditorKeyboardShortcuts({
   stageZenFullscreen,
   setStageZenFullscreen,
   cloudSaveDialogOpen,
   setCloudSaveDialogOpen,
+  onCloudSave,
   stageAreaSettingsOpen,
   onCloseStageAreaSettings,
   stageSettingsOpen,
@@ -83,12 +129,25 @@ export function useEditorKeyboardShortcuts({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        e.target instanceof HTMLSelectElement ||
-        (e.target as HTMLElement).isContentEditable
-      ) {
+      // キャプチャ段階でブラウザのページ保存を止め、入力中でもクラウド保存する
+      if (isModSaveKey(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        onCloudSave?.();
+        return;
+      }
+
+      // 文字入力中以外は ⌘Z / ⌘⇧Z を編集 Undo/Redo に（select フォーカスでも効く）
+      if (isModUndoKey(e)) {
+        if (isTextEditingKeyboardTarget(e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+
+      if (isFormFieldKeyboardTarget(e.target)) {
         return;
       }
       if (e.key === "Escape" && cloudSaveDialogOpen) {
@@ -124,13 +183,7 @@ export function useEditorKeyboardShortcuts({
         setRosterImportExtraNames([]);
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-        return;
-      }
-      if (e.code === "Space") {
+      if (e.code === "Space" || e.key === " ") {
         e.preventDefault();
         togglePlaybackRespectingTrimStart(getTrimStartSec());
         return;
@@ -161,14 +214,16 @@ export function useEditorKeyboardShortcuts({
 
       onSelectAdjacentCue?.(direction);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // capture: ブラウザ／他リスナーより先に ⌘S・⌘Z を掴む
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [
     redo,
     undo,
     getTrimStartSec,
     cloudSaveDialogOpen,
     setCloudSaveDialogOpen,
+    onCloudSave,
     stageAreaSettingsOpen,
     onCloseStageAreaSettings,
     stageSettingsOpen,

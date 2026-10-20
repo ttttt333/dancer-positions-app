@@ -6,11 +6,14 @@ import {
   PRESET_CATEGORIES,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
+import { classicSuggestionEntries } from "../lib/formationClassicSuggestions";
 import {
   DEFAULT_UI_PRESET_MAX_TIER,
   filterPresetCategories,
   type PresetTier,
 } from "../lib/formationPresetTiers";
+
+export const CLASSIC_PRESET_CATEGORY_LABEL = "定番の提案";
 
 export type FormationPresetPreviewItem = {
   id: LayoutPresetId;
@@ -23,6 +26,24 @@ export type FormationPresetCategoryPreview = {
   items: FormationPresetPreviewItem[];
 };
 
+export function splitClassicPresetCategories(
+  categories: FormationPresetCategoryPreview[]
+): {
+  classic: FormationPresetCategoryPreview | null;
+  catalog: FormationPresetCategoryPreview[];
+} {
+  let classic: FormationPresetCategoryPreview | null = null;
+  const catalog: FormationPresetCategoryPreview[] = [];
+  for (const cat of categories) {
+    if (cat.label === CLASSIC_PRESET_CATEGORY_LABEL) {
+      classic = cat;
+    } else {
+      catalog.push(cat);
+    }
+  }
+  return { classic, catalog };
+}
+
 export function useFormationPresetCategoryPreviews(
   count: number,
   spacingOpts: { dancerSpacingMm?: number | null; stageWidthMm?: number | null },
@@ -31,26 +52,35 @@ export function useFormationPresetCategoryPreviews(
   const maxTier: PresetTier = showAllTiers ? 3 : DEFAULT_UI_PRESET_MAX_TIER;
   const n = Math.max(1, count);
 
-  return useMemo(
-    () =>
-      filterPresetCategories(PRESET_CATEGORIES, maxTier).map((cat) => ({
+  return useMemo(() => {
+    const opts = {
+      dancerSpacingMm: spacingOpts.dancerSpacingMm ?? undefined,
+      stageWidthMm: spacingOpts.stageWidthMm ?? undefined,
+    };
+    const classicItems: FormationPresetPreviewItem[] = classicSuggestionEntries(
+      n
+    ).map((entry) => ({
+      id: entry.id as LayoutPresetId,
+      label: entry.label,
+      dancers: dancersForLayoutPreset(n, entry.id as LayoutPresetId, opts),
+    }));
+
+    const rest = filterPresetCategories(PRESET_CATEGORIES, maxTier).map(
+      (cat) => ({
         label: cat.label,
         items: cat.ids.map((id) => ({
           id,
           label: LAYOUT_PRESET_LABELS[id] ?? id,
-          dancers: dancersForLayoutPreset(n, id, {
-            dancerSpacingMm: spacingOpts.dancerSpacingMm ?? undefined,
-            stageWidthMm: spacingOpts.stageWidthMm ?? undefined,
-          }),
+          dancers: dancersForLayoutPreset(n, id, opts),
         })),
-      })),
-    [
-      maxTier,
-      n,
-      spacingOpts.dancerSpacingMm,
-      spacingOpts.stageWidthMm,
-    ]
-  );
+      })
+    );
+
+    return [
+      { label: CLASSIC_PRESET_CATEGORY_LABEL, items: classicItems },
+      ...rest,
+    ];
+  }, [maxTier, n, spacingOpts.dancerSpacingMm, spacingOpts.stageWidthMm]);
 }
 
 export function firstPresetIdInCategories(

@@ -1,8 +1,8 @@
 import {
   memo,
+  useState,
   type CSSProperties,
   type Dispatch,
-  type MutableRefObject,
   type ReactNode,
   type SetStateAction,
 } from "react";
@@ -13,18 +13,18 @@ import { listStagePresets, saveStagePreset, type StagePresetItem } from "../../l
 import type { ChoreographyProjectJson } from "../../types/choreography";
 import {
   STAGE_AREA_DIM_ROWS,
-  mmToMeterCmDraft,
+  applyStagePresetToAreaDraft,
   type StageAreaSettingsDraft,
 } from "./stageAreaSettingsDraft";
 import { useI18n } from "../../i18n/I18nContext";
 
 export const STAGE_AREA_SHEET_SECTION: CSSProperties = {
-  borderRadius: "10px",
+  borderRadius: "8px",
   border: "1px solid rgba(99,102,241,0.15)",
   background: "linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.5) 100%)",
   backdropFilter: "blur(6px)",
-  padding: "8px 10px",
-  marginBottom: "6px",
+  padding: "6px 8px",
+  marginBottom: "4px",
 };
 
 
@@ -46,6 +46,8 @@ export const StageAreaSettingsSheet = memo(function StageAreaSettingsSheet({
       zIndex={61}
       width="min(320px, calc(100vw - 16px))"
       onClose={onClose}
+      /** ステージ上でヘソ／そで幕をドラッグできるよう外側は透過 */
+      passThroughOutside
       ariaLabelledBy="stage-area-settings-title"
     >
       {children}
@@ -63,12 +65,12 @@ const M_OPTIONS = Array.from({ length: 100 }, (_, i) => i); // 0..99
 const CM_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
 
 const selectStyle: CSSProperties = {
-  padding: "5px 4px",
-  borderRadius: "6px",
+  padding: "3px 2px",
+  borderRadius: "5px",
   border: "1px solid rgba(51,65,85,0.8)",
   background: "#0f172a",
   color: "#e2e8f0",
-  fontSize: "12px",
+  fontSize: "11px",
   outline: "none",
   cursor: "pointer",
 };
@@ -79,15 +81,15 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
   onChangeDraft,
 }: StageAreaDimensionRowsProps) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 8px", marginBottom: "6px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "4px 6px", marginBottom: 0 }}>
       {STAGE_AREA_DIM_ROWS.map((row) => {
         const hasVal = draft[row.key].m !== "" || draft[row.key].cm !== "";
         return (
           <div key={row.key} style={row.key === "guide" ? { gridColumn: "1 / -1" } : {}}>
-            <div style={{ fontSize: "10px", color: "rgba(148,163,184,0.8)", marginBottom: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ fontSize: "9px", color: "rgba(148,163,184,0.8)", marginBottom: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {row.title}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "3px", minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "2px", minWidth: 0 }}>
               <select
                 disabled={disabled}
                 className="stage-area-dim-select"
@@ -102,8 +104,7 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                 style={{
                   ...selectStyle,
                   flex: "0 0 auto",
-                  width: "48px",
-                  padding: "5px 2px",
+                  width: "44px",
                   border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
                 }}
               >
@@ -112,7 +113,7 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                   <option key={v} value={String(v)}>{v}</option>
                 ))}
               </select>
-              <span style={{ fontSize: "10px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>m</span>
+              <span style={{ fontSize: "9px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>m</span>
               <select
                 disabled={disabled}
                 className="stage-area-dim-select"
@@ -127,8 +128,7 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                 style={{
                   ...selectStyle,
                   flex: "0 0 auto",
-                  width: "48px",
-                  padding: "5px 2px",
+                  width: "44px",
                   border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
                 }}
               >
@@ -137,7 +137,7 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                   <option key={v} value={String(v)}>{v}</option>
                 ))}
               </select>
-              <span style={{ fontSize: "10px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>cm</span>
+              <span style={{ fontSize: "9px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>cm</span>
             </div>
           </div>
         );
@@ -153,6 +153,7 @@ type StageAreaPresetBlockProps = {
   onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
   onBumpPresetNonce: () => void;
   onSavePreset: () => void;
+  onDeletePreset?: (id: string) => void;
 };
 
 export const StageAreaPresetBlock = memo(function StageAreaPresetBlock({
@@ -162,8 +163,11 @@ export const StageAreaPresetBlock = memo(function StageAreaPresetBlock({
   onChangeDraft,
   onBumpPresetNonce,
   onSavePreset,
+  onDeletePreset,
 }: StageAreaPresetBlockProps) {
   const { t } = useI18n();
+  const [pickedId, setPickedId] = useState("");
+  const pickedExists = stageAreaPresetList.some((x) => x.id === pickedId);
   return (
     <div
       style={{
@@ -188,22 +192,16 @@ export const StageAreaPresetBlock = memo(function StageAreaPresetBlock({
         {t("editor.layout.loadPreset")}
         <select
           key={stageAreaPresetSelectNonce}
-          defaultValue=""
+          value={pickedExists ? pickedId : ""}
           disabled={disabled || stageAreaPresetList.length === 0}
           title={t("editor.layout.loadPresetTitle")}
           onChange={(e) => {
             const id = e.target.value;
+            setPickedId(id);
             if (!id) return;
             const item = stageAreaPresetList.find((x) => x.id === id);
             if (!item) return;
-            onChangeDraft((d) => ({
-              ...d,
-              width: mmToMeterCmDraft(item.stageWidthMm),
-              depth: mmToMeterCmDraft(item.stageDepthMm),
-              side: mmToMeterCmDraft(item.sideStageMm),
-              back: mmToMeterCmDraft(item.backStageMm),
-              guide: mmToMeterCmDraft(item.centerFieldGuideIntervalMm),
-            }));
+            onChangeDraft((d) => applyStagePresetToAreaDraft(d, item));
             onBumpPresetNonce();
           }}
           style={{
@@ -240,6 +238,30 @@ export const StageAreaPresetBlock = memo(function StageAreaPresetBlock({
       >
         {t("editor.layout.savePresetButton")}
       </button>
+      {onDeletePreset ? (
+        <button
+          type="button"
+          disabled={disabled || !pickedExists}
+          title="選んだプリセットを削除"
+          onClick={() => {
+            if (!pickedExists) return;
+            onDeletePreset(pickedId);
+            setPickedId("");
+          }}
+          style={{
+            ...btnSecondary,
+            flex: "0 0 auto",
+            padding: "6px 10px",
+            fontSize: "11px",
+            fontWeight: 600,
+            color: "#f87171",
+            borderColor: "rgba(248, 113, 113, 0.45)",
+            opacity: pickedExists ? 1 : 0.45,
+          }}
+        >
+          削除
+        </button>
+      ) : null}
     </div>
   );
 });
@@ -295,139 +317,106 @@ export const StageAreaGridStepControl = memo(function StageAreaGridStepControl({
 
 type StageAreaGridSpacingControlsProps = {
   disabled: boolean;
-  gridWidthCmInput: string;
-  gridDepthCmInput: string;
-  onStageGridCmInput: (axis: "width" | "depth", raw: string) => void;
-  commitStageGridCmInput: (axis: "width" | "depth") => void;
-  startGridNudgeRepeat: (axis: "width" | "depth", delta: number) => void;
-  stopGridNudgeRepeat: () => void;
-  nudgeStageGridCm: (axis: "width" | "depth", delta: number) => void;
-  gridNudgeDidRepeatRef: MutableRefObject<boolean>;
+  draft: StageAreaSettingsDraft;
+  onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
 };
 
 export const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingControls({
   disabled,
-  gridWidthCmInput,
-  gridDepthCmInput,
-  onStageGridCmInput,
-  commitStageGridCmInput,
-  startGridNudgeRepeat,
-  stopGridNudgeRepeat,
-  nudgeStageGridCm,
-  gridNudgeDidRepeatRef,
+  draft,
+  onChangeDraft,
 }: StageAreaGridSpacingControlsProps) {
-  const { t } = useI18n();
-  const renderInput = (axis: "width" | "depth", label: string, value: string) => (
-    <label style={{ fontSize: "10px", color: "#94a3b8" }}>
-      {label}
-      <div
-        style={{
-          marginTop: "3px",
-          display: "grid",
-          gridTemplateColumns: "1fr 28px 28px",
-          gap: "4px",
-          alignItems: "center",
-        }}
-      >
-        <input
-          type="text"
-          className="stage-area-grid-input"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={value}
-          disabled={disabled}
-          onChange={(e) => onStageGridCmInput(axis, e.target.value)}
-          onBlur={() => commitStageGridCmInput(axis)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commitStageGridCmInput(axis);
-            }
-          }}
-          aria-label={`${label}（センチ）`}
-          style={{
-            width: "100%",
-            padding: "4px 8px",
-            borderRadius: "5px",
-            border: "1px solid #334155",
-            background: "#020617",
-            color: "#e2e8f0",
-            fontSize: "11px",
-            textAlign: "center",
-          }}
-        />
-        <button
-          type="button"
-          disabled={disabled}
-          onPointerDown={(e) => {
-            if (disabled) return;
-            e.preventDefault();
-            startGridNudgeRepeat(axis, -1);
-          }}
-          onPointerUp={stopGridNudgeRepeat}
-          onPointerCancel={stopGridNudgeRepeat}
-          onPointerLeave={stopGridNudgeRepeat}
-          onClick={() => {
-            if (disabled) return;
-            if (gridNudgeDidRepeatRef.current) {
-              gridNudgeDidRepeatRef.current = false;
-              return;
-            }
-            nudgeStageGridCm(axis, -1);
-          }}
-          style={{
-            ...btnSecondary,
-            padding: "3px 0",
-            fontSize: "12px",
-            fontWeight: 700,
-            lineHeight: 1.1,
-          }}
-        >
-          −
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          onPointerDown={(e) => {
-            if (disabled) return;
-            e.preventDefault();
-            startGridNudgeRepeat(axis, 1);
-          }}
-          onPointerUp={stopGridNudgeRepeat}
-          onPointerCancel={stopGridNudgeRepeat}
-          onPointerLeave={stopGridNudgeRepeat}
-          onClick={() => {
-            if (disabled) return;
-            if (gridNudgeDidRepeatRef.current) {
-              gridNudgeDidRepeatRef.current = false;
-              return;
-            }
-            nudgeStageGridCm(axis, 1);
-          }}
-          style={{
-            ...btnSecondary,
-            padding: "3px 0",
-            fontSize: "12px",
-            fontWeight: 700,
-            lineHeight: 1.1,
-          }}
-        >
-          ＋
-        </button>
-      </div>
-    </label>
-  );
+  const rows = [
+    {
+      key: "gridWidth" as const,
+      title: "幅方向（センターから）",
+    },
+    {
+      key: "gridDepth" as const,
+      title: "奥行方向（前から）",
+    },
+  ];
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: "6px",
-        marginBottom: "6px",
-      }}
-    >
-      {renderInput("width", t("editor.layout.gridWidthCm"), gridWidthCmInput)}
-      {renderInput("depth", t("editor.layout.gridDepthCm"), gridDepthCmInput)}
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "4px 6px", marginBottom: 0 }}>
+      {rows.map((row) => {
+        const val = draft[row.key];
+        const hasVal = val.m !== "" || val.cm !== "";
+        return (
+          <div key={row.key}>
+            <div
+              style={{
+                fontSize: 9,
+                color: "rgba(148,163,184,0.8)",
+                marginBottom: 2,
+              }}
+            >
+              {row.title}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 2, minWidth: 0 }}>
+              <select
+                disabled={disabled}
+                className="stage-area-dim-select"
+                value={val.m}
+                onChange={(e) =>
+                  onChangeDraft((d) => ({
+                    ...d,
+                    [row.key]: { ...d[row.key], m: e.target.value },
+                  }))
+                }
+                aria-label={`${row.title} m`}
+                style={{
+                  ...selectStyle,
+                  flex: "0 0 auto",
+                  width: 44,
+                  border: hasVal
+                    ? "1px solid rgba(99,102,241,0.5)"
+                    : "1px solid rgba(51,65,85,0.8)",
+                }}
+              >
+                <option value="">-</option>
+                {M_OPTIONS.map((v) => (
+                  <option key={v} value={String(v)}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              <span style={{ fontSize: 9, color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>
+                m
+              </span>
+              <select
+                disabled={disabled}
+                className="stage-area-dim-select"
+                value={val.cm || "0"}
+                onChange={(e) =>
+                  onChangeDraft((d) => ({
+                    ...d,
+                    [row.key]: { ...d[row.key], cm: e.target.value },
+                  }))
+                }
+                aria-label={`${row.title} cm`}
+                style={{
+                  ...selectStyle,
+                  flex: "0 0 auto",
+                  width: 44,
+                  border: hasVal
+                    ? "1px solid rgba(99,102,241,0.5)"
+                    : "1px solid rgba(51,65,85,0.8)",
+                }}
+              >
+                <option value="0">0</option>
+                {CM_OPTIONS.filter((v) => v > 0).map((v) => (
+                  <option key={v} value={String(v)}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              <span style={{ fontSize: 9, color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>
+                cm
+              </span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 });
@@ -469,13 +458,13 @@ export const StageAreaGridVisibilityToggles = memo(function StageAreaGridVisibil
     opacity: hasMainFloor ? 1 : 0.45,
   });
   return (
-    <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+    <div style={{ display: "flex", gap: "4px", marginTop: 0 }}>
       <button
         type="button"
         disabled={!canToggle}
         onClick={() => onChangeDraft((d) => ({ ...d, stageGridLinesVerticalEnabled: !verticalEnabled }))}
         title={t("editor.layout.gridVerticalTitle")}
-        style={toggleStyle(verticalEnabled)}
+        style={{ ...toggleStyle(verticalEnabled), padding: "5px 6px", fontSize: 10 }}
       >
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="12" y1="3" x2="12" y2="21" />
@@ -489,7 +478,7 @@ export const StageAreaGridVisibilityToggles = memo(function StageAreaGridVisibil
         disabled={!canToggle}
         onClick={() => onChangeDraft((d) => ({ ...d, stageGridLinesHorizontalEnabled: !horizontalEnabled }))}
         title={t("editor.layout.gridHorizontalTitle")}
-        style={toggleStyle(horizontalEnabled)}
+        style={{ ...toggleStyle(horizontalEnabled), padding: "5px 6px", fontSize: 10 }}
       >
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="3" y1="12" x2="21" y2="12" />

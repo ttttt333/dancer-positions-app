@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { DancerLabelWithPrefix } from "./DancerLabelWithPrefix";
 
 export type StageDancerDragGhostItemProps = {
   xPct: number;
@@ -17,6 +18,7 @@ export type StageDancerDragGhostItemProps = {
   belowLabelOriginYpx: number;
   belowNameFontPx: number;
   nameBelowLabel: string;
+  nameBelowPrefix?: string;
 };
 
 /** ドラッグ開始位置の薄いゴースト印（本印の手前に重ねる） */
@@ -37,6 +39,7 @@ export function StageDancerDragGhostItem({
   belowLabelOriginYpx,
   belowNameFontPx,
   nameBelowLabel,
+  nameBelowPrefix,
 }: StageDancerDragGhostItemProps) {
   return (
     <div
@@ -117,7 +120,10 @@ export function StageDancerDragGhostItem({
             textOverflow: "ellipsis",
           }}
         >
-          {nameBelowLabel}
+          <DancerLabelWithPrefix
+            label={nameBelowLabel}
+            prefix={nameBelowPrefix}
+          />
         </div>
       ) : null}
     </div>

@@ -22,7 +22,10 @@ import {
   copyTextToClipboard,
   projectShareLinks,
 } from "../../lib/shareProjectLinks";
-import { exportChoreographyPdf } from "../../lib/exportChoreographyPdf";
+import {
+  exportChoreographyImages,
+  exportChoreographyPdf,
+} from "../../lib/exportChoreographyPdf";
 import { normalizeProject } from "../../lib/normalizeProject";
 import { FREE_CLOUD_PROJECT_LIMIT, hasStripeCustomerId, isProMe } from "../../lib/supabaseBilling";
 import { getEntitlements } from "../../lib/entitlements";
@@ -31,9 +34,14 @@ import {
   FLOW_LIBRARY_CHANGE_EVENT,
   ensureFlowLibraryReady,
   getFlowLibraryFirstFormation,
+  getFlowLibraryItemAsync,
   listFlowLibraryItems,
+  materializeFlowLibraryItemAsProject,
+  renameFlowItem,
+  deleteFlowItem,
   resolveFlowLibraryDancerCount,
   resolveFlowLibraryDurationSec,
+  saveFlowFromProjectAsync,
   type FlowLibraryItem,
 } from "../../lib/flowLibrary";
 import { formatMmSsFloor } from "../../lib/timeFormat";
@@ -86,9 +94,37 @@ function flowDurationLabel(item: FlowLibraryItem): string {
   return formatMmSsFloor(sec);
 }
 
+/** ホームライブラリの統合カード（クラウド / 端末） */
+type LibraryEntry =
+  | {
+      key: string;
+      kind: "cloud";
+      name: string;
+      updatedAtMs: number;
+      href: string;
+      cueCount: number;
+      dancerCount: number;
+      metaLine: string;
+      previewDancers: ProjectThumbDancer[];
+      project: ProjectListItem;
+    }
+  | {
+      key: string;
+      kind: "local";
+      name: string;
+      updatedAtMs: number;
+      href: string;
+      cueCount: number;
+      dancerCount: number;
+      metaLine: string;
+      previewDancers: ProjectThumbDancer[];
+      flowItem: FlowLibraryItem;
+      linkedCloudId: number | null;
+    };
+
 type Panel = "library" | "settings";
 
-const APP_VERSION = "β";
+const APP_VERSION = `β · ${import.meta.env.VITE_APP_BUILD || "dev"}`;
 
 /** ログイン後ホーム: ライブラリ + 設定（メニューは設定に1画面で統合） */
 export function HomeLibrary() {
@@ -103,8 +139,8 @@ export function HomeLibrary() {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [actionProject, setActionProject] = useState<ProjectListItem | null>(null);
-  const [renameProject, setRenameProject] = useState<ProjectListItem | null>(null);
+  const [actionEntry, setActionEntry] = useState<LibraryEntry | null>(null);
+  const [renameEntry, setRenameEntry] = useState<LibraryEntry | null>(null);
   const [busy, setBusy] = useState(false);
   const [complianceBusy, setComplianceBusy] = useState(false);
   const [complianceReport, setComplianceReport] =
@@ -129,7 +165,56 @@ export function HomeLibrary() {
 
   const legacyProject = useMemo(() => tryMigrateFromLocalStorage(), []);
   const projectLimit = isPro ? Infinity : FREE_CLOUD_PROJECT_LIMIT;
-  const atProjectLimit = !isPro && projects.length >= projectLimit;
+  const ownedProjectCount = projects.filter((p) => !p.is_shared).length;
+  const atProjectLimit = !isPro && ownedProjectCount >= projectLimit;
+
+  const libraryEntries = useMemo((): LibraryEntry[] => {
+    const cloudIds = new Set(projects.map((p) => p.id));
+    const cloud: LibraryEntry[] = projects.map((p) => ({
+      key: `cloud-${p.id}`,
+      kind: "cloud" as const,
+      name: p.name,
+      updatedAtMs: Date.parse(p.updated_at) || 0,
+      href: `/editor/${p.id}`,
+      cueCount: p.cueCount,
+      dancerCount: p.dancerCount,
+      metaLine: `${t("dashboard.cueCount")} ${p.cueCount}`,
+      previewDancers: p.previewDancers,
+      project: p,
+    }));
+
+    const local: LibraryEntry[] = [];
+    for (const it of flowItems) {
+      const linkId =
+        typeof it.linkedServerProjectId === "number" &&
+        Number.isFinite(it.linkedServerProjectId) &&
+        it.linkedServerProjectId > 0
+          ? Math.floor(it.linkedServerProjectId)
+          : null;
+      // クラウドに同じ作品がある端末コピーは重複表示しない
+      if (linkId != null && cloudIds.has(linkId)) continue;
+      const dancerCount = resolveFlowLibraryDancerCount(it);
+      local.push({
+        key: `local-${it.id}`,
+        kind: "local",
+        name: it.name,
+        updatedAtMs: it.updatedAt || 0,
+        href: `/editor/new?flow=${encodeURIComponent(it.id)}`,
+        cueCount: it.cueCount,
+        dancerCount,
+        metaLine: t("home.flowLibraryMeta", {
+          cues: it.cueCount,
+          dancers: dancerCount,
+          dur: flowDurationLabel(it),
+        }),
+        previewDancers: flowPreviewDancers(it),
+        flowItem: it,
+        linkedCloudId: linkId,
+      });
+    }
+
+    return [...cloud, ...local].sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+  }, [projects, flowItems, t]);
 
   const reload = useCallback(async () => {
     try {
@@ -138,14 +223,15 @@ export function HomeLibrary() {
       setError("");
       if (!isProMe(me) && !isDemoSessionToken()) {
         // 一覧要約に加え、残す候補作品は本文を読んで人数超過を正確に判定する
-        const sorted = [...list].sort((a, b) => {
+        const owned = list.filter((p) => !p.is_shared);
+        const sorted = [...owned].sort((a, b) => {
           const ta = Date.parse(a.updated_at) || 0;
           const tb = Date.parse(b.updated_at) || 0;
           return tb - ta;
         });
         const keep = sorted.slice(0, FREE_CLOUD_PROJECT_LIMIT);
         const refs = await Promise.all(
-          list.map(async (p) => {
+          owned.map(async (p) => {
             const base = {
               id: p.id,
               name: p.name,
@@ -238,82 +324,202 @@ export function HomeLibrary() {
     else startStripeSubscription();
   };
 
+  const choreographyExportLabels = () => ({
+    playbackTime: t("pdf.playbackTime"),
+    untitled: t("pdf.untitled"),
+    cueN: (n: number) => t("pdf.cueN", { n }),
+    formationN: (n: number) => t("pdf.formationN", { n }),
+    formationFallback: t("pdf.formation"),
+    backstage: t("pdf.backstage"),
+    side: t("pdf.side"),
+    audience: t("pdf.audience"),
+    emptyError: t("pdf.emptyError"),
+  });
+
+  const runChoreographyExport = async (
+    kind: "pdf" | "images",
+    project: Parameters<typeof exportChoreographyPdf>[0]["project"],
+    projectName: string
+  ) => {
+    const labels = choreographyExportLabels();
+    if (kind === "pdf") {
+      await exportChoreographyPdf({ project, projectName, labels });
+    } else {
+      await exportChoreographyImages({ project, projectName, labels });
+    }
+  };
+
   const handleSheetAction = async (action: ProjectSheetAction) => {
     if (action === "close") {
-      setActionProject(null);
+      setActionEntry(null);
       return;
     }
-    const p = actionProject;
-    if (!p) return;
+    const entry = actionEntry;
+    if (!entry) return;
 
     if (action === "rename") {
-      setRenameProject(p);
-      setActionProject(null);
+      setRenameEntry(entry);
+      setActionEntry(null);
       return;
     }
 
-    if (action === "duplicate") {
-      if (atProjectLimit) {
-        window.alert(t("home.sheet.limitReached"));
-        setActionProject(null);
+    if (entry.kind === "cloud") {
+      const p = entry.project;
+      if (action === "duplicate") {
+        if (atProjectLimit) {
+          window.alert(t("home.sheet.limitReached"));
+          setActionEntry(null);
+          return;
+        }
+        setBusy(true);
+        try {
+          const row = await projectApi.get(p.id);
+          const copyName = `${p.name} ${t("home.sheet.copySuffix")}`;
+          await projectApi.create(copyName, row.json);
+          await reload();
+        } catch (e) {
+          window.alert(
+            e instanceof Error ? e.message : t("home.sheet.duplicateFail")
+          );
+        } finally {
+          setBusy(false);
+          setActionEntry(null);
+        }
         return;
       }
-      setBusy(true);
-      try {
-        const row = await projectApi.get(p.id);
-        const copyName = `${p.name} ${t("home.sheet.copySuffix")}`;
-        await projectApi.create(copyName, row.json);
-        await reload();
-      } catch (e) {
-        window.alert(e instanceof Error ? e.message : t("home.sheet.duplicateFail"));
-      } finally {
-        setBusy(false);
-        setActionProject(null);
+
+      if (action === "copyLink" || action === "share") {
+        const links = projectShareLinks(p.id, p.share_token);
+        const ok = await copyTextToClipboard(links.view);
+        window.alert(ok ? t("home.sheet.linkCopied") : links.view);
+        setActionEntry(null);
+        return;
+      }
+
+      if (action === "collab") {
+        const links = projectShareLinks(p.id, p.share_token);
+        const ok = await copyTextToClipboard(links.collab);
+        window.alert(ok ? t("home.sheet.collabCopied") : links.collab);
+        setActionEntry(null);
+        return;
+      }
+
+      if (action === "exportPdf" || action === "exportImages") {
+        const kind = action === "exportPdf" ? "pdf" : "images";
+        setBusy(true);
+        try {
+          const row = await projectApi.get(p.id);
+          const project = normalizeProject(row.json);
+          await runChoreographyExport(kind, project, row.name || p.name);
+        } catch (e) {
+          window.alert(
+            e instanceof Error
+              ? e.message
+              : t(
+                  kind === "pdf"
+                    ? "home.sheet.exportPdfFail"
+                    : "home.sheet.exportImagesFail"
+                )
+          );
+        } finally {
+          setBusy(false);
+          setActionEntry(null);
+        }
+        return;
+      }
+
+      if (action === "delete") {
+        if (!window.confirm(t("dashboard.deleteConfirm"))) return;
+        setBusy(true);
+        try {
+          await projectApi.remove(p.id);
+          setProjects((prev) => prev.filter((x) => x.id !== p.id));
+        } catch (e) {
+          window.alert(
+            e instanceof Error ? e.message : t("dashboard.deleteFail")
+          );
+        } finally {
+          setBusy(false);
+          setActionEntry(null);
+        }
       }
       return;
     }
 
-    if (action === "copyLink" || action === "share") {
-      const links = projectShareLinks(p.id, p.share_token);
-      const ok = await copyTextToClipboard(links.view);
-      window.alert(ok ? t("home.sheet.linkCopied") : links.view);
-      setActionProject(null);
-      return;
-    }
-
-    if (action === "collab") {
-      const links = projectShareLinks(p.id, p.share_token);
-      const ok = await copyTextToClipboard(links.collab);
-      window.alert(ok ? t("home.sheet.collabCopied") : links.collab);
-      setActionProject(null);
-      return;
-    }
-
-    if (action === "exportPdf") {
+    // local
+    const it = entry.flowItem;
+    if (action === "duplicate") {
       setBusy(true);
       try {
-        const row = await projectApi.get(p.id);
-        const project = normalizeProject(row.json);
-        await exportChoreographyPdf({
-          project,
-          projectName: row.name || p.name,
-          labels: {
-            playbackTime: t("pdf.playbackTime"),
-            untitled: t("pdf.untitled"),
-            cueN: (n) => t("pdf.cueN", { n }),
-            formationN: (n) => t("pdf.formationN", { n }),
-            formationFallback: t("pdf.formation"),
-            backstage: t("pdf.backstage"),
-            side: t("pdf.side"),
-            audience: t("pdf.audience"),
-            emptyError: t("pdf.emptyError"),
-          },
+        const full = (await getFlowLibraryItemAsync(it.id)) ?? it;
+        const project = materializeFlowLibraryItemAsProject(full);
+        const copyName = `${it.name} ${t("home.sheet.copySuffix")}`;
+        const r = await saveFlowFromProjectAsync(copyName, project, {
+          includeTiming: true,
         });
+        if (!r.ok) {
+          window.alert(r.message || t("home.sheet.duplicateFail"));
+        } else {
+          setFlowItems(listFlowLibraryItems());
+        }
       } catch (e) {
-        window.alert(e instanceof Error ? e.message : t("home.sheet.exportPdfFail"));
+        window.alert(
+          e instanceof Error ? e.message : t("home.sheet.duplicateFail")
+        );
       } finally {
         setBusy(false);
-        setActionProject(null);
+        setActionEntry(null);
+      }
+      return;
+    }
+
+    if (action === "copyLink" || action === "share" || action === "collab") {
+      const linkId = entry.linkedCloudId;
+      if (linkId == null) {
+        window.alert(t("home.sheet.localNeedCloud"));
+        setActionEntry(null);
+        return;
+      }
+      const cloud = projects.find((p) => p.id === linkId);
+      if (!cloud) {
+        window.alert(t("home.sheet.localNeedCloud"));
+        setActionEntry(null);
+        return;
+      }
+      const links = projectShareLinks(cloud.id, cloud.share_token);
+      const url = action === "collab" ? links.collab : links.view;
+      const ok = await copyTextToClipboard(url);
+      window.alert(
+        ok
+          ? action === "collab"
+            ? t("home.sheet.collabCopied")
+            : t("home.sheet.linkCopied")
+          : url
+      );
+      setActionEntry(null);
+      return;
+    }
+
+    if (action === "exportPdf" || action === "exportImages") {
+      const kind = action === "exportPdf" ? "pdf" : "images";
+      setBusy(true);
+      try {
+        const full = (await getFlowLibraryItemAsync(it.id)) ?? it;
+        const project = materializeFlowLibraryItemAsProject(full);
+        await runChoreographyExport(kind, project, it.name);
+      } catch (e) {
+        window.alert(
+          e instanceof Error
+            ? e.message
+            : t(
+                kind === "pdf"
+                  ? "home.sheet.exportPdfFail"
+                  : "home.sheet.exportImagesFail"
+              )
+        );
+      } finally {
+        setBusy(false);
+        setActionEntry(null);
       }
       return;
     }
@@ -322,35 +528,43 @@ export function HomeLibrary() {
       if (!window.confirm(t("dashboard.deleteConfirm"))) return;
       setBusy(true);
       try {
-        await projectApi.remove(p.id);
-        setProjects((prev) => prev.filter((x) => x.id !== p.id));
+        await deleteFlowItem(it.id);
+        setFlowItems(listFlowLibraryItems());
       } catch (e) {
-        window.alert(e instanceof Error ? e.message : t("dashboard.deleteFail"));
+        window.alert(
+          e instanceof Error ? e.message : t("dashboard.deleteFail")
+        );
       } finally {
         setBusy(false);
-        setActionProject(null);
+        setActionEntry(null);
       }
     }
   };
 
   const applyRename = async (nextName: string) => {
-    const p = renameProject;
-    if (!p) return;
+    const entry = renameEntry;
+    if (!entry) return;
     const name = nextName.trim();
-    if (!name || name === p.name) {
-      setRenameProject(null);
+    if (!name || name === entry.name) {
+      setRenameEntry(null);
       return;
     }
     setBusy(true);
     try {
-      const row = await projectApi.get(p.id);
-      await projectApi.update(p.id, name, row.json);
-      await reload();
+      if (entry.kind === "cloud") {
+        const row = await projectApi.get(entry.project.id);
+        await projectApi.update(entry.project.id, name, row.json);
+        await reload();
+      } else {
+        const ok = await renameFlowItem(entry.flowItem.id, name);
+        if (!ok) throw new Error(t("home.sheet.renameFail"));
+        setFlowItems(listFlowLibraryItems());
+      }
     } catch (e) {
       window.alert(e instanceof Error ? e.message : t("home.sheet.renameFail"));
     } finally {
       setBusy(false);
-      setRenameProject(null);
+      setRenameEntry(null);
     }
   };
 
@@ -374,8 +588,9 @@ export function HomeLibrary() {
             deleteAccount: t("home.settings.deleteAccount"),
             version: t("home.settings.version"),
             proBadge: "PRO",
-            freeBadge: `FREE ${projects.length}/3`,
+            freeBadge: `FREE ${ownedProjectCount}/3`,
             faq: t("home.drawer.faq"),
+            appeal: t("home.tabAppeal"),
             help: t("home.drawer.help"),
             renamePrompt: t("home.settings.renamePrompt"),
             deleteConfirm: t("home.settings.deleteConfirm"),
@@ -448,6 +663,9 @@ export function HomeLibrary() {
             {t("dashboard.newProject")}
           </Link>
         )}
+        <Link to="/appeal" className="home-desktop-new home-desktop-appeal">
+          {t("home.tabAppeal")}
+        </Link>
       </header>
 
       <main className="home-library-main">
@@ -497,63 +715,7 @@ export function HomeLibrary() {
           <p style={{ color: "#fca5a5", marginBottom: 12 }}>{error}</p>
         ) : null}
 
-        {flowItems.length > 0 ? (
-          <>
-            <h2 className="home-library-section-label">{t("home.myLibrary")}</h2>
-            <p className="home-library-section-hint">{t("home.flowLibraryHint")}</p>
-            <ul className="home-project-grid">
-              {flowItems.map((it) => {
-                const href = `/editor/new?flow=${encodeURIComponent(it.id)}`;
-                const dancerCount = resolveFlowLibraryDancerCount(it);
-                return (
-                  <li key={it.id} className="home-project-card">
-                    <Link to={href} className="home-project-link">
-                      <ProjectFormationThumb
-                        dancers={flowPreviewDancers(it)}
-                        size={200}
-                        fluid
-                      />
-                    </Link>
-                    <div className="home-project-body">
-                      <Link to={href} className="home-project-title-row">
-                        <span className="home-project-name">{it.name}</span>
-                        <span className="home-project-headcount">
-                          {t("editor.headcount")} {dancerCount}
-                        </span>
-                      </Link>
-                      <div className="home-project-meta">
-                        <span>
-                          {t("home.flowLibraryMeta", {
-                            cues: it.cueCount,
-                            dancers: dancerCount,
-                            dur: flowDurationLabel(it),
-                          })}
-                        </span>
-                      </div>
-                      <div className="home-project-meta">
-                        <span className="home-project-updated">
-                          {t("home.flowLibraryUpdated", {
-                            date: formatFlowUpdatedAt(it.updatedAt),
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            {projects.length > 0 ? (
-              <h2 className="home-library-section-label home-library-section-label--next">
-                {t("home.cloudLibrary")}
-              </h2>
-            ) : null}
-          </>
-        ) : (
-          <h2 className="home-library-section-label">{t("home.myLibrary")}</h2>
-        )}
-
-        {projects.length === 0 && !error ? (
-          flowItems.length > 0 ? null : (
+        {libraryEntries.length === 0 && !error ? (
           <div className="home-empty">
             <p style={{ margin: 0 }}>{t("dashboard.emptyProjects")}</p>
             {!atProjectLimit ? (
@@ -571,60 +733,90 @@ export function HomeLibrary() {
               </Link>
             ) : null}
           </div>
-          )
-        ) : (
-          <ul className="home-project-grid">
-            {projects.map((p) => (
-              <li key={p.id} className="home-project-card">
-                <Link to={`/editor/${p.id}`} className="home-project-link">
-                  <ProjectFormationThumb dancers={p.previewDancers} size={200} fluid />
-                </Link>
-                <div className="home-project-body">
-                  <Link to={`/editor/${p.id}`} className="home-project-title-row">
-                    <span className="home-project-name">{p.name}</span>
-                    <span className="home-project-headcount">
-                      {t("editor.headcount")} {p.dancerCount}
-                    </span>
+        ) : libraryEntries.length > 0 ? (
+          <>
+            <h2 className="home-library-section-label">{t("home.libraryTitle")}</h2>
+            <p className="home-library-section-hint">{t("home.unifiedLibraryHint")}</p>
+            <ul className="home-project-grid">
+              {libraryEntries.map((entry) => (
+                <li key={entry.key} className="home-project-card">
+                  <Link to={entry.href} className="home-project-link">
+                    <ProjectFormationThumb
+                      dancers={entry.previewDancers}
+                      size={200}
+                      fluid
+                    />
                   </Link>
-                  <div className="home-project-meta">
-                    <span>
-                      {t("dashboard.cueCount")} {p.cueCount}
-                    </span>
-                    <span className="home-project-meta-sep" aria-hidden>
-                      ·
-                    </span>
-                    <span className="home-project-updated">
-                      {formatUpdatedAt(p.updated_at)}
-                    </span>
+                  <div className="home-project-body">
+                    <Link to={entry.href} className="home-project-title-row">
+                      <span className="home-project-name">{entry.name}</span>
+                      <span className="home-project-headcount">
+                        {t("editor.headcount")} {entry.dancerCount}
+                      </span>
+                    </Link>
+                    <div className="home-project-meta">
+                      <span
+                        className={
+                          entry.kind === "cloud"
+                            ? "home-project-badge home-project-badge--cloud"
+                            : "home-project-badge home-project-badge--local"
+                        }
+                      >
+                        {entry.kind === "cloud"
+                          ? t("home.badge.cloud")
+                          : t("home.badge.local")}
+                      </span>
+                      {entry.kind === "cloud" && entry.project.is_shared ? (
+                        <span className="home-project-badge home-project-badge--shared">
+                          共有
+                        </span>
+                      ) : null}
+                      <span className="home-project-meta-sep" aria-hidden>
+                        ·
+                      </span>
+                      <span>{entry.metaLine}</span>
+                    </div>
+                    <div className="home-project-meta">
+                      <span className="home-project-updated">
+                        {entry.kind === "cloud"
+                          ? formatUpdatedAt(entry.project.updated_at)
+                          : t("home.flowLibraryUpdated", {
+                              date: formatFlowUpdatedAt(entry.updatedAtMs),
+                            })}
+                      </span>
+                    </div>
+                    <div className="home-project-actions">
+                      <button
+                        type="button"
+                        className="home-project-text-btn"
+                        disabled={busy}
+                        onClick={() => setRenameEntry(entry)}
+                      >
+                        {t("home.card.rename")}
+                      </button>
+                      <button
+                        type="button"
+                        className="home-project-text-btn is-menu"
+                        disabled={busy}
+                        aria-label={t("home.sheet.open")}
+                        onClick={() => setActionEntry(entry)}
+                      >
+                        {t("home.card.menu")}
+                      </button>
+                    </div>
                   </div>
-                  <div className="home-project-actions">
-                    <button
-                      type="button"
-                      className="home-project-text-btn"
-                      disabled={busy}
-                      onClick={() => setRenameProject(p)}
-                    >
-                      {t("home.card.rename")}
-                    </button>
-                    <button
-                      type="button"
-                      className="home-project-text-btn is-menu"
-                      disabled={busy}
-                      aria-label={t("home.sheet.open")}
-                      onClick={() => setActionProject(p)}
-                    >
-                      {t("home.card.menu")}
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
       </main>
 
       <nav className="home-bottom-nav" aria-label={t("home.bottomNav")}>
         <span className="home-bottom-nav-item is-active">{t("home.tabLibrary")}</span>
+        <Link to="/appeal" className="home-bottom-nav-item">
+          {t("home.tabAppeal")}
+        </Link>
         <Link to="/update-log" className="home-bottom-nav-item">
           {t("home.tabExplore")}
         </Link>
@@ -646,9 +838,13 @@ export function HomeLibrary() {
       )}
 
       <ProjectActionSheet
-        open={Boolean(actionProject)}
-        projectName={actionProject?.name ?? ""}
+        open={Boolean(actionEntry)}
+        projectName={actionEntry?.name ?? ""}
         showCollab={isCollabFeatureAvailable()}
+        showShareActions={
+          actionEntry?.kind === "cloud" ||
+          (actionEntry?.kind === "local" && actionEntry.linkedCloudId != null)
+        }
         busy={busy}
         labels={{
           rename: t("home.sheet.rename"),
@@ -657,21 +853,22 @@ export function HomeLibrary() {
           manageAccess: t("home.sheet.manageAccess"),
           copyLink: t("home.sheet.copyLink"),
           exportPdf: t("home.sheet.exportPdf"),
+          exportImages: t("home.sheet.exportImages"),
           delete: t("dashboard.delete"),
           close: t("home.menu.close"),
         }}
         onAction={(a) => void handleSheetAction(a)}
       />
 
-      {renameProject ? (
+      {renameEntry ? (
         <NewProjectNameDialog
           title={t("home.sheet.rename")}
           label={t("home.sheet.renamePrompt")}
           placeholder={t("home.sheet.renamePrompt")}
           confirmLabel={t("home.card.renameSave")}
           cancelLabel={t("home.menu.close")}
-          initialValue={renameProject.name}
-          onCancel={() => setRenameProject(null)}
+          initialValue={renameEntry.name}
+          onCancel={() => setRenameEntry(null)}
           onConfirm={(name) => void applyRename(name)}
         />
       ) : null}

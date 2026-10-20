@@ -50,11 +50,8 @@ import type {
 } from "../types/choreography";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
 import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
-import {
-  segmentsFromChangePoints,
-  segmentsFromMusicSections,
-  segmentsFromStructureV2Sections,
-} from "../lib/musicSectionOverlay";
+import { publishSnappedOverlayFromSources } from "../lib/audioAnalysis/publishOverlay";
+import type { TrackAnalysisMode } from "../lib/audioAnalysis/cueCategories";
 import {
   appChangePointsFromStructureV2,
 } from "../lib/choreocore/lightingSync/productionChangePointAdapter";
@@ -63,6 +60,7 @@ export type SuggestStatus =
   | "idle"
   | "analyzing"
   | "structuring"
+  | "structure_ready"
   | "requesting"
   | "done"
   | "error";
@@ -117,6 +115,10 @@ export type SuggestAudioOpts = {
   rejectedLayoutIds?: string[];
   /** 採用 Cue の雛形 ID */
   acceptedLayoutIds?: string[];
+  /** 未編集曲 / EDIT曲 */
+  trackMode?: TrackAnalysisMode;
+  /** true: 解析のみ（フォーメーション生成はしない） */
+  analyzeOnly?: boolean;
 };
 
 type CachedAnalysis = {
@@ -303,25 +305,16 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         duration: number,
         evalSections?: Array<{ type: string; startTime: number; endTime: number }>
       ) => {
-        const fromV2 = cache.structureV2
-          ? segmentsFromStructureV2Sections(
-              cache.structureV2.sections,
-              duration
-            )
-          : [];
-        const fromEval =
-          evalSections && evalSections.length > 0
-            ? segmentsFromMusicSections(evalSections, duration)
-            : [];
-        const segments =
-          fromV2.length > 0
-            ? fromV2
-            : fromEval.length > 0
-              ? fromEval
-              : segmentsFromChangePoints(changePoints, duration);
-        useMusicSectionOverlayStore
-          .getState()
-          .setSegments(segments, duration, cache.sourceLabel);
+        publishSnappedOverlayFromSources({
+          duration,
+          sourceLabel: cache.sourceLabel,
+          structureV2: cache.structureV2,
+          changePoints,
+          evalSections,
+          eightTimes: cache.structureV2?.eight_times,
+          bpm: cache.bpm,
+          force: true,
+        });
       };
 
       try {
@@ -454,6 +447,9 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
 
       setStatus("analyzing");
       setError(null);
+      useMusicSectionOverlayStore
+        .getState()
+        .setAnalyzing(true, "AIがBPMとビートを展開解析中…");
 
       try {
         if (controller.signal.aborted) return;
@@ -574,10 +570,30 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         };
         cacheRef.current = cache;
 
+        // フォーメーション生成前に、スナップ済みセクションを波形へ反映
+        const trackMode = audioOpts?.trackMode ?? "clean";
+        publishSnappedOverlayFromSources({
+          duration,
+          sourceLabel,
+          structureV2: remote?.structure_v2,
+          changePoints,
+          eightTimes: remote?.structure_v2?.eight_times,
+          bpm,
+          force: true,
+          peaks: trackMode === "edit" ? peaks : undefined,
+          trackMode,
+        });
+
         const hasFb = !!audioOpts?.feedback;
         const hasReject = (audioOpts?.rejectedLayoutIds?.length ?? 0) > 0;
         if (!hasFb && !hasReject) {
           knowledgeRef.current = createEmptySuggestKnowledge();
+        }
+
+        if (audioOpts?.analyzeOnly) {
+          useMusicSectionOverlayStore.getState().setAnalyzing(false);
+          setStatus("structure_ready");
+          return;
         }
 
         runGenerate(
@@ -595,11 +611,61 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         );
       } catch (e: unknown) {
         if (e instanceof Error && e.name === "AbortError") return;
+        useMusicSectionOverlayStore.getState().setAnalyzing(false);
         setError(e instanceof Error ? e.message : "提案に失敗しました");
         setStatus("error");
       }
     },
     [project, runGenerate]
+  );
+
+  const generateFromAnalyzed = useCallback(
+    async (
+      extraInfo?: string,
+      audioOpts?: SuggestAudioOpts
+    ) => {
+      const cache = cacheRef.current;
+      if (!cache) {
+        setError("先に曲の解析を完了してください");
+        setStatus("error");
+        return;
+      }
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setStatus("requesting");
+      setError(null);
+      try {
+        if (isMusicEnginePhase12Enabled()) {
+          setStatus("structuring");
+          await ensureRealPhase1ForSuggest({
+            cacheKey: cache.audioCacheKey,
+            audioUrl: audioOpts?.audioUrl,
+            signal: controller.signal,
+          });
+        }
+        if (controller.signal.aborted) return;
+        setStatus("requesting");
+        runGenerate(
+          cache,
+          extraInfo,
+          audioOpts?.targetCueCount,
+          audioOpts?.feedback,
+          audioOpts?.classProfileId,
+          audioOpts?.taste,
+          {
+            rejectedLayoutIds: audioOpts?.rejectedLayoutIds,
+            acceptedLayoutIds: audioOpts?.acceptedLayoutIds,
+            isResuggest: !!audioOpts?.feedback,
+          }
+        );
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === "AbortError") return;
+        setError(e instanceof Error ? e.message : "提案に失敗しました");
+        setStatus("error");
+      }
+    },
+    [runGenerate]
   );
 
   const reset = useCallback(() => {
@@ -611,5 +677,5 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
     knowledgeRef.current = createEmptySuggestKnowledge();
   }, []);
 
-  return { status, result, error, suggest, reset };
+  return { status, result, error, suggest, generateFromAnalyzed, reset };
 }

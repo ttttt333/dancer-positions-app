@@ -9,9 +9,26 @@ import {
   StageDancerContextMenu,
   type StageDancerContextMenuProps,
 } from "./StageDancerContextMenu";
+import {
+  StageDancerDockQuickMenu,
+  type StageDancerDockQuickMenuProps,
+  type StageDockQuickSection,
+  type StageDuplicatePlacement,
+} from "./StageDancerDockQuickMenu";
 
 export type StageBoardContextMenuState =
   | { kind: "dancer"; clientX: number; clientY: number; dancerId: string }
+  | {
+      kind: "dancerDock";
+      clientX: number;
+      clientY: number;
+      dancerId: string;
+    }
+  | {
+      kind: "floor";
+      clientX: number;
+      clientY: number;
+    }
   | { kind: "setPiece"; clientX: number; clientY: number; pieceId: string }
   | { kind: "floorText"; clientX: number; clientY: number; markupId: string }
   | null;
@@ -23,6 +40,31 @@ export type StageBoardContextMenuLayerProps = {
   onCloseMenu: () => void;
   dancerMenu: Omit<StageDancerContextMenuProps, "anchorDancerId" | "onCloseMenu">;
   onOpenDancerPathEditor?: () => void;
+  dockQuickMenu?: {
+    showShape: boolean;
+    showDisplay: boolean;
+    showSort: boolean;
+    onPick: (section: StageDockQuickSection) => void;
+    onDuplicate?: (placement: StageDuplicatePlacement) => void;
+    onSwapPair?: () => void;
+    onGatherToEdge?: StageDancerDockQuickMenuProps["onGatherToEdge"];
+    onOpenLegacyMore?: () => void;
+    onDelete?: () => void;
+    onCopyMembers?: () => void;
+    onPasteToPreviousCue?: () => void;
+    onPasteHere?: () => void;
+    clipboardLabel?: string;
+    lightAddOptions?: { kind: string; label: string }[];
+    onAddLight?: (kind: string) => void;
+    onAddBasicLights?: () => void;
+    onApplyLightingPreset?: () => void;
+    onApplyPreviousCueLights?: () => void;
+    onAddPreviousLight?: () => void;
+    previousLightHint?: string | null;
+    defaultLightOpen?: boolean;
+    stageLightsVisibleOnStage?: boolean;
+    onToggleStageLightsVisible?: () => void;
+  };
   viewMode: "edit" | "view";
   setPiecesEditable: boolean;
   playbackDancers: DancerSpot[] | null;
@@ -43,6 +85,7 @@ export function StageBoardContextMenuLayer({
   onCloseMenu,
   dancerMenu,
   onOpenDancerPathEditor,
+  dockQuickMenu,
   viewMode,
   setPiecesEditable,
   playbackDancers,
@@ -58,7 +101,201 @@ export function StageBoardContextMenuLayer({
       style={style}
       onClick={(e) => e.stopPropagation()}
     >
-      {menu.kind === "dancer" ? (
+      {menu.kind === "dancerDock" && dockQuickMenu ? (
+        <StageDancerDockQuickMenu
+          showShape={dockQuickMenu.showShape}
+          showDisplay={dockQuickMenu.showDisplay}
+          showSort={dockQuickMenu.showSort}
+          onPick={(section) => {
+            dockQuickMenu.onPick(section);
+            onCloseMenu();
+          }}
+          onDuplicate={
+            dockQuickMenu.onDuplicate
+              ? (placement) => {
+                  dockQuickMenu.onDuplicate?.(placement);
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onSwapPair={
+            dockQuickMenu.onSwapPair
+              ? () => {
+                  dockQuickMenu.onSwapPair?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onGatherToEdge={
+            dockQuickMenu.onGatherToEdge
+              ? (toward) => {
+                  dockQuickMenu.onGatherToEdge?.(toward);
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onDelete={
+            dockQuickMenu.onDelete
+              ? () => {
+                  dockQuickMenu.onDelete?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onCopyMembers={
+            dockQuickMenu.onCopyMembers
+              ? () => {
+                  dockQuickMenu.onCopyMembers?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onPasteToPreviousCue={
+            dockQuickMenu.onPasteToPreviousCue
+              ? () => {
+                  dockQuickMenu.onPasteToPreviousCue?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onPasteHere={
+            dockQuickMenu.onPasteHere
+              ? () => {
+                  dockQuickMenu.onPasteHere?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          clipboardLabel={dockQuickMenu.clipboardLabel}
+          onOpenLegacyMore={
+            dockQuickMenu.onOpenLegacyMore
+              ? () => {
+                  dockQuickMenu.onOpenLegacyMore?.();
+                }
+              : undefined
+          }
+          lightAddOptions={dockQuickMenu.lightAddOptions}
+          onAddLight={
+            dockQuickMenu.onAddLight
+              ? (kind) => {
+                  dockQuickMenu.onAddLight?.(kind);
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onAddBasicLights={
+            dockQuickMenu.onAddBasicLights
+              ? () => {
+                  dockQuickMenu.onAddBasicLights?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onApplyLightingPreset={
+            dockQuickMenu.onApplyLightingPreset
+              ? () => {
+                  dockQuickMenu.onApplyLightingPreset?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onApplyPreviousCueLights={
+            dockQuickMenu.onApplyPreviousCueLights
+              ? () => {
+                  dockQuickMenu.onApplyPreviousCueLights?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onAddPreviousLight={
+            dockQuickMenu.onAddPreviousLight
+              ? () => {
+                  dockQuickMenu.onAddPreviousLight?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          previousLightHint={dockQuickMenu.previousLightHint}
+          defaultLightOpen={dockQuickMenu.defaultLightOpen}
+          stageLightsVisibleOnStage={dockQuickMenu.stageLightsVisibleOnStage}
+          onToggleStageLightsVisible={
+            dockQuickMenu.onToggleStageLightsVisible
+              ? () => {
+                  dockQuickMenu.onToggleStageLightsVisible?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+        />
+      ) : menu.kind === "floor" && dockQuickMenu ? (
+        <StageDancerDockQuickMenu
+          showShape={false}
+          showDisplay={false}
+          showSort={false}
+          onPick={() => {}}
+          onPasteHere={
+            dockQuickMenu.onPasteHere
+              ? () => {
+                  dockQuickMenu.onPasteHere?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          clipboardLabel={dockQuickMenu.clipboardLabel}
+          lightAddOptions={dockQuickMenu.lightAddOptions}
+          onAddLight={
+            dockQuickMenu.onAddLight
+              ? (kind) => {
+                  dockQuickMenu.onAddLight?.(kind);
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onAddBasicLights={
+            dockQuickMenu.onAddBasicLights
+              ? () => {
+                  dockQuickMenu.onAddBasicLights?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onApplyLightingPreset={
+            dockQuickMenu.onApplyLightingPreset
+              ? () => {
+                  dockQuickMenu.onApplyLightingPreset?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onApplyPreviousCueLights={
+            dockQuickMenu.onApplyPreviousCueLights
+              ? () => {
+                  dockQuickMenu.onApplyPreviousCueLights?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          onAddPreviousLight={
+            dockQuickMenu.onAddPreviousLight
+              ? () => {
+                  dockQuickMenu.onAddPreviousLight?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+          previousLightHint={dockQuickMenu.previousLightHint}
+          defaultLightOpen={dockQuickMenu.defaultLightOpen ?? true}
+          stageLightsVisibleOnStage={dockQuickMenu.stageLightsVisibleOnStage}
+          onToggleStageLightsVisible={
+            dockQuickMenu.onToggleStageLightsVisible
+              ? () => {
+                  dockQuickMenu.onToggleStageLightsVisible?.();
+                  onCloseMenu();
+                }
+              : undefined
+          }
+        />
+      ) : menu.kind === "dancer" ? (
         <StageDancerContextMenu
           anchorDancerId={menu.dancerId}
           onCloseMenu={onCloseMenu}

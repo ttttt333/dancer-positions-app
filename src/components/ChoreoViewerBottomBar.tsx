@@ -8,8 +8,8 @@ import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { ShareViewAudioLoadBanner } from "./ShareViewAudioLoadBanner";
 
-/** 閲覧共有ステージ上のダンサー印の表示倍率（従来比 2/3） */
-export const PUBLIC_VIEWER_MARKER_DISPLAY_SCALE = 2 / 3;
+/** @deprecated import from `lib/viewerMarkerDisplay` */
+export { PUBLIC_VIEWER_MARKER_DISPLAY_SCALE } from "../lib/viewerMarkerDisplay";
 
 function viewerBarHeightPx(tight: boolean, showAudioRow: boolean): number {
   if (!showAudioRow) return 0;

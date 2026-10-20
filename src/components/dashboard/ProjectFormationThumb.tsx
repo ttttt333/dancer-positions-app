@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../../lib/dancerColorPalette";
 import type { ProjectThumbDancer } from "../../lib/projectListSummary";
 import { shell } from "../../theme/choreoShell";
+import { DancerShapeGlyph } from "../DancerShapeGlyph";
 
 type Props = {
   dancers: ProjectThumbDancer[];
@@ -54,11 +55,13 @@ export function ProjectFormationThumb({
         const cy = (d.yPct / 100) * h;
         const fill = DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex)];
         return (
-          <circle
+          <DancerShapeGlyph
             key={`${d.xPct}-${d.yPct}-${i}`}
             cx={cx}
             cy={cy}
             r={dotR}
+            shape={d.markerShape}
+            facingDeg={d.facingDeg}
             fill={fill}
             stroke="rgba(0,0,0,0.45)"
             strokeWidth={0.6}

@@ -1,17 +1,30 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE } from "../lib/dancerColorPalette";
+import {
+  DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
+  DANCER_COLOR_RANDOM,
+} from "../lib/dancerColorPalette";
+import { DancerColorRandomSwatch } from "./DancerColorRandomSwatch";
 import {
   applyPositionSort,
   formatPositionSortPreview,
-  positionSortDirectionLabels,
+  normalizePositionSortDirection,
+  positionSortDirectionOptions,
   resolveArrangeTargetIds,
   rotateDancerRingOneStep,
+  swapTwoDancerPositions,
   type PositionSortAxis,
   type PositionSortDirection,
   type PositionSortScope,
 } from "../lib/stageSelectionArrange";
 import { btnSecondary } from "./stageButtonStyles";
 import type { StageDancerContextMenuProps } from "./StageDancerContextMenu";
+import { withDancerLabelPosition } from "../lib/withDancerLabelPosition";
+import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
+import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle";
+import { DancerGenderPicker } from "./DancerGenderPicker";
+import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
+import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
+import { StageGatherToEdgeButtons } from "./StageGatherToEdgeButtons";
 
 export type BulkEditTabId = "basic" | "sort" | "formation" | "display";
 
@@ -25,24 +38,24 @@ export const BULK_EDIT_TABS: { id: BulkEditTabId; label: string }[] = [
 const PRIMARY_COLOR_COUNT = 8;
 
 const sectionTitle: CSSProperties = {
-  fontSize: 12,
-  fontWeight: 600,
+  fontSize: 10,
+  fontWeight: 700,
   color: "#94a3b8",
-  margin: "0 0 6px",
+  margin: "0 0 4px",
 };
 
 const sectionHint: CSSProperties = {
-  fontSize: 11,
+  fontSize: 9,
   color: "#64748b",
-  margin: "0 0 8px",
-  lineHeight: 1.45,
+  margin: "0 0 5px",
+  lineHeight: 1.35,
 };
 
 const card: CSSProperties = {
   border: "1px solid #1e293b",
-  borderRadius: 10,
-  padding: "10px 10px 12px",
-  marginBottom: 12,
+  borderRadius: 8,
+  padding: "7px 8px 8px",
+  marginBottom: 6,
   background: "#080b12",
 };
 
@@ -73,14 +86,14 @@ function Segment<T extends string>({
             aria-checked={on}
             onClick={() => onChange(opt.id)}
             style={{
-              flex: "1 1 0",
-              minWidth: 72,
-              padding: "9px 10px",
-              borderRadius: 8,
+              flex: options.length > 3 ? "1 1 calc(50% - 2px)" : "1 1 0",
+              minWidth: 56,
+              padding: "5px 4px",
+              borderRadius: 6,
               border: on ? "1px solid rgba(99,102,241,0.9)" : "1px solid #334155",
               background: on ? "rgba(99,102,241,0.22)" : "#020617",
               color: on ? "#e0e7ff" : "#94a3b8",
-              fontSize: 13,
+              fontSize: 10,
               fontWeight: 600,
               cursor: "pointer",
             }}
@@ -117,10 +130,11 @@ function ActionButton({
       style={{
         ...btnSecondary,
         width: "100%",
-        padding: "10px 12px",
-        fontSize: 13,
+        padding: "6px 8px",
+        fontSize: 11,
         fontWeight: 600,
-        minHeight: 44,
+        minHeight: 30,
+        borderRadius: 7,
         gridColumn: wide ? "1 / -1" : undefined,
         borderColor: danger ? "#7f1d1d" : btnSecondary.borderColor,
         color: danger ? "#fecaca" : btnSecondary.color,
@@ -159,6 +173,8 @@ export function StageDancerBulkEditPanel({
   applyBulkMarkerSequence,
   applyBulkMarkerSame,
   applyBulkMarkerCenterDistance,
+  applyBulkGenderToDancerIds,
+  applyBulkFigure3dToDancerIds,
   applyPermuteArrange,
   applyDancerArrange,
   selectionColumnCount,
@@ -170,7 +186,10 @@ export function StageDancerBulkEditPanel({
 }: StageDancerBulkEditPanelProps) {
   const [axis, setAxis] = useState<PositionSortAxis>("height");
   const [scope, setScope] = useState<PositionSortScope>("all");
-  const [direction, setDirection] = useState<PositionSortDirection>("asc");
+  const [directionPick, setDirection] = useState<PositionSortDirection>("asc");
+  const direction = normalizePositionSortDirection(axis, scope, directionPick);
+  const [figure3dScope, setFigure3dScope] =
+    useState<DancerFigure3dApplyScope>("all");
   const [showAllColors, setShowAllColors] = useState(false);
 
   const targetIds = useMemo(
@@ -182,7 +201,7 @@ export function StageDancerBulkEditPanel({
     [axis, scope, direction]
   );
   const preview = formatPositionSortPreview(sortRequest);
-  const dirLabels = positionSortDirectionLabels(axis);
+  const dirOptions = positionSortDirectionOptions(axis, scope);
   const colors = showAllColors ? DANCER_PALETTE : DANCER_PALETTE.slice(0, PRIMARY_COLOR_COUNT);
 
   const runSort = () => {
@@ -214,11 +233,6 @@ export function StageDancerBulkEditPanel({
             title="選択全員を削除します"
             onClick={() => {
               if (targetIds.length === 0) return;
-              const msg =
-                targetIds.length === 1
-                  ? "この立ち位置を削除しますか？"
-                  : `選択中の ${targetIds.length} 人の立ち位置を削除しますか？`;
-              if (!window.confirm(msg)) return;
               removeDancersByIds(targetIds);
             }}
           >
@@ -264,10 +278,7 @@ export function StageDancerBulkEditPanel({
               ariaLabel="並べ替えの方向"
               value={direction}
               onChange={setDirection}
-              options={[
-                { id: "asc", label: dirLabels.asc },
-                { id: "desc", label: dirLabels.desc },
-              ]}
+              options={dirOptions}
             />
           </div>
           <p
@@ -341,10 +352,47 @@ export function StageDancerBulkEditPanel({
           </div>
 
           <div style={card}>
+            <div style={sectionTitle}>辺に寄せる</div>
+            <p style={sectionHint}>
+              選択メンバーを下手／上手／舞台後ろへ寄せて並べ替え
+            </p>
+            <StageGatherToEdgeButtons
+              disabled={menuInteractionDisabled || targetIds.length < 1}
+              onGather={(toward) =>
+                applyDancerArrange((dancers, t) =>
+                  gatherSelectedDancersToEdge(dancers, t, toward)
+                )
+              }
+            />
+          </div>
+
+          <div style={card}>
             <div style={sectionTitle}>上手・下手の交代（前後はそのまま）</div>
             <p style={sectionHint}>選択範囲の左右を反転します。前後（Y）は動きません。</p>
             <ActionButton disabled={menuInteractionDisabled} onClick={runKamiteShimoteSwap}>
               上手 ⇄ 下手
+            </ActionButton>
+          </div>
+
+          <div style={{ ...card, marginBottom: 0 }}>
+            <div style={sectionTitle}>2人の立ち位置を交換</div>
+            <p style={sectionHint}>
+              Shift / ⌘ クリックでちょうど 2 人を選び、立ち位置だけ入れ替えます。
+            </p>
+            <ActionButton
+              disabled={menuInteractionDisabled || targetIds.length !== 2}
+              title="選んだ2人の立ち位置を交換"
+              onClick={() => {
+                if (targetIds.length !== 2) {
+                  window.alert("立ち位置の交換は、ちょうど 2 人を選んでください。");
+                  return;
+                }
+                applyDancerArrange((dancers, t) =>
+                  swapTwoDancerPositions(dancers, t)
+                );
+              }}
+            >
+              立ち位置を交換
             </ActionButton>
           </div>
 
@@ -395,7 +443,9 @@ export function StageDancerBulkEditPanel({
                     key={pos}
                     type="button"
                     disabled={menuInteractionDisabled}
-                    onClick={() => setProject((p) => ({ ...p, dancerLabelPosition: pos }))}
+                    onClick={() =>
+                      setProject((p) => withDancerLabelPosition(p, pos))
+                    }
                     style={{
                       flex: 1,
                       padding: "10px 12px",
@@ -471,9 +521,58 @@ export function StageDancerBulkEditPanel({
               </>
             ) : (
               <p style={{ ...sectionHint, margin: "8px 0 0" }}>
-                「丸の下」を選ぶと、丸の内に空白・連番・同じ文字・センターからの距離を指定できます。
+                「丸の内」「丸の下」は押した時点で反映されます（確認不要）。「丸の下」を選ぶと、丸の内に空白・連番・同じ文字・センターからの距離を指定できます。
               </p>
             )}
+          </div>
+
+          <div style={card}>
+            <div style={sectionTitle}>性別（男子＝青・女子＝ピンク）</div>
+            <p style={sectionHint}>選択中に一括で付けます。</p>
+            <DancerGenderPicker
+              value=""
+              disabled={menuInteractionDisabled || !applyBulkGenderToDancerIds}
+              onChange={(next) =>
+                applyBulkGenderToDancerIds?.(targetIds, next || null)
+              }
+            />
+            <div style={{ marginTop: 8 }}>
+              <ActionButton
+                disabled={menuInteractionDisabled || !applyBulkGenderToDancerIds}
+                wide
+                onClick={() => applyBulkGenderToDancerIds?.(targetIds, null)}
+              >
+                性別をクリア
+              </ActionButton>
+            </div>
+          </div>
+
+          <div style={card}>
+            <div style={sectionTitle}>3Dの見た目</div>
+            <p style={sectionHint}>
+              選択中の立ち位置を人型・動物にします。適用範囲を選べます。
+            </p>
+            <DancerFigure3dApplyScopeToggle
+              value={figure3dScope}
+              onChange={setFigure3dScope}
+              disabled={
+                menuInteractionDisabled || !applyBulkFigure3dToDancerIds
+              }
+            />
+            <DancerFigure3dPicker
+              value="human"
+              compact
+              disabled={
+                menuInteractionDisabled || !applyBulkFigure3dToDancerIds
+              }
+              onChange={(fig) =>
+                applyBulkFigure3dToDancerIds?.(
+                  targetIds,
+                  fig,
+                  figure3dScope
+                )
+              }
+            />
           </div>
 
           <div style={{ ...card, marginBottom: 0 }}>
@@ -501,6 +600,13 @@ export function StageDancerBulkEditPanel({
                   }}
                 />
               ))}
+              <DancerColorRandomSwatch
+                size={34}
+                radius={8}
+                onClick={() =>
+                  applyBulkColorToDancerIds(targetIds, DANCER_COLOR_RANDOM)
+                }
+              />
             </div>
             {DANCER_PALETTE.length > PRIMARY_COLOR_COUNT ? (
               <button

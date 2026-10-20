@@ -21,6 +21,11 @@ describe("buildLocaleBundle", () => {
     for (const locale of ["es", "fr", "de", "pt"] as const) {
       for (const key of Object.keys(en)) {
         const value = TRANSLATIONS[locale][key];
+        // 意図的に空の EN（例: landing.v2.features.title2）は他言語も空でよい
+        if (en[key] === "") {
+          expect(value ?? "", `${locale} ${key}`).toBe("");
+          continue;
+        }
         expect(value, `${locale} missing ${key}`).toBeTruthy();
         expect(placeholders(value), `${locale} ${key}`).toEqual(
           placeholders(en[key])

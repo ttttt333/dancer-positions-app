@@ -38,6 +38,8 @@ export type FloorTextDraftPayload = {
   fontWeight: number;
   color: string;
   fontFamily: string;
+  textAlign?: import("../types/choreography").FloorTextAlign;
+  bgColor?: string;
 };
 
 /** 複数テキスト一括ドラッグのセッション情報 */
@@ -177,6 +179,8 @@ export function FloorTextMarkupBlock({
     fontWeight: fw,
     color: colorHex,
     fontFamily: fontCss,
+    textAlign: m.textAlign ?? "left",
+    bgColor: m.bgColor ?? "",
   });
 
   /* ── リサイズハンドルのドラッグ開始 ── */
@@ -351,6 +355,7 @@ export function FloorTextMarkupBlock({
         background: m.bgColor || "transparent",
         textShadow: m.bgColor ? "none" : "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
         whiteSpace: "pre",
+        textAlign: m.textAlign ?? "left",
         wordBreak: "normal",
         opacity: editingInlineHere ? 0 : 1,
         pointerEvents: editingInlineHere ? "none" : textHit ? "auto" : "none",

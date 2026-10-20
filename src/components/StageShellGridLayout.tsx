@@ -1,4 +1,8 @@
-import type { CSSProperties, ReactNode } from "react";
+import type {
+  CSSProperties,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+} from "react";
 import { formatMeterCmLabel } from "../lib/stageDimensions";
 import { shell } from "../theme/choreoShell";
 
@@ -35,6 +39,11 @@ export type StageShellGridLayoutProps = {
   labelScreenKeepUpright: (origin: string) => CSSProperties;
   /** 中央セル（`StageMainFloorGridCell` など） */
   center: ReactNode;
+  /**
+   * サイド／舞台裏帯での pointerdown。
+   * メイン床と同じ座標系で範囲選択を始められるようにする。
+   */
+  onPointerDownStrip?: (e: ReactPointerEvent<HTMLDivElement>) => void;
 };
 
 /**
@@ -49,7 +58,12 @@ export function StageShellGridLayout({
   Smm,
   labelScreenKeepUpright,
   center,
+  onPointerDownStrip,
 }: StageShellGridLayoutProps) {
+  const stripExtraStyle: CSSProperties | undefined = onPointerDownStrip
+    ? { touchAction: "none", cursor: "crosshair" }
+    : undefined;
+
   return (
     <div
       style={{
@@ -74,12 +88,15 @@ export function StageShellGridLayout({
     >
       {showShell && Bmm > 0 && (
         <div
+          data-stage-shell-strip="back"
+          onPointerDown={onPointerDownStrip}
           style={{
             ...backStripShellStyle,
             ...labelScreenKeepUpright("center center"),
             gridColumn: "1 / -1",
             gridRow: 1,
             borderBottom: `1px solid ${shell.border}`,
+            ...stripExtraStyle,
           }}
         >
           舞台裏
@@ -89,12 +106,15 @@ export function StageShellGridLayout({
       )}
       {showShell && Smm > 0 && (
         <div
+          data-stage-shell-strip="side-left"
+          onPointerDown={onPointerDownStrip}
           style={{
             ...stripShellStyle,
             ...labelScreenKeepUpright("center center"),
             gridColumn: 1,
             gridRow: Bmm > 0 ? 2 : 1,
             borderRight: `1px solid ${shell.border}`,
+            ...stripExtraStyle,
           }}
         >
           サイド
@@ -105,12 +125,15 @@ export function StageShellGridLayout({
       {center}
       {showShell && Smm > 0 && (
         <div
+          data-stage-shell-strip="side-right"
+          onPointerDown={onPointerDownStrip}
           style={{
             ...stripShellStyle,
             ...labelScreenKeepUpright("center center"),
             gridColumn: 3,
             gridRow: Bmm > 0 ? 2 : 1,
             borderLeft: `1px solid ${shell.border}`,
+            ...stripExtraStyle,
           }}
         >
           サイド

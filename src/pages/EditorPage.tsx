@@ -23,7 +23,10 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
-import { ProUpgradeProvider, useProUpgrade } from "../components/ProUpgradeProvider";
+import { ProjectConflictDialog } from "../components/ProjectConflictDialog";
+import { clearEditorDraft } from "../lib/editorDraftStorage";
+import { redirectToLoginForSave } from "../lib/redirectToLoginForSave";
+import { consumeSaveIntentAfterLogin } from "../lib/postLoginRedirect";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import {
   isDancerCountOverFreeLimit,
@@ -50,6 +53,11 @@ import { playbackEngine } from "../core/playbackEngine";
 import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
 import type { ViewerChromeInsets } from "../components/ChoreoViewerControlBars";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { useStageLightsViewStore } from "../store/stageLightsViewStore";
+import {
+  clampViewerMarkerScale,
+  clampViewerNameScale,
+} from "../lib/viewerMarkerDisplay";
 import { useViewerChromeStore } from "../store/viewerChromeStore";
 import {
   resolveViewerAudienceEdge,
@@ -58,12 +66,16 @@ import {
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useEditorKeyboardShortcuts } from "../hooks/useEditorKeyboardShortcuts";
 import { useEditorAudioSession } from "../hooks/useEditorAudioSession";
+import { useSectionAutoKeyframes } from "../hooks/useSectionAutoKeyframes";
+import { useSectionFormationPatterns } from "../hooks/useSectionFormationPatterns";
+import { ApplyAiSectionKeyframesDialog } from "../components/ApplyAiSectionKeyframesDialog";
+import { ApplySectionFormationPatternsDialog } from "../components/ApplySectionFormationPatternsDialog";
+import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
 import { useTimelineMediaHandle } from "../hooks/useTimelineMediaHandle";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import {
   createEmptyProject,
   DEFAULT_DANCER_MARKER_DIAMETER_PX,
-  dancerMarkerDiameterAfterRosterImport,
   tryMigrateFromLocalStorage,
 } from "../lib/projectDefaults";
 import { abortTimelineWavePointerGestures } from "../lib/abortTimelineWavePointerGestures";
@@ -96,8 +108,11 @@ import {
 import { pickSpotForAppendedDancer } from "../lib/dancerAppendPlacement";
 import {
   buildCrewFromRows,
+  ROSTER_NAME_IMPORT_MODE_OPTIONS,
   type RosterNameImportMode,
 } from "../lib/crewCsvImport";
+import { appendCrewAndPlaceOnStage } from "../lib/rosterPlaceOnStage";
+import { showAppToast } from "../store/appToastStore";
 import {
   ROSTER_FILE_ACCEPT,
   labelForKind,
@@ -131,7 +146,11 @@ import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
 import { ParsePositionFromPhotoDialog } from "../components/ParsePositionFromPhotoDialog";
 import { FormationPresetPickerSheet } from "../components/FormationPresetPickerSheet";
+import { ProUpgradeProvider, useProUpgrade } from "../components/ProUpgradeProvider";
 import { isSupabaseBackend } from "../lib/supabaseClient";
+import { projectApi } from "../api/client";
+import { useSupabaseProjectRealtime } from "../hooks/useSupabaseProjectRealtime";
+import { EditorRealtimePeersBadge } from "../components/EditorRealtimePeersBadge";
 import { isCollabFeatureAvailable } from "../lib/collabAvailability";
 import { projectShareLinks } from "../lib/shareProjectLinks";
 import { useAuth } from "../context/AuthContext";
@@ -189,14 +208,17 @@ import { useEditorViewport, resolveWideEditorLayout, subscribeWideEditorLayout }
 import { EditorPageLayout } from "./editor/EditorPageLayout";
 import type { EditorLayoutProps } from "./editor/editorLayoutProps";
 import {
-  clampGridSpacingCm,
   clampGuideIntervalToWidth,
   emptyStageAreaSettingsDraft,
-  parseGridSpacingInput,
+  parseGridMeterCmDraftToMm,
   parseMeterCmDraftToMm,
   projectToStageAreaDraft,
+  sleeveDraftToCurtain,
+  sleeveToDraft,
   type StageAreaSettingsDraft,
 } from "./editor/stageAreaSettingsDraft";
+import { sleeveCurtainsToDepthsMm } from "../lib/stageSleeveCurtains";
+import type { StageCenterMark, StageLightFixture, StageSleeveCurtain } from "../types/choreography";
 import { useEditorProjectLoader } from "../hooks/useEditorProjectLoader";
 import { useEditorHistory } from "../hooks/useEditorHistory";
 import { useEditorCloudSave } from "../hooks/useEditorCloudSave";
@@ -235,7 +257,9 @@ function EditorPageContent({
   const { t } = useI18n();
   const collabRequested = searchParams.get("collab") === "1" && !choreoPublicView;
   const collabParam = collabRequested && isCollabFeatureAvailable();
-  const collabUnavailableNotice = collabRequested && !isCollabFeatureAvailable();
+  // クラウド版は保存済み作品が常にリアルタイム同期されるので、旧 ?collab=1 リンクは通常編集で開く
+  const collabUnavailableNotice =
+    collabRequested && !isCollabFeatureAvailable() && !isSupabaseBackend();
   const onHistoryResetRef = useRef<() => void>(() => {});
   const onHistoryReset = useCallback(() => {
     onHistoryResetRef.current();
@@ -260,6 +284,11 @@ function EditorPageContent({
     setServerId,
     serverShareToken,
     setServerShareToken,
+    knownServerUpdatedAt,
+    setKnownServerUpdatedAt,
+    pendingLoadConflict,
+    resolveLoadConflictKeepLocal,
+    resolveLoadConflictTakeServer,
     loadError,
     saving,
     setSaving,
@@ -305,7 +334,7 @@ function EditorPageContent({
    * 畳んでもステージ上にグリッド用ツールバーが出るほか、ステージ上部のページャーから
    * キュー切替は引き続き可能。狭いビューポート（!wideEditorLayout）では無効。
    */
-  const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
+  const [rightPaneCollapsed, setRightPaneCollapsed] = useState(true);
   /** スマホ縦積み: 波形・再生ブロックの表示（TimelinePanel はマウントしたまま） */
   const [mobileEditorWaveExpanded, setMobileEditorWaveExpanded] = useState(true);
   /** スマホ縦積み: 右下の操作列（ツールバー・ワークベンチ等）の表示。モバイルではステージを広く使うため初期は折りたたむ */
@@ -346,8 +375,6 @@ function EditorPageContent({
   const [stageAreaSettingsOpen, setStageAreaSettingsOpen] = useState(false);
   const [stageAreaSettingsDraft, setStageAreaSettingsDraft] =
     useState<StageAreaSettingsDraft>(emptyStageAreaSettingsDraft);
-  const [gridWidthCmInput, setGridWidthCmInput] = useState<string>("1");
-  const [gridDepthCmInput, setGridDepthCmInput] = useState<string>("1");
   const stageAreaSettingsDraftRef = useRef(stageAreaSettingsDraft);
   stageAreaSettingsDraftRef.current = stageAreaSettingsDraft;
   const [stageAreaPresetList, setStageAreaPresetList] = useState<StagePresetItem[]>([]);
@@ -413,7 +440,7 @@ function EditorPageContent({
     notice?: string;
   } | null>(null);
   const [rosterImportNameMode, setRosterImportNameMode] =
-    useState<RosterNameImportMode>("full");
+    useState<RosterNameImportMode>("kanji_full");
   /** 名簿取り込み確認ダイアログ: ファイル以外に手入力で追加するメンバー（各行が 1 名） */
   const [rosterImportExtraNames, setRosterImportExtraNames] = useState<string[]>(
     []
@@ -434,10 +461,18 @@ function EditorPageContent({
   const [floorMarkupTool, setFloorMarkupTool] = useState<
     null | "text" | "line" | "erase"
   >(null);
+  /** 落書き線の表示範囲（サイドシート「落書き」タブと StageBoard で共有） */
+  const [floorLineScope, setFloorLineScope] = useState<"formation" | "global">(
+    "formation"
+  );
   /** メンバー表示 SideSheet */
   const [memberRosterSheetOpen, setMemberRosterSheetOpen] = useState(false);
   /** wideEditorLayout 時: テキストパネルを右サイドシートに表示するか */
   const [floorTextSideSheetOpen, setFloorTextSideSheetOpen] = useState(false);
+  /** サイドシートを開くときの初期タブ（キューメニュー「照明設定」用） */
+  const [floorTextPreferredTab, setFloorTextPreferredTab] = useState<
+    "text" | "lights" | "scribble" | null
+  >(null);
   /** 動線矢印オーバーレイ表示フラグ */
   const [showMotionArrows, setShowMotionArrows] = useState(false);
   /** テキストパネルのポータルターゲット DOM 要素 */
@@ -486,6 +521,7 @@ function EditorPageContent({
     redo,
     isUndoDisabled: stageUndoDisabledFromHistory,
     isRedoDisabled: stageRedoDisabledFromHistory,
+    historyOverlayEpoch,
   } = history;
 
   const setPhotoParseOpenWrapped = useCallback(
@@ -537,6 +573,13 @@ function EditorPageContent({
     return next;
   }, [me, serverId, setProjectSafe]);
 
+  const [saveConflict, setSaveConflict] = useState<{
+    kind: "save-stale";
+    serverUpdatedAt: string;
+    serverJson: import("../types/choreography").ChoreographyProjectJson;
+    serverName: string;
+  } | null>(null);
+
   const {
     cloudSaveDialogOpen,
     setCloudSaveDialogOpen,
@@ -546,6 +589,8 @@ function EditorPageContent({
     me,
     projectName,
     serverId,
+    knownServerUpdatedAt,
+    setKnownServerUpdatedAt,
     projectSaveRef,
     setProjectName,
     setServerId,
@@ -553,6 +598,7 @@ function EditorPageContent({
     setSaving,
     navigate,
     prepareProjectForCloudSave,
+    onSaveConflict: setSaveConflict,
   });
 
   const project = collabActive ? yjsCollab.project : plainProject;
@@ -564,10 +610,6 @@ function EditorPageContent({
     projectSaveRef.current = project;
   }
 
-  const projectAutoSaveSig = useMemo(
-    () => (project ? JSON.stringify(project) : ""),
-    [project]
-  );
 
   const awaitingInitialName =
     !choreoPublicView &&
@@ -586,7 +628,36 @@ function EditorPageContent({
     serverId,
     syncProjectToCloud,
     setSaving,
-    projectChangeSig: projectAutoSaveSig,
+    projectChangeSig: project,
+  });
+
+  const refetchProjectFromServer = useCallback(() => {
+    if (serverId == null) return;
+    void projectApi
+      .get(serverId)
+      .then((row) => {
+        setPlainProject(normalizeProject(row.json));
+        setKnownServerUpdatedAt(row.updated_at);
+      })
+      .catch(() => {
+        /* 次の変更通知で再試行 */
+      });
+  }, [serverId, setPlainProject, setKnownServerUpdatedAt]);
+
+  const realtime = useSupabaseProjectRealtime({
+    enabled:
+      !!me &&
+      !choreoPublicView &&
+      !collabActive &&
+      projectId != null &&
+      projectId !== "new",
+    serverId,
+    displayName: me?.user?.email?.split("@")[0] ?? "",
+    project: collabActive ? null : plainProject,
+    applyRemoteProject: setPlainProject,
+    knownServerUpdatedAt,
+    setKnownServerUpdatedAt,
+    refetchFromServer: refetchProjectFromServer,
   });
 
 
@@ -598,6 +669,7 @@ function EditorPageContent({
     audioAssetId: project?.audioAssetId ?? null,
     audioSupabasePath: project?.audioSupabasePath,
     flowLocalAudioKey: project?.flowLocalAudioKey ?? null,
+    pieceTitle: project?.pieceTitle?.trim() || projectName,
     publicShareView: choreoPublicView,
     persistProjectToCloudAfterAudioImport: me
       ? async (audioPatch) => {
@@ -612,6 +684,26 @@ function EditorPageContent({
   });
   const resyncViewerPlayback = editorAudioSession.resyncPlayback;
   const reloadViewerAudio = editorAudioSession.reloadRemoteAudio;
+
+  const sectionAutoKeyframes = useSectionAutoKeyframes({
+    project,
+    setProject: setProjectSafe,
+    /** 自動配置はしない。AI提案フロー／手動ボタンからのみ */
+    enabled: false,
+    publicShareView: choreoPublicView,
+  });
+  const sectionFormationPatterns = useSectionFormationPatterns({
+    project,
+    setProject: setProjectSafe,
+    enabled: !choreoPublicView,
+    publicShareView: choreoPublicView,
+  });
+  const analysisSectionCount = useMusicSectionOverlayStore(
+    (s) => s.analysis?.sections.length ?? 0
+  );
+  const analysisBpm = useMusicSectionOverlayStore((s) =>
+    s.analysis?.bpm && s.analysis.bpm > 0 ? s.analysis.bpm : null
+  );
 
   /** 閲覧共有: 作品データ取得直後から音源を先読み（パート選択を待たない） */
   useEffect(() => {
@@ -779,6 +871,26 @@ function EditorPageContent({
       if (raw === "stage" || raw === "audience") {
         useViewerChromeStore.getState().setAudiencePerspective(raw);
       }
+      const sizeRaw = localStorage.getItem(`${viewerLocalStorageKey}:markerSize`);
+      if (sizeRaw) {
+        const parsed = JSON.parse(sizeRaw) as {
+          markerDisplayScale?: number;
+          nameLabelScale?: number;
+          autoNameFit?: boolean;
+        };
+        const st = useViewerChromeStore.getState();
+        if (typeof parsed.markerDisplayScale === "number") {
+          st.setMarkerDisplayScale(
+            clampViewerMarkerScale(parsed.markerDisplayScale)
+          );
+        }
+        if (typeof parsed.nameLabelScale === "number") {
+          st.setNameLabelScale(clampViewerNameScale(parsed.nameLabelScale));
+        }
+        if (typeof parsed.autoNameFit === "boolean") {
+          st.setAutoNameFit(parsed.autoNameFit);
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -795,6 +907,32 @@ function EditorPageContent({
       /* ignore */
     }
   }, [choreoPublicView, viewerLocalStorageKey, audiencePerspective]);
+
+  const viewerMarkerDisplayScale = useViewerChromeStore((s) => s.markerDisplayScale);
+  const viewerNameLabelScale = useViewerChromeStore((s) => s.nameLabelScale);
+  const viewerAutoNameFit = useViewerChromeStore((s) => s.autoNameFit);
+
+  useEffect(() => {
+    if (!choreoPublicView || !viewerLocalStorageKey) return;
+    try {
+      localStorage.setItem(
+        `${viewerLocalStorageKey}:markerSize`,
+        JSON.stringify({
+          markerDisplayScale: viewerMarkerDisplayScale,
+          nameLabelScale: viewerNameLabelScale,
+          autoNameFit: viewerAutoNameFit,
+        })
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [
+    choreoPublicView,
+    viewerLocalStorageKey,
+    viewerMarkerDisplayScale,
+    viewerNameLabelScale,
+    viewerAutoNameFit,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !choreoPublicView) return;
@@ -1041,14 +1179,20 @@ function EditorPageContent({
   }, []);
 
   const interpolatedDancers = useMemo(() => {
+    // 停止中は補間不要（ステージは active formation を描く）。再生・スクラブ時のみ計算。
     if (!project || project.cues.length === 0) return null;
+    if (!isPlaying && !choreoPublicView) {
+      // 編集画面の停止中はスキップ。閲覧はシーク操作があり得るため計算する。
+      return null;
+    }
     return dancersAtTime(
       currentTime,
       project.cues,
       project.formations,
-      project.activeFormationId
+      project.activeFormationId,
+      { bpm: analysisBpm }
     );
-  }, [project, currentTime]);
+  }, [project, currentTime, isPlaying, choreoPublicView, analysisBpm]);
 
   const interpolatedSetPieces = useMemo(() => {
     if (!project || project.cues.length === 0) return null;
@@ -1329,12 +1473,13 @@ function EditorPageContent({
         currentTime,
         project.cues,
         project.formations,
-        project.activeFormationId
+        project.activeFormationId,
+        { bpm: analysisBpm }
       );
     }
     const f = formationById.get(project.activeFormationId);
     return f?.dancers ?? null;
-  }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime, formationById]);
+  }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime, formationById, analysisBpm]);
 
   const browseSetPieces = useMemo(() => {
     if (!project || isPlaying) return null;
@@ -1416,23 +1561,16 @@ function EditorPageContent({
   const applyStageAreaSettingsDraft = useCallback(() => {
     if (!project || project.viewMode === "view") return;
     const d = stageAreaSettingsDraftRef.current;
-    const gridWidthCm = clampGridSpacingCm(parseGridSpacingInput(gridWidthCmInput));
-    const gridDepthCm = clampGridSpacingCm(parseGridSpacingInput(gridDepthCmInput));
     const w = parseMeterCmDraftToMm(d.width);
     const depthMm = parseMeterCmDraftToMm(d.depth);
     const s = parseMeterCmDraftToMm(d.side);
     const b = parseMeterCmDraftToMm(d.back);
     const gRaw = parseMeterCmDraftToMm(d.guide);
     const g = clampGuideIntervalToWidth(w, gRaw);
-    const gw = gridWidthCm * 10;
-    const gd = gridDepthCm * 10;
-    setStageAreaSettingsDraft((prev) => ({
-      ...prev,
-      gridWidthCm,
-      gridDepthCm,
-    }));
-    setGridWidthCmInput(String(gridWidthCm));
-    setGridDepthCmInput(String(gridDepthCm));
+    const hasMain = w != null && depthMm != null;
+    const gw = hasMain ? parseGridMeterCmDraftToMm(d.gridWidth) : 10;
+    const gd = hasMain ? parseGridMeterCmDraftToMm(d.gridDepth) : 10;
+    const curtains = d.stageSleeves.map(sleeveDraftToCurtain);
     setProjectSafe((p) =>
       stripFormationStageSnapshots({
         ...p,
@@ -1442,7 +1580,8 @@ function EditorPageContent({
         sideStageMm: s,
         backStageMm: b,
         centerFieldGuideIntervalMm: g,
-        snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
+        /** 縦線・横線はガイド表示のみ。立ち位置吸着はしない */
+        snapGrid: false,
         gridStep: d.gridStep,
         stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
         stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
@@ -1452,81 +1591,20 @@ function EditorPageContent({
         stageGridLineSpacingMm: gw,
         stageGridSpacingDepthMm: gd,
         dancerLabelPosition: d.dancerLabelPosition,
+        stageHesoVisible: d.stageHesoVisible,
+        stageCenterMarks: d.stageCenterMarks,
+        stageFrontGridLinesMm: [],
+        stageSleeveCurtains: curtains,
+        stageSleeveCurtainDepthsMm: sleeveCurtainsToDepthsMm(curtains),
       })
     );
-  }, [project, setProjectSafe, gridWidthCmInput, gridDepthCmInput]);
+  }, [project, setProjectSafe]);
 
   const stageAreaDraftHasMainFloor = useMemo(() => {
     const w = parseMeterCmDraftToMm(stageAreaSettingsDraft.width);
     const d = parseMeterCmDraftToMm(stageAreaSettingsDraft.depth);
     return w != null && w > 0 && d != null && d > 0;
   }, [stageAreaSettingsDraft.width, stageAreaSettingsDraft.depth]);
-
-  const onStageGridCmInput = useCallback((axis: "width" | "depth", raw: string) => {
-    if (axis === "width") setGridWidthCmInput(raw);
-    else setGridDepthCmInput(raw);
-  }, []);
-
-  const commitStageGridCmInput = useCallback(
-    (axis: "width" | "depth") => {
-      if (axis === "width") {
-        const next = clampGridSpacingCm(parseGridSpacingInput(gridWidthCmInput));
-        setStageAreaSettingsDraft((d) => ({ ...d, gridWidthCm: next }));
-        setGridWidthCmInput(String(next));
-        return;
-      }
-      const next = clampGridSpacingCm(parseGridSpacingInput(gridDepthCmInput));
-      setStageAreaSettingsDraft((d) => ({ ...d, gridDepthCm: next }));
-      setGridDepthCmInput(String(next));
-    },
-    [gridDepthCmInput, gridWidthCmInput]
-  );
-
-  const nudgeStageGridCm = useCallback((axis: "width" | "depth", delta: number) => {
-    setStageAreaSettingsDraft((d) => {
-      const base = axis === "width" ? d.gridWidthCm : d.gridDepthCm;
-      const next = clampGridSpacingCm(base + delta);
-      if (axis === "width") setGridWidthCmInput(String(next));
-      else setGridDepthCmInput(String(next));
-      return axis === "width" ? { ...d, gridWidthCm: next } : { ...d, gridDepthCm: next };
-    });
-  }, []);
-
-  const gridNudgeTimeoutRef = useRef<number | null>(null);
-  const gridNudgeIntervalRef = useRef<number | null>(null);
-  const gridNudgeDidRepeatRef = useRef(false);
-
-  const stopGridNudgeRepeat = useCallback(() => {
-    if (gridNudgeTimeoutRef.current != null) {
-      window.clearTimeout(gridNudgeTimeoutRef.current);
-      gridNudgeTimeoutRef.current = null;
-    }
-    if (gridNudgeIntervalRef.current != null) {
-      window.clearInterval(gridNudgeIntervalRef.current);
-      gridNudgeIntervalRef.current = null;
-    }
-  }, []);
-
-  const startGridNudgeRepeat = useCallback(
-    (axis: "width" | "depth", delta: number) => {
-      stopGridNudgeRepeat();
-      gridNudgeDidRepeatRef.current = false;
-      gridNudgeTimeoutRef.current = window.setTimeout(() => {
-        gridNudgeDidRepeatRef.current = true;
-        nudgeStageGridCm(axis, delta);
-        gridNudgeIntervalRef.current = window.setInterval(() => {
-          nudgeStageGridCm(axis, delta);
-        }, 70);
-      }, 260);
-    },
-    [nudgeStageGridCm, stopGridNudgeRepeat]
-  );
-
-  useEffect(() => stopGridNudgeRepeat, [stopGridNudgeRepeat]);
-  useEffect(() => {
-    setGridWidthCmInput(String(stageAreaSettingsDraft.gridWidthCm));
-    setGridDepthCmInput(String(stageAreaSettingsDraft.gridDepthCm));
-  }, [stageAreaSettingsDraft.gridWidthCm, stageAreaSettingsDraft.gridDepthCm]);
 
   /** 舞台設定を開いたときに現在のプロジェクト値をドラフトへ反映 */
   useEffect(() => {
@@ -1556,10 +1634,10 @@ function EditorPageContent({
     const b = parseMeterCmDraftToMm(d.back);
     const gRaw = parseMeterCmDraftToMm(d.guide);
     const g = clampGuideIntervalToWidth(w, gRaw);
-    const gridWidthCm = clampGridSpacingCm(parseGridSpacingInput(gridWidthCmInput));
-    const gridDepthCm = clampGridSpacingCm(parseGridSpacingInput(gridDepthCmInput));
-    const gw = gridWidthCm * 10;
-    const gd = gridDepthCm * 10;
+    const hasMain = w != null && depthMm != null;
+    const gw = hasMain ? parseGridMeterCmDraftToMm(d.gridWidth) : 10;
+    const gd = hasMain ? parseGridMeterCmDraftToMm(d.gridDepth) : 10;
+    const curtains = d.stageSleeves.map(sleeveDraftToCurtain);
     return {
       ...project,
       audienceEdge: d.audienceEdge,
@@ -1568,7 +1646,8 @@ function EditorPageContent({
       sideStageMm: s,
       backStageMm: b,
       centerFieldGuideIntervalMm: g,
-      snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
+      /** 縦線・横線はガイド表示のみ。立ち位置吸着はしない */
+      snapGrid: false,
       gridStep: d.gridStep,
       stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
       stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
@@ -1578,14 +1657,66 @@ function EditorPageContent({
       stageGridLineSpacingMm: gw,
       stageGridSpacingDepthMm: gd,
       dancerLabelPosition: d.dancerLabelPosition,
+      stageHesoVisible: d.stageHesoVisible,
+      stageCenterMarks: d.stageCenterMarks,
+      stageFrontGridLinesMm: [],
+      stageSleeveCurtains: curtains,
+      stageSleeveCurtainDepthsMm: sleeveCurtainsToDepthsMm(curtains),
     };
-  }, [
-    project,
-    stageAreaSettingsOpen,
-    stageAreaSettingsDraft,
-    gridWidthCmInput,
-    gridDepthCmInput,
-  ]);
+  }, [project, stageAreaSettingsOpen, stageAreaSettingsDraft]);
+
+  const onSleeveCurtainsChange = useCallback(
+    (curtains: StageSleeveCurtain[]) => {
+      if (!project || project.viewMode === "view") return;
+      if (stageAreaSettingsOpen) {
+        setStageAreaSettingsDraft((d) => ({
+          ...d,
+          stageSleeves: curtains.map(sleeveToDraft),
+        }));
+        return;
+      }
+      setProjectSafe((p) => ({
+        ...p,
+        stageSleeveCurtains: curtains,
+        stageSleeveCurtainDepthsMm: sleeveCurtainsToDepthsMm(curtains),
+      }));
+    },
+    [project, setProjectSafe, stageAreaSettingsOpen]
+  );
+
+  const onCenterMarksChange = useCallback(
+    (marks: StageCenterMark[]) => {
+      if (!project || project.viewMode === "view") return;
+      if (stageAreaSettingsOpen) {
+        setStageAreaSettingsDraft((d) => ({
+          ...d,
+          stageCenterMarks: marks,
+          stageHesoVisible: true,
+        }));
+        return;
+      }
+      setProjectSafe((p) => ({
+        ...p,
+        stageCenterMarks: marks,
+        stageHesoVisible: true,
+      }));
+    },
+    [project, setProjectSafe, stageAreaSettingsOpen]
+  );
+
+  const [selectedStageLightId, setSelectedStageLightId] = useState<
+    string | null
+  >(null);
+
+  const onStageLightsChange = useCallback(
+    (lights: StageLightFixture[]) => {
+      setProjectSafe((p) => {
+        if (!p || p.viewMode === "view") return p;
+        return { ...p, stageLights: lights };
+      });
+    },
+    [setProjectSafe]
+  );
 
   useEffect(() => {
     if (!wideEditorLayout) setFloorMarkupTool(null);
@@ -1653,6 +1784,7 @@ function EditorPageContent({
       fontWeight: fw,
       xPct: round2Pct(floorTextPlaceSession.xPct),
       yPct: round2Pct(floorTextPlaceSession.yPct),
+      textAlign: floorTextPlaceSession.textAlign ?? "left",
     };
 
     if (editTargetId) {
@@ -1785,7 +1917,7 @@ function EditorPageContent({
         const result = await parseRosterFile(f);
         const defaultName =
           result.baseName || `名簿 ${(project.crews?.length ?? 0) + 1}`;
-        setRosterImportNameMode("full");
+        setRosterImportNameMode("kanji_full");
         setRosterImportExtraNames([]);
         setRosterImportDraft({
           rows: result.rows,
@@ -1801,6 +1933,35 @@ function EditorPageContent({
     };
     input.click();
   }, [project, setProjectSafe]);
+
+  const exportCrewRosterSpreadsheet = useCallback(() => {
+    if (!project || project.viewMode === "view") return;
+    const crews = project.crews ?? [];
+    if (!crews.some((c) => c.members.length > 0)) {
+      window.alert("書き出す名簿メンバーがいません。");
+      return;
+    }
+    const title =
+      project.pieceTitle?.trim() ||
+      crews.find((c) => c.members.length > 0)?.name ||
+      "名簿";
+    void (async () => {
+      try {
+        const { downloadRosterXlsx, downloadRosterCsv } = await import(
+          "../lib/crewCsvExport"
+        );
+        try {
+          await downloadRosterXlsx(crews, { pieceTitle: title });
+        } catch {
+          downloadRosterCsv(crews, { pieceTitle: title });
+        }
+      } catch (e) {
+        window.alert(
+          e instanceof Error ? e.message : "名簿の書き出しに失敗しました"
+        );
+      }
+    })();
+  }, [project]);
 
   const openSetPiecePicker = useCallback(() => {
     if (!project || project.viewMode === "view") return;
@@ -1910,6 +2071,24 @@ function EditorPageContent({
     [project, exportDialogOpen, projectName, stageView]
   );
 
+  const aiSectionKeyframesDialogEl = (
+    <ApplyAiSectionKeyframesDialog
+      open={sectionAutoKeyframes.confirmOpen}
+      sectionCount={analysisSectionCount}
+      onConfirm={sectionAutoKeyframes.confirmApplyAiSectionKeyframes}
+      onCancel={sectionAutoKeyframes.dismissConfirm}
+    />
+  );
+
+  const sectionFormationPatternsDialogEl = (
+    <ApplySectionFormationPatternsDialog
+      open={sectionFormationPatterns.dialogOpen}
+      sections={sectionFormationPatterns.sections}
+      onApply={sectionFormationPatterns.confirmApply}
+      onCancel={sectionFormationPatterns.dismissDialog}
+    />
+  );
+
   const flowLibraryDialogEl = useMemo(
     () =>
       project ? (
@@ -1925,6 +2104,16 @@ function EditorPageContent({
           getWavePeaks={getWavePeaksSnapshot}
           onRestoreWaveform={restoreWavePeaks}
           getAudioBlobForFlowLibrary={getCurrentAudioBlobForFlowLibrary}
+          onRequireLoginToSave={() => {
+            if (!project) return;
+            setFlowLibraryOpen(false);
+            redirectToLoginForSave({
+              navigate,
+              project,
+              projectName,
+              serverId,
+            });
+          }}
         />
       ) : null,
     [
@@ -1939,6 +2128,8 @@ function EditorPageContent({
       getWavePeaksSnapshot,
       restoreWavePeaks,
       getCurrentAudioBlobForFlowLibrary,
+      navigate,
+      projectName,
     ]
   );
 
@@ -1985,6 +2176,7 @@ function EditorPageContent({
           setProject={setProjectSafe}
           selectedCueId={selectedCueId}
           onStagePreviewChange={setStagePreviewDancers}
+          onCueCreated={(id) => setSelectedCueIds([id])}
         />
       ) : null,
     [
@@ -2058,7 +2250,7 @@ function EditorPageContent({
         <EditorSideSheet
           open
           zIndex={60}
-          width="min(320px, 90vw)"
+          width="min(360px, 92vw)"
           onClose={() => {
             setRosterImportDraft(null);
             setRosterImportExtraNames([]);
@@ -2073,65 +2265,40 @@ function EditorPageContent({
               名簿を取り込みます
             </div>
             <p style={{ margin: "0 0 10px", fontSize: "11px", color: "#94a3b8", lineHeight: 1.45, wordBreak: "break-all" }}>
-              ステージ表示は最大8文字。同名の場合は苗字の頭1文字を自動付加。「出欠」列があれば参加行のみ取込。フリガナ列があれば下の設定で表示名を選択できます。
+              ステージ表示は最大8文字。同名の場合は苗字の頭1文字を自動付加。「出欠」列があれば参加行のみ取込。ひらがな表示にはフリガナ列（またはひらがなの氏名）が必要です。無いときは漢字にフォールバックします。
             </p>
             <div style={{ fontSize: "11px", fontWeight: 600, color: "#cbd5e1", marginBottom: "6px" }}>
               表示名の取り込み方
             </div>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                marginBottom: "6px",
-                cursor: "pointer",
-                fontSize: "12px",
-              }}
-            >
-              <input
-                type="radio"
-                name="roster-import-name-mode"
-                checked={rosterImportNameMode === "full"}
-                onChange={() => setRosterImportNameMode("full")}
-              />
-              <span><strong>フルネーム</strong><span style={{ color: "#64748b", marginLeft: 4 }}>（姓＋名）</span></span>
-            </label>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                marginBottom: "6px",
-                cursor: "pointer",
-                fontSize: "12px",
-              }}
-            >
-              <input
-                type="radio"
-                name="roster-import-name-mode"
-                checked={rosterImportNameMode === "family_only"}
-                onChange={() => setRosterImportNameMode("family_only")}
-              />
-              <span><strong>苗字だけ</strong><span style={{ color: "#64748b", marginLeft: 4 }}>（姓のみ）</span></span>
-            </label>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                marginBottom: "12px",
-                cursor: "pointer",
-                fontSize: "12px",
-              }}
-            >
-              <input
-                type="radio"
-                name="roster-import-name-mode"
-                checked={rosterImportNameMode === "given_only"}
-                onChange={() => setRosterImportNameMode("given_only")}
-              />
-              <span><strong>名前だけ</strong><span style={{ color: "#64748b", marginLeft: 4 }}>（名のみ）</span></span>
-            </label>
+            {ROSTER_NAME_IMPORT_MODE_OPTIONS.map((opt, idx) => (
+              <label
+                key={opt.value}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  marginBottom:
+                    idx === ROSTER_NAME_IMPORT_MODE_OPTIONS.length - 1
+                      ? "12px"
+                      : "6px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="roster-import-name-mode"
+                  checked={rosterImportNameMode === opt.value}
+                  onChange={() => setRosterImportNameMode(opt.value)}
+                />
+                <span>
+                  <strong>{opt.label}</strong>
+                  <span style={{ color: "#64748b", marginLeft: 4 }}>
+                    （{opt.hint}）
+                  </span>
+                </span>
+              </label>
+            ))}
             <div
               style={{
                 marginBottom: "12px",
@@ -2261,55 +2428,25 @@ function EditorPageContent({
                     window.alert(msg);
                     return;
                   }
-                  setProjectSafe((p) => {
-                    const sorted = sortCuesByStart(p.cues);
-                    const firstCue = sorted[0];
-                    const nextCues =
-                      firstCue &&
-                      firstCue.formationId !== p.activeFormationId
-                        ? p.cues.map((c) =>
-                            c.id === firstCue.id
-                              ? { ...c, formationId: p.activeFormationId }
-                              : c
-                          )
-                        : p.cues;
-                    return {
-                      ...p,
-                      crews: [...p.crews, crew],
-                      cues: nextCues,
-                      rosterStripCollapsed: false,
-                      /**
-                       * 名簿取り込み直後はタイムライン全面表示のままにし、
-                       * 波形用 TimelinePanel をアンマウントしない（ワイドでは常に上部ドック）。
-                       * 名簿一覧は「メンバーを表示」またはページャで切り替え可能。
-                       */
-                      rosterHidesTimeline: false,
-                      dancerMarkerDiameterPx:
-                        dancerMarkerDiameterAfterRosterImport(
-                          p.dancerMarkerDiameterPx
-                        ),
-                    };
-                  });
-                  /** 先頭キュー（ページ 1）を選択し、いまのステージの形と同期 */
-                  window.setTimeout(() => {
-                    jumpToPagerSlotRef.current(1);
-                  }, 0);
+                  setProjectSafe((p) =>
+                    appendCrewAndPlaceOnStage(p, crew, DEFAULT_ROSTER_CONFIRM_PRESET)
+                  );
                   setRosterImportDraft(null);
                   setRosterImportExtraNames([]);
+                  /** 先頭キューへ同期してから雛形選択へ */
+                  window.setTimeout(() => {
+                    jumpToPagerSlotRef.current(1);
+                    setFormationPresetPickerOpen(true);
+                  }, 0);
                   const attLine =
                     att.hadAttendanceColumn && att.excludedRows > 0
-                      ? `\n（出欠で不参加・空欄など ${att.excludedRows} 行をスキップ）`
+                      ? `（出欠スキップ ${att.excludedRows} 行）`
                       : "";
-                  if (d.notice) {
-                    window.alert(
-                      `${labelForKind(d.kind)} から ${crew.members.length} 名を取り込みました。${attLine}\n\n` +
-                        d.notice
-                    );
-                  } else {
-                    window.alert(
-                      `${labelForKind(d.kind)} から ${crew.members.length} 名を取り込みました。${attLine}`
-                    );
-                  }
+                  showAppToast({
+                    kind: "success",
+                    title: `${crew.members.length} 名をステージに配置しました`,
+                    description: `雛形を選んでください。${attLine}`,
+                  });
                 }}
               >
                 取り込む
@@ -2327,6 +2464,7 @@ function EditorPageContent({
       setRosterImportDraft,
       setRosterImportNameMode,
       setRosterImportExtraNames,
+      setFormationPresetPickerOpen,
       btnSecondary,
     ]
   );
@@ -2363,21 +2501,108 @@ function EditorPageContent({
           applyStageAreaSettingsDraft();
         }
       } else {
-        const fresh = projectToStageAreaDraft(project);
-        setStageAreaSettingsDraft(fresh);
-        setGridWidthCmInput(String(fresh.gridWidthCm));
-        setGridDepthCmInput(String(fresh.gridDepthCm));
+        setStageAreaSettingsDraft(projectToStageAreaDraft(project));
       }
       setStageAreaSettingsOpen(false);
     },
     [project, mobileStackEditor, applyStageAreaSettingsDraft]
   );
 
+  const handleKeyboardCloudSave = useCallback(() => {
+    if (choreoPublicView) return;
+    if (!project || project.viewMode === "view") return;
+    if (saving) return;
+    if (!me) {
+      redirectToLoginForSave({
+        navigate,
+        project,
+        projectName,
+        serverId,
+      });
+      return;
+    }
+    void performCloudSave();
+  }, [
+    choreoPublicView,
+    me,
+    navigate,
+    project,
+    projectName,
+    saving,
+    serverId,
+    performCloudSave,
+  ]);
+
+  const requestEditorSave = useCallback(() => {
+    if (choreoPublicView) return;
+    if (!project || project.viewMode === "view") return;
+    if (!me) {
+      redirectToLoginForSave({
+        navigate,
+        project,
+        projectName,
+        serverId,
+      });
+      return;
+    }
+    setCloudSaveDialogOpen(true);
+  }, [
+    choreoPublicView,
+    me,
+    navigate,
+    project,
+    projectName,
+    serverId,
+  ]);
+
+  const openFlowLibraryOrLogin = useCallback(() => {
+    if (choreoPublicView) return;
+    if (!project) return;
+    if (!me) {
+      redirectToLoginForSave({
+        navigate,
+        project,
+        projectName,
+        serverId,
+      });
+      return;
+    }
+    setFlowLibraryOpen(true);
+  }, [choreoPublicView, me, navigate, project, projectName, serverId]);
+
+  /** 未ログインで保存→ログイン復帰後にクラウド保存を続行 */
+  useEffect(() => {
+    if (!me || choreoPublicView || !project) return;
+    if (project.viewMode === "view") return;
+    if (awaitingInitialName) return;
+    if (!consumeSaveIntentAfterLogin()) return;
+    void performCloudSave();
+  }, [
+    me,
+    choreoPublicView,
+    project,
+    awaitingInitialName,
+    performCloudSave,
+  ]);
+
+  const handleKeyboardUndo = useCallback(() => {
+    if (choreoPublicView) return;
+    if (projectRef.current?.viewMode === "view") return;
+    undo();
+  }, [choreoPublicView, undo]);
+
+  const handleKeyboardRedo = useCallback(() => {
+    if (choreoPublicView) return;
+    if (projectRef.current?.viewMode === "view") return;
+    redo();
+  }, [choreoPublicView, redo]);
+
   useEditorKeyboardShortcuts({
     stageZenFullscreen,
     setStageZenFullscreen,
     cloudSaveDialogOpen,
     setCloudSaveDialogOpen,
+    onCloudSave: handleKeyboardCloudSave,
     stageAreaSettingsOpen,
     onCloseStageAreaSettings: () => closeStageAreaSettings(),
     stageSettingsOpen,
@@ -2393,8 +2618,8 @@ function EditorPageContent({
     rosterImportDraft,
     setRosterImportDraft,
     setRosterImportExtraNames,
-    undo,
-    redo,
+    undo: handleKeyboardUndo,
+    redo: handleKeyboardRedo,
     getTrimStartSec: () => projectRef.current?.trimStartSec ?? 0,
     onSelectAdjacentCue: selectAdjacentCueByKeyboard,
     getSeekContext: getKeyboardSeekContext,
@@ -2682,7 +2907,10 @@ function EditorPageContent({
       serverProjectId={serverId}
       loggedIn={!!me}
       onStagePreviewChange={setStagePreviewDancers}
-      onFormationChosenFromCueList={() => setIsPlaying(false)}
+      onFormationChosenFromCueList={() => {
+        // 停止中のキュー選択・新規作成時のみ。再生中の複製などは呼び出し側でスキップ済み。
+        setIsPlaying(false);
+      }}
       onUndo={undo}
       onRedo={redo}
       undoDisabled={
@@ -2708,17 +2936,102 @@ function EditorPageContent({
       showFormationChange={
         wideEditorLayout &&
         !choreoPublicView &&
-        project.viewMode !== "view" &&
-        stageView === "2d"
+        project.viewMode !== "view"
       }
       onOpenFormationChange={() => setFormationPresetPickerOpen(true)}
       onRequestAddCueAtTime={() => setAddCueDialogOpen(true)}
-      onSave={() => setFlowLibraryOpen(true)}
+      onSave={openFlowLibraryOrLogin}
       onOpenAudioImport={openAudioImport}
+      onApplyAiSectionKeyframes={
+        sectionAutoKeyframes.requestApplyAiSectionKeyframes
+      }
+      aiSectionKeyframesAvailable={sectionAutoKeyframes.canOffer}
+      onApplySectionFormationPatterns={sectionFormationPatterns.openDialog}
+      sectionFormationPatternsAvailable={sectionFormationPatterns.canOffer}
+      floatingChrome={wideEditorLayout && !mobileStackEditor}
+      onAddDancer={
+        wideEditorLayout && !choreoPublicView
+          ? addDancerFromStageToolbar
+          : undefined
+      }
+      onToggleRightPane={
+        wideEditorLayout && !choreoPublicView
+          ? () => setRightPaneCollapsed((v) => !v)
+          : undefined
+      }
+      rightPaneOpen={wideEditorLayout ? !rightPaneCollapsed : false}
+      playbackRate={project.playbackRate ?? 1}
+      onPlaybackRateChange={(rate) => {
+        setProjectSafe((p) => ({ ...p, playbackRate: rate }));
+      }}
       audioFileInputRef={editorAudioSession.audioFileInputRef}
       extractProgress={editorAudioSession.extractProgress}
       onPickAudio={editorAudioSession.onPickAudio}
       onOpenPathEditor={(cueId) => setPathEditorCueId(cueId)}
+      onOpenLightingSettings={(cueId) => {
+        useStageLightsViewStore.getState().setVisibleOnStage(true);
+        if (cueId) {
+          const cue = project?.cues.find((c) => c.id === cueId);
+          if (cue) {
+            const mid = (cue.tStartSec + cue.tEndSec) / 2;
+            usePlaybackUiStore.getState().setIsPlaying(false);
+            usePlaybackUiStore.getState().setCurrentTimeSec(mid);
+            try {
+              playbackEngine.pause();
+              playbackEngine.seek(mid);
+            } catch {
+              /* ignore */
+            }
+            setSelectedCueIds([cueId]);
+          }
+        }
+        setFloorTextPreferredTab("lights");
+        setFloorTextSideSheetOpen(true);
+      }}
+      onFocusCueForLighting={(cueId) => {
+        useStageLightsViewStore.getState().setVisibleOnStage(true);
+        const cue = project?.cues.find((c) => c.id === cueId);
+        if (!cue) return;
+        const mid = (cue.tStartSec + cue.tEndSec) / 2;
+        usePlaybackUiStore.getState().setIsPlaying(false);
+        usePlaybackUiStore.getState().setCurrentTimeSec(mid);
+        try {
+          playbackEngine.pause();
+          playbackEngine.seek(mid);
+        } catch {
+          /* ignore */
+        }
+        setSelectedCueIds([cueId]);
+      }}
+      onOpenFormationChange={() => setFormationPresetPickerOpen(true)}
+      onOpenGapLightingSettings={(nextCueId) => {
+        if (!project) return;
+        const sorted = [...project.cues].sort(
+          (a, b) =>
+            a.tStartSec - b.tStartSec ||
+            a.tEndSec - b.tEndSec ||
+            a.id.localeCompare(b.id)
+        );
+        const i = sorted.findIndex((c) => c.id === nextCueId);
+        const prev = i > 0 ? sorted[i - 1]! : null;
+        const next = i >= 0 ? sorted[i]! : null;
+        if (prev && next) {
+          const mid = (prev.tEndSec + next.tStartSec) / 2;
+          usePlaybackUiStore.getState().setIsPlaying(false);
+          usePlaybackUiStore.getState().setCurrentTimeSec(mid);
+          try {
+            playbackEngine.pause();
+            playbackEngine.seek(mid);
+          } catch {
+            /* ignore */
+          }
+          setSelectedCueIds([prev.id]);
+        } else if (prev) {
+          setSelectedCueIds([prev.id]);
+        }
+        setFloorTextPreferredTab("lights");
+        setFloorTextSideSheetOpen(true);
+      }}
       publicShareView={choreoPublicView}
       topDockHeightPx={
         showTopWaveDock && !mobileStackEditor ? editorTopDockHeightPx : null
@@ -2747,6 +3060,7 @@ function EditorPageContent({
     setFlowLibraryOpen,
     addDancerFromStageToolbar,
     importCrewCsvFromStageToolbar,
+    exportCrewRosterSpreadsheet,
     stageView,
     setStageView,
     floorTextPlaceSession,
@@ -2775,15 +3089,21 @@ function EditorPageContent({
     onOpenViewerMode: choreoPublicView
       ? () => setChoreoMemberSheetOpen(true)
       : () => setEditorViewerSheetOpen(true),
-    ...(me && !choreoPublicView
+    ...(!choreoPublicView
       ? {
-          onOpenCloudSave: () => setCloudSaveDialogOpen(true),
+          onOpenCloudSave: requestEditorSave,
           cloudSaveDisabled: saving,
           cloudSaveRailLine1: t("editor.cloudSaveRailLine1"),
-          cloudSaveRailLine2: serverId ? t("editor.saveOverwrite") : t("editor.save"),
-          cloudSaveRailTitle: serverId
-            ? t("editor.saveTitleOverwrite")
-            : t("editor.saveTitleNew"),
+          cloudSaveRailLine2: !me
+            ? t("editor.saveNeedLoginShort")
+            : serverId
+              ? t("editor.saveOverwrite")
+              : t("editor.save"),
+          cloudSaveRailTitle: !me
+            ? t("editor.saveNeedLoginTitle")
+            : serverId
+              ? `${t("editor.saveTitleOverwrite")}（⌘S / Ctrl+S）`
+              : `${t("editor.saveTitleNew")}（⌘S / Ctrl+S）`,
         }
       : {}),
   };
@@ -2808,7 +3128,6 @@ function EditorPageContent({
     cloudSaveDialogOpen,
     collabActive,
     commitFloorTextPlace,
-    commitStageGridCmInput,
     confirmAddSetPiece,
     cueById,
     cueListModalOpen,
@@ -2830,8 +3149,10 @@ function EditorPageContent({
     endTopDockResize,
     exportDialogEl,
     floorMarkupTool,
+    floorLineScope,
     floorTextPlaceSession,
     floorTextSideSheetOpen,
+    floorTextPreferredTab,
     flowLibraryDialogEl,
     formationBoxManagerDialogEl,
     formationPresetPickerOpen,
@@ -2839,26 +3160,28 @@ function EditorPageContent({
     setFormationPresetPickerOpen,
     formationById,
     getWavePeaksSnapshot,
-    gridDepthCmInput,
-    gridNudgeDidRepeatRef,
-    gridWidthCmInput,
     hasRosterMembers,
     importCrewCsvFromStageToolbar,
+    exportCrewRosterSpreadsheet,
     isPlaying,
     jumpToPagerSlot,
+    historyOverlayEpoch,
     markHistorySkipNextPush,
     me,
     memberRosterSheetOpen,
     mobileEditorToolsExpanded,
     mobileEditorWaveExpanded,
     mobileStackEditor,
-    nudgeStageGridCm,
     onFloorTextPlaceSessionChange,
     onRosterConfirmReturnToTimeline,
     onSplitLostCapture,
     onSplitPointerDown,
     onSplitPointerMove,
-    onStageGridCmInput,
+    onSleeveCurtainsChange,
+    onCenterMarksChange,
+    onStageLightsChange,
+    selectedStageLightId,
+    setSelectedStageLightId,
     onTopDockResizeDoubleClick,
     onTopDockResizeDown,
     onTopDockResizeMove,
@@ -2914,8 +3237,10 @@ function EditorPageContent({
     setEditorViewerPreviewPick,
     setEditorViewerSheetOpen,
     setFloorMarkupTool,
+    setFloorLineScope,
     setFloorTextPlaceSession,
     setFloorTextSideSheetOpen,
+    setFloorTextPreferredTab,
     setFlowLibraryOpen,
     setMemberRosterSheetOpen,
     setMobileEditorToolsExpanded,
@@ -2961,8 +3286,6 @@ function EditorPageContent({
     stageWorkbenchProps,
     stageView,
     stageZenLayout,
-    startGridNudgeRepeat,
-    stopGridNudgeRepeat,
     studentViewerFocusForStage,
     t,
     textPanelPortalEl,
@@ -2980,6 +3303,43 @@ function EditorPageContent({
   return (
     <>
       {playbackAudioElement}
+      <ProjectConflictDialog
+        open={Boolean(pendingLoadConflict)}
+        kind="load-draft"
+        serverUpdatedAt={pendingLoadConflict?.serverUpdatedAt}
+        localSavedAt={pendingLoadConflict?.localSavedAt}
+        onKeepLocal={resolveLoadConflictKeepLocal}
+        onTakeServer={resolveLoadConflictTakeServer}
+      />
+      <ProjectConflictDialog
+        open={Boolean(saveConflict)}
+        kind="save-stale"
+        serverUpdatedAt={saveConflict?.serverUpdatedAt}
+        onKeepLocal={() => {
+          void (async () => {
+            setSaving(true);
+            try {
+              await syncProjectToCloud({ force: true });
+              setSaveConflict(null);
+            } catch (e) {
+              alert(
+                e instanceof Error ? e.message : t("editor.cloudSave.errSaveFailed")
+              );
+            } finally {
+              setSaving(false);
+            }
+          })();
+        }}
+        onTakeServer={() => {
+          if (!saveConflict) return;
+          setPlainProject(saveConflict.serverJson);
+          setProjectName(saveConflict.serverName);
+          setKnownServerUpdatedAt(saveConflict.serverUpdatedAt);
+          if (serverId != null) clearEditorDraft(serverId);
+          setSaveConflict(null);
+        }}
+        onCancel={() => setSaveConflict(null)}
+      />
       {!choreoPublicView ? (
         <TimelineAudioChrome
           audioFileInputRef={editorAudioSession.audioFileInputRef}
@@ -3020,6 +3380,69 @@ function EditorPageContent({
         </div>
       ) : null}
       <EditorPageLayout {...editorLayoutProps} />
+      <EditorRealtimePeersBadge peers={realtime.peers} />
+      {aiSectionKeyframesDialogEl}
+      {sectionFormationPatternsDialogEl}
+      {sectionAutoKeyframes.pendingOffer &&
+      sectionAutoKeyframes.canOffer &&
+      !sectionAutoKeyframes.confirmOpen ? (
+        <div
+          role="status"
+          style={{
+            position: "fixed",
+            right: 16,
+            bottom: 16,
+            zIndex: 70,
+            maxWidth: 320,
+            padding: "12px 14px",
+            borderRadius: 12,
+            border: "1px solid #334155",
+            background: "rgba(15, 23, 42, 0.96)",
+            color: "#e2e8f0",
+            boxShadow: "0 12px 28px rgba(0,0,0,0.4)",
+            fontSize: 13,
+            lineHeight: 1.45,
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>
+            AIセクションのキーフレームを置けます
+          </div>
+          <div style={{ color: "#94a3b8", marginBottom: 10 }}>
+            解析結果のセクション頭に合わせて、タイムラインのキューを再配置できます。
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              onClick={sectionAutoKeyframes.dismissPendingOffer}
+              style={{
+                border: "1px solid #475569",
+                background: "transparent",
+                color: "#cbd5e1",
+                borderRadius: 8,
+                padding: "6px 10px",
+                cursor: "pointer",
+              }}
+            >
+              あとで
+            </button>
+            <button
+              type="button"
+              onClick={sectionAutoKeyframes.requestApplyAiSectionKeyframes}
+              style={{
+                border: "1px solid #f59e0b",
+                background: "#f59e0b",
+                color: "#0f172a",
+                borderRadius: 8,
+                padding: "6px 10px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              配置する
+            </button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

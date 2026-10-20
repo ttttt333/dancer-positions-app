@@ -14,7 +14,7 @@ import numpy as np
 
 from services.section_families import build_section_families
 
-ANALYZER_VERSION = "algo-v1.4.0"
+ANALYZER_VERSION = "algo-v1.5.0"
 
 BEATS_PER_EIGHT = 8
 EIGHTS_PER_BLOCK = 4  # 4エイト = 32ビート

@@ -7,10 +7,15 @@ export type StageBoardMainColumnProps = {
   editModeHeader?: ReactNode;
   /** `StageBoardFitViewport` 〜ステージ本体まで。 */
   stageFrame: ReactNode;
-  /** ステージ枠の外・客席側。編集ドック。 */
+  /**
+   * 選択時の編集ドック。床下に載せずオーバーレイするため、
+   * 表示の有無でステージ（コンテナクエリ）の大きさが変わらない。
+   */
   editDock?: ReactNode;
   /** 床下の一括ツールバー等。不要なら `null`。 */
   bulkToolbar: ReactNode;
+  /** パネル開閉に依存せず常時出す人数（ステージ列の右上） */
+  dancerCount?: number;
 };
 
 /**
@@ -22,6 +27,7 @@ export function StageBoardMainColumn({
   stageFrame,
   editDock = null,
   bulkToolbar,
+  dancerCount,
 }: StageBoardMainColumnProps) {
   return (
     <div
@@ -38,6 +44,7 @@ export function StageBoardMainColumn({
       <div
         className="stage-board-main-slot"
         style={{
+          position: "relative",
           flex: 1,
           minHeight: 0,
           minWidth: 0,
@@ -56,13 +63,78 @@ export function StageBoardMainColumn({
           overflow: "visible",
         }}
       >
+        {typeof dancerCount === "number" ? (
+          <div
+            aria-live="polite"
+            aria-label={`ステージ上 ${dancerCount} 人`}
+            title="いまステージに表示している人数"
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              zIndex: 60,
+              pointerEvents: "none",
+              padding: "4px 9px",
+              borderRadius: 8,
+              border: "1px solid rgba(51, 65, 85, 0.95)",
+              background: "rgba(15, 23, 42, 0.92)",
+              color: "#e2e8f0",
+              fontSize: 12,
+              fontWeight: 700,
+              fontVariantNumeric: "tabular-nums",
+              lineHeight: 1.2,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+            }}
+          >
+            {dancerCount}人
+          </div>
+        ) : null}
         {editModeHeader ? (
           <div style={{ flexShrink: 0, width: "100%" }}>{editModeHeader}</div>
         ) : null}
-        {stageFrame}
-        {editDock ? (
-          <div style={{ flexShrink: 0, width: "100%" }}>{editDock}</div>
-        ) : null}
+        <div
+          style={{
+            position: "relative",
+            flex: "1 1 0%",
+            minHeight: 0,
+            minWidth: 0,
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "stretch",
+          }}
+        >
+          {stageFrame}
+          {editDock ? (
+            <div
+              data-stage-edit-dock-overlay
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 55,
+                display: "flex",
+                justifyContent: "center",
+                padding: "4px 8px 10px",
+                pointerEvents: "none",
+                boxSizing: "border-box",
+              }}
+            >
+              <div
+                style={{
+                  pointerEvents: "auto",
+                  width: "100%",
+                  maxWidth: "min(100%, 640px)",
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+              >
+                {editDock}
+              </div>
+            </div>
+          ) : null}
+        </div>
         {bulkToolbar}
       </div>
     </div>

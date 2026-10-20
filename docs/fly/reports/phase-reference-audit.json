@@ -1,0 +1,1921 @@
+{
+  "auditId": "4.6-c-phase-reference-v1",
+  "status": "COMPLETE",
+  "computedAt": "2026-09-13T07:06:08.267Z",
+  "datasetVersion": "4.6.1-double-consensus",
+  "policy": {
+    "noNewAnalyzer": true,
+    "noFusion": true,
+    "noMsaf": true,
+    "noGtEdit": true
+  },
+  "developmentLogFinding": "madmom improved Period substantially (16→19), but Phase remained 0/20. Therefore the dominant Phase weakness is not solved by replacing the beat/tempo analyzer. FLY must investigate the common Phase Reference / Dance Phase definition before adding further analyzers or Fusion.",
+  "metricNote": "medianAbsSec = median(|signed residual|). medianSignedSec can cancel when phase wanders; do not use abs(signed-median) as Phase magnitude.",
+  "hypotheses": {
+    "A_analyzerBeatWrong": "Analyzer beat positions themselves are wrong",
+    "B_phaseReferenceInsufficient": "Analyzers may be coherent, but FLY Phase reference / Dance Phase definition is insufficient",
+    "C_multiCueDancePhase": "Dance Phase may require kick/snare/downbeat/groove cues beyond a single beat sequence"
+  },
+  "summary": {
+    "n": 20,
+    "relationCounts": {
+      "BOTH_OFF_AGREE": 18,
+      "BOTH_OFF_DISAGREE": 2
+    },
+    "librosaHalfBeatBins": {
+      "NEAR_QUARTER": 18,
+      "OTHER": 2
+    },
+    "madmomHalfBeatBins": {
+      "NEAR_QUARTER": 18,
+      "OTHER": 2
+    },
+    "librosaSignBias": {
+      "plus": 3,
+      "minus": 3,
+      "near0": 14
+    },
+    "madmomSignBias": {
+      "plus": 2,
+      "minus": 2,
+      "near0": 16
+    },
+    "bothOffAgreeCount": 18,
+    "bothOffDisagreeCount": 2,
+    "selectiveCloserCount": 0,
+    "phaseWanderSongCount": 18,
+    "meanAnalyzerAgreeSec": 0.02450000000004386,
+    "meanLibrosaAbsMs": 124,
+    "meanMadmomAbsMs": 123
+  },
+  "interpretation": {
+    "supportForHypothesisB": "STRONG",
+    "supportForHypothesisA_or_C_wander": "STRONG",
+    "supportForFusionNow": "NO",
+    "supportForMoreAnalyzerSwap": "NO — Experiment B already showed Period≠Phase",
+    "nextLayerHint": "Music Evidence → Beat Reference → Dance Phase → Count Grid (do not Fusion first)"
+  },
+  "song013": {
+    "songId": "song-013",
+    "title": "One More Time",
+    "gtSource": "consensus",
+    "gt": {
+      "bpm": 122.5,
+      "beatIntervalSec": 0.4890000000000043,
+      "beatPhase0Sec": 0.287,
+      "beatSeeds": 655,
+      "downIntervalSec": 1.9539999999999935,
+      "downPhase0Sec": 0.287,
+      "countGridStartSec": 0.287,
+      "countGridOffsetFromBeatSec": 0,
+      "countGridHalfBin": "NEAR_0"
+    },
+    "librosaBeat": {
+      "phase0Sec": 0.287,
+      "intervalSec": 0.4890000000000043,
+      "medianSignedSec": 0.04379999999812867,
+      "medianAbsSec": 0.16610000000020264,
+      "medianSignedBeats": 0.08957055214341161,
+      "halfBeatBin": "OTHER",
+      "sampleCount": 655,
+      "phaseSpreadBeats": 0.3280061487267942,
+      "signMix": {
+        "plus": 332,
+        "minus": 221,
+        "near0": 102
+      }
+    },
+    "madmomBeat": {
+      "phase0Sec": 0.287,
+      "intervalSec": 0.4890000000000043,
+      "medianSignedSec": -0.008000000001942453,
+      "medianAbsSec": 0.12099999999887245,
+      "medianSignedBeats": -0.016359918204381152,
+      "halfBeatBin": "NEAR_QUARTER",
+      "sampleCount": 657,
+      "phaseSpreadBeats": 0.28477259853349846,
+      "signMix": {
+        "plus": 257,
+        "minus": 282,
+        "near0": 118
+      }
+    },
+    "librosaDown": {
+      "phase0Sec": 0.287,
+      "intervalSec": 1.9539999999999935,
+      "medianSignedSec": -0.13499999999998025,
+      "medianAbsSec": 0.18949999999962586,
+      "medianSignedBeats": -0.06908904810643843,
+      "halfBeatBin": "NEAR_0",
+      "sampleCount": 163,
+      "phaseSpreadBeats": 0.1841375002324692,
+      "signMix": {
+        "plus": 50,
+        "minus": 84,
+        "near0": 29
+      }
+    },
+    "madmomDown": {
+      "phase0Sec": 0.287,
+      "intervalSec": 1.9539999999999935,
+      "medianSignedSec": -0.24699999999955935,
+      "medianAbsSec": 0.24699999999955935,
+      "medianSignedBeats": -0.1264073694982396,
+      "halfBeatBin": "OTHER",
+      "sampleCount": 163,
+      "phaseSpreadBeats": 0.05058342922534707,
+      "signMix": {
+        "plus": 5,
+        "minus": 154,
+        "near0": 4
+      }
+    },
+    "analyzerAgreeSec": 0.05180000000007112,
+    "analyzerAgreeBeats": 0.10593047034779277,
+    "relation": "BOTH_OFF_AGREE",
+    "phaseWander": {
+      "librosa": false,
+      "madmom": true
+    },
+    "notes": [
+      "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+      "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+    ]
+  },
+  "bothOffAgreeSongIds": [
+    "song-001",
+    "song-002",
+    "song-003",
+    "song-004",
+    "song-005",
+    "song-006",
+    "song-007",
+    "song-008",
+    "song-009",
+    "song-010",
+    "song-011",
+    "song-012",
+    "song-013",
+    "song-014",
+    "song-016",
+    "song-017",
+    "song-018",
+    "song-019"
+  ],
+  "bothOffDisagreeSongIds": [
+    "song-015",
+    "song-020"
+  ],
+  "songs": [
+    {
+      "songId": "song-001",
+      "title": "アイドル",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 166.92,
+        "beatIntervalSec": 0.359,
+        "beatPhase0Sec": 0.544,
+        "beatSeeds": 20,
+        "downIntervalSec": 1.4350000000000005,
+        "downPhase0Sec": 0.523,
+        "countGridStartSec": 0.544,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 0.544,
+        "intervalSec": 0.359,
+        "medianSignedSec": -0.003700000000016246,
+        "medianAbsSec": 0.08070000000000199,
+        "medianSignedBeats": -0.010306406685282023,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 573,
+        "phaseSpreadBeats": 0.2779493054866345,
+        "signMix": {
+          "plus": 208,
+          "minus": 218,
+          "near0": 147
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 0.544,
+        "intervalSec": 0.359,
+        "medianSignedSec": -0.008999999999998565,
+        "medianAbsSec": 0.08800000000000452,
+        "medianSignedBeats": -0.02506963788300436,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 619,
+        "phaseSpreadBeats": 0.2827863544726412,
+        "signMix": {
+          "plus": 228,
+          "minus": 260,
+          "near0": 131
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 0.523,
+        "intervalSec": 1.4350000000000005,
+        "medianSignedSec": 0.20589999999998376,
+        "medianAbsSec": 0.3072999999999322,
+        "medianSignedBeats": 0.14348432055747992,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 143,
+        "phaseSpreadBeats": 0.2553751599478085,
+        "signMix": {
+          "plus": 103,
+          "minus": 31,
+          "near0": 9
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 0.523,
+        "intervalSec": 1.4350000000000005,
+        "medianSignedSec": 0.17199999999994553,
+        "medianAbsSec": 0.27199999999992563,
+        "medianSignedBeats": 0.11986062717766235,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 143,
+        "phaseSpreadBeats": 0.24246339163507682,
+        "signMix": {
+          "plus": 99,
+          "minus": 32,
+          "near0": 12
+        }
+      },
+      "analyzerAgreeSec": 0.005299999999982319,
+      "analyzerAgreeBeats": 0.014763231197722337,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-002",
+      "title": "ダンスホール",
+      "gtSource": "consensus",
+      "gt": {
+        "bpm": 110.319,
+        "beatIntervalSec": 0.5380000000000003,
+        "beatPhase0Sec": 2.554,
+        "beatSeeds": 20,
+        "downIntervalSec": 2.174999999999997,
+        "downPhase0Sec": 2.497,
+        "countGridStartSec": 2.528,
+        "countGridOffsetFromBeatSec": -0.0259999999999998,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 2.554,
+        "intervalSec": 0.5380000000000003,
+        "medianSignedSec": -0.017600000000090432,
+        "medianAbsSec": 0.11580000000007473,
+        "medianSignedBeats": -0.03271375464700822,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 315,
+        "phaseSpreadBeats": 0.26012097252793703,
+        "signMix": {
+          "plus": 119,
+          "minus": 146,
+          "near0": 50
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 2.554,
+        "intervalSec": 0.5380000000000003,
+        "medianSignedSec": 0.016999999999949722,
+        "medianAbsSec": 0.12999999999999612,
+        "medianSignedBeats": 0.03159851301105895,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 362,
+        "phaseSpreadBeats": 0.28558659563609223,
+        "signMix": {
+          "plus": 163,
+          "minus": 143,
+          "near0": 56
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 2.497,
+        "intervalSec": 2.174999999999997,
+        "medianSignedSec": -0.2709999999998587,
+        "medianAbsSec": 0.3246999999998792,
+        "medianSignedBeats": -0.12459770114936047,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 79,
+        "phaseSpreadBeats": 0.21696974151184295,
+        "signMix": {
+          "plus": 8,
+          "minus": 67,
+          "near0": 4
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 2.497,
+        "intervalSec": 2.174999999999997,
+        "medianSignedSec": 0.20300000000013085,
+        "medianAbsSec": 0.20300000000013085,
+        "medianSignedBeats": 0.09333333333339362,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 88,
+        "phaseSpreadBeats": 0.07922776734768763,
+        "signMix": {
+          "plus": 68,
+          "minus": 8,
+          "near0": 12
+        }
+      },
+      "analyzerAgreeSec": 0.034600000000040154,
+      "analyzerAgreeBeats": 0.06431226765806718,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-003",
+      "title": "唱",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 130.829,
+        "beatIntervalSec": 0.4580000000000002,
+        "beatPhase0Sec": 0.868,
+        "beatSeeds": 20,
+        "downIntervalSec": 1.8259999999999996,
+        "downPhase0Sec": 0.868,
+        "countGridStartSec": 0.868,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 0.868,
+        "intervalSec": 0.4580000000000002,
+        "medianSignedSec": -0.02405000000003188,
+        "medianAbsSec": 0.11964999999997605,
+        "medianSignedBeats": -0.05251091703063727,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 406,
+        "phaseSpreadBeats": 0.2995682904032566,
+        "signMix": {
+          "plus": 143,
+          "minus": 190,
+          "near0": 73
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 0.868,
+        "intervalSec": 0.4580000000000002,
+        "medianSignedSec": -0.013000000000040757,
+        "medianAbsSec": 0.11399999999999122,
+        "medianSignedBeats": -0.02838427947607151,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 414,
+        "phaseSpreadBeats": 0.28729396504850335,
+        "signMix": {
+          "plus": 164,
+          "minus": 179,
+          "near0": 71
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 0.868,
+        "intervalSec": 1.8259999999999996,
+        "medianSignedSec": -0.019899999999997142,
+        "medianAbsSec": 0.1812999999999958,
+        "medianSignedBeats": -0.010898138006570178,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 101,
+        "phaseSpreadBeats": 0.1460594680621612,
+        "signMix": {
+          "plus": 42,
+          "minus": 49,
+          "near0": 10
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 0.868,
+        "intervalSec": 1.8259999999999996,
+        "medianSignedSec": -0.4699999999999811,
+        "medianAbsSec": 0.4699999999999811,
+        "medianSignedBeats": -0.2573932092004278,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 103,
+        "phaseSpreadBeats": 0.127840295941632,
+        "signMix": {
+          "plus": 0,
+          "minus": 103,
+          "near0": 0
+        }
+      },
+      "analyzerAgreeSec": 0.011049999999991122,
+      "analyzerAgreeBeats": 0.02412663755456576,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-004",
+      "title": "ポリリズム",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 130.69,
+        "beatIntervalSec": 0.4660000000000011,
+        "beatPhase0Sec": 2.088,
+        "beatSeeds": 20,
+        "downIntervalSec": 1.8719999999999999,
+        "downPhase0Sec": 2.088,
+        "countGridStartSec": 2.088,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 2.088,
+        "intervalSec": 0.4660000000000011,
+        "medianSignedSec": -0.058000000000490104,
+        "medianAbsSec": 0.11639999999972872,
+        "medianSignedBeats": -0.12446351931435616,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 513,
+        "phaseSpreadBeats": 0.27816067519067206,
+        "signMix": {
+          "plus": 139,
+          "minus": 282,
+          "near0": 92
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 2.088,
+        "intervalSec": 0.4660000000000011,
+        "medianSignedSec": -0.010000000000157883,
+        "medianAbsSec": 0.11899999999986122,
+        "medianSignedBeats": -0.021459227468149912,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 526,
+        "phaseSpreadBeats": 0.2896467716505138,
+        "signMix": {
+          "plus": 211,
+          "minus": 227,
+          "near0": 88
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 2.088,
+        "intervalSec": 1.8719999999999999,
+        "medianSignedSec": -0.32329999999998194,
+        "medianAbsSec": 0.32329999999998194,
+        "medianSignedBeats": -0.17270299145298182,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 128,
+        "phaseSpreadBeats": 0.07012075872164175,
+        "signMix": {
+          "plus": 0,
+          "minus": 128,
+          "near0": 0
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 2.088,
+        "intervalSec": 1.8719999999999999,
+        "medianSignedSec": 0.01600000000001245,
+        "medianAbsSec": 0.09700000000001552,
+        "medianSignedBeats": 0.008547008547015197,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 130,
+        "phaseSpreadBeats": 0.060274636338752484,
+        "signMix": {
+          "plus": 58,
+          "minus": 46,
+          "near0": 26
+        }
+      },
+      "analyzerAgreeSec": 0.04800000000033222,
+      "analyzerAgreeBeats": 0.10300429184620624,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": false,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-005",
+      "title": "Super Shy",
+      "gtSource": "consensus",
+      "gt": {
+        "bpm": 150.5,
+        "beatIntervalSec": 0.39700000000000024,
+        "beatPhase0Sec": 0.506,
+        "beatSeeds": 32,
+        "downIntervalSec": 1.6080000000000005,
+        "downPhase0Sec": 0.506,
+        "countGridStartSec": 0.506,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 0.506,
+        "intervalSec": 0.39700000000000024,
+        "medianSignedSec": 0.01189999999993141,
+        "medianAbsSec": 0.09639999999994942,
+        "medianSignedBeats": 0.029974811082950636,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 383,
+        "phaseSpreadBeats": 0.2853492172828367,
+        "signMix": {
+          "plus": 162,
+          "minus": 143,
+          "near0": 78
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 0.506,
+        "intervalSec": 0.39700000000000024,
+        "medianSignedSec": 0.006999999999925066,
+        "medianAbsSec": 0.09600000000000541,
+        "medianSignedBeats": 0.017632241813413253,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 385,
+        "phaseSpreadBeats": 0.28061632096540967,
+        "signMix": {
+          "plus": 158,
+          "minus": 140,
+          "near0": 87
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 0.506,
+        "intervalSec": 1.6080000000000005,
+        "medianSignedSec": -0.4312000000000218,
+        "medianAbsSec": 0.5069000000000301,
+        "medianSignedBeats": -0.26815920398011295,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 95,
+        "phaseSpreadBeats": 0.2475400649203313,
+        "signMix": {
+          "plus": 8,
+          "minus": 87,
+          "near0": 0
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 0.506,
+        "intervalSec": 1.6080000000000005,
+        "medianSignedSec": -0.41200000000002035,
+        "medianAbsSec": 0.5400000000000205,
+        "medianSignedBeats": -0.25621890547264936,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 95,
+        "phaseSpreadBeats": 0.3077998807313106,
+        "signMix": {
+          "plus": 15,
+          "minus": 80,
+          "near0": 0
+        }
+      },
+      "analyzerAgreeSec": 0.004900000000006344,
+      "analyzerAgreeBeats": 0.012342569269537381,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-006",
+      "title": "MIC Drop",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 85,
+        "beatIntervalSec": 0.7079999999999984,
+        "beatPhase0Sec": 5.842,
+        "beatSeeds": 24,
+        "downIntervalSec": 2.8260000000000005,
+        "downPhase0Sec": 5.842,
+        "countGridStartSec": 5.842,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 5.842,
+        "intervalSec": 0.7079999999999984,
+        "medianSignedSec": -0.0002999999998487546,
+        "medianAbsSec": 0.17435000000000045,
+        "medianSignedBeats": -0.0004237288133456995,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 636,
+        "phaseSpreadBeats": 0.2861855275176108,
+        "signMix": {
+          "plus": 298,
+          "minus": 283,
+          "near0": 55
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 5.842,
+        "intervalSec": 0.7079999999999984,
+        "medianSignedSec": 0.03800000000023829,
+        "medianAbsSec": 0.1600000000003945,
+        "medianSignedBeats": 0.05367231638451748,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 583,
+        "phaseSpreadBeats": 0.2679601859605007,
+        "signMix": {
+          "plus": 290,
+          "minus": 230,
+          "near0": 63
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 5.842,
+        "intervalSec": 2.8260000000000005,
+        "medianSignedSec": -0.008300000000005525,
+        "medianAbsSec": 1.2226999999999535,
+        "medianSignedBeats": -0.0029370134465695414,
+        "halfBeatBin": "NEAR_MINUS_HALF",
+        "sampleCount": 159,
+        "phaseSpreadBeats": 0.3366435742719778,
+        "signMix": {
+          "plus": 71,
+          "minus": 68,
+          "near0": 20
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 5.842,
+        "intervalSec": 2.8260000000000005,
+        "medianSignedSec": -0.16100000000002979,
+        "medianAbsSec": 0.2130000000000507,
+        "medianSignedBeats": -0.05697098372258661,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 104,
+        "phaseSpreadBeats": 0.18180688148749194,
+        "signMix": {
+          "plus": 24,
+          "minus": 76,
+          "near0": 4
+        }
+      },
+      "analyzerAgreeSec": 0.03830000000008704,
+      "analyzerAgreeBeats": 0.05409604519786317,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-007",
+      "title": "How You Like That",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 130,
+        "beatIntervalSec": 0.4610000000000003,
+        "beatPhase0Sec": 2.67,
+        "beatSeeds": 19,
+        "downIntervalSec": 1.844500000000001,
+        "downPhase0Sec": 2.91,
+        "countGridStartSec": 2.67,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 2.67,
+        "intervalSec": 0.4610000000000003,
+        "medianSignedSec": 0.08484999999994258,
+        "medianAbsSec": 0.08654999999994129,
+        "medianSignedBeats": 0.18405639913219637,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 374,
+        "phaseSpreadBeats": 0.13578268684565897,
+        "signMix": {
+          "plus": 269,
+          "minus": 2,
+          "near0": 103
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 2.67,
+        "intervalSec": 0.4610000000000003,
+        "medianSignedSec": 0.05699999999993288,
+        "medianAbsSec": 0.05699999999993288,
+        "medianSignedBeats": 0.12364425162675237,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 391,
+        "phaseSpreadBeats": 0.12765349133935555,
+        "signMix": {
+          "plus": 219,
+          "minus": 14,
+          "near0": 158
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 2.91,
+        "intervalSec": 1.844500000000001,
+        "medianSignedSec": 0.7365999999999588,
+        "medianAbsSec": 0.7365999999999588,
+        "medianSignedBeats": 0.3993494171862068,
+        "halfBeatBin": "NEAR_PLUS_HALF",
+        "sampleCount": 94,
+        "phaseSpreadBeats": 0.06926336303103021,
+        "signMix": {
+          "plus": 94,
+          "minus": 0,
+          "near0": 0
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 2.91,
+        "intervalSec": 1.844500000000001,
+        "medianSignedSec": -0.2225000000000401,
+        "medianAbsSec": 0.2225000000000401,
+        "medianSignedBeats": -0.12062889672,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 93,
+        "phaseSpreadBeats": 0.024286719050194406,
+        "signMix": {
+          "plus": 0,
+          "minus": 93,
+          "near0": 0
+        }
+      },
+      "analyzerAgreeSec": 0.0278500000000097,
+      "analyzerAgreeBeats": 0.060412147505444,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": false,
+        "madmom": false
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap"
+      ]
+    },
+    {
+      "songId": "song-008",
+      "title": "God's Menu",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 156,
+        "beatIntervalSec": 0.38349999999999995,
+        "beatPhase0Sec": 0.457,
+        "beatSeeds": 23,
+        "downIntervalSec": 1.520999999999999,
+        "downPhase0Sec": 0.457,
+        "countGridStartSec": 0.457,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 0.457,
+        "intervalSec": 0.38349999999999995,
+        "medianSignedSec": 0.0436000000000204,
+        "medianAbsSec": 0.10500000000001752,
+        "medianSignedBeats": 0.11368970013043131,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 232,
+        "phaseSpreadBeats": 0.28137820145178744,
+        "signMix": {
+          "plus": 126,
+          "minus": 62,
+          "near0": 44
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 0.457,
+        "intervalSec": 0.38349999999999995,
+        "medianSignedSec": 0.02950000000000297,
+        "medianAbsSec": 0.08099999999998708,
+        "medianSignedBeats": 0.07692307692308467,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 489,
+        "phaseSpreadBeats": 0.25794843887738506,
+        "signMix": {
+          "plus": 220,
+          "minus": 123,
+          "near0": 146
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 0.457,
+        "intervalSec": 1.520999999999999,
+        "medianSignedSec": 0.21275000000003708,
+        "medianAbsSec": 0.257500000000066,
+        "medianSignedBeats": 0.13987508218279895,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 58,
+        "phaseSpreadBeats": 0.2103864535993008,
+        "signMix": {
+          "plus": 42,
+          "minus": 13,
+          "near0": 3
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 0.457,
+        "intervalSec": 1.520999999999999,
+        "medianSignedSec": -0.04999999999997762,
+        "medianAbsSec": 0.1180000000000927,
+        "medianSignedBeats": -0.03287310979617202,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 117,
+        "phaseSpreadBeats": 0.09213878321487802,
+        "signMix": {
+          "plus": 28,
+          "minus": 61,
+          "near0": 28
+        }
+      },
+      "analyzerAgreeSec": 0.014100000000017432,
+      "analyzerAgreeBeats": 0.03676662320734663,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": false,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-009",
+      "title": "Get Ur Freak On",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 90.58,
+        "beatIntervalSec": 0.6739999999999995,
+        "beatPhase0Sec": 13.221,
+        "beatSeeds": 20,
+        "downIntervalSec": 2.7080000000000055,
+        "downPhase0Sec": 13.129,
+        "countGridStartSec": 13.218,
+        "countGridOffsetFromBeatSec": -0.0030000000000001137,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 13.221,
+        "intervalSec": 0.6739999999999995,
+        "medianSignedSec": 0.006000000000078387,
+        "medianAbsSec": 0.17970000000007502,
+        "medianSignedBeats": 0.00890207715145162,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 345,
+        "phaseSpreadBeats": 0.2946604520417211,
+        "signMix": {
+          "plus": 158,
+          "minus": 155,
+          "near0": 32
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 13.221,
+        "intervalSec": 0.6739999999999995,
+        "medianSignedSec": 0.003000000000081826,
+        "medianAbsSec": 0.16699999999999982,
+        "medianSignedBeats": 0.004451038575789063,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 528,
+        "phaseSpreadBeats": 0.2994313219938251,
+        "signMix": {
+          "plus": 219,
+          "minus": 210,
+          "near0": 99
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 13.129,
+        "intervalSec": 2.7080000000000055,
+        "medianSignedSec": 0.10584999999980838,
+        "medianAbsSec": 0.7255000000000322,
+        "medianSignedBeats": 0.0390878877399587,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 86,
+        "phaseSpreadBeats": 0.2938984299136712,
+        "signMix": {
+          "plus": 46,
+          "minus": 39,
+          "near0": 1
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 13.129,
+        "intervalSec": 2.7080000000000055,
+        "medianSignedSec": 0.331999999999816,
+        "medianAbsSec": 0.684000000000001,
+        "medianSignedBeats": 0.12259970457895691,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 132,
+        "phaseSpreadBeats": 0.258180982010305,
+        "signMix": {
+          "plus": 66,
+          "minus": 66,
+          "near0": 0
+        }
+      },
+      "analyzerAgreeSec": 0.002999999999996561,
+      "analyzerAgreeBeats": 0.004451038575662557,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-010",
+      "title": "Still D.R.E.",
+      "gtSource": "consensus",
+      "gt": {
+        "bpm": 93.511,
+        "beatIntervalSec": 0.6440000000000001,
+        "beatPhase0Sec": 0.905,
+        "beatSeeds": 24,
+        "downIntervalSec": 2.5705,
+        "downPhase0Sec": 0.932,
+        "countGridStartSec": 0.905,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 0.905,
+        "intervalSec": 0.6440000000000001,
+        "medianSignedSec": -0.05705000000004112,
+        "medianAbsSec": 0.1726500000000124,
+        "medianSignedBeats": -0.08858695652180297,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 416,
+        "phaseSpreadBeats": 0.29140050597714945,
+        "signMix": {
+          "plus": 154,
+          "minus": 217,
+          "near0": 45
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 0.905,
+        "intervalSec": 0.6440000000000001,
+        "medianSignedSec": -0.0620000000000287,
+        "medianAbsSec": 0.18200000000001992,
+        "medianSignedBeats": -0.09627329192551039,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 420,
+        "phaseSpreadBeats": 0.29956313724003497,
+        "signMix": {
+          "plus": 155,
+          "minus": 221,
+          "near0": 44
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 0.932,
+        "intervalSec": 2.5705,
+        "medianSignedSec": -0.25079999999999947,
+        "medianAbsSec": 0.25079999999999947,
+        "medianSignedBeats": -0.09756856642676501,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 104,
+        "phaseSpreadBeats": 0.022628875694790305,
+        "signMix": {
+          "plus": 0,
+          "minus": 104,
+          "near0": 0
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 0.932,
+        "intervalSec": 2.5705,
+        "medianSignedSec": -0.2884999999999929,
+        "medianAbsSec": 0.2884999999999929,
+        "medianSignedBeats": -0.11223497374051464,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 105,
+        "phaseSpreadBeats": 0.02223050453258434,
+        "signMix": {
+          "plus": 0,
+          "minus": 105,
+          "near0": 0
+        }
+      },
+      "analyzerAgreeSec": 0.0049499999999875754,
+      "analyzerAgreeBeats": 0.007686335403707414,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": false,
+        "madmom": false
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap"
+      ]
+    },
+    {
+      "songId": "song-011",
+      "title": "HUMBLE.",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 150,
+        "beatIntervalSec": 0.40500000000000025,
+        "beatPhase0Sec": 1.419,
+        "beatSeeds": 20,
+        "downIntervalSec": 1.5969999999999995,
+        "downPhase0Sec": 1.419,
+        "countGridStartSec": 1.419,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 1.419,
+        "intervalSec": 0.40500000000000025,
+        "medianSignedSec": 0.000999999999940382,
+        "medianAbsSec": 0.1079999999999468,
+        "medianSignedBeats": 0.0024691358023219293,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 430,
+        "phaseSpreadBeats": 0.29598309147111235,
+        "signMix": {
+          "plus": 176,
+          "minus": 175,
+          "near0": 79
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 1.419,
+        "intervalSec": 0.40500000000000025,
+        "medianSignedSec": 0.005999999999953154,
+        "medianAbsSec": 0.10599999999994392,
+        "medianSignedBeats": 0.014814814814699137,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 439,
+        "phaseSpreadBeats": 0.29094039557483575,
+        "signMix": {
+          "plus": 186,
+          "minus": 167,
+          "near0": 86
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 1.419,
+        "intervalSec": 1.5969999999999995,
+        "medianSignedSec": 0.42530000000003465,
+        "medianAbsSec": 0.42530000000003465,
+        "medianSignedBeats": 0.2663118346900656,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 108,
+        "phaseSpreadBeats": 0.058914451624347,
+        "signMix": {
+          "plus": 108,
+          "minus": 0,
+          "near0": 0
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 1.419,
+        "intervalSec": 1.5969999999999995,
+        "medianSignedSec": -0.020999999999972374,
+        "medianAbsSec": 0.08100000000002083,
+        "medianSignedBeats": -0.013149655604240688,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 107,
+        "phaseSpreadBeats": 0.057410677736415866,
+        "signMix": {
+          "plus": 31,
+          "minus": 47,
+          "near0": 29
+        }
+      },
+      "analyzerAgreeSec": 0.005000000000012772,
+      "analyzerAgreeBeats": 0.012345679012377207,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-012",
+      "title": "SICKO MODE",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 140,
+        "beatIntervalSec": 0.4249999999999998,
+        "beatPhase0Sec": 0.765,
+        "beatSeeds": 24,
+        "downIntervalSec": 1.7379999999999995,
+        "downPhase0Sec": 0.765,
+        "countGridStartSec": 0.765,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 0.765,
+        "intervalSec": 0.4249999999999998,
+        "medianSignedSec": -0.000599999999870704,
+        "medianAbsSec": 0.1063000000000196,
+        "medianSignedBeats": -0.0014117647055781276,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 805,
+        "phaseSpreadBeats": 0.28918967914460486,
+        "signMix": {
+          "plus": 323,
+          "minus": 328,
+          "near0": 154
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 0.765,
+        "intervalSec": 0.4249999999999998,
+        "medianSignedSec": 0.0025000000000608424,
+        "medianAbsSec": 0.10499999999996312,
+        "medianSignedBeats": 0.005882352941319632,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 738,
+        "phaseSpreadBeats": 0.286321838556681,
+        "signMix": {
+          "plus": 307,
+          "minus": 285,
+          "near0": 146
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 0.765,
+        "intervalSec": 1.7379999999999995,
+        "medianSignedSec": -0.010749999999951854,
+        "medianAbsSec": 0.4181000000000026,
+        "medianSignedBeats": -0.006185270425749055,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 202,
+        "phaseSpreadBeats": 0.2862299130603943,
+        "signMix": {
+          "plus": 95,
+          "minus": 96,
+          "near0": 11
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 0.765,
+        "intervalSec": 1.7379999999999995,
+        "medianSignedSec": -0.08299999999997887,
+        "medianAbsSec": 0.3690000000000353,
+        "medianSignedBeats": -0.047756041426915356,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 188,
+        "phaseSpreadBeats": 0.2760502185520911,
+        "signMix": {
+          "plus": 79,
+          "minus": 101,
+          "near0": 8
+        }
+      },
+      "analyzerAgreeSec": 0.0030999999999315464,
+      "analyzerAgreeBeats": 0.0072941176468977595,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-013",
+      "title": "One More Time",
+      "gtSource": "consensus",
+      "gt": {
+        "bpm": 122.5,
+        "beatIntervalSec": 0.4890000000000043,
+        "beatPhase0Sec": 0.287,
+        "beatSeeds": 655,
+        "downIntervalSec": 1.9539999999999935,
+        "downPhase0Sec": 0.287,
+        "countGridStartSec": 0.287,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 0.287,
+        "intervalSec": 0.4890000000000043,
+        "medianSignedSec": 0.04379999999812867,
+        "medianAbsSec": 0.16610000000020264,
+        "medianSignedBeats": 0.08957055214341161,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 655,
+        "phaseSpreadBeats": 0.3280061487267942,
+        "signMix": {
+          "plus": 332,
+          "minus": 221,
+          "near0": 102
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 0.287,
+        "intervalSec": 0.4890000000000043,
+        "medianSignedSec": -0.008000000001942453,
+        "medianAbsSec": 0.12099999999887245,
+        "medianSignedBeats": -0.016359918204381152,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 657,
+        "phaseSpreadBeats": 0.28477259853349846,
+        "signMix": {
+          "plus": 257,
+          "minus": 282,
+          "near0": 118
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 0.287,
+        "intervalSec": 1.9539999999999935,
+        "medianSignedSec": -0.13499999999998025,
+        "medianAbsSec": 0.18949999999962586,
+        "medianSignedBeats": -0.06908904810643843,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 163,
+        "phaseSpreadBeats": 0.1841375002324692,
+        "signMix": {
+          "plus": 50,
+          "minus": 84,
+          "near0": 29
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 0.287,
+        "intervalSec": 1.9539999999999935,
+        "medianSignedSec": -0.24699999999955935,
+        "medianAbsSec": 0.24699999999955935,
+        "medianSignedBeats": -0.1264073694982396,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 163,
+        "phaseSpreadBeats": 0.05058342922534707,
+        "signMix": {
+          "plus": 5,
+          "minus": 154,
+          "near0": 4
+        }
+      },
+      "analyzerAgreeSec": 0.05180000000007112,
+      "analyzerAgreeBeats": 0.10593047034779277,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": false,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-014",
+      "title": "Omen",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 138,
+        "beatIntervalSec": 0.4299999999999997,
+        "beatPhase0Sec": 4.128,
+        "beatSeeds": 24,
+        "downIntervalSec": 1.721,
+        "downPhase0Sec": 4.128,
+        "countGridStartSec": 4.128,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 4.128,
+        "intervalSec": 0.4299999999999997,
+        "medianSignedSec": 0.0015500000000692182,
+        "medianAbsSec": 0.12649999999996098,
+        "medianSignedBeats": 0.0036046511629516725,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 484,
+        "phaseSpreadBeats": 0.317711760594739,
+        "signMix": {
+          "plus": 218,
+          "minus": 213,
+          "near0": 53
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 4.128,
+        "intervalSec": 0.4299999999999997,
+        "medianSignedSec": 0.04200000000004778,
+        "medianAbsSec": 0.12799999999989708,
+        "medianSignedBeats": 0.09767441860476234,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 494,
+        "phaseSpreadBeats": 0.31505958234216186,
+        "signMix": {
+          "plus": 250,
+          "minus": 175,
+          "near0": 69
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 4.128,
+        "intervalSec": 1.721,
+        "medianSignedSec": -0.4438000000000031,
+        "medianAbsSec": 0.5093000000000067,
+        "medianSignedBeats": -0.2578733294596183,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 121,
+        "phaseSpreadBeats": 0.21855799121372718,
+        "signMix": {
+          "plus": 7,
+          "minus": 114,
+          "near0": 0
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 4.128,
+        "intervalSec": 1.721,
+        "medianSignedSec": -0.44500000000001094,
+        "medianAbsSec": 0.5500000000000043,
+        "medianSignedBeats": -0.2585705984892568,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 123,
+        "phaseSpreadBeats": 0.27985985951381515,
+        "signMix": {
+          "plus": 15,
+          "minus": 108,
+          "near0": 0
+        }
+      },
+      "analyzerAgreeSec": 0.04044999999997856,
+      "analyzerAgreeBeats": 0.09406976744181067,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": false
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-015",
+      "title": "Bangarang",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 110,
+        "beatIntervalSec": 0.5439999999999987,
+        "beatPhase0Sec": 0.541,
+        "beatSeeds": 24,
+        "downIntervalSec": 2.1820000000000004,
+        "downPhase0Sec": 0.541,
+        "countGridStartSec": 0.541,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 0.541,
+        "intervalSec": 0.5439999999999987,
+        "medianSignedSec": -0.07129999999975034,
+        "medianAbsSec": 0.12910000000042565,
+        "medianSignedBeats": -0.1310661764701296,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 387,
+        "phaseSpreadBeats": 0.25634853527048074,
+        "signMix": {
+          "plus": 96,
+          "minus": 226,
+          "near0": 65
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 0.541,
+        "intervalSec": 0.5439999999999987,
+        "medianSignedSec": 0.0010000000003023146,
+        "medianAbsSec": 0.13700000000024115,
+        "medianSignedBeats": 0.0018382352946733768,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 392,
+        "phaseSpreadBeats": 0.28657502403246343,
+        "signMix": {
+          "plus": 169,
+          "minus": 165,
+          "near0": 58
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 0.541,
+        "intervalSec": 2.1820000000000004,
+        "medianSignedSec": -0.20885000000000442,
+        "medianAbsSec": 0.7275999999999785,
+        "medianSignedBeats": -0.09571494042163355,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 96,
+        "phaseSpreadBeats": 0.3427403489690654,
+        "signMix": {
+          "plus": 36,
+          "minus": 60,
+          "near0": 0
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 0.541,
+        "intervalSec": 2.1820000000000004,
+        "medianSignedSec": -0.1390000000000038,
+        "medianAbsSec": 0.13900000000000734,
+        "medianSignedBeats": -0.0637030247479394,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 96,
+        "phaseSpreadBeats": 0.03529157776914647,
+        "signMix": {
+          "plus": 3,
+          "minus": 93,
+          "near0": 0
+        }
+      },
+      "analyzerAgreeSec": 0.07230000000005266,
+      "analyzerAgreeBeats": 0.132904411764803,
+      "relation": "BOTH_OFF_DISAGREE",
+      "phaseWander": {
+        "librosa": false,
+        "madmom": true
+      },
+      "notes": [
+        "analyzers disagree & both off GT → ensemble only after reference clarity",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-016",
+      "title": "24K Magic",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 107,
+        "beatIntervalSec": 0.5649999999999977,
+        "beatPhase0Sec": 23.618,
+        "beatSeeds": 24,
+        "downIntervalSec": 2.2509999999999977,
+        "downPhase0Sec": 23.618,
+        "countGridStartSec": 23.618,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 23.618,
+        "intervalSec": 0.5649999999999977,
+        "medianSignedSec": -0.03904999999964076,
+        "medianAbsSec": 0.13995000000008417,
+        "medianSignedBeats": -0.06911504424715206,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 356,
+        "phaseSpreadBeats": 0.28417782732098024,
+        "signMix": {
+          "plus": 125,
+          "minus": 177,
+          "near0": 54
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 23.618,
+        "intervalSec": 0.5649999999999977,
+        "medianSignedSec": -0.03299999999966019,
+        "medianAbsSec": 0.14700000000053137,
+        "medianSignedBeats": -0.0584070796454165,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 361,
+        "phaseSpreadBeats": 0.29637299308459797,
+        "signMix": {
+          "plus": 132,
+          "minus": 175,
+          "near0": 54
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 23.618,
+        "intervalSec": 2.2509999999999977,
+        "medianSignedSec": -0.7499999999999147,
+        "medianAbsSec": 0.8514999999998949,
+        "medianSignedBeats": -0.33318525099951823,
+        "halfBeatBin": "NEAR_MINUS_HALF",
+        "sampleCount": 89,
+        "phaseSpreadBeats": 0.2979903092639432,
+        "signMix": {
+          "plus": 11,
+          "minus": 78,
+          "near0": 0
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 23.618,
+        "intervalSec": 2.2509999999999977,
+        "medianSignedSec": -0.32749999999989043,
+        "medianAbsSec": 0.32749999999989043,
+        "medianSignedBeats": -0.14549089293642414,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 90,
+        "phaseSpreadBeats": 0.09267094315957915,
+        "signMix": {
+          "plus": 0,
+          "minus": 81,
+          "near0": 9
+        }
+      },
+      "analyzerAgreeSec": 0.006049999999980571,
+      "analyzerAgreeBeats": 0.010707964601735566,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-017",
+      "title": "Billie Jean",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 118,
+        "beatIntervalSec": 0.5105,
+        "beatPhase0Sec": 0.977,
+        "beatSeeds": 19,
+        "downIntervalSec": 2.0705000000000005,
+        "downPhase0Sec": 0.977,
+        "countGridStartSec": 0.977,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 0.977,
+        "intervalSec": 0.5105,
+        "medianSignedSec": 0.010300000000001308,
+        "medianAbsSec": 0.15210000000002433,
+        "medianSignedBeats": 0.020176297747309127,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 557,
+        "phaseSpreadBeats": 0.3139907516353911,
+        "signMix": {
+          "plus": 256,
+          "minus": 256,
+          "near0": 45
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 0.977,
+        "intervalSec": 0.5105,
+        "medianSignedSec": 0.03475000000000272,
+        "medianAbsSec": 0.14674999999998328,
+        "medianSignedBeats": 0.06807051909892796,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 574,
+        "phaseSpreadBeats": 0.3148329385989167,
+        "signMix": {
+          "plus": 273,
+          "minus": 226,
+          "near0": 75
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 0.977,
+        "intervalSec": 2.0705000000000005,
+        "medianSignedSec": -0.24050000000000638,
+        "medianAbsSec": 0.5119500000000161,
+        "medianSignedBeats": -0.11615551799082653,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 140,
+        "phaseSpreadBeats": 0.2762248733300919,
+        "signMix": {
+          "plus": 44,
+          "minus": 89,
+          "near0": 7
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 0.977,
+        "intervalSec": 2.0705000000000005,
+        "medianSignedSec": -0.24650000000003525,
+        "medianAbsSec": 0.5284999999999775,
+        "medianSignedBeats": -0.11905336875152629,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 142,
+        "phaseSpreadBeats": 0.2917132909444987,
+        "signMix": {
+          "plus": 47,
+          "minus": 89,
+          "near0": 6
+        }
+      },
+      "analyzerAgreeSec": 0.024450000000001415,
+      "analyzerAgreeBeats": 0.04789422135161884,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-018",
+      "title": "Thinkin Bout You",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 130,
+        "beatIntervalSec": 0.46399999999999864,
+        "beatPhase0Sec": 7.529,
+        "beatSeeds": 32,
+        "downIntervalSec": 1.8470000000000013,
+        "downPhase0Sec": 7.529,
+        "countGridStartSec": 7.529,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 7.529,
+        "intervalSec": 0.46399999999999864,
+        "medianSignedSec": -0.011799999999453803,
+        "medianAbsSec": 0.10389999999993904,
+        "medianSignedBeats": -0.025431034481581547,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 417,
+        "phaseSpreadBeats": 0.2770381760185542,
+        "signMix": {
+          "plus": 161,
+          "minus": 168,
+          "near0": 88
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 7.529,
+        "intervalSec": 0.46399999999999864,
+        "medianSignedSec": -0.021999999999867903,
+        "medianAbsSec": 0.10499999999955634,
+        "medianSignedBeats": -0.04741379310316372,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 418,
+        "phaseSpreadBeats": 0.2809806868673904,
+        "signMix": {
+          "plus": 158,
+          "minus": 187,
+          "near0": 73
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 7.529,
+        "intervalSec": 1.8470000000000013,
+        "medianSignedSec": -0.48315000000005526,
+        "medianAbsSec": 0.48315000000005526,
+        "medianSignedBeats": -0.2615863562534136,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 104,
+        "phaseSpreadBeats": 0.014913564812316567,
+        "signMix": {
+          "plus": 0,
+          "minus": 104,
+          "near0": 0
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 7.529,
+        "intervalSec": 1.8470000000000013,
+        "medianSignedSec": -0.06750000000007006,
+        "medianAbsSec": 0.06750000000007006,
+        "medianSignedBeats": -0.03654574986468328,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 104,
+        "phaseSpreadBeats": 0.01406886999998215,
+        "signMix": {
+          "plus": 0,
+          "minus": 84,
+          "near0": 20
+        }
+      },
+      "analyzerAgreeSec": 0.0102000000004141,
+      "analyzerAgreeBeats": 0.021982758621582176,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-019",
+      "title": "カタオモイ",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 97,
+        "beatIntervalSec": 0.6280000000000001,
+        "beatPhase0Sec": 4.281,
+        "beatSeeds": 20,
+        "downIntervalSec": 2.4609999999999985,
+        "downPhase0Sec": 4.281,
+        "countGridStartSec": 4.281,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 4.281,
+        "intervalSec": 0.6280000000000001,
+        "medianSignedSec": -0.0004000000000061732,
+        "medianAbsSec": 0.11350000000000904,
+        "medianSignedBeats": -0.0006369426751690654,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 319,
+        "phaseSpreadBeats": 0.2427473216780104,
+        "signMix": {
+          "plus": 129,
+          "minus": 120,
+          "near0": 70
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 4.281,
+        "intervalSec": 0.6280000000000001,
+        "medianSignedSec": 0.018999999999991246,
+        "medianAbsSec": 0.16299999999995407,
+        "medianSignedBeats": 0.03025477707004975,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 341,
+        "phaseSpreadBeats": 0.2890870934254905,
+        "signMix": {
+          "plus": 154,
+          "minus": 147,
+          "near0": 40
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 4.281,
+        "intervalSec": 2.4609999999999985,
+        "medianSignedSec": 0.08930000000007254,
+        "medianAbsSec": 0.21040000000000525,
+        "medianSignedBeats": 0.03628606257621804,
+        "halfBeatBin": "NEAR_0",
+        "sampleCount": 80,
+        "phaseSpreadBeats": 0.2009142120056014,
+        "signMix": {
+          "plus": 45,
+          "minus": 26,
+          "near0": 9
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 4.281,
+        "intervalSec": 2.4609999999999985,
+        "medianSignedSec": 0.5080000000000524,
+        "medianAbsSec": 0.5080000000000524,
+        "medianSignedBeats": 0.20642015440879835,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 81,
+        "phaseSpreadBeats": 0.12905314699591217,
+        "signMix": {
+          "plus": 75,
+          "minus": 0,
+          "near0": 6
+        }
+      },
+      "analyzerAgreeSec": 0.01939999999999742,
+      "analyzerAgreeBeats": 0.030891719745218815,
+      "relation": "BOTH_OFF_AGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": true
+      },
+      "notes": [
+        "librosa≈madmom but both off GT → Phase Reference / Dance Phase definition more likely than analyzer-swap",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)",
+        "madmom: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    },
+    {
+      "songId": "song-020",
+      "title": "Cornfield Chase",
+      "gtSource": "annotator-a",
+      "gt": {
+        "bpm": 96,
+        "beatIntervalSec": 0.6269999999999998,
+        "beatPhase0Sec": 5.499,
+        "beatSeeds": 21,
+        "downIntervalSec": 1.888,
+        "downPhase0Sec": 5.499,
+        "countGridStartSec": 5.499,
+        "countGridOffsetFromBeatSec": 0,
+        "countGridHalfBin": "NEAR_0"
+      },
+      "librosaBeat": {
+        "phase0Sec": 5.499,
+        "intervalSec": 0.6269999999999998,
+        "medianSignedSec": -0.024799999999978617,
+        "medianAbsSec": 0.09370000000000722,
+        "medianSignedBeats": -0.039553429027079146,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 127,
+        "phaseSpreadBeats": 0.19731432352814907,
+        "signMix": {
+          "plus": 51,
+          "minus": 57,
+          "near0": 19
+        }
+      },
+      "madmomBeat": {
+        "phase0Sec": 5.499,
+        "intervalSec": 0.6269999999999998,
+        "medianSignedSec": -0.08999999999996522,
+        "medianAbsSec": 0.10499999999996312,
+        "medianSignedBeats": -0.1435406698564039,
+        "halfBeatBin": "OTHER",
+        "sampleCount": 193,
+        "phaseSpreadBeats": 0.20337989623337926,
+        "signMix": {
+          "plus": 27,
+          "minus": 126,
+          "near0": 40
+        }
+      },
+      "librosaDown": {
+        "phase0Sec": 5.499,
+        "intervalSec": 1.888,
+        "medianSignedSec": 0.023900000000003807,
+        "medianAbsSec": 0.4001000000000037,
+        "medianSignedBeats": 0.012658898305086763,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 32,
+        "phaseSpreadBeats": 0.28119779664430283,
+        "signMix": {
+          "plus": 16,
+          "minus": 14,
+          "near0": 2
+        }
+      },
+      "madmomDown": {
+        "phase0Sec": 5.499,
+        "intervalSec": 1.888,
+        "medianSignedSec": -0.1390000000000029,
+        "medianAbsSec": 0.48700000000000365,
+        "medianSignedBeats": -0.07362288135593374,
+        "halfBeatBin": "NEAR_QUARTER",
+        "sampleCount": 45,
+        "phaseSpreadBeats": 0.29323233860416736,
+        "signMix": {
+          "plus": 21,
+          "minus": 24,
+          "near0": 0
+        }
+      },
+      "analyzerAgreeSec": 0.0651999999999866,
+      "analyzerAgreeBeats": 0.10398724082932476,
+      "relation": "BOTH_OFF_DISAGREE",
+      "phaseWander": {
+        "librosa": true,
+        "madmom": false
+      },
+      "notes": [
+        "analyzers disagree & both off GT → ensemble only after reference clarity",
+        "librosa: |phase| high but signed-median≈0 → phase wander / sign mix (not a stable offset)"
+      ]
+    }
+  ]
+}

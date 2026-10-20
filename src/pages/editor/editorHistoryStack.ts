@@ -29,7 +29,16 @@ export function pushEditorHistorySnapshot(
   if (stacks.undo.length >= cap) stacks.undo.shift();
   stacks.undo.push(snapshotJson);
   stacks.redo.length = 0;
+  // 大きな作品で 200 件積むとメモリが数百 MB になり動作が重くなるので、合計サイズでも古い順に捨てる
+  let total = 0;
+  for (const s of stacks.undo) total += s.length;
+  while (total > HISTORY_MAX_TOTAL_CHARS && stacks.undo.length > 1) {
+    total -= stacks.undo.shift()!.length;
+  }
 }
+
+/** 戻る履歴の合計文字数の上限（およそ 40MB） */
+export const HISTORY_MAX_TOTAL_CHARS = 20_000_000;
 
 export function applyUndoPlain(
   stacks: EditorHistoryStacks,

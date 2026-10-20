@@ -3,7 +3,11 @@ import type { DancerSpot } from "../types/choreography";
 import {
   applyPositionSort,
   formatPositionSortPreview,
+  normalizePositionSortDirection,
   permuteSlotsByHeightAsc,
+  positionSortDirectionOptions,
+  permuteSlotsMinimizeTravelFromPrev,
+  swapTwoDancerPositions,
 } from "./stageSelectionArrange";
 
 function spot(
@@ -14,6 +18,36 @@ function spot(
 ): DancerSpot {
   return { id, label: id, xPct, yPct, colorIndex: 0, ...extra };
 }
+
+describe("swapTwoDancerPositions", () => {
+  it("exchanges x/y for exactly two dancers and keeps identity", () => {
+    const dancers = [
+      spot("a", 20, 30, { label: "A", facingDeg: 90 }),
+      spot("b", 80, 70, { label: "B", facingDeg: 180 }),
+      spot("c", 50, 50, { label: "C" }),
+    ];
+    const next = swapTwoDancerPositions(dancers, ["a", "b"]);
+    expect(next.find((d) => d.id === "a")).toMatchObject({
+      xPct: 80,
+      yPct: 70,
+      label: "A",
+      facingDeg: 90,
+    });
+    expect(next.find((d) => d.id === "b")).toMatchObject({
+      xPct: 20,
+      yPct: 30,
+      label: "B",
+      facingDeg: 180,
+    });
+    expect(next.find((d) => d.id === "c")).toEqual(dancers[2]);
+  });
+
+  it("no-ops unless exactly two ids", () => {
+    const dancers = [spot("a", 10, 10), spot("b", 90, 90)];
+    expect(swapTwoDancerPositions(dancers, ["a"])).toEqual(dancers);
+    expect(swapTwoDancerPositions(dancers, ["a", "b", "a"])).toEqual(dancers);
+  });
+});
 
 describe("applyPositionSort", () => {
   it("all + height + asc matches the old slot permute", () => {
@@ -70,6 +104,140 @@ describe("applyPositionSort", () => {
     expect(byId.rightLow!.xPct).toBeGreaterThan(50);
   });
 
+  it("col sorts skill ascending toward the audience (front / high y)", () => {
+    const dancers = [
+      spot("backSkilled", 40, 20, { skillRankLabel: "1" }),
+      spot("frontUnskilled", 40, 80, { skillRankLabel: "5" }),
+      spot("backMid", 70, 25, { skillRankLabel: "2" }),
+      spot("frontMid", 70, 75, { skillRankLabel: "4" }),
+    ];
+    const next = applyPositionSort(
+      dancers,
+      dancers.map((d) => d.id),
+      { axis: "skill", scope: "col", direction: "asc" }
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    expect(byId.backSkilled!.yPct).toBeGreaterThan(byId.frontUnskilled!.yPct);
+    expect(byId.backMid!.yPct).toBeGreaterThan(byId.frontMid!.yPct);
+  });
+
+  it("all + skill + asc puts #1 on front near-center shimote when center is split", () => {
+    const dancers = [
+      spot("a", 30, 30, { skillRankLabel: "5" }),
+      spot("b", 70, 30, { skillRankLabel: "1" }),
+      spot("c", 30, 70, { skillRankLabel: "3" }),
+      spot("d", 70, 70, { skillRankLabel: "2" }),
+    ];
+    const next = applyPositionSort(
+      dancers,
+      dancers.map((d) => d.id),
+      { axis: "skill", scope: "all", direction: "asc" }
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    /** skill 1 → 一列目・センター割れの下手側 (30,70) */
+    expect(byId.b).toMatchObject({ xPct: 30, yPct: 70 });
+    expect(byId.d).toMatchObject({ xPct: 70, yPct: 70 });
+    expect(byId.c).toMatchObject({ xPct: 30, yPct: 30 });
+    expect(byId.a).toMatchObject({ xPct: 70, yPct: 30 });
+  });
+
+  it("all + skill + asc puts #1 on exact front center when present", () => {
+    const dancers = [
+      spot("s1", 20, 80, { skillRankLabel: "3" }),
+      spot("s2", 50, 80, { skillRankLabel: "1" }),
+      spot("s3", 80, 80, { skillRankLabel: "2" }),
+      spot("back", 50, 20, { skillRankLabel: "4" }),
+    ];
+    const next = applyPositionSort(
+      dancers,
+      dancers.map((d) => d.id),
+      { axis: "skill", scope: "all", direction: "asc" }
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    expect(byId.s2).toMatchObject({ xPct: 50, yPct: 80 });
+    /** 2・3 はセンター次点（下手→上手） */
+    expect(byId.s3).toMatchObject({ xPct: 20, yPct: 80 });
+    expect(byId.s1).toMatchObject({ xPct: 80, yPct: 80 });
+    expect(byId.back!.yPct).toBe(20);
+  });
+
+  it("row + skill + asc places smaller numbers nearer center (shimote on split)", () => {
+    const dancers = [
+      spot("a", 20, 50, { skillRankLabel: "4" }),
+      spot("b", 40, 50, { skillRankLabel: "1" }),
+      spot("c", 60, 50, { skillRankLabel: "2" }),
+      spot("d", 80, 50, { skillRankLabel: "3" }),
+    ];
+    const next = applyPositionSort(
+      dancers,
+      dancers.map((d) => d.id),
+      { axis: "skill", scope: "row", direction: "asc" }
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    expect(byId.b!.xPct).toBe(40);
+    expect(byId.c!.xPct).toBe(60);
+    expect(byId.d!.xPct).toBe(20);
+    expect(byId.a!.xPct).toBe(80);
+  });
+
+  describe("row + height kamite / center directions", () => {
+    const row = () => [
+      spot("h150", 10, 50, { heightCm: 150 }),
+      spot("h180", 30, 50, { heightCm: 180 }),
+      spot("h160", 50, 50, { heightCm: 160 }),
+      spot("h170", 70, 50, { heightCm: 170 }),
+      spot("h175", 90, 50, { heightCm: 175 }),
+    ];
+    const xs = (direction: "kamiteAsc" | "kamiteDesc" | "centerDesc" | "centerAsc") => {
+      const dancers = row();
+      const next = applyPositionSort(
+        dancers,
+        dancers.map((d) => d.id),
+        { axis: "height", scope: "row", direction }
+      );
+      return Object.fromEntries(next.map((d) => [d.id, d.xPct]));
+    };
+
+    it("kamiteAsc puts the shortest on the kamite (high x) end", () => {
+      const x = xs("kamiteAsc");
+      expect(x.h150).toBe(90);
+      expect(x.h180).toBe(10);
+    });
+
+    it("kamiteDesc puts the tallest on the kamite end", () => {
+      const x = xs("kamiteDesc");
+      expect(x.h180).toBe(90);
+      expect(x.h150).toBe(10);
+    });
+
+    it("centerDesc puts the tallest at center and shortest on the edges", () => {
+      const x = xs("centerDesc");
+      expect(x.h180).toBe(50);
+      expect([x.h175, x.h170].sort()).toEqual([30, 70]);
+      expect([x.h160, x.h150].sort()).toEqual([10, 90]);
+    });
+
+    it("centerAsc puts the shortest at center", () => {
+      const x = xs("centerAsc");
+      expect(x.h150).toBe(50);
+      expect([x.h175, x.h180].sort()).toEqual([10, 90]);
+    });
+  });
+
+  it("offers four height directions only for row scope", () => {
+    expect(positionSortDirectionOptions("height", "row").map((o) => o.id)).toEqual([
+      "centerDesc",
+      "centerAsc",
+      "kamiteAsc",
+      "kamiteDesc",
+    ]);
+    expect(positionSortDirectionOptions("height", "all").map((o) => o.id)).toEqual([
+      "asc",
+      "desc",
+    ]);
+    expect(normalizePositionSortDirection("height", "col", "centerDesc")).toBe("asc");
+  });
+
   it("builds the preview sentence from axis, direction, and scope", () => {
     expect(
       formatPositionSortPreview({
@@ -78,5 +246,61 @@ describe("applyPositionSort", () => {
         direction: "asc",
       })
     ).toBe("学年が低学年から、縦一列で並べ替えます");
+  });
+});
+
+describe("permuteSlotsMinimizeTravelFromPrev", () => {
+  it("falls back to array order when the previous cue has different ids", () => {
+    const dancers = [spot("a", 20, 50), spot("b", 80, 50)];
+    const prev = [spot("x", 85, 50), spot("y", 15, 50)];
+    const next = permuteSlotsMinimizeTravelFromPrev(dancers, ["a", "b"], prev);
+    expect(next.find((d) => d.id === "a")!.xPct).toBe(80);
+    expect(next.find((d) => d.id === "b")!.xPct).toBe(20);
+  });
+
+  it("matches by crewMemberId before array order", () => {
+    const dancers = [
+      spot("a", 20, 50, { crewMemberId: "m1" }),
+      spot("b", 80, 50, { crewMemberId: "m2" }),
+    ];
+    const prev = [
+      spot("y", 85, 50, { crewMemberId: "m2" }),
+      spot("x", 15, 50, { crewMemberId: "m1" }),
+    ];
+    const next = permuteSlotsMinimizeTravelFromPrev(dancers, ["a", "b"], prev);
+    expect(next.find((d) => d.id === "a")!.xPct).toBe(20);
+    expect(next.find((d) => d.id === "b")!.xPct).toBe(80);
+  });
+
+  it("reassigns people to current slots to minimize travel from previous positions", () => {
+    const dancers = [
+      spot("a", 20, 50, { label: "A" }),
+      spot("b", 80, 50, { label: "B" }),
+    ];
+    /** 前回: A は右、B は左 → 入れ替えた方が総移動が短い */
+    const prev = [
+      spot("a", 80, 50),
+      spot("b", 20, 50),
+    ];
+    const next = permuteSlotsMinimizeTravelFromPrev(
+      dancers,
+      ["a", "b"],
+      prev
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    expect(byId.a).toMatchObject({ xPct: 80, yPct: 50, label: "A" });
+    expect(byId.b).toMatchObject({ xPct: 20, yPct: 50, label: "B" });
+  });
+
+  it("no-ops without previous dancers or with fewer than 2 targets", () => {
+    const dancers = [spot("a", 20, 50), spot("b", 80, 50)];
+    expect(
+      permuteSlotsMinimizeTravelFromPrev(dancers, ["a", "b"], null)
+    ).toEqual(dancers);
+    expect(
+      permuteSlotsMinimizeTravelFromPrev(dancers, ["a"], [
+        spot("a", 10, 10),
+      ])
+    ).toEqual(dancers);
   });
 });

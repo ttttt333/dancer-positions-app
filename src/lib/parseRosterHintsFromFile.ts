@@ -50,8 +50,7 @@ async function parseRosterNamesFromImage(file: File): Promise<string[]> {
 
   return success.names
     .map((n: string) => (typeof n === "string" ? n.trim() : ""))
-    .filter(Boolean)
-    .slice(0, 80);
+    .filter(Boolean);
 }
 
 export type ParsedRosterHints = {

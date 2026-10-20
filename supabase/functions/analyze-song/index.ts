@@ -14,13 +14,14 @@ const CORS = {
 };
 
 /** backend/analyzer/services/audio_analyzer.py の ANALYZER_VERSION と一致させる */
-const ANALYZER_VERSION = "algo-v1.4.0";
+const ANALYZER_VERSION = "algo-v1.5.0";
 
 async function fetchStructureV2(
   analyzerBase: string,
   audio_url: string,
   audio_hash: string
 ): Promise<Record<string, unknown> | null> {
+  // /api/v2/analyze-structure は内部で All-In-One → chroma の順に解決する
   try {
     const res = await fetch(
       `${analyzerBase.replace(/\/$/, "")}/api/v2/analyze-structure`,

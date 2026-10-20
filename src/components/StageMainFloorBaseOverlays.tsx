@@ -1,9 +1,12 @@
+import { useLayoutEffect, useState, type RefObject } from "react";
 import type { StageFloorStageMarkupOverlayProps } from "./StageFloorStageMarkupOverlay";
 import { StageFloorStageMarkupOverlay } from "./StageFloorStageMarkupOverlay";
-import { StageGuideAndAlignLines } from "./StageGuideAndAlignLines";
 import { StageMillimeterGridSvg } from "./StageMillimeterGridSvg";
 import { StageShapeMaskSvg } from "./StageShapeMaskSvg";
 import type { StageGuideMark } from "./StageGuideAndAlignLines";
+import type { StageCenterMark, StageLightFixture } from "../types/choreography";
+import { StageArchitectureGuidesSvg } from "./StageArchitectureGuidesSvg";
+import { StageLightingOverlay } from "./StageLightingOverlay";
 
 export type StageMainFloorBaseOverlaysProps = {
   stageShapeActive: boolean;
@@ -17,10 +20,14 @@ export type StageMainFloorBaseOverlaysProps = {
   guideLineDrawMarks: readonly StageGuideMark[];
   alignGuides: { x: number | null; y: number | null };
   showStageFloorMarkup: boolean;
+  stageHesoVisible?: boolean;
+  stageCenterMarks?: readonly StageCenterMark[];
+  activeStageLights?: readonly StageLightFixture[];
+  stageMainFloorRef?: RefObject<HTMLElement | null>;
 } & StageFloorStageMarkupOverlayProps;
 
 /**
- * メイン床の「下層」オーバーレイ: カスタム形状・寸法格子・ガイド線・床線／テキスト。
+ * メイン床の「下層」オーバーレイ: カスタム形状・寸法格子・ガイド線・照明・床線／テキスト。
  * 大道具・ダンサー印より下に置く想定で親から順に並べる。
  */
 export function StageMainFloorBaseOverlays({
@@ -35,8 +42,29 @@ export function StageMainFloorBaseOverlays({
   guideLineDrawMarks,
   alignGuides,
   showStageFloorMarkup,
+  stageHesoVisible = false,
+  stageCenterMarks = [],
+  activeStageLights = [],
+  stageMainFloorRef,
   ...floorOverlay
 }: StageMainFloorBaseOverlaysProps) {
+  const [floorAspect, setFloorAspect] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const el = stageMainFloorRef?.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 1 && r.height > 1) {
+        setFloorAspect(r.width / r.height);
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [stageMainFloorRef]);
+
   return (
     <>
       {stageShapeActive && stageShapeMaskPath ? (
@@ -54,25 +82,24 @@ export function StageMainFloorBaseOverlays({
           stageGridLinesHorizontal={stageGridLinesHorizontal}
         />
       ) : null}
-      <svg
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          pointerEvents: "none",
-          zIndex: 2,
-        }}
-        aria-hidden
-      >
-        <StageGuideAndAlignLines
-          verticalGuideMarks={guideLineDrawMarks}
-          alignX={alignGuides.x}
-          alignY={alignGuides.y}
+      <StageArchitectureGuidesSvg
+        hesoVisible={stageHesoVisible && stageCenterMarks.length === 0}
+        centerMarks={
+          stageHesoVisible && stageCenterMarks.length > 0
+            ? stageCenterMarks
+            : undefined
+        }
+        floorAspect={floorAspect}
+        verticalGuideMarks={guideLineDrawMarks}
+        alignX={alignGuides.x}
+        alignY={alignGuides.y}
+      />
+      {activeStageLights.length > 0 ? (
+        <StageLightingOverlay
+          lights={activeStageLights}
+          floorRef={stageMainFloorRef}
         />
-      </svg>
+      ) : null}
       {showStageFloorMarkup ? (
         <StageFloorStageMarkupOverlay {...floorOverlay} />
       ) : null}

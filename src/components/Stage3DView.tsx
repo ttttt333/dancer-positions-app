@@ -1,41 +1,555 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import type { DancerSpot } from "../types/choreography";
+import type { AudienceEdge, DancerSpot } from "../types/choreography";
 import {
   DANCER_COLOR_PALETTE_THREE as PALETTE,
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
+import { buildDancerFigure3d } from "../lib/buildDancerFigure3d";
+import {
+  resolveDancerFigure3dId,
+  type DancerFigure3dId,
+} from "../lib/dancerFigure3d";
+import {
+  genderLabelForColor,
+  resolveDancerDisplayThree,
+} from "../lib/dancerGender";
 import {
   DEFAULT_DANCER_MARKER_DIAMETER_PX,
   MARKER_DIAMETER_PX_MAX,
   MARKER_DIAMETER_PX_MIN,
+  clampStageGridAxisMm,
 } from "../lib/projectDefaults";
+import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
+import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle";
+import { DancerGenderPicker } from "./DancerGenderPicker";
+import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
+import {
+  DANCER_MARKER_SHAPE_POINTS,
+  normalizeDancerMarkerShape,
+  type DancerMarkerShape,
+} from "../lib/dancerMarkerShape";
+
+/** 身長未入力時の基準（cm）。入力済みの身長はこの値との比率で立体の高さを決める */
+const DEFAULT_HEIGHT_CM = 170;
+const BASE_FIGURE_HEIGHT = 1.65;
+
+/** 2D メイン床 % と同じ対応のステージ寸法（ワールド単位） */
+const STAGE_W = 10;
+const STAGE_D = 7.5;
+/** 床との z-fighting 回避 */
+const MARK_Y = 0.02;
+/** 客席／舞台裏ラベルを床外に出す距離 */
+const EDGE_LABEL_OUTSET = 0.55;
+const EDGE_BAND_DEPTH = 0.38;
+
+/**
+ * 3D ボタン押下時の定位置カメラ。
+ * 客席側から俯瞰し、床＋ラベルが画面を埋め、構図をやや上寄せにする。
+ */
+function frameCameraToStage(
+  camera: THREE.PerspectiveCamera,
+  controls: OrbitControls,
+  audienceEdge: AudienceEdge = "bottom"
+) {
+  const pad = 1.02;
+  const halfW = (STAGE_W / 2 + EDGE_LABEL_OUTSET) * pad;
+  const halfD = (STAGE_D / 2 + EDGE_LABEL_OUTSET + 0.35) * pad;
+  const radius = Math.sqrt(halfW * halfW + halfD * halfD);
+  // 画像の定位置に近い俯角（客席手前・舞台裏奥）
+  const elev = THREE.MathUtils.degToRad(38);
+  camera.fov = 36;
+  const fovV = THREE.MathUtils.degToRad(camera.fov);
+  const aspect = Math.max(0.35, camera.aspect);
+  const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
+  const distV = radius / Math.sin(fovV / 2);
+  const distH = radius / Math.sin(fovH / 2);
+  // やや寄って余白を減らす
+  const dist = Math.min(distV, distH) * 0.62;
+  const y = Math.sin(elev) * dist;
+  const zAbs = Math.cos(elev) * dist;
+  // bottom＝客席が +z、カメラも +z 側から見る
+  const fromAudience = audienceEdge !== "top";
+  const z = fromAudience ? zAbs : -zAbs;
+  /**
+   * 注視点を客席寄り＋少し上げる → 画面上のステージが上へ詰まる
+   * （上部の空きを減らし、客席ラベルは下端付近に残る）
+   */
+  const targetZ = fromAudience ? STAGE_D * 0.12 : -STAGE_D * 0.12;
+  camera.position.set(0, y, z);
+  camera.near = 0.05;
+  camera.far = Math.max(80, dist * 8);
+  camera.updateProjectionMatrix();
+  controls.target.set(0, 0.55, targetZ);
+  controls.minDistance = Math.max(3.0, dist * 0.32);
+  controls.maxDistance = Math.max(22, dist * 3.0);
+  controls.update();
+}
 
 type Api = {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   controls: OrbitControls;
-  meshes: THREE.Mesh[];
-  geom: THREE.SphereGeometry;
+  figures: THREE.Object3D[];
+  nameLabels: THREE.Sprite[];
+  marksGroup: THREE.Group;
   planeGeom: THREE.PlaneGeometry;
   planeMat: THREE.MeshStandardMaterial;
+};
+
+export type Stage3DFloorMarks = {
+  stageWidthMm?: number | null;
+  stageDepthMm?: number | null;
+  /** センターからの場ミリ間隔（mm）。未設定なら場ミリ線は出さない */
+  centerFieldGuideIntervalMm?: number | null;
+  stageGridLinesVertical?: boolean;
+  stageGridLinesHorizontal?: boolean;
+  stageGridSpacingWidthMm?: number | null;
+  stageGridSpacingDepthMm?: number | null;
+  stageGridLineSpacingMm?: number | null;
+  /**
+   * 客席辺。bottom＝手前(+z / yPct100)、top＝奥(-z / yPct0)。
+   * 視点トグル反映後の実効値を渡す。
+   */
+  audienceEdge?: AudienceEdge;
 };
 
 type Props = {
   dancers: DancerSpot[];
   /** 2D ステージのダンサー印と揃えた見た目用（既定は projectDefaults と同じ） */
   markerDiameterPx?: number;
-};
+  /** 閲覧専用のときキャラ編集不可 */
+  readOnly?: boolean;
+  /** 3D 上でキャラ／性別を変えたとき */
+  onPatchDancer?: (
+    dancerId: string,
+    patch: {
+      figure3d?: import("../lib/dancerFigure3d").DancerFigure3dId;
+      figure3dScope?: import("../lib/applyDancerFigure3d").DancerFigure3dApplyScope;
+      genderLabel?: string | undefined;
+    }
+  ) => void;
+} & Stage3DFloorMarks;
+
+function resolveHeightCm(d: DancerSpot): number {
+  if (typeof d.heightCm === "number" && Number.isFinite(d.heightCm) && d.heightCm > 0) {
+    return d.heightCm;
+  }
+  return DEFAULT_HEIGHT_CM;
+}
+
+function disposeSprite(sprite: THREE.Sprite) {
+  const mat = sprite.material as THREE.SpriteMaterial;
+  mat.map?.dispose();
+  mat.dispose();
+}
+
+/** 3D 頭上表示用に名前を短くする（長いと重なる） */
+function formatDancerNameLabel(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  if (t.length <= 8) return t;
+  return `${t.slice(0, 7)}…`;
+}
+
+/**
+ * 印の形の床プレート（フィギュアの子。向きはフィギュアの回転に従う）。
+ * 形の +y（客席側）をワールドの yPct 増加方向へ合わせる。
+ */
+function buildMarkerShapePlate(
+  shape: Exclude<DancerMarkerShape, "circle">,
+  size: number,
+  zSign: 1 | -1,
+  color: number
+): THREE.Group {
+  const pts = DANCER_MARKER_SHAPE_POINTS[shape].split(" ").map((p) => {
+    const [px, py] = p.split(",").map(Number);
+    return [((px! - 50) / 100) * size, ((py! - 50) / 100) * size * zSign] as const;
+  });
+  /** 中心から扇状に三角形を張る（どの形も (50,50) から全頂点が見える） */
+  const pos: number[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]!;
+    const b = pts[(i + 1) % pts.length]!;
+    pos.push(0, 0, 0, a[0], 0, a[1], b[0], 0, b[1]);
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  const fill = new THREE.Mesh(
+    geom,
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  );
+  const outlinePts = [...pts, pts[0]!].map(
+    ([x, z]) => new THREE.Vector3(x, 0.002, z)
+  );
+  const outline = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(outlinePts),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })
+  );
+  const group = new THREE.Group();
+  group.add(fill, outline);
+  group.position.y = MARK_Y + 0.004;
+  return group;
+}
+
+function disposeObject3D(obj: THREE.Object3D) {
+  obj.traverse((child) => {
+    if (child instanceof THREE.Sprite) {
+      const mat = child.material as THREE.SpriteMaterial;
+      mat.map?.dispose();
+      mat.dispose();
+      return;
+    }
+    if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+      child.geometry.dispose();
+      const mat = child.material;
+      if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
+      else (mat as THREE.Material | undefined)?.dispose();
+    }
+  });
+}
+
+function pctToX(xp: number): number {
+  return (xp / 100) * STAGE_W - STAGE_W / 2;
+}
+
+function pctToZ(yp: number): number {
+  return (yp / 100) * STAGE_D - STAGE_D / 2;
+}
+
+function makeLine(
+  points: THREE.Vector3[],
+  color: number,
+  opacity: number,
+  dashed: boolean,
+  dashSize = 0.12,
+  gapSize = 0.1
+): THREE.Line {
+  const geom = new THREE.BufferGeometry().setFromPoints(points);
+  const mat = dashed
+    ? new THREE.LineDashedMaterial({
+        color,
+        transparent: opacity < 1,
+        opacity,
+        dashSize,
+        gapSize,
+        depthWrite: false,
+      })
+    : new THREE.LineBasicMaterial({
+        color,
+        transparent: opacity < 1,
+        opacity,
+        depthWrite: false,
+      });
+  const line = new THREE.Line(geom, mat);
+  if (dashed) line.computeLineDistances();
+  return line;
+}
+
+function vertLine(xp: number): THREE.Vector3[] {
+  return [
+    new THREE.Vector3(pctToX(xp), MARK_Y, pctToZ(0)),
+    new THREE.Vector3(pctToX(xp), MARK_Y, pctToZ(100)),
+  ];
+}
+
+function horizLine(yp: number): THREE.Vector3[] {
+  return [
+    new THREE.Vector3(pctToX(0), MARK_Y, pctToZ(yp)),
+    new THREE.Vector3(pctToX(100), MARK_Y, pctToZ(yp)),
+  ];
+}
+
+/** カメラ向きに常に正対する文字スプライト */
+function makeTextSprite(
+  text: string,
+  opts: {
+    color?: string;
+    bg?: string;
+    fontPx?: number;
+    worldHeight?: number;
+    paddingX?: number;
+    paddingY?: number;
+  } = {}
+): THREE.Sprite {
+  const fontPx = opts.fontPx ?? 56;
+  const padX = opts.paddingX ?? 22;
+  const padY = opts.paddingY ?? 14;
+  const color = opts.color ?? "#fef3c7";
+  const bg = opts.bg ?? "rgba(15, 23, 42, 0.88)";
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    const empty = new THREE.Sprite(
+      new THREE.SpriteMaterial({ color: 0xfbbf24, opacity: 0.01, transparent: true })
+    );
+    empty.scale.set(0.01, 0.01, 1);
+    return empty;
+  }
+  ctx.font = `700 ${fontPx}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  const textW = Math.ceil(ctx.measureText(text).width);
+  canvas.width = Math.max(32, textW + padX * 2);
+  canvas.height = fontPx + padY * 2;
+  ctx.font = `700 ${fontPx}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  ctx.fillStyle = bg;
+  const r = Math.min(18, canvas.height / 2);
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.arcTo(canvas.width, 0, canvas.width, canvas.height, r);
+  ctx.arcTo(canvas.width, canvas.height, 0, canvas.height, r);
+  ctx.arcTo(0, canvas.height, 0, 0, r);
+  ctx.arcTo(0, 0, canvas.width, 0, r);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 1);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  const mat = new THREE.SpriteMaterial({
+    map: tex,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const sprite = new THREE.Sprite(mat);
+  const worldH = opts.worldHeight ?? 0.48;
+  sprite.scale.set(worldH * (canvas.width / canvas.height), worldH, 1);
+  return sprite;
+}
+
+/** 2D `guideLineDrawMarks` と同じ：センターから等間隔の縦場ミリ線 */
+function buildBamiriXpMarks(
+  intervalMm: number,
+  stageWidthMm: number
+): { xp: number; k: number }[] {
+  if (!(intervalMm > 0) || !(stageWidthMm > 0)) return [];
+  const half = stageWidthMm / 2;
+  const marks: { xp: number; k: number }[] = [];
+  let k = 1;
+  const maxPairs = 200;
+  while (k * intervalMm <= half + 1e-9 && k <= maxPairs) {
+    const deltaPct = ((k * intervalMm) / stageWidthMm) * 100;
+    marks.push({ xp: Math.min(100, Math.max(0, 50 - deltaPct)), k });
+    marks.push({ xp: Math.min(100, Math.max(0, 50 + deltaPct)), k });
+    k++;
+  }
+  return marks;
+}
+
+function clearMarksGroup(group: THREE.Group) {
+  while (group.children.length > 0) {
+    const child = group.children[0]!;
+    group.remove(child);
+    disposeObject3D(child);
+  }
+}
+
+function addFloorEdgeBand(
+  group: THREE.Group,
+  zCenter: number,
+  color: number,
+  opacity: number
+) {
+  const geom = new THREE.PlaneGeometry(STAGE_W * 0.995, EDGE_BAND_DEPTH);
+  const mat = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(0, MARK_Y + 0.004, zCenter);
+  group.add(mesh);
+}
+
+function rebuildFloorMarks(group: THREE.Group, marks: Stage3DFloorMarks | undefined) {
+  clearMarksGroup(group);
+
+  const audienceEdge: AudienceEdge =
+    marks?.audienceEdge === "top" ? "top" : "bottom";
+  /** bottom＝客席が yPct100(+z)、top＝客席が yPct0(-z) */
+  const audienceZ = audienceEdge === "bottom" ? pctToZ(100) : pctToZ(0);
+  const backstageZ = audienceEdge === "bottom" ? pctToZ(0) : pctToZ(100);
+  const audienceOutZ =
+    audienceEdge === "bottom"
+      ? audienceZ + EDGE_LABEL_OUTSET
+      : audienceZ - EDGE_LABEL_OUTSET;
+  const backstageOutZ =
+    audienceEdge === "bottom"
+      ? backstageZ - EDGE_LABEL_OUTSET
+      : backstageZ + EDGE_LABEL_OUTSET;
+  const audienceBandZ =
+    audienceEdge === "bottom"
+      ? audienceZ - EDGE_BAND_DEPTH / 2 + 0.02
+      : audienceZ + EDGE_BAND_DEPTH / 2 - 0.02;
+  const backstageBandZ =
+    audienceEdge === "bottom"
+      ? backstageZ + EDGE_BAND_DEPTH / 2 - 0.02
+      : backstageZ - EDGE_BAND_DEPTH / 2 + 0.02;
+
+  // 床外枠
+  group.add(
+    makeLine(
+      [
+        new THREE.Vector3(pctToX(0), MARK_Y, pctToZ(0)),
+        new THREE.Vector3(pctToX(100), MARK_Y, pctToZ(0)),
+        new THREE.Vector3(pctToX(100), MARK_Y, pctToZ(100)),
+        new THREE.Vector3(pctToX(0), MARK_Y, pctToZ(100)),
+        new THREE.Vector3(pctToX(0), MARK_Y, pctToZ(0)),
+      ],
+      0x64748b,
+      0.85,
+      false
+    )
+  );
+
+  // 客席／舞台裏の色帯（回転しても辺が分かる）
+  addFloorEdgeBand(group, audienceBandZ, 0x0e7490, 0.42);
+  addFloorEdgeBand(group, backstageBandZ, 0x334155, 0.5);
+
+  // センター十字（縦＝2Dの黄金線、横＝奥行の中央）
+  group.add(makeLine(vertLine(50), 0xfbbf24, 0.95, false));
+  group.add(makeLine(horizLine(50), 0xfbbf24, 0.55, false));
+
+  // センター点（小さなリング）
+  const ringGeom = new THREE.RingGeometry(0.08, 0.14, 24);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0xfbbf24,
+    transparent: true,
+    opacity: 0.9,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const ring = new THREE.Mesh(ringGeom, ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(0, MARK_Y + 0.001, 0);
+  group.add(ring);
+
+  const audienceLabel = makeTextSprite("客席", {
+    color: "#e0f2fe",
+    bg: "rgba(14, 116, 144, 0.92)",
+    worldHeight: 0.52,
+  });
+  audienceLabel.position.set(0, 0.28, audienceOutZ);
+  group.add(audienceLabel);
+
+  const backstageLabel = makeTextSprite("舞台裏", {
+    color: "#e2e8f0",
+    bg: "rgba(51, 65, 85, 0.92)",
+    worldHeight: 0.52,
+  });
+  backstageLabel.position.set(0, 0.28, backstageOutZ);
+  group.add(backstageLabel);
+
+  const W =
+    typeof marks?.stageWidthMm === "number" && marks.stageWidthMm > 0
+      ? marks.stageWidthMm
+      : null;
+  const D =
+    typeof marks?.stageDepthMm === "number" && marks.stageDepthMm > 0
+      ? marks.stageDepthMm
+      : null;
+  const guideMm =
+    typeof marks?.centerFieldGuideIntervalMm === "number" &&
+    marks.centerFieldGuideIntervalMm > 0
+      ? marks.centerFieldGuideIntervalMm
+      : null;
+
+  if (W != null && guideMm != null) {
+    const bamiriMarks = buildBamiriXpMarks(guideMm, W);
+    for (const { xp, k } of bamiriMarks) {
+      if (Math.abs(xp - 50) < 0.02) continue;
+      group.add(makeLine(vertLine(xp), 0xfbbf24, 0.72, true, 0.14, 0.12));
+      const num = makeTextSprite(String(k), {
+        color: "#fef3c7",
+        bg: "rgba(15, 23, 42, 0.9)",
+        fontPx: 52,
+        worldHeight: 0.36,
+        paddingX: 16,
+        paddingY: 10,
+      });
+      num.position.set(pctToX(xp), 0.22, audienceOutZ);
+      group.add(num);
+    }
+  }
+
+  const showV = marks?.stageGridLinesVertical === true;
+  const showH = marks?.stageGridLinesHorizontal === true;
+  if (W != null && D != null && (showV || showH)) {
+    const legacy =
+      typeof marks?.stageGridLineSpacingMm === "number" &&
+      Number.isFinite(marks.stageGridLineSpacingMm)
+        ? marks.stageGridLineSpacingMm
+        : 10;
+    const spacingW = clampStageGridAxisMm(marks?.stageGridSpacingWidthMm, legacy);
+    const spacingD = clampStageGridAxisMm(marks?.stageGridSpacingDepthMm, legacy);
+    const stepXPct = (spacingW / W) * 100;
+    const stepYPct = (spacingD / D) * 100;
+    const MAX = 80;
+    if (showV && stepXPct > 0 && Number.isFinite(stepXPct)) {
+      for (let k = 1; k <= MAX; k++) {
+        const r = 50 + k * stepXPct;
+        const l = 50 - k * stepXPct;
+        if (r > 100 + 1e-6 && l < -1e-6) break;
+        if (r <= 100 + 1e-6 && Math.abs(r - 50) > 0.02) {
+          group.add(makeLine(vertLine(Math.min(100, r)), 0x475569, 0.45, false));
+        }
+        if (l >= -1e-6 && Math.abs(l - 50) > 0.02) {
+          group.add(makeLine(vertLine(Math.max(0, l)), 0x475569, 0.45, false));
+        }
+      }
+    }
+    if (showH && stepYPct > 0 && Number.isFinite(stepYPct)) {
+      for (let k = 1; k <= MAX; k++) {
+        const b = 50 + k * stepYPct;
+        const t = 50 - k * stepYPct;
+        if (b > 100 + 1e-6 && t < -1e-6) break;
+        if (b <= 100 + 1e-6 && Math.abs(b - 50) > 0.02) {
+          group.add(makeLine(horizLine(Math.min(100, b)), 0x475569, 0.45, false));
+        }
+        if (t >= -1e-6 && Math.abs(t - 50) > 0.02) {
+          group.add(makeLine(horizLine(Math.max(0, t)), 0x475569, 0.45, false));
+        }
+      }
+    }
+  }
+}
 
 export function Stage3DView({
   dancers,
   markerDiameterPx = DEFAULT_DANCER_MARKER_DIAMETER_PX,
+  stageWidthMm = null,
+  stageDepthMm = null,
+  centerFieldGuideIntervalMm = null,
+  stageGridLinesVertical = false,
+  stageGridLinesHorizontal = false,
+  stageGridSpacingWidthMm = null,
+  stageGridSpacingDepthMm = null,
+  stageGridLineSpacingMm = null,
+  audienceEdge = "bottom",
+  readOnly = false,
+  onPatchDancer,
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<Api | null>(null);
   const [sceneReady, setSceneReady] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [figure3dScope, setFigure3dScope] =
+    useState<DancerFigure3dApplyScope>("all");
+  const pointerDownRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const el = mountRef.current;
@@ -44,9 +558,7 @@ export function Stage3DView({
     const h = Math.max(el.clientHeight, 240);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020617);
-    const camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
-    camera.position.set(0, 14, 11);
-    camera.lookAt(0, 0, 0);
+    const camera = new THREE.PerspectiveCamera(40, w / h, 0.05, 120);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(w, h);
@@ -54,15 +566,14 @@ export function Stage3DView({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
-    controls.minDistance = 6;
-    controls.maxDistance = 42;
     controls.maxPolarAngle = Math.PI * 0.495;
-    controls.target.set(0, 0, 0);
+    frameCameraToStage(camera, controls, audienceEdge);
+    let hasFramed = w >= 40 && h >= 40;
     const dl = new THREE.DirectionalLight(0xffffff, 0.95);
     dl.position.set(3, 18, 8);
     scene.add(dl);
     scene.add(new THREE.AmbientLight(0x64748b, 0.5));
-    const planeGeom = new THREE.PlaneGeometry(10, 7.5);
+    const planeGeom = new THREE.PlaneGeometry(STAGE_W, STAGE_D);
     const planeMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
       roughness: 0.85,
@@ -71,8 +582,10 @@ export function Stage3DView({
     const plane = new THREE.Mesh(planeGeom, planeMat);
     plane.rotation.x = -Math.PI / 2;
     scene.add(plane);
-    const geom = new THREE.SphereGeometry(0.28, 20, 20);
-    const meshes: THREE.Mesh[] = [];
+    const marksGroup = new THREE.Group();
+    scene.add(marksGroup);
+    const figures: THREE.Object3D[] = [];
+    const nameLabels: THREE.Sprite[] = [];
     let raf = 0;
     const loop = () => {
       controls.update();
@@ -85,8 +598,9 @@ export function Stage3DView({
       camera,
       renderer,
       controls,
-      meshes,
-      geom,
+      figures,
+      nameLabels,
+      marksGroup,
       planeGeom,
       planeMat,
     };
@@ -97,7 +611,13 @@ export function Stage3DView({
       if (rw < 10 || rh < 10) return;
       renderer.setSize(rw, rh);
       camera.aspect = rw / rh;
-      camera.updateProjectionMatrix();
+      // flex 初回レイアウトでサイズが後から決まる場合は、まだ寄っていないときだけ再フレーミング
+      if (!hasFramed && rw >= 40 && rh >= 40) {
+        frameCameraToStage(camera, controls, audienceEdge);
+        hasFramed = true;
+      } else {
+        camera.updateProjectionMatrix();
+      }
     });
     ro.observe(el);
     return () => {
@@ -105,57 +625,198 @@ export function Stage3DView({
       ro.disconnect();
       cancelAnimationFrame(raf);
       controls.dispose();
-      meshes.forEach((m) => {
-        (m.material as THREE.Material).dispose();
-        scene.remove(m);
+      figures.forEach((fig) => {
+        disposeObject3D(fig);
+        scene.remove(fig);
       });
-      geom.dispose();
+      nameLabels.forEach((s) => {
+        disposeSprite(s);
+        scene.remove(s);
+      });
+      clearMarksGroup(marksGroup);
+      scene.remove(marksGroup);
       planeGeom.dispose();
       planeMat.dispose();
       renderer.dispose();
       el.removeChild(renderer.domElement);
       apiRef.current = null;
     };
+    // audienceEdge はマウント時の定位置フレーミングに使う（切替時は下の effect で再配置）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 客席／舞台裏の向きが変わったら、定位置カメラを客席側から付け直す
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || !sceneReady) return;
+    frameCameraToStage(api.camera, api.controls, audienceEdge);
+  }, [audienceEdge, sceneReady]);
 
   useEffect(() => {
     const api = apiRef.current;
     if (!api || !sceneReady) return;
-    const { scene, meshes } = api;
-    meshes.forEach((m) => {
-      (m.material as THREE.Material).dispose();
-      scene.remove(m);
+    rebuildFloorMarks(api.marksGroup, {
+      stageWidthMm,
+      stageDepthMm,
+      centerFieldGuideIntervalMm,
+      stageGridLinesVertical,
+      stageGridLinesHorizontal,
+      stageGridSpacingWidthMm,
+      stageGridSpacingDepthMm,
+      stageGridLineSpacingMm,
+      audienceEdge,
     });
-    meshes.length = 0;
+  }, [
+    sceneReady,
+    stageWidthMm,
+    stageDepthMm,
+    centerFieldGuideIntervalMm,
+    stageGridLinesVertical,
+    stageGridLinesHorizontal,
+    stageGridSpacingWidthMm,
+    stageGridSpacingDepthMm,
+    stageGridLineSpacingMm,
+    audienceEdge,
+  ]);
+
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || !sceneReady) return;
+    const { scene, figures, nameLabels } = api;
+    figures.forEach((fig) => {
+      disposeObject3D(fig);
+      scene.remove(fig);
+    });
+    figures.length = 0;
+    nameLabels.forEach((s) => {
+      disposeSprite(s);
+      scene.remove(s);
+    });
+    nameLabels.length = 0;
     const clampD = Math.max(
       MARKER_DIAMETER_PX_MIN,
       Math.min(MARKER_DIAMETER_PX_MAX, Math.round(markerDiameterPx))
     );
-    const r0 =
-      0.28 * (clampD / DEFAULT_DANCER_MARKER_DIAMETER_PX);
-    api.geom.dispose();
-    const geom = new THREE.SphereGeometry(r0, 20, 20);
-    api.geom = geom;
+    const sizeScale = clampD / DEFAULT_DANCER_MARKER_DIAMETER_PX;
     dancers.forEach((d) => {
-      const mat = new THREE.MeshStandardMaterial({
-        color: PALETTE[modDancerColorIndex(d.colorIndex)],
-        roughness: 0.35,
-        metalness: 0.12,
-      });
-      const m = new THREE.Mesh(geom, mat);
-      m.position.set((d.xPct / 100) * 10 - 5, r0, (d.yPct / 100) * 7.5 - 3.75);
-      scene.add(m);
-      meshes.push(m);
+      const heightCm = resolveHeightCm(d);
+      const totalH =
+        BASE_FIGURE_HEIGHT * (heightCm / DEFAULT_HEIGHT_CM) * Math.min(1.35, Math.max(0.75, sizeScale));
+      const paletteColor = PALETTE[modDancerColorIndex(d.colorIndex)]!;
+      const color = resolveDancerDisplayThree(genderLabelForColor(d), paletteColor);
+      const figureId = resolveDancerFigure3dId(d.figure3d);
+      const fig = buildDancerFigure3d(figureId, totalH, color);
+      fig.userData.dancerId = d.id;
+      const x = pctToX(d.xPct);
+      const z = pctToZ(d.yPct);
+      fig.position.set(x, 0, z);
+      if (typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)) {
+        fig.rotation.y = -THREE.MathUtils.degToRad(d.facingDeg);
+      }
+      const shape = normalizeDancerMarkerShape(d.markerShape);
+      if (shape) {
+        const plateSize = 0.72 * Math.min(1.35, Math.max(0.75, sizeScale));
+        const zSign: 1 | -1 = pctToZ(100) >= pctToZ(0) ? 1 : -1;
+        fig.add(
+          buildMarkerShapePlate(shape, plateSize, zSign, color)
+        );
+      }
+      scene.add(fig);
+      figures.push(fig);
+
+      const nameText = formatDancerNameLabel(d.label ?? "");
+      if (nameText) {
+        const label = makeTextSprite(nameText, {
+          color: "#f8fafc",
+          bg: "rgba(15, 23, 42, 0.9)",
+          fontPx: 48,
+          worldHeight: 0.34,
+          paddingX: 14,
+          paddingY: 10,
+        });
+        label.position.set(x, totalH + 0.28, z);
+        scene.add(label);
+        nameLabels.push(label);
+      }
     });
   }, [dancers, markerDiameterPx, sceneReady]);
+
+  useEffect(() => {
+    const api = apiRef.current;
+    const el = mountRef.current;
+    if (!api || !sceneReady || !el || readOnly) return;
+    const { camera, renderer, figures, controls } = api;
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+
+    const pickDancerId = (clientX: number, clientY: number): string | null => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return null;
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(figures, true);
+      for (const hit of hits) {
+        let obj: THREE.Object3D | null = hit.object;
+        while (obj) {
+          const id = obj.userData?.dancerId;
+          if (typeof id === "string" && id) return id;
+          obj = obj.parent;
+        }
+      }
+      return null;
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      pointerDownRef.current = { x: e.clientX, y: e.clientY };
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      const down = pointerDownRef.current;
+      pointerDownRef.current = null;
+      if (!down) return;
+      if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) return;
+      const id = pickDancerId(e.clientX, e.clientY);
+      setSelectedId(id);
+    };
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
+    return () => {
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      void controls;
+    };
+  }, [sceneReady, readOnly, dancers]);
+
+  const selected = selectedId
+    ? dancers.find((d) => d.id === selectedId) ?? null
+    : null;
+
+  const dolly = (factor: number) => {
+    const api = apiRef.current;
+    if (!api) return;
+    const { camera, controls } = api;
+    const offset = new THREE.Vector3().subVectors(
+      camera.position,
+      controls.target
+    );
+    const dist = offset.length() * factor;
+    const minD = controls.minDistance || 3;
+    const maxD = controls.maxDistance || 22;
+    const next = Math.min(maxD, Math.max(minD, dist));
+    offset.setLength(next);
+    camera.position.copy(controls.target).add(offset);
+    controls.update();
+  };
 
   return (
     <div
       style={{
         position: "relative",
         flex: 1,
-        minHeight: "280px",
+        minHeight: 0,
         width: "100%",
+        height: "100%",
         display: "flex",
         flexDirection: "column",
       }}
@@ -166,15 +827,46 @@ export function Stage3DView({
           flex: "1 1 auto",
           minHeight: 0,
           width: "100%",
-          borderRadius: "12px",
+          borderRadius: 0,
           overflow: "hidden",
-          border: "1px solid #334155",
+          border: "none",
         }}
       />
       <div
+        aria-label="3Dズーム"
+        style={{
+          position: "absolute",
+          top: 8,
+          left: 8,
+          zIndex: 3,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+        }}
+      >
+        <button
+          type="button"
+          title="拡大"
+          aria-label="拡大"
+          onClick={() => dolly(0.82)}
+          style={zoomBtnStyle}
+        >
+          ＋
+        </button>
+        <button
+          type="button"
+          title="縮小"
+          aria-label="縮小"
+          onClick={() => dolly(1.22)}
+          style={zoomBtnStyle}
+        >
+          −
+        </button>
+      </div>
+      <div
         aria-live="polite"
-        aria-label={`ステージ上 ${dancers.length} 人`}
-        title="いまステージに表示している人数"
+        aria-label={`ステージ上 ${dancers.length} 人（3D）。客席と舞台裏のラベルあり`}
+        title="金色線＝センター／場ミリ。数字はセンターからの場ミリ番号。色帯＝客席／舞台裏"
         style={{
           position: "absolute",
           top: 8,
@@ -193,8 +885,103 @@ export function Stage3DView({
           boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
         }}
       >
-        {dancers.length}人
+        {dancers.length}人 · 3D
       </div>
+      {selected && !readOnly && onPatchDancer ? (
+        <div
+          role="dialog"
+          aria-label={`${selected.label || "メンバー"}の3D設定`}
+          style={{
+            position: "absolute",
+            left: 8,
+            right: 8,
+            bottom: 8,
+            zIndex: 4,
+            maxHeight: "46%",
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            borderRadius: 12,
+            border: "1px solid rgba(212,175,55,0.35)",
+            background: "rgba(7, 9, 15, 0.96)",
+            padding: "10px 12px 12px",
+            boxShadow: "0 8px 28px rgba(0,0,0,0.5)",
+            color: "#e2e8f0",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              marginBottom: 8,
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700, minWidth: 0 }}>
+              {(selected.label || "?").slice(0, 24)}
+              <span style={{ color: "#94a3b8", fontWeight: 600 }}> · 3D設定</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              style={{
+                border: "1px solid #334155",
+                background: "#0f172a",
+                color: "#cbd5e1",
+                borderRadius: 8,
+                padding: "6px 10px",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              閉じる
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
+            性別（男子＝青・女子＝ピンク）
+          </div>
+          <DancerGenderPicker
+            value={selected.genderLabel ?? ""}
+            onChange={(next) =>
+              onPatchDancer(selected.id, {
+                genderLabel: next.trim() ? next.trim() : undefined,
+              })
+            }
+          />
+          <div style={{ fontSize: 11, color: "#94a3b8", margin: "10px 0 6px" }}>
+            3Dの見た目
+          </div>
+          <DancerFigure3dApplyScopeToggle
+            value={figure3dScope}
+            onChange={setFigure3dScope}
+          />
+          <DancerFigure3dPicker
+            value={resolveDancerFigure3dId(selected.figure3d)}
+            compact
+            onChange={(fig: DancerFigure3dId) =>
+              onPatchDancer(selected.id, {
+                figure3d: fig,
+                figure3dScope,
+              })
+            }
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
+
+const zoomBtnStyle: CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 10,
+  border: "1px solid rgba(51, 65, 85, 0.95)",
+  background: "rgba(15, 23, 42, 0.92)",
+  color: "#f1f5f9",
+  fontSize: 22,
+  fontWeight: 700,
+  lineHeight: 1,
+  cursor: "pointer",
+  boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+};

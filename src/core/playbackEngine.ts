@@ -223,7 +223,17 @@ export class PlaybackEngine {
 
   setPlaybackRate(rate: number): void {
     if (!this.media || !Number.isFinite(rate)) return;
-    this.media.playbackRate = rate;
+    const r = Math.min(2, Math.max(0.25, rate));
+    this.media.playbackRate = r;
+    // ピッチ固定変速（Chromium / Firefox / Safari）
+    const m = this.media as HTMLMediaElement & {
+      preservesPitch?: boolean;
+      mozPreservesPitch?: boolean;
+      webkitPreservesPitch?: boolean;
+    };
+    m.preservesPitch = true;
+    m.mozPreservesPitch = true;
+    m.webkitPreservesPitch = true;
   }
 
   /**

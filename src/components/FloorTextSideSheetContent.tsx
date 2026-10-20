@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import type { FloorTextPlaceSession } from "../types/choreography";
+import type {
+  ChoreographyProjectJson,
+  FloorTextPlaceSession,
+} from "../types/choreography";
 import {
   createDefaultFloorTextPlaceSession,
   FLOOR_TEXT_BODY_MAX_LEN,
 } from "../lib/floorTextPlaceSession";
+import { StageLightingSettingsPanel } from "./StageLightingSettingsPanel";
+import { FloorScribblePanel } from "./FloorScribblePanel";
+import type { FloorMarkupTool } from "./StageFloorMarkupFloatingToolbars";
+import type { FloorLineMarkupScope } from "../lib/floorLineMarkup";
 import styles from "./FloorTextSideSheetContent.module.css";
 
 const COLOR_SWATCHES = [
@@ -22,6 +29,14 @@ const COLOR_SWATCHES = [
   { hex: "#fcd34d", label: "ゴールド" },
 ] as const;
 
+const TEXT_ALIGN_OPTIONS = [
+  { id: "left", label: "左寄せ" },
+  { id: "center", label: "中央" },
+  { id: "right", label: "右寄せ" },
+] as const;
+
+type SheetTab = "text" | "lights" | "scribble";
+
 export type FloorTextSideSheetContentProps = {
   open: boolean;
   floorTextPlaceSession: FloorTextPlaceSession | null;
@@ -31,6 +46,20 @@ export type FloorTextSideSheetContentProps = {
   onCancel: () => void;
   onCommitted: () => void;
   t: (key: string) => string;
+  project?: ChoreographyProjectJson;
+  setProject?: Dispatch<SetStateAction<ChoreographyProjectJson>>;
+  currentTimeSec?: number;
+  viewOnly?: boolean;
+  selectedCueId?: string | null;
+  selectedLightId?: string | null;
+  onSelectLightId?: (id: string | null) => void;
+  /** 開いたときに初期表示するタブ（照明設定・落書きなど） */
+  preferredTab?: SheetTab | null;
+  /** 落書きタブ用（渡したときだけタブを出す） */
+  floorMarkupTool?: FloorMarkupTool;
+  setFloorMarkupTool?: Dispatch<SetStateAction<FloorMarkupTool>>;
+  floorLineScope?: FloorLineMarkupScope;
+  setFloorLineScope?: Dispatch<SetStateAction<FloorLineMarkupScope>>;
 };
 
 export function FloorTextSideSheetContent({
@@ -42,27 +71,70 @@ export function FloorTextSideSheetContent({
   onCancel,
   onCommitted,
   t,
+  project,
+  setProject,
+  currentTimeSec = 0,
+  viewOnly = false,
+  selectedCueId = null,
+  selectedLightId = null,
+  onSelectLightId,
+  preferredTab = null,
+  floorMarkupTool = null,
+  setFloorMarkupTool,
+  floorLineScope = "formation",
+  setFloorLineScope,
 }: FloorTextSideSheetContentProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [tab, setTab] = useState<SheetTab>("text");
+  const lightsEnabled = Boolean(project && setProject);
+  const scribbleEnabled = typeof setFloorMarkupTool === "function";
 
   useEffect(() => {
     if (!open) {
       setValidationError(null);
+      setTab("text");
+      return;
+    }
+    if (preferredTab === "lights" && lightsEnabled) {
+      setTab("lights");
+    } else if (preferredTab === "scribble" && scribbleEnabled) {
+      setTab("scribble");
+    } else if (preferredTab === "text") {
+      setTab("text");
+    }
+  }, [open, preferredTab, lightsEnabled, scribbleEnabled]);
+
+  /** テキストタブのみ配置セッションを用意。照明／落書きタブで立てると舞台操作を奪う */
+  useEffect(() => {
+    if (!open) return;
+    if (tab === "lights" || tab === "scribble") {
+      if (
+        floorTextPlaceSession &&
+        !floorTextPlaceSession.editTargetId &&
+        !(floorTextPlaceSession.body ?? "").trim()
+      ) {
+        setFloorTextPlaceSession(null);
+      }
       return;
     }
     if (!floorTextPlaceSession) {
       setFloorTextPlaceSession(createDefaultFloorTextPlaceSession());
     }
-  }, [open, floorTextPlaceSession, setFloorTextPlaceSession]);
+  }, [
+    open,
+    tab,
+    floorTextPlaceSession,
+    setFloorTextPlaceSession,
+  ]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || tab !== "text") return;
     const id = window.setTimeout(() => {
       textareaRef.current?.focus({ preventScroll: true });
     }, 120);
     return () => window.clearTimeout(id);
-  }, [open, floorTextPlaceSession?.editTargetId]);
+  }, [open, tab, floorTextPlaceSession?.editTargetId]);
 
   const updateSession = useCallback(
     (updater: (prev: FloorTextPlaceSession) => FloorTextPlaceSession) => {
@@ -95,6 +167,21 @@ export function FloorTextSideSheetContent({
       : "#fef08a"
   ).toLowerCase();
 
+  const title =
+    tab === "lights"
+      ? "テキスト・照明"
+      : tab === "scribble"
+        ? "落書き"
+        : floorTextPlaceSession?.editTargetId
+          ? "テキストを編集"
+          : "床テキスト";
+
+  const sheetTabs: { id: SheetTab; label: string }[] = [
+    { id: "text", label: "テキスト" },
+    ...(lightsEnabled ? [{ id: "lights" as const, label: "照明設定" }] : []),
+    ...(scribbleEnabled ? [{ id: "scribble" as const, label: "落書き" }] : []),
+  ];
+
   return (
     <div className={styles.root}>
       <div className={styles.header}>
@@ -116,7 +203,7 @@ export function FloorTextSideSheetContent({
               <line x1="12" y1="4" x2="12" y2="20" />
             </svg>
           </span>
-          {floorTextPlaceSession?.editTargetId ? "テキストを編集" : "床テキスト"}
+          {title}
         </h2>
         <button
           type="button"
@@ -128,116 +215,208 @@ export function FloorTextSideSheetContent({
         </button>
       </div>
 
-      <div className={styles.body}>
-        <p className={styles.hint}>
-          {floorTextPlaceSession?.editTargetId
-            ? "内容を編集して保存できます。"
-            : "文字を入力し、ステージをタップまたはドラッグで位置を指定してから決定してください。"}
-        </p>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <label className={styles.fieldLabel} htmlFor="floor-text-body-input">
-            テキスト
-          </label>
-          <textarea
-            ref={textareaRef}
-            id="floor-text-body-input"
-            rows={5}
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-            enterKeyHint="done"
-            placeholder={t("editor.layout.floorTextPlaceholder")}
-            value={floorTextPlaceSession?.body ?? ""}
-            maxLength={FLOOR_TEXT_BODY_MAX_LEN}
-            className={`${styles.textarea}${validationError ? ` ${styles.textareaError}` : ""}`}
-            onChange={(e) =>
-              updateSession((s) => ({ ...s, body: e.target.value }))
-            }
-          />
-          <div className={styles.charCount}>
-            {bodyLen}/{FLOOR_TEXT_BODY_MAX_LEN}
-          </div>
-          {validationError ? (
-            <p className={styles.error} role="alert">
-              {validationError}
-            </p>
-          ) : null}
-        </div>
-
-        <div className={styles.scopeRow}>
-          {(["formation", "global"] as const).map((scope) => {
-            const active = (floorTextPlaceSession?.scope ?? "formation") === scope;
+      {sheetTabs.length > 1 ? (
+        <div
+          role="tablist"
+          aria-label="テキスト・照明・落書き"
+          style={{
+            display: "flex",
+            gap: 4,
+            padding: "8px 14px 0",
+            borderBottom: "1px solid #334155",
+            flexShrink: 0,
+          }}
+        >
+          {sheetTabs.map((item) => {
+            const active = tab === item.id;
             return (
               <button
-                key={scope}
+                key={item.id}
                 type="button"
-                className={`${styles.scopeBtn}${active ? ` ${styles.scopeBtnActive}` : ""}`}
-                onClick={() => updateSession((s) => ({ ...s, scope }))}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(item.id)}
+                style={{
+                  flex: 1,
+                  padding: "8px 10px",
+                  borderRadius: "8px 8px 0 0",
+                  border: "1px solid",
+                  borderBottom: active ? "1px solid transparent" : "1px solid #334155",
+                  borderColor: active ? "#475569" : "transparent",
+                  background: active ? "rgba(15, 23, 42, 0.98)" : "transparent",
+                  color: active ? "#e2e8f0" : "#94a3b8",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  marginBottom: -1,
+                }}
               >
-                {scope === "formation" ? "このキューのみ" : "全キューに表示"}
+                {item.label}
               </button>
             );
           })}
         </div>
+      ) : null}
 
-        <div className={styles.sizeRow}>
-          <label htmlFor="floor-text-size-range">
-            サイズ: {floorTextPlaceSession?.fontSizePx ?? 24}px
-          </label>
-          <input
-            id="floor-text-size-range"
-            type="range"
-            min={8}
-            max={72}
-            value={floorTextPlaceSession?.fontSizePx ?? 24}
-            onChange={(e) =>
-              updateSession((s) => ({
-                ...s,
-                fontSizePx: Number(e.target.value),
-              }))
+      <div className={styles.body}>
+        {tab === "lights" && lightsEnabled && project && setProject ? (
+          <StageLightingSettingsPanel
+            disabled={viewOnly}
+            project={project}
+            setProject={setProject}
+            currentTimeSec={currentTimeSec}
+            selectedCueId={selectedCueId}
+            selectedCue={
+              selectedCueId
+                ? (project.cues.find((c) => c.id === selectedCueId) ?? null)
+                : null
             }
+            selectedLightId={selectedLightId}
+            onSelectLightId={onSelectLightId}
           />
-        </div>
+        ) : tab === "scribble" && scribbleEnabled && setFloorMarkupTool && setFloorLineScope ? (
+          <FloorScribblePanel
+            floorMarkupTool={floorMarkupTool}
+            setFloorMarkupTool={setFloorMarkupTool}
+            floorLineScope={floorLineScope}
+            setFloorLineScope={setFloorLineScope}
+            disabled={viewOnly}
+          />
+        ) : (
+          <>
+            <p className={styles.hint}>
+              {floorTextPlaceSession?.editTargetId
+                ? "内容を編集して保存できます。"
+                : "文字を入力し、ステージをタップまたはドラッグで位置を指定してから決定してください。"}
+            </p>
 
-        <div className={styles.colorSection}>
-          <div className={styles.colorRow}>
-            <label htmlFor="floor-text-color-input">{t("editor.layout.textColor")}</label>
-            <input
-              id="floor-text-color-input"
-              type="color"
-              className={styles.colorPicker}
-              value={currentColor}
-              onChange={(e) =>
-                updateSession((s) => ({ ...s, color: e.target.value }))
-              }
-            />
-          </div>
-          <div className={styles.palette}>
-            {COLOR_SWATCHES.map(({ hex, label }) => {
-              const selected = currentColor === hex.toLowerCase();
-              return (
-                <button
-                  key={hex}
-                  type="button"
-                  title={label}
-                  className={`${styles.swatch}${selected ? ` ${styles.swatchSelected}` : ""}`}
-                  style={{ background: hex }}
-                  onClick={() => updateSession((s) => ({ ...s, color: hex }))}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label className={styles.fieldLabel} htmlFor="floor-text-body-input">
+                テキスト
+              </label>
+              <textarea
+                ref={textareaRef}
+                id="floor-text-body-input"
+                rows={5}
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="done"
+                placeholder={t("editor.layout.floorTextPlaceholder")}
+                value={floorTextPlaceSession?.body ?? ""}
+                maxLength={FLOOR_TEXT_BODY_MAX_LEN}
+                className={`${styles.textarea}${validationError ? ` ${styles.textareaError}` : ""}`}
+                onChange={(e) =>
+                  updateSession((s) => ({ ...s, body: e.target.value }))
+                }
+              />
+              <div className={styles.charCount}>
+                {bodyLen}/{FLOOR_TEXT_BODY_MAX_LEN}
+              </div>
+              {validationError ? (
+                <p className={styles.error} role="alert">
+                  {validationError}
+                </p>
+              ) : null}
+            </div>
+
+            <div className={styles.scopeRow}>
+              {(["formation", "global"] as const).map((scope) => {
+                const active = (floorTextPlaceSession?.scope ?? "formation") === scope;
+                return (
+                  <button
+                    key={scope}
+                    type="button"
+                    className={`${styles.scopeBtn}${active ? ` ${styles.scopeBtnActive}` : ""}`}
+                    onClick={() => updateSession((s) => ({ ...s, scope }))}
+                  >
+                    {scope === "formation" ? "このキューのみ" : "全キューに表示"}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              className={styles.scopeRow}
+              role="group"
+              aria-label="文字の寄せ方"
+            >
+              {TEXT_ALIGN_OPTIONS.map(({ id, label }) => {
+                const active = (floorTextPlaceSession?.textAlign ?? "left") === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    data-floor-text-align={id}
+                    aria-pressed={active}
+                    className={`${styles.scopeBtn}${active ? ` ${styles.scopeBtnActive}` : ""}`}
+                    onClick={() => updateSession((s) => ({ ...s, textAlign: id }))}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className={styles.sizeRow}>
+              <label htmlFor="floor-text-size-range">
+                サイズ: {floorTextPlaceSession?.fontSizePx ?? 24}px
+              </label>
+              <input
+                id="floor-text-size-range"
+                type="range"
+                min={8}
+                max={72}
+                value={floorTextPlaceSession?.fontSizePx ?? 24}
+                onChange={(e) =>
+                  updateSession((s) => ({
+                    ...s,
+                    fontSizePx: Number(e.target.value),
+                  }))
+                }
+              />
+            </div>
+
+            <div className={styles.colorSection}>
+              <div className={styles.colorRow}>
+                <label htmlFor="floor-text-color-input">{t("editor.layout.textColor")}</label>
+                <input
+                  id="floor-text-color-input"
+                  type="color"
+                  className={styles.colorPicker}
+                  value={currentColor}
+                  onChange={(e) =>
+                    updateSession((s) => ({ ...s, color: e.target.value }))
+                  }
                 />
-              );
-            })}
-          </div>
-        </div>
+              </div>
+              <div className={styles.palette}>
+                {COLOR_SWATCHES.map(({ hex, label }) => {
+                  const selected = currentColor === hex.toLowerCase();
+                  return (
+                    <button
+                      key={hex}
+                      type="button"
+                      title={label}
+                      className={`${styles.swatch}${selected ? ` ${styles.swatchSelected}` : ""}`}
+                      style={{ background: hex }}
+                      onClick={() => updateSession((s) => ({ ...s, color: hex }))}
+                    />
+                  );
+                })}
+              </div>
+            </div>
 
-        <button type="button" className={styles.primaryBtn} onClick={handleCommit}>
-          {floorTextPlaceSession?.editTargetId
-            ? "✓ 変更を保存"
-            : "✓ 決定（ステージに配置）"}
-        </button>
-        <button type="button" className={styles.secondaryBtn} onClick={onCancel}>
-          キャンセル
-        </button>
+            <button type="button" className={styles.primaryBtn} onClick={handleCommit}>
+              {floorTextPlaceSession?.editTargetId
+                ? "✓ 変更を保存"
+                : "✓ 決定（ステージに配置）"}
+            </button>
+            <button type="button" className={styles.secondaryBtn} onClick={onCancel}>
+              キャンセル
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

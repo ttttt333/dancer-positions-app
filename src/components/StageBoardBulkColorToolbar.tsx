@@ -1,8 +1,10 @@
 import type { DancerSpot } from "../types/choreography";
 import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
+  DANCER_COLOR_RANDOM,
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
+import { DancerColorRandomSwatch } from "./DancerColorRandomSwatch";
 
 export type StageBoardBulkColorToolbarProps = {
   /** パレットを表示するか（選択あり＋ツールバー表示フラグ） */
@@ -72,6 +74,11 @@ export function StageBoardBulkColorToolbar({
             }}
           />
         ))}
+        <DancerColorRandomSwatch
+          size={26}
+          radius={6}
+          onClick={() => onSelectPaletteIndex(DANCER_COLOR_RANDOM)}
+        />
       </div>
     </div>
   );

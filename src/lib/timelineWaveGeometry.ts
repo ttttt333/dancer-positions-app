@@ -5,6 +5,7 @@
 
 import type { Cue } from "../types/choreography";
 import { sortCuesByStart } from "./cueInterval";
+import { cueSelectionExtentSec } from "./cueSelectionExtent";
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
@@ -55,6 +56,10 @@ export function effectiveWaveViewStartOverride(
   viewStartOverride: number | null,
   opts: { viewPortion: number }
 ): number | null {
+  /** 負の viewStart = 曲頭の lead-in（縦画面で再生バー固定用）。全体表示でも維持する */
+  if (viewStartOverride != null && viewStartOverride < -1e-9) {
+    return viewStartOverride;
+  }
   if (opts.viewPortion >= 1 - 1e-9) return null;
   return viewStartOverride;
 }
@@ -129,7 +134,9 @@ export function waveTimeAtClientXWithViewLock(
   return waveExtentXToTime(x, lock.viewStart, lock.viewSpan, r.width);
 }
 
-/** 波形キャンバス上のキュー区間帯をクリック判定（CSS ピクセル座標） */
+/** 波形キャンバス上のキュー区間帯をクリック判定（CSS ピクセル座標）
+ * 次キューまでの空白（移動区間）も前のキューの選択対象に含める。
+ */
 export function pickCueIdAtWave(
   clientX: number,
   clientY: number,
@@ -150,8 +157,22 @@ export function pickCueIdAtWave(
   const bandTop = inset;
   const bandBottom = Math.max(inset, h - inset);
   const mid = h / 2;
+  if (y < bandTop || y > bandBottom) return null;
   const viewEnd = viewStart + viewSpan;
   let best: { id: string; dist: number } | null = null;
+
+  const considerRange = (id: string, ts: number, te: number) => {
+    if (te < viewStart || ts > viewEnd) return;
+    const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
+    const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
+    const left = Math.min(x1, x2);
+    const right = Math.max(x1, x2);
+    if (x < left || x > right) return;
+    const cx = clamp(x, left, right);
+    const dist = Math.abs(x - cx) + Math.abs(y - mid) * 0.05;
+    if (!best || dist < best.dist) best = { id, dist };
+  };
+
   for (const cue of cueList) {
     const ts =
       dragPreview && dragPreview.cueId === cue.id
@@ -161,24 +182,57 @@ export function pickCueIdAtWave(
       dragPreview && dragPreview.cueId === cue.id
         ? dragPreview.tEnd
         : cue.tEndSec;
-    if (te < viewStart || ts > viewEnd) continue;
-    const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
-    const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
-    const left = Math.min(x1, x2);
-    const right = Math.max(x1, x2);
-    if (x < left || x > right) continue;
-    if (y < bandTop || y > bandBottom) continue;
-    const cx = clamp(x, left, right);
-    const dist = Math.abs(x - cx) + Math.abs(y - mid) * 0.05;
-    if (!best || dist < best.dist) best = { id: cue.id, dist };
+    considerRange(cue.id, Math.min(ts, te), Math.max(ts, te));
   }
+
+  /** 空白（移動）タップ → 直前キューを選択（枠が空白を含む） */
+  const sorted = sortCuesByStart(cueList);
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const prev = sorted[i]!;
+    const next = sorted[i + 1]!;
+    let prevEnd = prev.tEndSec;
+    let nextStart = next.tStartSec;
+    if (dragPreview && dragPreview.cueId === prev.id) prevEnd = dragPreview.tEnd;
+    if (dragPreview && dragPreview.cueId === next.id) nextStart = dragPreview.tStart;
+    if (nextStart <= prevEnd + 1e-4) continue;
+    considerRange(prev.id, prevEnd, nextStart);
+  }
+
   return best?.id ?? null;
 }
 
 /** 枠内側の端ドラッグ判定幅（px） */
-const CUE_EDGE_INNER_GRAB_PX = 10;
-/** 枠外側の端ドラッグ判定幅（px）— PC で枠の外を掴んで拡大縮小 */
-export const CUE_EDGE_OUTER_GRAB_PX = 18;
+const CUE_EDGE_INNER_GRAB_PX = 12;
+/** 枠外側の端ドラッグ判定幅（px）— FODI 風に枠外へ飛び出したグリップを掴む */
+export const CUE_EDGE_OUTER_GRAB_PX = 22;
+/** スマホ: 指で枠外・枠線を掴みやすいよう端ヒットをさらに拡大 */
+const CUE_EDGE_INNER_GRAB_PORTRAIT_PX = 40;
+const CUE_EDGE_OUTER_GRAB_PORTRAIT_PX = 64;
+/** 選択中キュー: 外向きグリップに合わせて外側ヒットを大きくする */
+const CUE_EDGE_SELECTED_BONUS_DESKTOP = { inner: 8, outer: 18 };
+const CUE_EDGE_SELECTED_BONUS_PORTRAIT = { inner: 18, outer: 36 };
+
+export type CueEdgeGrabPx = { inner: number; outer: number };
+
+export function resolveCueEdgeGrabPx(
+  portraitActive: boolean,
+  selected = false
+): CueEdgeGrabPx {
+  const base = portraitActive
+    ? {
+        inner: CUE_EDGE_INNER_GRAB_PORTRAIT_PX,
+        outer: CUE_EDGE_OUTER_GRAB_PORTRAIT_PX,
+      }
+    : { inner: CUE_EDGE_INNER_GRAB_PX, outer: CUE_EDGE_OUTER_GRAB_PX };
+  if (!selected) return base;
+  const bonus = portraitActive
+    ? CUE_EDGE_SELECTED_BONUS_PORTRAIT
+    : CUE_EDGE_SELECTED_BONUS_DESKTOP;
+  return {
+    inner: base.inner + bonus.inner,
+    outer: base.outer + bonus.outer,
+  };
+}
 
 function cueWaveVerticalBandPx(canvasHeight: number): {
   mid: number;
@@ -210,25 +264,26 @@ export type CueDragEdgeMode = "move" | "start" | "end";
 function pickCueDragModeForCueAtX(
   x: number,
   left: number,
-  right: number
+  right: number,
+  grab: CueEdgeGrabPx
 ): CueDragEdgeMode {
   const cueWidth = right - left;
-  if (cueWidth <= CUE_EDGE_INNER_GRAB_PX * 2 + 1) {
-    return "move";
-  }
-  const inStartZone =
-    x >= left - CUE_EDGE_OUTER_GRAB_PX && x <= left + CUE_EDGE_INNER_GRAB_PX;
-  const inEndZone =
-    x >= right - CUE_EDGE_INNER_GRAB_PX && x <= right + CUE_EDGE_OUTER_GRAB_PX;
+  /** 縮小表示で帯が細いときも、中央 40% は移動・両端と枠外は伸縮に使えるようにする */
+  const inner = Math.min(grab.inner, cueWidth * 0.3);
+  const inStartZone = x >= left - grab.outer && x <= left + inner;
+  const inEndZone = x >= right - inner && x <= right + grab.outer;
   if (inStartZone) return "start";
   if (inEndZone) return "end";
   return "move";
 }
 
-function cueWaveExpandedHitX(x: number, left: number, right: number): boolean {
-  return (
-    x >= left - CUE_EDGE_OUTER_GRAB_PX && x <= right + CUE_EDGE_OUTER_GRAB_PX
-  );
+function cueWaveExpandedHitX(
+  x: number,
+  left: number,
+  right: number,
+  grab: CueEdgeGrabPx
+): boolean {
+  return x >= left - grab.outer && x <= right + grab.outer;
 }
 
 /** 端ドラッグは境界線までの距離、移動は帯中心への距離 */
@@ -271,10 +326,19 @@ export function pickCueDragKindAtWave(
   cueList: Cue[],
   viewStart: number,
   viewSpan: number,
-  dragPreview: { cueId: string; tStart: number; tEnd: number } | null
+  dragPreview: { cueId: string; tStart: number; tEnd: number } | null,
+  edgeGrab?: CueEdgeGrabPx,
+  selectedCueIds?: ReadonlySet<string> | readonly string[] | null,
+  portraitActive = false
 ): { cueId: string; mode: CueDragEdgeMode } | null {
   if (viewSpan <= 0 || cueList.length === 0) return null;
 
+  const selectedSet =
+    selectedCueIds == null
+      ? null
+      : selectedCueIds instanceof Set
+        ? selectedCueIds
+        : new Set(selectedCueIds);
   const r = canvas.getBoundingClientRect();
   const x = clientX - r.left;
   const y = clientY - r.top;
@@ -299,9 +363,17 @@ export function pickCueDragKindAtWave(
         : cue.tEndSec;
     if (te < viewStart || ts > viewEnd) continue;
 
+    const isSelected = selectedSet?.has(cue.id) ?? false;
+    const extent = isSelected
+      ? cueSelectionExtentSec(cue, cueList, dragPreview)
+      : null;
+    const hitTs = extent?.startSec ?? Math.min(ts, te);
+    const hitTe = extent?.endSec ?? Math.max(ts, te);
+    const holdEnd = extent?.holdEndSec ?? Math.max(ts, te);
+
     let { left, right } = cueWaveHorizontalBoundsPx(
-      ts,
-      te,
+      hitTs,
+      hitTe,
       viewStart,
       viewSpan,
       viewEnd,
@@ -314,12 +386,75 @@ export function pickCueDragKindAtWave(
       right = bandMid + 1.5;
     }
     if (right - left < 1) continue;
-    if (!cueWaveExpandedHitX(x, left, right)) continue;
+    const grab =
+      edgeGrab != null && !isSelected
+        ? edgeGrab
+        : resolveCueEdgeGrabPx(portraitActive, isSelected);
+    if (!cueWaveExpandedHitX(x, left, right, grab)) continue;
 
-    const mode = pickCueDragModeForCueAtX(x, left, right);
+    /** ホールド端と移動終端でヒットを分ける（移動終端は次キュー開始を掴む） */
+    let mode = pickCueDragModeForCueAtX(x, left, right, grab);
+    let targetCueId = cue.id;
+    if (isSelected && holdEnd < hitTe - 1e-3) {
+      const holdX = waveTimeToExtentX(
+        Math.min(Math.max(holdEnd, viewStart), viewEnd),
+        viewStart,
+        viewSpan,
+        w
+      );
+      const nearMoveEnd =
+        x >= right - grab.inner && x <= right + grab.outer;
+      const nearHoldEnd =
+        x >= holdX - grab.inner && x <= holdX + grab.outer;
+      if (nearMoveEnd && !nearHoldEnd) {
+        const sorted = sortCuesByStart(cueList);
+        const idx = sorted.findIndex((c) => c.id === cue.id);
+        const next = idx >= 0 ? sorted[idx + 1] : undefined;
+        if (next) {
+          mode = "start";
+          targetCueId = next.id;
+        }
+      } else if (nearHoldEnd) {
+        mode = "end";
+        targetCueId = cue.id;
+      }
+    }
+
     const dist = cueDragKindPickDistance(x, y, mid, left, right, mode);
     if (!best || shouldPreferCueDragHit(dist, mode, best)) {
-      best = { cueId: cue.id, mode, dist };
+      best = { cueId: targetCueId, mode, dist };
+    }
+  }
+
+  /**
+   * スマホ: 描画の選択枠は空白（次キューまで）も含むため、
+   * 空白タップでも直前キューを move として拾う（端リサイズはホールド端を優先）。
+   */
+  if (portraitActive) {
+    const sorted = sortCuesByStart(cueList);
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const prev = sorted[i]!;
+      const next = sorted[i + 1]!;
+      let prevEnd = prev.tEndSec;
+      let nextStart = next.tStartSec;
+      if (dragPreview && dragPreview.cueId === prev.id) prevEnd = dragPreview.tEnd;
+      if (dragPreview && dragPreview.cueId === next.id) nextStart = dragPreview.tStart;
+      if (nextStart <= prevEnd + 1e-4) continue;
+      if (prevEnd < viewStart || nextStart > viewEnd) continue;
+      let { left, right } = cueWaveHorizontalBoundsPx(
+        prevEnd,
+        nextStart,
+        viewStart,
+        viewSpan,
+        viewEnd,
+        w
+      );
+      if (right - left < 1) continue;
+      if (x < left || x > right) continue;
+      const dist = cueDragKindPickDistance(x, y, mid, left, right, "move");
+      if (!best || dist < best.dist - 0.5) {
+        best = { cueId: prev.id, mode: "move", dist };
+      }
     }
   }
 
@@ -522,17 +657,30 @@ const WAVE_PLAYHEAD_X_FRAC = 0.11;
  * 時間軸・スクロール位置・ズーム倍率を一つの式にまとめる。
  */
 export const WAVE_PLAYHEAD_FOLLOW_SCREEN_FRAC = 0.5;
+/**
+ * スマホ縦画面（FODI風）: 再生バーを中央より左に固定し、波形をスライド。
+ * 冒頭はバー左に余白を出し、波形の開始がバー右側から見えるようにする。
+ */
+export const PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC = 0.28;
 
 /** 再生バー時刻から、赤バーを `screenFrac` に置く viewStart を求める */
 export function resolveWavePlayheadFollowViewStart(
   playheadTimeSec: number,
   durationSec: number,
   viewPortion: number,
-  screenFrac: number = WAVE_PLAYHEAD_FOLLOW_SCREEN_FRAC
+  screenFrac: number = WAVE_PLAYHEAD_FOLLOW_SCREEN_FRAC,
+  options?: { allowLeadIn?: boolean }
 ): number {
   const span = waveVisibleSpanSec(durationSec, viewPortion);
+  const raw = playheadTimeSec - screenFrac * span;
+  if (options?.allowLeadIn) {
+    /** 曲頭: viewStart を負にして再生バーを常に screenFrac に置く */
+    const minStart = -screenFrac * span;
+    const maxStart = Math.max(minStart, durationSec - screenFrac * span);
+    return clamp(raw, minStart, maxStart);
+  }
   return clamp(
-    playheadTimeSec - screenFrac * span,
+    raw,
     0,
     Math.max(0, durationSec - span)
   );
@@ -584,27 +732,40 @@ export function resolveWaveDrawView(params: {
   }
   const zoomed = viewPortion < 1 - 1e-9;
   const span = zoomed ? waveVisibleSpanSec(durationSec, viewPortion) : durationSec;
-  const pinOverride = playheadScrubArmed || cueDragArmed;
-
-  if (
-    zoomed &&
+  /** 再生中はキュー枠ドラッグでも窓を固定しない（赤バー追従を優先） */
+  const pinOverride = playheadScrubArmed || (cueDragArmed && !isPlaying);
+  const leadInOverride =
     viewStartOverride !== null &&
-    Number.isFinite(viewStartOverride)
-  ) {
-    if (pinOverride || !isPlaying) {
+    Number.isFinite(viewStartOverride) &&
+    viewStartOverride < -1e-9;
+  const hasOverride =
+    viewStartOverride !== null &&
+    Number.isFinite(viewStartOverride) &&
+    (zoomed || leadInOverride);
+
+  if (hasOverride) {
+    if (pinOverride || !isPlaying || leadInOverride) {
       return {
-        start: viewStartOverride,
-        end: viewStartOverride + span,
+        start: viewStartOverride as number,
+        end: (viewStartOverride as number) + span,
         span,
       };
     }
+    /**
+     * 再生中も override を優先（縦画面の固定再生バー＋波形スライド）。
+     * playhead が窓外なら従来どおり中央追従へフォールバック。
+     */
     if (
       Number.isFinite(anchorTimeSec) &&
-      isPlayheadSecInWaveView(anchorTimeSec, viewStartOverride, span)
+      isPlayheadSecInWaveView(
+        anchorTimeSec,
+        viewStartOverride as number,
+        span
+      )
     ) {
       return {
-        start: viewStartOverride,
-        end: viewStartOverride + span,
+        start: viewStartOverride as number,
+        end: (viewStartOverride as number) + span,
         span,
       };
     }
@@ -612,6 +773,7 @@ export function resolveWaveDrawView(params: {
 
   /**
    * 再生中: 赤バーが窓外に出たら中央追従へ（ホイールズーム後の自動スクロール）。
+   * キュー枠ドラッグ中でも再生中は追従する（編集操作で赤バーを止めない）。
    */
   if (
     zoomed &&
@@ -650,13 +812,14 @@ export function waveTimeToPercent(
   return waveTimeToExtentX(tSec, viewStart, viewSpan, 100);
 }
 
-/** 再生位置オーバーレイ: 0%/100% でも縦線がコンテナ端まで届く */
+/** 再生位置オーバーレイ: 縦線を `pct` に合わせる（幅広ヒット領域は translate で中央揃え） */
 export function playheadOverlayPositionStyles(pct: number): {
   left: string;
   transform: string;
 } {
   const p = Math.max(0, Math.min(100, pct));
-  if (p <= 0) return { left: "0", transform: "none" };
+  // 右端だけコンテナ内に収める。左端・途中は -50% で線を pct に一致させる
+  // （旧 CSS の margin-left:-22px と併用すると常に左へずれてはみ出していた）
   if (p >= 100) return { left: "100%", transform: "translateX(-100%)" };
   return { left: `${p}%`, transform: "translateX(-50%)" };
 }

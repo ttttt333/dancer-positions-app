@@ -37,6 +37,8 @@ type NeonIconPanelProps = ChoreoCoreToolbarCoreProps & {
   onOpenRosterImport?: () => void;
   onOpenStageTransform?: () => void;
   onOpenVideoExport?: () => void;
+  /** 立ち位置の雛形（Change）シートを開く */
+  onOpenFormationChange?: () => void;
   collapsed?: boolean;
   onCollapseToggle?: () => void;
   /** 折りたたみボタン pointerdown（レイアウト変更前に波形ドラッグを破棄） */
@@ -90,14 +92,23 @@ function IconText() {
     </svg>
   );
 }
-function IconZoomIn() {
-  const c = "#60a5fa";
+function IconFormationPreset() {
+  const c = "#e8d48b";
   return (
     <svg viewBox="0 0 32 32" style={{ filter: glow(c) }}>
-      <circle cx="14" cy="14" r="8" fill="none" stroke={c} strokeWidth="1.5" />
-      <line x1="20" y1="20" x2="28" y2="28" stroke={c} strokeWidth="2" strokeLinecap="round" />
-      <line x1="11" y1="14" x2="17" y2="14" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="14" y1="11" x2="14" y2="17" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="16" cy="8" r="2.2" fill={c} />
+      <circle cx="9" cy="16" r="2.2" fill={c} />
+      <circle cx="23" cy="16" r="2.2" fill={c} />
+      <circle cx="7" cy="25" r="2.2" fill={c} />
+      <circle cx="16" cy="25" r="2.2" fill={c} />
+      <circle cx="25" cy="25" r="2.2" fill={c} />
+      <path
+        d="M16 10.5 L9.5 14.2 M16 10.5 L22.5 14.2 M9.5 18 L7.5 22.5 M9.5 18 L14.5 22.5 M22.5 18 L17.5 22.5 M22.5 18 L24.5 22.5"
+        fill="none"
+        stroke={c}
+        strokeWidth="1"
+        opacity="0.45"
+      />
     </svg>
   );
 }
@@ -420,7 +431,6 @@ export function NeonIconPanel({
   onOpenAISuggest,
   onOpenFloorText,
   onOpenViewMode,
-  onZoomStage,
   onOpenAudioImport,
   onOpenLibrary,
   onOpenPhotoParse,
@@ -429,6 +439,7 @@ export function NeonIconPanel({
   collapsed = false,
   onCollapseToggle,
   onCollapsePointerDown,
+  onOpenFormationChange,
 }: NeonIconPanelProps) {
   const { t } = useI18n();
   useEffect(() => {
@@ -539,36 +550,48 @@ export function NeonIconPanel({
           overflow-y: auto;
         }
       `}</style>
-      {/* Collapse toggle button */}
-      {onCollapseToggle && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 2 }}>
+      {/* Header: 閉じる（右） */}
+      {onCollapseToggle ? (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 2,
+          }}
+        >
           <button
             type="button"
             title={t("editor.comp.k034")}
+            aria-label={t("editor.comp.k034")}
             onPointerDown={() => onCollapsePointerDown?.()}
             onClick={onCollapseToggle}
             style={{
-              width: 22,
-              height: 22,
-              borderRadius: 6,
-              background: "rgba(99,102,241,0.10)",
-              border: "1px solid rgba(99,102,241,0.25)",
-              color: "rgba(192,132,252,0.7)",
+              height: 26,
+              minWidth: 26,
+              padding: "0 8px",
+              borderRadius: 8,
+              background: "rgba(212,175,55,0.12)",
+              border: "1px solid rgba(212,175,55,0.4)",
+              color: "#e8d48b",
               cursor: "pointer",
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 13,
+              gap: 4,
+              fontSize: 11,
+              fontWeight: 700,
               lineHeight: 1,
-              padding: 0,
               flexShrink: 0,
               transition: "background 0.15s",
             }}
           >
-            ›
+            <span aria-hidden>›</span>
+            <span>閉じる</span>
           </button>
         </div>
-      )}
+      ) : null}
       <div
         ref={registerStageEditDockHost}
         id="stage-edit-dock-host"
@@ -585,13 +608,21 @@ export function NeonIconPanel({
           overflowY: "auto",
         }}
       >
-      {/* Block 1: 舞台・編集 (3×2) */}
+      {/* Block 1: 舞台・編集 (3×2)
+          1段目: 雛形 / 舞台設定 / キュー設定
+          2段目: テキスト / 立ち位置保存 / 閲覧モード */}
       <div style={grid3}>
+        <NeonBtn
+          icon={<IconFormationPreset />}
+          label="雛形"
+          title="立ち位置の雛形を選ぶ"
+          onClick={onOpenFormationChange}
+          disabled={disabled || !onOpenFormationChange}
+        />
         <NeonBtn icon={<IconStage />} label={t("editor.comp.k101")} onClick={onOpenStageShapePicker} active={stageShapeActive} disabled={disabled} />
         <NeonBtn icon={<IconCueFlag />} label={t("editor.comp.k021")} onClick={onOpenCueSettings} disabled={disabled} />
-        <NeonBtn icon={<IconSavePosition />} label={t("editor.comp.k096")} onClick={onSave} disabled={disabled} />
         <NeonBtn icon={<IconText />} label={t("editor.comp.k032")} onClick={onOpenFloorText} disabled={disabled} />
-        <NeonBtn icon={<IconZoomIn />} label={t("editor.comp.k084")} onClick={onZoomStage} disabled={disabled} />
+        <NeonBtn icon={<IconSavePosition />} label={t("editor.comp.k096")} onClick={onSave} disabled={disabled} />
         <NeonBtn icon={<IconViewMode />} label={t("editor.comp.k114")} onClick={onOpenViewMode} disabled={disabled} />
       </div>
 

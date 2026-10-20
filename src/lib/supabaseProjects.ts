@@ -15,33 +15,110 @@ export type ProjectListItem = {
   name: string;
   updated_at: string;
   share_token: string | null;
+  /** 他のアカウントが作成し、編集用リンクで参加した作品 */
+  is_shared?: boolean;
 } & ProjectListSummary;
 
-function mapListRow(r: {
-  id: unknown;
-  name: unknown;
-  updated_at: unknown;
-  share_token: unknown;
-  json: unknown;
-}): ProjectListItem {
+function mapListRow(
+  r: {
+    id: unknown;
+    name: unknown;
+    updated_at: unknown;
+    share_token: unknown;
+    user_id?: unknown;
+    json: unknown;
+  },
+  myUserId: string | null
+): ProjectListItem {
   const summary = summarizeProjectJson(r.json);
   return {
     id: Number(r.id),
     name: String(r.name),
     updated_at: String(r.updated_at),
     share_token: r.share_token != null ? String(r.share_token) : null,
+    is_shared:
+      myUserId != null && r.user_id != null && String(r.user_id) !== myUserId,
     ...summary,
   };
 }
 
+async function currentUserId(): Promise<string | null> {
+  const { data } = await getSupabase().auth.getSession();
+  return data.session?.user?.id ?? null;
+}
+
 export async function supabaseListProjects(): Promise<ProjectListItem[]> {
+  const sb = getSupabase();
+  const [{ data, error }, uid] = await Promise.all([
+    sb
+      .from("choreocore_projects")
+      .select("id, name, updated_at, share_token, user_id, json")
+      .order("updated_at", { ascending: false }),
+    currentUserId(),
+  ]);
+  if (error) throw new Error(errMsg(error, "作品一覧の取得に失敗しました"));
+  return (data ?? []).map((r) => mapListRow(r, uid));
+}
+
+function collabSchemaMissing(e: { message?: string; code?: string } | null): boolean {
+  const m = e?.message ?? "";
+  return (
+    e?.code === "42703" ||
+    e?.code === "PGRST202" ||
+    e?.code === "42883" ||
+    /edit_token|choreocore_join_project/.test(m)
+  );
+}
+
+const COLLAB_SCHEMA_MISSING_MSG =
+  "共同編集の設定がデータベースにまだありません。Supabase の SQL エディタで supabase/migrations/022_project_collaborators.up.sql を実行してください。";
+
+/** 編集用リンクのトークン。未発行なら作成者が発行する（共同編集者は既存のものを読むだけ） */
+export async function supabaseEnsureEditToken(
+  id: number,
+  opts?: { regenerate?: boolean }
+): Promise<string | null> {
   const sb = getSupabase();
   const { data, error } = await sb
     .from("choreocore_projects")
-    .select("id, name, updated_at, share_token, json")
-    .order("updated_at", { ascending: false });
-  if (error) throw new Error(errMsg(error, "作品一覧の取得に失敗しました"));
-  return (data ?? []).map(mapListRow);
+    .select("edit_token, user_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    if (collabSchemaMissing(error)) throw new Error(COLLAB_SCHEMA_MISSING_MSG);
+    throw new Error(errMsg(error, "編集用リンクの取得に失敗しました"));
+  }
+  if (!data) throw new Error("作品が見つかりません");
+  const current = data.edit_token != null ? String(data.edit_token) : null;
+  if (current && !opts?.regenerate) return current;
+  const uid = await currentUserId();
+  if (uid == null || String(data.user_id) !== uid) return current;
+  const next = newShareToken();
+  const { error: upErr } = await sb
+    .from("choreocore_projects")
+    .update({ edit_token: next })
+    .eq("id", id);
+  if (upErr) throw new Error(errMsg(upErr, "編集用リンクの発行に失敗しました"));
+  return next;
+}
+
+/** 編集用リンクから共同編集者として参加し、作品 ID を返す */
+export async function supabaseJoinProjectByEditToken(token: string): Promise<number> {
+  const sb = getSupabase();
+  const { data, error } = await sb.rpc("choreocore_join_project", { t: token });
+  if (error) {
+    if (collabSchemaMissing(error)) throw new Error(COLLAB_SCHEMA_MISSING_MSG);
+    if (/invalid_token/.test(error.message ?? "")) {
+      throw new Error("編集用リンクが無効です。作成者に新しいリンクをもらってください。");
+    }
+    if (/login_required/.test(error.message ?? "")) {
+      throw new Error("ログインが必要です");
+    }
+    throw new Error(errMsg(error, "共同編集への参加に失敗しました"));
+  }
+  const id = Number(data);
+  if (!Number.isFinite(id) || id <= 0) throw new Error("共同編集への参加に失敗しました");
+  return id;
 }
 
 function newShareToken(): string {
@@ -107,7 +184,8 @@ export async function supabaseCreateProject(
 
   const { count, error: countErr } = await sb
     .from("choreocore_projects")
-    .select("id", { count: "exact", head: true });
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userData.user.id);
   if (countErr) throw new Error(errMsg(countErr, "作品数の確認に失敗しました"));
   try {
     await assertCanCreateSupabaseProject(count ?? 0);
@@ -182,8 +260,24 @@ export async function supabaseUpdateProject(
   };
 }
 
+/** 作成者なら作品を削除、共同編集者なら自分を共同編集から外す */
 export async function supabaseDeleteProject(id: number): Promise<void> {
   const sb = getSupabase();
+  const uid = await currentUserId();
+  const { data: row } = await sb
+    .from("choreocore_projects")
+    .select("user_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (row && uid && String(row.user_id) !== uid) {
+    const { error } = await sb
+      .from("choreocore_project_members")
+      .delete()
+      .eq("project_id", id)
+      .eq("user_id", uid);
+    if (error) throw new Error(errMsg(error, "共同編集から外れられませんでした"));
+    return;
+  }
   const { error } = await sb.from("choreocore_projects").delete().eq("id", id);
   if (error) throw new Error(errMsg(error, "削除に失敗しました"));
 }

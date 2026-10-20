@@ -26,6 +26,15 @@ import { captureEditorSuggestionApply } from "../lib/choreocore/engine/calibrati
 import { poseLevelLabelJa, poseLevelMarkerScale } from "../lib/stageMarkerSizing";
 import { scoreAiAgainstProject } from "../lib/choreocore/lightingSync";
 import { EditorSideSheet } from "./EditorSideSheet";
+import {
+  applyCategoryToSectionType,
+  categoriesForMode,
+  categoryFromLabel,
+  type CueCategoryId,
+  type TrackAnalysisMode,
+} from "../lib/audioAnalysis/cueCategories";
+import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
+import { formatMmSs } from "../lib/timeFormat";
 
 interface AiSuggestDialogProps {
   project: ChoreographyProjectJson;
@@ -170,16 +179,16 @@ function Spinner() {
 }
 
 /* ─── Step indicator ─── */
-function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
-  const steps = ["曲とキュー", "生成中", "結果確認"];
+function StepIndicator({ step }: { step: 1 | 2 | 3 | 4 }) {
+  const steps = ["曲種と設定", "解析中", "きっかけ確認", "立ち位置"];
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 20 }}>
       {steps.map((s, i) => {
-        const n = (i + 1) as 1 | 2 | 3;
+        const n = (i + 1) as 1 | 2 | 3 | 4;
         const active = n === step;
         const done = n < step;
         return (
-          <div key={s} style={{ display: "flex", alignItems: "center", flex: i < 2 ? 1 : "none" }}>
+          <div key={s} style={{ display: "flex", alignItems: "center", flex: i < 3 ? 1 : "none" }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
               <div style={{
                 width: 24, height: 24, borderRadius: "50%",
@@ -192,13 +201,13 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
               }}>
                 {done ? "✓" : n}
               </div>
-              <span style={{ fontSize: 10, color: active ? shell.accent : shell.textSubtle, whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: 9, color: active ? shell.accent : shell.textSubtle, whiteSpace: "nowrap" }}>
                 {s}
               </span>
             </div>
-            {i < 2 && (
+            {i < 3 && (
               <div style={{
-                flex: 1, height: 2, margin: "0 6px", marginBottom: 16,
+                flex: 1, height: 2, margin: "0 4px", marginBottom: 16,
                 background: done ? "rgba(74,222,128,0.4)" : "rgba(255,255,255,0.07)",
                 transition: "background 0.2s",
               }} />
@@ -247,7 +256,13 @@ export function AiSuggestDialog({
   const [fbNote, setFbNote] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { status, result, error, suggest, reset } = useAiFormationSuggest(project);
+  const { status, result, error, suggest, generateFromAnalyzed, reset } =
+    useAiFormationSuggest(project);
+  const overlaySegments = useMusicSectionOverlayStore((s) => s.segments);
+  const updateSegmentCategory = useMusicSectionOverlayStore(
+    (s) => s.updateSegmentCategory
+  );
+  const [trackMode, setTrackMode] = useState<TrackAnalysisMode>("clean");
 
   const [acceptedCueIds, setAcceptedCueIds] = useState<Set<string>>(new Set());
   const [previewCueId, setPreviewCueId] = useState<string | null>(null);
@@ -315,10 +330,14 @@ export function AiSuggestDialog({
   const noPeaks = !peaks || peaks.length === 0 || durationSec <= 0;
 
   /* 現在のステップ */
-  const step: 1 | 2 | 3 =
-    status === "idle" ? 1
-    : status === "analyzing" || status === "structuring" || status === "requesting" ? 2
-    : 3;
+  const step: 1 | 2 | 3 | 4 =
+    status === "idle"
+      ? 1
+      : status === "structure_ready"
+        ? 3
+        : status === "done" || status === "error"
+          ? 4
+          : 2;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -360,14 +379,16 @@ export function AiSuggestDialog({
     });
   }, []);
 
-  /* ── 提案実行 ── */
-  const handleSuggest = useCallback(() => {
+  /* ── 曲解析のみ ── */
+  const handleAnalyze = useCallback(() => {
     if (!peaks || peaks.length === 0) return;
     const mediaUrl = playbackEngine.getMediaSourceUrl();
     suggest(peaks, durationSec, undefined, {
       audioUrl: mediaUrl || null,
       targetCueCount,
       classProfileId,
+      trackMode,
+      analyzeOnly: true,
       taste: {
         vibes: [...vibes],
         style: formationStyle,
@@ -375,7 +396,44 @@ export function AiSuggestDialog({
         note: additionalNote.trim() || undefined,
       },
     });
-  }, [peaks, durationSec, vibes, formationStyle, lyrics, additionalNote, targetCueCount, classProfileId, suggest]);
+  }, [
+    peaks,
+    durationSec,
+    vibes,
+    formationStyle,
+    lyrics,
+    additionalNote,
+    targetCueCount,
+    classProfileId,
+    trackMode,
+    suggest,
+  ]);
+
+  /* ── 立ち位置提案（解析済み） ── */
+  const handleSuggestFormations = useCallback(() => {
+    const mediaUrl = playbackEngine.getMediaSourceUrl();
+    void generateFromAnalyzed(undefined, {
+      audioUrl: mediaUrl || null,
+      targetCueCount,
+      classProfileId,
+      trackMode,
+      taste: {
+        vibes: [...vibes],
+        style: formationStyle,
+        lyrics: lyrics.trim() || undefined,
+        note: additionalNote.trim() || undefined,
+      },
+    });
+  }, [
+    vibes,
+    formationStyle,
+    lyrics,
+    additionalNote,
+    targetCueCount,
+    classProfileId,
+    trackMode,
+    generateFromAnalyzed,
+  ]);
 
   /* ── 適用 ── */
   const handleApply = useCallback(() => {
@@ -494,6 +552,7 @@ export function AiSuggestDialog({
       audioUrl: mediaUrl || null,
       targetCueCount,
       classProfileId,
+      trackMode,
       feedback,
       rejectedLayoutIds: avoidForImprove,
       acceptedLayoutIds: keepPreferred,
@@ -521,6 +580,7 @@ export function AiSuggestDialog({
     result,
     pairedCues,
     acceptedCueIds,
+    trackMode,
   ]);
 
   return (
@@ -566,7 +626,7 @@ export function AiSuggestDialog({
         <div style={body}>
           <StepIndicator step={step} />
 
-          {/* ── Step 1: 曲情報入力 ── */}
+          {/* ── Step 1: 曲種 + 設定 ── */}
           {step === 1 && (
             <div>
               {noPeaks && (
@@ -576,6 +636,44 @@ export function AiSuggestDialog({
                   </p>
                 </div>
               )}
+
+              <div style={{ ...sectionBox, marginBottom: 16 }}>
+                <span style={label}>音源の種類（解析方式）</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setTrackMode("clean")}
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                      ...(trackMode === "clean" ? chipSelected : chipIdle),
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>未編集の曲（配信・原曲）</div>
+                    <div style={{ fontSize: 10, opacity: 0.85, marginTop: 4, lineHeight: 1.4 }}>
+                      構成ラベル（イントロ / Aメロ / サビ…）をすばやく把握。ずれは波形上でドラッグ修正できます。
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTrackMode("edit")}
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                      ...(trackMode === "edit" ? chipSelected : chipIdle),
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>EDIT・MIX 音源</div>
+                    <div style={{ fontSize: 10, opacity: 0.85, marginTop: 4, lineHeight: 1.4 }}>
+                      無音カットや変則的なきっかけを深掘り解析。カテゴリはプルダウンで指定できます。
+                    </div>
+                  </button>
+                </div>
+              </div>
 
               {/* キュー数（主役） */}
               <div
@@ -859,43 +957,162 @@ export function AiSuggestDialog({
                   type="button"
                   style={{ ...btnPrimary, opacity: noPeaks ? 0.4 : 1, cursor: noPeaks ? "not-allowed" : "pointer" }}
                   disabled={noPeaks}
-                  onClick={handleSuggest}
+                  onClick={handleAnalyze}
                 >
-                  フォーメーションを提案する（{targetCueCount}枠）
+                  曲を解析する
                 </button>
               </div>
             </div>
           )}
 
-          {/* ── Step 2: 生成中 ── */}
+          {/* ── Step 2: 解析 / 生成中 ── */}
           {step === 2 && (
             <div style={{ textAlign: "center" }}>
               <Spinner />
               {status === "analyzing" ? (
                 <>
                   <p style={{ fontSize: 13, color: shell.accent }}>音楽を解析しています…</p>
-                  <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>拍・帯域・変化点を解析中</p>
+                  <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>
+                    {trackMode === "edit"
+                      ? "EDIT向け：無音カット・きっかけ候補を抽出中"
+                      : "構成ラベル（イントロ〜サビ）を把握中"}
+                  </p>
                 </>
               ) : status === "structuring" ? (
                 <>
                   <p style={{ fontSize: 13, color: shell.accent }}>楽曲構造を精密解析中…</p>
                   <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>
-                    Real Phase1/2 の完了を待ってからキューを組み立てます（少々お待ちください）
+                    Real Phase1/2 の完了を待っています
                   </p>
                 </>
               ) : (
                 <>
-                  <p style={{ fontSize: 13, color: shell.text }}>曲の区切りと隊列を組み立てています…</p>
+                  <p style={{ fontSize: 13, color: shell.text }}>立ち位置の候補を組み立てています…</p>
                   <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>
-                    指定 {targetCueCount} 枠 · Bメロ閉じる → サビ開く → コールバック
+                    指定 {targetCueCount} 枠
                   </p>
                 </>
               )}
             </div>
           )}
 
-          {/* ── Step 3: 結果 ── */}
+          {/* ── Step 3: きっかけ確認 ── */}
           {step === 3 && (
+            <div>
+              <div style={{ ...sectionBox, marginBottom: 12 }}>
+                <p style={{ fontSize: 12, color: shell.text, margin: "0 0 6px", fontWeight: 700 }}>
+                  波形上の帯を確認・修正してください
+                </p>
+                <p style={{ fontSize: 11, color: shell.textSubtle, margin: 0, lineHeight: 1.5 }}>
+                  既存の波形UIはそのままです。境界ドラッグでタイミングを直し、下のプルダウンでカテゴリを選べます。
+                  整ったら「立ち位置を提案する」を押してください。
+                </p>
+              </div>
+              <div style={{ ...sectionBox, maxHeight: 280, overflowY: "auto" }}>
+                <span style={label}>
+                  {trackMode === "edit" ? "きっかけ一覧" : "曲構成一覧"}
+                  （{overlaySegments.length}）
+                </span>
+                {overlaySegments.length === 0 ? (
+                  <p style={{ fontSize: 12, color: shell.textMuted, margin: 0 }}>
+                    セクションがありません。もう一度解析してください。
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {overlaySegments.map((seg, i) => {
+                      const cats = categoriesForMode(trackMode);
+                      const current = categoryFromLabel(seg.label, trackMode);
+                      return (
+                        <div
+                          key={`${seg.startSec}-${i}`}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "64px 1fr",
+                            gap: 8,
+                            alignItems: "center",
+                            padding: "6px 8px",
+                            borderRadius: 8,
+                            background: "rgba(255,255,255,0.03)",
+                            border: `1px solid ${shell.border}`,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontFamily: "ui-monospace, monospace",
+                              color: shell.textSubtle,
+                            }}
+                          >
+                            {formatMmSs(seg.startSec)}
+                          </span>
+                          <select
+                            value={current.id}
+                            onChange={(e) => {
+                              const id = e.target.value as CueCategoryId;
+                              const applied = applyCategoryToSectionType(id, trackMode);
+                              updateSegmentCategory(i, {
+                                sectionType:
+                                  applied.type === "intro"
+                                    ? "INTRO"
+                                    : applied.type === "verse"
+                                      ? "VERSE"
+                                      : applied.type === "pre_chorus"
+                                        ? "PRE_CHORUS"
+                                        : applied.type === "chorus"
+                                          ? "CHORUS"
+                                          : applied.type === "outro"
+                                            ? "OUTRO"
+                                            : applied.type === "bridge"
+                                              ? "BREAK"
+                                              : "UNKNOWN",
+                                label: applied.label,
+                                color: applied.color,
+                              });
+                            }}
+                            style={{
+                              width: "100%",
+                              background: "rgba(255,255,255,0.06)",
+                              border: `1px solid ${shell.borderStrong}`,
+                              borderRadius: 8,
+                              color: shell.text,
+                              fontSize: 12,
+                              padding: "6px 8px",
+                            }}
+                          >
+                            {cats.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 16 }}>
+                <button type="button" style={btnSecondary} onClick={() => reset()}>
+                  やり直す
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...btnPrimary,
+                    opacity: overlaySegments.length === 0 ? 0.4 : 1,
+                    cursor: overlaySegments.length === 0 ? "not-allowed" : "pointer",
+                  }}
+                  disabled={overlaySegments.length === 0}
+                  onClick={handleSuggestFormations}
+                >
+                  立ち位置を提案する（{targetCueCount}枠）
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 4: 結果 ── */}
+          {step === 4 && (
             <div>
               {status === "error" ? (
                 <div style={{ textAlign: "center", padding: "32px 0" }}>

@@ -6,13 +6,19 @@ import {
 } from "../core/timelineController";
 import { PLACEHOLDER_TIMELINE_CAP_SEC } from "./cueInterval";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { usePracticePlaybackStore } from "../store/practicePlaybackStore";
+import {
+  cancelPlaybackCountIn,
+  isPlaybackCountInActive,
+} from "./playbackCountIn";
 
 /**
  * 再生エンジンと `usePlaybackUiStore` をつなぐ操作の集約。
  *
  * - 通常シーク（波形クリック・±秒など）: `seekPlaybackClampedAndSyncStore`
- * - キュー作成／複製直後（実尺 0 でもプレースホルダ上限で clamp）: `syncPlaybackHeadAfterCueEdit`
- * - 停止・トリム先頭: `stopPlaybackAtTrimStart` / `pauseAndSeekPlaybackToSec`
+ * - キュー作成／複製直後（停止中のみヘッド合わせ）: `syncPlaybackHeadAfterCueEditWhenStopped`
+ * - 停止ボタン: `stopOrRewindPlayback`（1回目=その場停止、2回目=トリム先頭）
+ * - 即先頭停止: `stopPlaybackAtTrimStart` / `pauseAndSeekPlaybackToSec`
  * - 再生トグル: `togglePlaybackRespectingTrimStart`
  *
  * キュー境界・ヘッド秒の純関数は `core/timelineController`（`playbackTrim`）へ集約。
@@ -159,6 +165,40 @@ export function syncPlaybackHeadAfterCueEdit(
   }
 }
 
+/**
+ * 再生中（UI またはエンジン）かどうか。
+ * 波形上の複製・移動・ズーム中に再生を止めない判定に使う。
+ */
+export function isLivePlaybackActive(): boolean {
+  if (usePlaybackUiStore.getState().isPlaying) return true;
+  return Boolean(
+    playbackEngine.getMediaSourceUrl() && !playbackEngine.isPaused()
+  );
+}
+
+/**
+ * 停止中だけキュー編集後にヘッドを合わせる。
+ * 再生中はシークも停止もしない（赤バーを動かし続ける）。
+ */
+export function syncPlaybackHeadAfterCueEditWhenStopped(
+  params: SyncPlaybackHeadAfterCueParams
+): void {
+  if (isLivePlaybackActive()) return;
+  syncPlaybackHeadAfterCueEdit(params);
+}
+
+/**
+ * キュー一覧からの選択など「編集のために止める」コールバック。
+ * 再生中は呼ばない（複製・新規キューでは再生を継続する）。
+ */
+export function notifyFormationChosenWhenStopped(
+  onChosen?: () => void
+): void {
+  if (!onChosen) return;
+  if (isLivePlaybackActive()) return;
+  onChosen();
+}
+
 export type PauseAndSeekPlaybackParams = {
   tRaw: number;
   durationSec: number;
@@ -173,6 +213,8 @@ export type PauseAndSeekPlaybackParams = {
 export function pauseAndSeekPlaybackToSec(
   params: PauseAndSeekPlaybackParams
 ): void {
+  cancelPlaybackCountIn();
+  usePracticePlaybackStore.getState().setIsCountingIn(false);
   const { tRaw, durationSec, trimStartSec, trimEndSec } = params;
   const d = durationSec;
   /** 実尺がまだ無いときはトリムに寄せず 0 下限のみ（従来 Timeline と同じ）。 */
@@ -196,10 +238,12 @@ export function pauseAndSeekPlaybackToSec(
 }
 
 /**
- * 再生を止めてトリム左端へシークする（タイムライン停止 UI・ステージ床タップなど共通）。
+ * 再生を止めてトリム左端へシークする（ステージ床タップなど「即先頭へ」用）。
  */
 export function stopPlaybackAtTrimStart(trimStartSec: number): void {
   if (!playbackEngine.getMediaSourceUrl()) return;
+  cancelPlaybackCountIn();
+  usePracticePlaybackStore.getState().setIsCountingIn(false);
   playbackEngine.pause();
   usePlaybackUiStore.getState().setIsPlaying(false);
   const t = Math.max(0, trimStartSec);
@@ -209,11 +253,50 @@ export function stopPlaybackAtTrimStart(trimStartSec: number): void {
   }
 }
 
+function isPlaybackActivelyRunning(): boolean {
+  if (isPlaybackCountInActive() || usePracticePlaybackStore.getState().isCountingIn) {
+    return true;
+  }
+  if (usePlaybackUiStore.getState().isPlaying) return true;
+  if (playbackEngine.getMediaSourceUrl() && !playbackEngine.isPaused()) return true;
+  return false;
+}
+
+/**
+ * 停止ボタン用: 1 回目はその場で一時停止、すでに停止中ならトリム先頭へ戻す。
+ */
+export function stopOrRewindPlayback(trimStartSec: number): void {
+  if (isPlaybackActivelyRunning()) {
+    cancelPlaybackCountIn();
+    usePracticePlaybackStore.getState().setIsCountingIn(false);
+    usePlaybackUiStore.getState().setIsPlaying(false);
+    if (playbackEngine.getMediaSourceUrl()) {
+      playbackEngine.pause();
+      const t = playbackEngine.getCurrentTime();
+      if (Number.isFinite(t)) {
+        usePlaybackUiStore.getState().setCurrentTimeSec(t);
+      }
+    }
+    return;
+  }
+  stopPlaybackAtTrimStart(trimStartSec);
+}
+
 /**
  * 再生/一時停止のトグル。一時停止から再生に入るとき、ヘッドがトリム開始より左なら先にシークする。
  */
 export function togglePlaybackRespectingTrimStart(trimStartSec: number): void {
   if (!playbackEngine.getMediaSourceUrl()) return;
+
+  // 旧カウントイン中に再度押したら中断して停止状態へ
+  if (isPlaybackCountInActive() || usePracticePlaybackStore.getState().isCountingIn) {
+    cancelPlaybackCountIn();
+    usePracticePlaybackStore.getState().setIsCountingIn(false);
+    usePlaybackUiStore.getState().setIsPlaying(false);
+    playbackEngine.pause();
+    return;
+  }
+
   if (playbackEngine.isPaused()) {
     if (
       isPlaybackBeforeTrimStart(
@@ -222,12 +305,16 @@ export function togglePlaybackRespectingTrimStart(trimStartSec: number): void {
       )
     ) {
       playbackEngine.seek(trimStartSec);
+      usePlaybackUiStore.getState().setCurrentTimeSec(Math.max(0, trimStartSec));
     }
+
     usePlaybackUiStore.getState().setIsPlaying(true);
     void playbackEngine.play().catch(() => {
       usePlaybackUiStore.getState().setIsPlaying(false);
     });
   } else {
+    cancelPlaybackCountIn();
+    usePracticePlaybackStore.getState().setIsCountingIn(false);
     playbackEngine.pause();
   }
 }

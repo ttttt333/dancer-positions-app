@@ -1,10 +1,17 @@
 /**
  * ステージ情報プリセット — よく使う舞台寸法（メイン幅・奥行・サイド・バック・
- * センターからの場ミリ）を名前付きで保存するライブラリ。
+ * センターからの場ミリ）とヘソ／そで幕を名前付きで `localStorage` に保存する。
  *
  * プロジェクト毎に毎回手で入力し直さなくて済むよう、作品横断のグローバル倉庫として扱う。
  * ログイン時は `userLibrarySync` 経由でクラウドと端末間同期する。
  */
+
+import type {
+  StageCenterMark,
+  StageSleeveCurtain,
+} from "../types/choreography";
+import { normalizeStageCenterMarks } from "./stageCenterMarks";
+import { normalizeStageSleeveCurtains } from "./stageSleeveCurtains";
 
 export const STAGE_PRESETS_STORAGE_KEY = "choreogrid_stage_presets_v1";
 const STORAGE_KEY = STAGE_PRESETS_STORAGE_KEY;
@@ -28,6 +35,12 @@ export type StagePresetDimensions = {
   sideStageMm: number | null;
   backStageMm: number | null;
   centerFieldGuideIntervalMm: number | null;
+  /** ヘソ／センターマーク表示。旧プリセットは未定義（呼び出し時に上書きしない） */
+  stageHesoVisible?: boolean;
+  /** ヘソ位置・サイズ。未定義＝旧プリセット */
+  stageCenterMarks?: StageCenterMark[];
+  /** そで幕。未定義＝旧プリセット */
+  stageSleeveCurtains?: StageSleeveCurtain[];
 };
 
 export type StagePresetItem = StagePresetDimensions & {
@@ -45,6 +58,57 @@ function isFinitePositiveOrNull(v: unknown): v is number | null {
   return v === null || (typeof v === "number" && Number.isFinite(v) && v >= 0);
 }
 
+function normalizeDim(v: number | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  if (!Number.isFinite(v)) return null;
+  const n = Math.max(0, Math.round(v));
+  return n > 0 ? n : null;
+}
+
+function normalizeGuideFields(
+  dims: Pick<
+    StagePresetDimensions,
+    "stageHesoVisible" | "stageCenterMarks" | "stageSleeveCurtains"
+  >
+): Pick<
+  StagePresetDimensions,
+  "stageHesoVisible" | "stageCenterMarks" | "stageSleeveCurtains"
+> {
+  const hesoVisible = dims.stageHesoVisible === true;
+  const marks = normalizeStageCenterMarks(dims.stageCenterMarks, {
+    seedCenterIfEmpty: hesoVisible,
+  });
+  const curtains = normalizeStageSleeveCurtains(
+    dims.stageSleeveCurtains,
+    undefined
+  );
+  return {
+    stageHesoVisible: hesoVisible,
+    stageCenterMarks: marks,
+    stageSleeveCurtains: curtains,
+  };
+}
+
+/** 保存ペイロードからガイド類を正規化して取り出す（常に書き込む用） */
+export function stagePresetGuideSnapshot(dims: {
+  stageHesoVisible?: boolean;
+  stageCenterMarks?: readonly StageCenterMark[];
+  stageSleeveCurtains?: readonly StageSleeveCurtain[];
+}): Pick<
+  StagePresetDimensions,
+  "stageHesoVisible" | "stageCenterMarks" | "stageSleeveCurtains"
+> {
+  return normalizeGuideFields({
+    stageHesoVisible: dims.stageHesoVisible === true,
+    stageCenterMarks: dims.stageCenterMarks
+      ? [...dims.stageCenterMarks]
+      : [],
+    stageSleeveCurtains: dims.stageSleeveCurtains
+      ? [...dims.stageSleeveCurtains]
+      : [],
+  });
+}
+
 function isValidItem(x: unknown): x is StagePresetItem {
   if (typeof x !== "object" || x === null) return false;
   const o = x as Record<string, unknown>;
@@ -59,13 +123,6 @@ function isValidItem(x: unknown): x is StagePresetItem {
   );
 }
 
-function normalizeDim(v: number | null | undefined): number | null {
-  if (v === null || v === undefined) return null;
-  if (!Number.isFinite(v)) return null;
-  const n = Math.max(0, Math.round(v));
-  return n > 0 ? n : null;
-}
-
 function readAll(): StagePresetItem[] {
   if (typeof localStorage === "undefined") return [];
   try {
@@ -73,15 +130,39 @@ function readAll(): StagePresetItem[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidItem).map((item) => ({
-      ...item,
-      name: (item.name || "").slice(0, MAX_NAME_LEN),
-      stageWidthMm: normalizeDim(item.stageWidthMm),
-      stageDepthMm: normalizeDim(item.stageDepthMm),
-      sideStageMm: normalizeDim(item.sideStageMm),
-      backStageMm: normalizeDim(item.backStageMm),
-      centerFieldGuideIntervalMm: normalizeDim(item.centerFieldGuideIntervalMm),
-    }));
+    return parsed.filter(isValidItem).map((item) => {
+      const base: StagePresetItem = {
+        id: item.id,
+        name: (item.name || "").slice(0, MAX_NAME_LEN),
+        stageWidthMm: normalizeDim(item.stageWidthMm),
+        stageDepthMm: normalizeDim(item.stageDepthMm),
+        sideStageMm: normalizeDim(item.sideStageMm),
+        backStageMm: normalizeDim(item.backStageMm),
+        centerFieldGuideIntervalMm: normalizeDim(
+          item.centerFieldGuideIntervalMm
+        ),
+        createdAt: typeof item.createdAt === "number" ? item.createdAt : 0,
+        updatedAt: typeof item.updatedAt === "number" ? item.updatedAt : 0,
+      };
+      // 新フィールドがあるときだけ載せる（旧プリセットは未定義のまま）
+      const hasGuide =
+        item.stageHesoVisible !== undefined ||
+        item.stageCenterMarks !== undefined ||
+        item.stageSleeveCurtains !== undefined;
+      if (!hasGuide) return base;
+      return {
+        ...base,
+        ...normalizeGuideFields({
+          stageHesoVisible: item.stageHesoVisible === true,
+          stageCenterMarks: Array.isArray(item.stageCenterMarks)
+            ? item.stageCenterMarks
+            : [],
+          stageSleeveCurtains: Array.isArray(item.stageSleeveCurtains)
+            ? item.stageSleeveCurtains
+            : [],
+        }),
+      };
+    });
   } catch {
     return [];
   }
@@ -127,14 +208,20 @@ export function listStagePresets(): StagePresetItem[] {
   return list.sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-/** 現在値がどれも未設定なら保存しない */
+/** 寸法もガイドも無いなら保存しない */
 function isAllEmpty(dims: StagePresetDimensions): boolean {
-  return (
+  const noDims =
     dims.stageWidthMm == null &&
     dims.stageDepthMm == null &&
     dims.sideStageMm == null &&
     dims.backStageMm == null &&
-    dims.centerFieldGuideIntervalMm == null
+    dims.centerFieldGuideIntervalMm == null;
+  if (!noDims) return false;
+  const guides = stagePresetGuideSnapshot(dims);
+  return (
+    !guides.stageHesoVisible &&
+    (guides.stageCenterMarks?.length ?? 0) === 0 &&
+    (guides.stageSleeveCurtains?.length ?? 0) === 0
   );
 }
 
@@ -147,10 +234,11 @@ export function saveStagePreset(
     return {
       ok: false,
       reason: "unknown",
-      message: "保存する寸法が何も入っていません。",
+      message: "保存する寸法・ヘソ・そで幕が何も入っていません。",
     };
   }
   const now = Date.now();
+  const guides = stagePresetGuideSnapshot(dims);
   const item: StagePresetItem = {
     id: genId(),
     name: n,
@@ -159,6 +247,7 @@ export function saveStagePreset(
     sideStageMm: normalizeDim(dims.sideStageMm),
     backStageMm: normalizeDim(dims.backStageMm),
     centerFieldGuideIntervalMm: normalizeDim(dims.centerFieldGuideIntervalMm),
+    ...guides,
     createdAt: now,
     updatedAt: now,
   };
@@ -193,6 +282,7 @@ export function updateStagePreset(
     };
   }
   const existing = list[idx]!;
+  const guides = stagePresetGuideSnapshot(dims);
   const updated: StagePresetItem = {
     ...existing,
     stageWidthMm: normalizeDim(dims.stageWidthMm),
@@ -200,6 +290,7 @@ export function updateStagePreset(
     sideStageMm: normalizeDim(dims.sideStageMm),
     backStageMm: normalizeDim(dims.backStageMm),
     centerFieldGuideIntervalMm: normalizeDim(dims.centerFieldGuideIntervalMm),
+    ...guides,
     updatedAt: Date.now(),
   };
   list[idx] = updated;
@@ -242,6 +333,15 @@ export function deleteStagePreset(id: string): void {
   }
 }
 
+/** プリセットにガイド類が含まれているか（旧データは false） */
+export function stagePresetHasGuideFields(item: StagePresetItem): boolean {
+  return (
+    item.stageHesoVisible !== undefined ||
+    item.stageCenterMarks !== undefined ||
+    item.stageSleeveCurtains !== undefined
+  );
+}
+
 export type StagePresetMergeResult = {
   added: number;
   updated: number;
@@ -249,8 +349,8 @@ export type StagePresetMergeResult = {
 };
 
 function normalizeItem(item: StagePresetItem): StagePresetItem {
-  return {
-    ...item,
+  const base: StagePresetItem = {
+    id: item.id,
     name: (item.name || "").slice(0, MAX_NAME_LEN),
     stageWidthMm: normalizeDim(item.stageWidthMm),
     stageDepthMm: normalizeDim(item.stageDepthMm),
@@ -260,6 +360,10 @@ function normalizeItem(item: StagePresetItem): StagePresetItem {
     createdAt: typeof item.createdAt === "number" ? item.createdAt : Date.now(),
     updatedAt: typeof item.updatedAt === "number" ? item.updatedAt : Date.now(),
   };
+  if (stagePresetHasGuideFields(item)) {
+    return { ...base, ...stagePresetGuideSnapshot(item) };
+  }
+  return base;
 }
 
 /** クラウド／バックアップからのマージ（同一 id は新しい updatedAt を採用） */

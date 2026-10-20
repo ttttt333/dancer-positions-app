@@ -25,8 +25,8 @@ export const PC_WAVE_RULER_CHROME_PX = Math.round(
   ((16 + 5 * CSS_MM_TO_PX) * 2) / 3
 );
 
-/** コンパクト再生ツールバー行（minHeight + padding + border + ズームボタン行） */
-export const PC_WIDE_TOP_DOCK_TOOLBAR_CHROME_PX = Math.round(30 * 1.2 + 2 * 1.2 + 2);
+/** コンパクト統合ツールバー行（再生＋ユーティリティ一列） */
+export const PC_WIDE_TOP_DOCK_TOOLBAR_CHROME_PX = 44;
 
 /** 波形ブロック下端の高さリサイズ枠 */
 export const PC_WAVE_BOTTOM_RESIZE_CHROME_PX = 10;
@@ -66,14 +66,19 @@ export function estimateWideTopDockWaveChromePx(): number {
   );
 }
 
-/** PC ワイド上部ドックの波形キャンバス既定高さ（px） */
-export const WAVE_CANVAS_H_PC_WIDE_DEFAULT = 50;
+/** PC ワイド上部／下部ドックの波形キャンバス既定高さ（px） */
+export const WAVE_CANVAS_H_PC_WIDE_DEFAULT = 88;
+
+/** PC ワイド: ドック内インライン再生バーの高さ目安（px） */
+/** 旧: 再生ピル分離用。一列統合後は 0（ツールバー側に含む） */
+export const PC_WIDE_INLINE_PLAYBACK_CHROME_PX = 0;
 
 /** PC ワイド上部ドックの既定外枠高さ（px）— 再生行・目盛り・波形・下リサイザー */
 export const TOP_DOCK_HEIGHT_WIDE_PX =
   estimateWideTopDockWaveChromePx() +
   WAVE_CANVAS_H_PC_WIDE_DEFAULT +
-  TOP_DOCK_WAVE_STAGE_RESIZER_PX;
+  TOP_DOCK_WAVE_STAGE_RESIZER_PX +
+  PC_WIDE_INLINE_PLAYBACK_CHROME_PX;
 
 /** リサイズ時に波形が潰れない最小外枠高さ（px） */
 export const TOP_DOCK_ROW_MIN_WIDE_PX = TOP_DOCK_HEIGHT_WIDE_PX;

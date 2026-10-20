@@ -48,7 +48,7 @@ export function FloorTextDraftGhostPreview({
         whiteSpace: "pre",
         wordBreak: "normal",
         maxWidth: "none",
-        textAlign: "center",
+        textAlign: draft.textAlign ?? "left",
         outline: `2px dashed ${body ? "rgba(56,189,248,0.85)" : "rgba(100,116,139,0.55)"}`,
         outlineOffset: 4,
         padding: "4px 8px",

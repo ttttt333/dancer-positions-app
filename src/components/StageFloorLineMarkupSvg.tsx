@@ -1,7 +1,8 @@
-import type { StageFloorMarkup } from "../types/choreography";
+import type { StageFloorLineMarkup } from "../types/choreography";
 
 export type StageFloorLineMarkupSvgProps = {
-  displayFloorMarkup: StageFloorMarkup[];
+  /** キュー固有＋全編の線（マージ済み） */
+  displayFloorLines: StageFloorLineMarkup[];
   floorLineDraft: [number, number][] | null;
   floorMarkupTool: null | "text" | "line" | "erase";
   setPiecesEditable: boolean;
@@ -10,7 +11,7 @@ export type StageFloorLineMarkupSvgProps = {
 
 /** メイン床オーバーレイ内: 床ライン確定表示・消しゴムヒット・下書きポリライン */
 export function StageFloorLineMarkupSvg({
-  displayFloorMarkup,
+  displayFloorLines,
   floorLineDraft,
   floorMarkupTool,
   setPiecesEditable,
@@ -29,8 +30,8 @@ export function StageFloorLineMarkupSvg({
         pointerEvents: "none",
       }}
     >
-      {displayFloorMarkup.map((m) => {
-        if (m.kind !== "line" || m.pointsPct.length < 2) return null;
+      {displayFloorLines.map((m) => {
+        if (m.pointsPct.length < 2) return null;
         const pts = m.pointsPct.map(([x, y]) => `${x},${y}`).join(" ");
         const stroke = m.color ?? "#fbbf24";
         const w = m.widthPx ?? 3;

@@ -6,6 +6,7 @@ import {
   DANCER_STAGE_POSITION_PCT_LO,
 } from "./dancerSpacing";
 import { MAX_DANCERS_PER_FORMATION } from "./dancerCountLimits";
+import { transferDancerIdentitiesByNearestPosition } from "./formationLayouts";
 
 /**
  * 「形の箱（Formation Box）」— ユーザ独自の立ち位置ライブラリ。
@@ -629,6 +630,82 @@ export function mergeFormationBoxSnapshotWithStageIdentities(
       note: od.note ?? nd.note,
     };
   });
+}
+
+/**
+ * 保存立ち位置を呼び出すときの引き継ぎ量。
+ * - `positions`: 座標だけ。名前・色・名簿・メモ等はいまのステージのまま
+ * - `full`: 保存時の名前・色・名簿も優先して載せる（従来どおり）
+ */
+export type FormationBoxApplyMode = "positions" | "full";
+
+export const FORMATION_BOX_APPLY_MODE_OPTIONS: {
+  value: FormationBoxApplyMode;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "positions",
+    label: "位置のみ",
+    hint: "名前・色・名簿はそのまま。座標だけ移す",
+  },
+  {
+    value: "full",
+    label: "保存データすべて",
+    hint: "名前・色・名簿も保存時の内容で上書き",
+  },
+];
+
+/**
+ * 座標だけを形の箱から適用する。人物の id / 表示名 / 色 / 名簿はステージ側を維持。
+ * 人数が違うときは最寄り割当で動かし、余った人はその場に残す（箱側の余剰スロットは捨てる）。
+ */
+export function applyFormationBoxPositionsOnly(
+  item: FormationBoxItem,
+  stage: DancerSpot[]
+): DancerSpot[] {
+  const restored = dancersFromFormationBoxItem(item);
+  if (restored.length === 0) {
+    return stage.map((d) => ({ ...d }));
+  }
+  if (stage.length === 0) {
+    return restored.map((d, i) => ({
+      id: d.id,
+      label: String(i + 1),
+      xPct: d.xPct,
+      yPct: d.yPct,
+      colorIndex: modDancerColorIndex(i),
+    }));
+  }
+
+  const shells: DancerSpot[] = restored.map((d, i) => ({
+    id: `box-pos-${i}`,
+    label: "",
+    xPct: d.xPct,
+    yPct: d.yPct,
+    colorIndex: 0,
+  }));
+  const moved = transferDancerIdentitiesByNearestPosition(shells, stage);
+  const stageIds = new Set(stage.map((d) => d.id));
+  const withIdentity = moved.filter((d) => stageIds.has(d.id));
+  const placedIds = new Set(withIdentity.map((d) => d.id));
+  const leftovers = stage
+    .filter((d) => !placedIds.has(d.id))
+    .map((d) => ({ ...d }));
+  return [...withIdentity, ...leftovers];
+}
+
+/** 形の箱アイテムをステージへ適用（引き継ぎモード付き） */
+export function applyFormationBoxItemToStage(
+  item: FormationBoxItem,
+  stage: DancerSpot[],
+  mode: FormationBoxApplyMode
+): DancerSpot[] {
+  if (mode === "positions") {
+    return applyFormationBoxPositionsOnly(item, stage);
+  }
+  const restored = dancersFromFormationBoxItem(item);
+  return mergeFormationBoxSnapshotWithStageIdentities(restored, stage, item);
 }
 
 /**

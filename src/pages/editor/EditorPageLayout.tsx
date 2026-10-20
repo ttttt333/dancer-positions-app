@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoGridLogo";
 import { StageBoard } from "../../components/StageBoard";
@@ -18,6 +18,7 @@ import { dancersForLayoutPreset, transferDancerIdentitiesByOrder } from "../../l
 import { formatMmSsFloor } from "../../lib/timeFormat";
 import { getViewRosterEntries } from "../../lib/viewRoster";
 import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
+import { useViewerHoldToDoubleSpeed } from "../../hooks/useViewerHoldToDoubleSpeed";
 import { parseMeterCmDraftToMm } from "./stageAreaSettingsDraft";
 import {
   EDITOR_GRID_GAP_PX,
@@ -25,7 +26,6 @@ import {
   TOP_DOCK_HEIGHT_PX,
   TOP_DOCK_ROW_MIN_PX,
 } from "./editorConstants";
-import { TOP_DOCK_WAVE_STAGE_RESIZER_PX } from "../../lib/waveDockMetrics";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 
 const Stage3DView = lazy(() =>
@@ -236,6 +236,29 @@ export function EditorPageLayout(props: EditorLayoutProps) {
 
   const attachTopDockSection = useAssignRef(topDockSectionRef);
   const publicRootRef = useRef<HTMLDivElement | null>(null);
+  const viewerStageShellRef = useRef<HTMLDivElement | null>(null);
+
+  const onViewerHoldPlaybackRateChange = useCallback(
+    (rate: number) => {
+      setProjectSafe((p: { playbackRate?: number } & Record<string, unknown>) => ({
+        ...p,
+        playbackRate: rate,
+      }));
+    },
+    [setProjectSafe]
+  );
+
+  const {
+    boosting: viewerHold2x,
+    onPointerDown: onViewerHold2xPointerDown,
+    onContextMenu: onViewerHold2xContextMenu,
+  } = useViewerHoldToDoubleSpeed({
+    enabled: Boolean(choreoPublicView && choreoStudentPick && project),
+    project,
+    playbackRate: project?.playbackRate ?? 1,
+    onPlaybackRateChange: onViewerHoldPlaybackRateChange,
+    shellRef: viewerStageShellRef,
+  });
 
   useEffect(() => {
     if (!choreoPublicView) return;
@@ -362,7 +385,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         <EditorPageHeader {...props} />
       ) : null}
 
-      {/* ─── Main layout: column flex (top wave bar + stage row) ─── */}
+      {/* ─── Main layout: column flex (stage first on wide floating UI) ─── */}
       <div
         className={choreoPublicView ? "choreo-public-view-main" : undefined}
         style={{
@@ -374,45 +397,55 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         }}
       >
 
-      {showTopWaveDock &&
-      !stageZenLayout &&
-      !mobileStackEditor &&
-      !choreoPublicView ? (
+      {(() => {
+        const showWaveDock =
+          showTopWaveDock &&
+          !stageZenLayout &&
+          !mobileStackEditor &&
+          !choreoPublicView;
+        if (!showWaveDock) return null;
+        const floatingWide = Boolean(wideEditorLayout);
+        const dockHeightPx = floatingWide
+          ? (wideBottomDockPx as number)
+          : (editorTopDockHeightPx ?? TOP_DOCK_HEIGHT_PX);
+        // PCワイドも従来どおり上部ドック（波形を上に）
+        return (
         <div
           style={{
             flexShrink: undefined,
             width: "100%",
             minWidth: 0,
-            height: wideEditorLayout
-              ? wideBottomDockPx
-              : (editorTopDockHeightPx ?? TOP_DOCK_HEIGHT_PX),
+            height: dockHeightPx,
             position: "relative",
             overflow: "hidden",
             background: "transparent",
-            marginBottom: wideEditorLayout ? 0 : 4,
-            zIndex: undefined,
-            borderBottom: undefined,
+            marginBottom: 4,
+            ...(floatingWide
+              ? {
+                  marginLeft: 14,
+                  marginRight: 14,
+                  width: "auto",
+                }
+              : {}),
           }}
         >
-          {/* Timeline content */}
           <div
             ref={attachTopDockSection}
             style={{
               position: "absolute",
-              inset: wideEditorLayout ? `0 0 ${TOP_DOCK_WAVE_STAGE_RESIZER_PX}px 0` : "0 0 8px 0",
+              inset: "0 0 8px 0",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
               minHeight: 0,
               height: "100%",
-              padding: wideEditorLayout ? 0 : "0 4px 4px",
+              padding: "0 4px 4px",
             }}
           >
             <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
               {timelinePanelEl}
             </div>
           </div>
-          {/* 波形バーとステージの境目 — 上下ドラッグで高さ調整 */}
           <div
             role="separator"
             aria-orientation="horizontal"
@@ -436,8 +469,12 @@ export function EditorPageLayout(props: EditorLayoutProps) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              borderTop: "1px solid #334155",
-              background: "linear-gradient(180deg, rgba(15,23,42,0.35) 0%, rgba(15,23,42,0.85) 100%)",
+              borderTop: floatingWide
+                ? "1px solid rgba(212,175,55,0.25)"
+                : "1px solid #334155",
+              background: floatingWide
+                ? "linear-gradient(180deg, rgba(15,23,42,0.2) 0%, rgba(15,23,42,0.75) 100%)"
+                : "linear-gradient(180deg, rgba(15,23,42,0.35) 0%, rgba(15,23,42,0.85) 100%)",
             }}
           >
             <div
@@ -446,13 +483,18 @@ export function EditorPageLayout(props: EditorLayoutProps) {
                 width: "min(100%, 120px)",
                 height: 3,
                 borderRadius: 2,
-                background: "rgba(148,163,184,0.55)",
-                boxShadow: "0 0 0 1px rgba(51,65,85,0.6)",
+                background: floatingWide
+                  ? "rgba(212,175,55,0.45)"
+                  : "rgba(148,163,184,0.55)",
+                boxShadow: floatingWide
+                  ? "0 0 0 1px rgba(212,175,55,0.2)"
+                  : "0 0 0 1px rgba(51,65,85,0.6)",
               }}
             />
           </div>
         </div>
-      ) : null}
+        );
+      })()}
 
       {choreoPublicView &&
       choreoStudentPick &&
@@ -467,8 +509,22 @@ export function EditorPageLayout(props: EditorLayoutProps) {
 
       {/* ─── Stage row: editor grid + NeonIconPanel ─── */}
       <div
-        className={
-          choreoPublicView ? "choreo-public-view-stage-shell" : undefined
+        ref={choreoPublicView ? viewerStageShellRef : undefined}
+        className={[
+          choreoPublicView ? "choreo-public-view-stage-shell" : "",
+          viewerHold2x ? "choreo-public-view-stage-shell--hold-2x" : "",
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined}
+        onPointerDown={
+          choreoPublicView && choreoStudentPick
+            ? onViewerHold2xPointerDown
+            : undefined
+        }
+        onContextMenu={
+          choreoPublicView && choreoStudentPick
+            ? onViewerHold2xContextMenu
+            : undefined
         }
         style={{
           display: "flex",
@@ -477,8 +533,14 @@ export function EditorPageLayout(props: EditorLayoutProps) {
           flexDirection:
             choreoPublicView && publicViewTightHeight ? "row" : "column",
           overflow: "visible",
+          touchAction: choreoPublicView ? "manipulation" : undefined,
         }}
       >
+        {viewerHold2x ? (
+          <div className="choreo-viewer-hold-2x-badge" aria-live="polite">
+            2x
+          </div>
+        ) : null}
         <div
           style={{
             display: "flex",
@@ -505,6 +567,8 @@ export function EditorPageLayout(props: EditorLayoutProps) {
           />
         ) : null}
       </div>{/* end stage row */}
+
+      {/* ワイドは上部ドックへ戻したため下部ドックは出さない */}
 
       </div>{/* end main column wrapper */}
 
@@ -550,6 +614,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
             prevFormation={prevForm.dancers}
             nextFormation={nextForm.dancers}
             existingPaths={targetCue.dancerCustomPaths}
+            existingApproach={targetCue.gapApproachFromPrev}
             setProject={setProjectSafe}
             onClose={() => setPathEditorCueId(null)}
           />

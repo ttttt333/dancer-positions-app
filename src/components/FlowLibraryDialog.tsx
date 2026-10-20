@@ -6,7 +6,7 @@ import {
   startTransition,
   type CSSProperties,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import {
   FLOW_LIBRARY_CHANGE_EVENT,
@@ -24,7 +24,12 @@ import {
   saveFlowFromProjectAsync,
 } from "../lib/flowLibrary";
 import { deleteFlowLibraryAudio, putFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
-import { projectApi } from "../api/client";
+import {
+  isDemoSessionToken,
+  projectApi,
+  type ProjectListItem,
+} from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import { copyTextToClipboard, projectShareLinks } from "../lib/shareProjectLinks";
 import { yieldToMain, deferAfterUserGesture } from "../lib/yieldToMain";
@@ -61,6 +66,8 @@ type Props = {
    * クラウド音源のみのときは呼び出し元で null を返してよい（memento の `audioAssetId` / `audioSupabasePath` で足りる）
    */
   getAudioBlobForFlowLibrary?: () => Promise<Blob | null>;
+  /** 未ログインで保存しようとしたとき（ログイン画面へ誘導） */
+  onRequireLoginToSave?: () => void;
 };
 
 const card: CSSProperties = {
@@ -161,12 +168,17 @@ export function FlowLibraryDialog({
   serverId = null,
   serverShareToken = null,
   syncProjectToCloud,
+  onRequireLoginToSave,
 }: Props) {
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const { me } = useAuth();
   const [items, setItems] = useState<FlowLibraryItem[]>([]);
+  const [cloudProjects, setCloudProjects] = useState<ProjectListItem[]>([]);
   const [name, setName] = useState("");
   /** 軽量キュー配列に秒を載せるか。バンドルでは cuesFull に常にフル秒が入る */
   const [busy, setBusy] = useState(false);
+  const [cloudLoading, setCloudLoading] = useState(false);
   const [feedback, setFeedback] = useState<{
     kind: "info" | "error";
     text: string;
@@ -176,9 +188,26 @@ export function FlowLibraryDialog({
     setItems(listFlowLibraryItems());
   }, []);
 
+  const refreshCloud = useCallback(async () => {
+    if (!me || isDemoSessionToken()) {
+      setCloudProjects([]);
+      return;
+    }
+    setCloudLoading(true);
+    try {
+      const list = await projectApi.list();
+      setCloudProjects(list);
+    } catch {
+      setCloudProjects([]);
+    } finally {
+      setCloudLoading(false);
+    }
+  }, [me]);
+
   useEffect(() => {
     if (!open) return;
     void ensureFlowLibraryReady().then(() => refresh());
+    void refreshCloud();
     setFeedback(null);
     if (!name) {
       const base = project.pieceTitle?.trim() || "フロー";
@@ -195,7 +224,15 @@ export function FlowLibraryDialog({
       window.removeEventListener("storage", onStorage);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, refreshCloud]);
+
+  const openCloudProject = useCallback(
+    (id: number) => {
+      onClose();
+      navigate(`/editor/${id}`);
+    },
+    [navigate, onClose]
+  );
 
   const cuesCount = project.cues.length;
   const formCount = project.formations.length;
@@ -214,13 +251,23 @@ export function FlowLibraryDialog({
   );
 
   const doSave = useCallback(() => {
+    if (!me) {
+      onRequireLoginToSave?.();
+      return;
+    }
     const trimmed = name.trim();
     if (!trimmed) {
       setFeedback({ kind: "error", text: "名前を入力してください。" });
       return;
     }
+    try {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    } catch {
+      /* ignore */
+    }
     deferAfterUserGesture(async () => {
       setBusy(true);
+      setFeedback({ kind: "info", text: "保存中…" });
       await yieldToMain();
       let flowEmbeddedAudioKey: string | null = null;
       try {
@@ -234,12 +281,9 @@ export function FlowLibraryDialog({
             flowEmbeddedAudioKey = k;
           }
         }
+        /** 端末ライブラリを先に確定。クラウド同期は後続（ハングしても端末保存は残す） */
         let linkId: number | null =
           serverId != null && serverId > 0 ? Math.floor(serverId) : null;
-        if (syncProjectToCloud) {
-          const cloud = await syncProjectToCloud();
-          linkId = cloud.id;
-        }
         await yieldToMain();
         const wavePeaks = getWavePeaks?.() ?? null;
         await yieldToMain();
@@ -255,13 +299,43 @@ export function FlowLibraryDialog({
           setFeedback({ kind: "error", text: r.message });
           return;
         }
+        startTransition(() => refresh());
+
+        let cloudNote = "";
+        if (syncProjectToCloud) {
+          setFeedback({ kind: "info", text: "端末に保存しました。クラウド同期中…" });
+          try {
+            const cloud = await syncProjectToCloud();
+            linkId = cloud.id;
+            if (linkId != null && linkId > 0) {
+              await overwriteFlowFromProjectAsync(r.item.id, project, {
+                includeTiming: true,
+                wavePeaks,
+                audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
+                flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
+                linkServerId: linkId,
+              });
+            }
+            cloudNote = "クラウドにも同期しました。";
+            void refreshCloud();
+          } catch (cloudErr) {
+            cloudNote =
+              cloudErr instanceof Error
+                ? `端末には保存済みです（クラウド: ${cloudErr.message}）`
+                : "端末には保存済みです（クラウド同期に失敗）。";
+          }
+        }
+
         setFeedback({
           kind: "info",
-          text: syncProjectToCloud
-            ? `「${r.item.name}」をクラウドと端末に保存しました（${formatFlowItemMetaLine(r.item)}）。`
+          text: cloudNote
+            ? `「${r.item.name}」を保存しました。${cloudNote}（${formatFlowItemMetaLine(r.item)}）`
             : `「${r.item.name}」を保存しました（${formatFlowItemMetaLine(r.item)}）。`,
         });
-        startTransition(() => refresh());
+        startTransition(() => {
+          refresh();
+          void refreshCloud();
+        });
       } catch (e) {
         if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
         setFeedback({
@@ -273,9 +347,12 @@ export function FlowLibraryDialog({
       }
     });
   }, [
+    me,
+    onRequireLoginToSave,
     name,
     project,
     refresh,
+    refreshCloud,
     getWavePeaks,
     getAudioBlobForFlowLibrary,
     audioDurationSec,
@@ -285,9 +362,19 @@ export function FlowLibraryDialog({
 
   const doOverwrite = useCallback(
     (id: string, label: string) => {
+      if (!me) {
+        onRequireLoginToSave?.();
+        return;
+      }
       if (!confirm(`「${label}」を現在のステージ内容で上書きします。よろしいですか？`)) return;
+      try {
+        (document.activeElement as HTMLElement | null)?.blur?.();
+      } catch {
+        /* ignore */
+      }
       deferAfterUserGesture(async () => {
         setBusy(true);
+        setFeedback({ kind: "info", text: "上書き保存中…" });
         await yieldToMain();
         let flowEmbeddedAudioKey: string | null = null;
         try {
@@ -303,10 +390,6 @@ export function FlowLibraryDialog({
           }
           let linkId: number | null =
             serverId != null && serverId > 0 ? Math.floor(serverId) : null;
-          if (syncProjectToCloud) {
-            const cloud = await syncProjectToCloud();
-            linkId = cloud.id;
-          }
           await yieldToMain();
           const wavePeaks = getWavePeaks?.() ?? null;
           await yieldToMain();
@@ -322,13 +405,42 @@ export function FlowLibraryDialog({
             setFeedback({ kind: "error", text: r.message });
             return;
           }
+          startTransition(() => refresh());
+
+          let cloudNote = "";
+          if (syncProjectToCloud) {
+            setFeedback({ kind: "info", text: "端末に上書きしました。クラウド同期中…" });
+            try {
+              const cloud = await syncProjectToCloud();
+              linkId = cloud.id;
+              if (linkId != null && linkId > 0) {
+                await overwriteFlowFromProjectAsync(id, project, {
+                  includeTiming: true,
+                  wavePeaks,
+                  audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
+                  flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
+                  linkServerId: linkId,
+                });
+              }
+              cloudNote = "クラウドにも同期しました。";
+            } catch (cloudErr) {
+              cloudNote =
+                cloudErr instanceof Error
+                  ? `端末には保存済みです（クラウド: ${cloudErr.message}）`
+                  : "端末には保存済みです（クラウド同期に失敗）。";
+            }
+          }
+
           setFeedback({
             kind: "info",
-            text: syncProjectToCloud
-              ? `「${r.item.name}」をクラウドと端末に上書き保存しました。`
+            text: cloudNote
+              ? `「${r.item.name}」を上書きしました。${cloudNote}`
               : `「${r.item.name}」を上書きしました。`,
           });
-          startTransition(() => refresh());
+          startTransition(() => {
+            refresh();
+            void refreshCloud();
+          });
         } catch (e) {
           if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
           setFeedback({
@@ -340,7 +452,18 @@ export function FlowLibraryDialog({
         }
       });
     },
-    [project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec, serverId, syncProjectToCloud]
+    [
+      me,
+      onRequireLoginToSave,
+      project,
+      refresh,
+      refreshCloud,
+      getWavePeaks,
+      getAudioBlobForFlowLibrary,
+      audioDurationSec,
+      serverId,
+      syncProjectToCloud,
+    ]
   );
 
   const doDelete = useCallback(
@@ -509,15 +632,21 @@ export function FlowLibraryDialog({
   if (!open) return null;
 
   const canSave = cuesCount > 0 && formCount > 0;
+  const canSaveHint = !canSave
+    ? cuesCount <= 0
+      ? "キューを1つ以上追加すると保存できます。"
+      : "フォーメーションがありません。保存できません。"
+    : null;
 
   return (
     <EditorSideSheet
       open
-      zIndex={70}
+      zIndex={540}
       width="min(640px, 54vw)"
       blockDismiss={busy}
       onClose={onClose}
       ariaLabelledBy="flow-lib-title"
+      sheetId="flow-library"
     >
       <div
         className="flow-library-panel"
@@ -644,6 +773,13 @@ export function FlowLibraryDialog({
             <button
               type="button"
               className="flow-lib-save-btn"
+              onPointerDown={() => {
+                try {
+                  (document.activeElement as HTMLElement | null)?.blur?.();
+                } catch {
+                  /* ignore */
+                }
+              }}
               onClick={doSave}
               disabled={busy || !canSave || !name.trim()}
               style={{
@@ -661,6 +797,30 @@ export function FlowLibraryDialog({
               {busy ? "保存中…" : "新規保存"}
             </button>
           </div>
+          {canSaveHint ? (
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: "11px",
+                color: "#fbbf24",
+                lineHeight: 1.4,
+              }}
+            >
+              {canSaveHint}
+            </p>
+          ) : null}
+          {!me ? (
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: "11px",
+                color: "#94a3b8",
+                lineHeight: 1.4,
+              }}
+            >
+              {t("editor.saveNeedLoginTitle")}
+            </p>
+          ) : null}
         </section>
 
         <section
@@ -674,7 +834,7 @@ export function FlowLibraryDialog({
           }}
         >
           <h4 style={{ ...sectionTitle, margin: 0 }}>
-            保存済みフロー（{fmtCount(items.length)} 件）
+            {t("home.myLibrary")}（{fmtCount(items.length)} 件）
           </h4>
           <div
             style={{
@@ -707,48 +867,94 @@ export function FlowLibraryDialog({
                   sharePid == null
                     ? "クラウドに保存した作品 ID がありません。"
                     : "";
+                const actionBtnBase: CSSProperties = {
+                  ...btnSecondary,
+                  flex: "1 1 0",
+                  minWidth: 0,
+                  padding: "6px 4px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  lineHeight: 1.2,
+                  boxSizing: "border-box",
+                  whiteSpace: "nowrap",
+                };
                 return (
                   <div
                     key={it.id}
                     style={{
                       border: "1px solid #1f2937",
                       borderRadius: "8px",
-                      padding: "10px 12px",
+                      padding: "8px 10px",
                       background: "#020617",
                       display: "flex",
                       flexDirection: "column",
-                      gap: "8px",
+                      gap: "6px",
                     }}
                   >
                     <div
                       style={{
                         display: "flex",
-                        gap: "10px",
-                        alignItems: "flex-start",
+                        gap: "8px",
+                        alignItems: "center",
                         minWidth: 0,
                       }}
                     >
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
-                            color: "#f8fafc",
-                            fontSize: "13px",
-                            fontWeight: 600,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            minWidth: 0,
                           }}
-                          title={it.name}
                         >
-                          {it.name}
+                          <div
+                            style={{
+                              color: "#f8fafc",
+                              fontSize: "13px",
+                              fontWeight: 600,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              minWidth: 0,
+                              flex: "1 1 auto",
+                            }}
+                            title={it.name}
+                          >
+                            {it.name}
+                          </div>
+                          <button
+                            type="button"
+                            style={{
+                              ...btnSecondary,
+                              flexShrink: 0,
+                              padding: "2px 6px",
+                              fontSize: "10px",
+                              fontWeight: 600,
+                              lineHeight: 1.2,
+                            }}
+                            disabled={busy}
+                            onClick={() => doRename(it.id, it.name)}
+                          >
+                            名前変更
+                          </button>
+                          <span
+                            className="flow-lib-item-meta-line flow-lib-item-meta-line--updated"
+                            style={{
+                              ...flowItemMetaLine,
+                              flexShrink: 0,
+                              fontSize: "10px",
+                              whiteSpace: "nowrap",
+                            }}
+                            title={`更新 ${fmtDateCompact(it.updatedAt)}`}
+                          >
+                            {fmtDateCompact(it.updatedAt)}
+                          </span>
                         </div>
                         <div
                           className="flow-lib-item-meta"
                           style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "2px",
-                            marginTop: "4px",
+                            marginTop: "3px",
                             minWidth: 0,
                           }}
                         >
@@ -759,108 +965,68 @@ export function FlowLibraryDialog({
                           >
                             {formatFlowItemMetaLine(it)}
                           </span>
-                          <span
-                            className="flow-lib-item-meta-line flow-lib-item-meta-line--updated"
-                            style={flowItemMetaLine}
-                            title={`更新 ${fmtDateCompact(it.updatedAt)}`}
-                          >
-                            更新 {fmtDateCompact(it.updatedAt)}
-                          </span>
                         </div>
                       </div>
                       <FlowLibraryFormationPreview
                         formation={getFlowLibraryFirstFormation(it)}
-                        width={72}
+                        width={52}
                       />
                     </div>
-                    <button
-                      type="button"
-                      className="flow-lib-load-btn"
-                      onClick={() => void doApply(it)}
-                      disabled={busy}
-                      style={{
-                        ...btnSecondary,
-                        borderColor: "#6366f1",
-                        color: "#c7d2fe",
-                        fontWeight: 600,
-                        width: "100%",
-                        padding: "8px 12px",
-                        fontSize: "13px",
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      読み込み
-                    </button>
                     <div
+                      className="flow-lib-item-actions"
                       style={{
                         display: "flex",
-                        gap: "5px",
-                        flexWrap: "wrap",
-                        alignItems: "center",
+                        gap: "4px",
+                        alignItems: "stretch",
+                        width: "100%",
                       }}
                     >
                       <button
                         type="button"
+                        className="flow-lib-load-btn"
+                        onClick={() => void doApply(it)}
+                        disabled={busy}
                         style={{
-                          ...btnSecondary,
-                          padding: "4px 8px",
-                          fontSize: "10px",
+                          ...actionBtnBase,
+                          borderColor: "#6366f1",
+                          color: "#c7d2fe",
                         }}
+                      >
+                        読み込み
+                      </button>
+                      <button
+                        type="button"
+                        style={actionBtnBase}
                         disabled={busy || !canSave}
                         onClick={() => doOverwrite(it.id, it.name)}
                       >
-                        上書き保存
+                        上書き
                       </button>
                       <button
                         type="button"
                         style={{
-                          ...btnSecondary,
-                          padding: "4px 8px",
-                          fontSize: "10px",
-                        }}
-                        onClick={() => doRename(it.id, it.name)}
-                      >
-                        名前変更
-                      </button>
-                      <button
-                        type="button"
-                        style={{
-                          ...btnSecondary,
-                          padding: "4px 8px",
-                          fontSize: "10px",
-                          borderColor: "rgba(22, 163, 74, 0.55)",
-                          color: "#bbf7d0",
-                        }}
-                        disabled={busy || sharePid == null}
-                        onClick={() => void copyFlowItemShare(it, "collab")}
-                        title={sharePid == null ? shareDisabledReason : undefined}
-                      >
-                        共同編集共有
-                      </button>
-                      <button
-                        type="button"
-                        style={{
-                          ...btnSecondary,
-                          padding: "4px 8px",
-                          fontSize: "10px",
+                          ...actionBtnBase,
                           borderColor: "rgba(14, 165, 233, 0.5)",
                           color: "#bae6fd",
                         }}
                         disabled={busy || sharePid == null}
                         onClick={() => void copyFlowItemShare(it, "view")}
-                        title={sharePid == null ? shareDisabledReason : undefined}
+                        title={
+                          sharePid == null
+                            ? shareDisabledReason
+                            : "閲覧共有リンクをコピー"
+                        }
                       >
-                        閲覧共有
+                        共有
                       </button>
                       <button
                         type="button"
                         style={{
-                          ...btnSecondary,
-                          padding: "4px 8px",
-                          fontSize: "10px",
+                          ...actionBtnBase,
                           borderColor: "#7f1d1d",
                           color: "#fecaca",
                         }}
+                        disabled={busy}
                         onClick={() => doDelete(it.id, it.name)}
                       >
                         削除
@@ -870,6 +1036,226 @@ export function FlowLibraryDialog({
                 );
               })
             )}
+
+            {me && !isDemoSessionToken() ? (
+              <>
+                <h4 style={{ ...sectionTitle, margin: "12px 0 0" }}>
+                  {t("home.cloudLibrary")}
+                  {cloudLoading
+                    ? "…"
+                    : `（${fmtCount(cloudProjects.length)} 件）`}
+                </h4>
+                {cloudLoading && cloudProjects.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "12px",
+                      color: "#64748b",
+                      fontSize: "12px",
+                    }}
+                  >
+                    読み込み中…
+                  </div>
+                ) : cloudProjects.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "12px",
+                      color: "#64748b",
+                      fontSize: "12px",
+                      border: "1px dashed #1f2937",
+                      borderRadius: "8px",
+                    }}
+                  >
+                    クラウドに保存された作品はありません
+                  </div>
+                ) : (
+                  cloudProjects.map((p) => {
+                    const actionBtnBase: CSSProperties = {
+                      ...btnSecondary,
+                      flex: "1 1 0",
+                      minWidth: 0,
+                      padding: "6px 4px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      lineHeight: 1.2,
+                      boxSizing: "border-box",
+                      whiteSpace: "nowrap",
+                    };
+                    return (
+                    <div
+                      key={`cloud-${p.id}`}
+                      style={{
+                        border: "1px solid #1f2937",
+                        borderRadius: "8px",
+                        padding: "8px 10px",
+                        background: "#020617",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            minWidth: 0,
+                          }}
+                        >
+                          <div
+                            style={{
+                              color: "#f8fafc",
+                              fontSize: "13px",
+                              fontWeight: 600,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              minWidth: 0,
+                              flex: "1 1 auto",
+                            }}
+                            title={p.name}
+                          >
+                            {p.name}
+                          </div>
+                          <button
+                            type="button"
+                            style={{
+                              ...btnSecondary,
+                              flexShrink: 0,
+                              padding: "2px 6px",
+                              fontSize: "10px",
+                              fontWeight: 600,
+                              lineHeight: 1.2,
+                            }}
+                            disabled={busy}
+                            onClick={() => {
+                              const next = window.prompt("新しい名前", p.name);
+                              if (next == null) return;
+                              const trimmed = next.trim();
+                              if (!trimmed || trimmed === p.name) return;
+                              void (async () => {
+                                setBusy(true);
+                                try {
+                                  const row = await projectApi.get(p.id);
+                                  await projectApi.update(
+                                    p.id,
+                                    trimmed,
+                                    row.json
+                                  );
+                                  await refreshCloud();
+                                  setFeedback({
+                                    kind: "info",
+                                    text: `「${trimmed}」に名前を変更しました。`,
+                                  });
+                                } catch (e) {
+                                  setFeedback({
+                                    kind: "error",
+                                    text:
+                                      e instanceof Error
+                                        ? e.message
+                                        : "名前の変更に失敗しました。",
+                                  });
+                                } finally {
+                                  setBusy(false);
+                                }
+                              })();
+                            }}
+                          >
+                            名前変更
+                          </button>
+                          <span
+                            style={{
+                              ...flowItemMetaLine,
+                              flexShrink: 0,
+                              fontSize: "10px",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {fmtDateCompact(Date.parse(p.updated_at) || 0)}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            ...flowItemMetaLine,
+                            marginTop: "3px",
+                          }}
+                        >
+                          キュー {fmtCount(p.cueCount)} ／ 人数{" "}
+                          {fmtCount(p.dancerCount)}
+                        </div>
+                      </div>
+                      <div
+                        className="flow-lib-item-actions"
+                        style={{
+                          display: "flex",
+                          gap: "4px",
+                          alignItems: "stretch",
+                          width: "100%",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="flow-lib-load-btn"
+                          onClick={() => openCloudProject(p.id)}
+                          disabled={busy}
+                          style={{
+                            ...actionBtnBase,
+                            borderColor: "#0ea5e9",
+                            color: "#bae6fd",
+                          }}
+                        >
+                          開く
+                        </button>
+                        <button
+                          type="button"
+                          style={{
+                            ...actionBtnBase,
+                            borderColor: "#7f1d1d",
+                            color: "#fecaca",
+                          }}
+                          disabled={busy}
+                          onClick={() => {
+                            if (
+                              !confirm(
+                                `クラウドの「${p.name}」を削除します。よろしいですか？`
+                              )
+                            ) {
+                              return;
+                            }
+                            void (async () => {
+                              setBusy(true);
+                              try {
+                                await projectApi.remove(p.id);
+                                await refreshCloud();
+                                setFeedback({
+                                  kind: "info",
+                                  text: `「${p.name}」を削除しました。`,
+                                });
+                              } catch (e) {
+                                setFeedback({
+                                  kind: "error",
+                                  text:
+                                    e instanceof Error
+                                      ? e.message
+                                      : "削除に失敗しました。",
+                                });
+                              } finally {
+                                setBusy(false);
+                              }
+                            })();
+                          }}
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+                    );
+                  })
+                )}
+              </>
+            ) : null}
           </div>
         </section>
         </div>

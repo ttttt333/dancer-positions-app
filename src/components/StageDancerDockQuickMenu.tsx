@@ -1,0 +1,599 @@
+import { useState, type CSSProperties } from "react";
+import type { GatherToward } from "../lib/gatherDancers";
+import { STAGE_GATHER_EDGE_ACTIONS } from "./StageGatherToEdgeButtons";
+
+export type StageDockQuickSection = "shape" | "display" | "sort";
+export type StageDuplicatePlacement = "end" | "after";
+
+export type StageDancerDockQuickMenuProps = {
+  showShape: boolean;
+  showDisplay: boolean;
+  showSort: boolean;
+  onPick: (section: StageDockQuickSection) => void;
+  onDuplicate?: (placement: StageDuplicatePlacement) => void;
+  /** ちょうど2人選択時: 立ち位置を入れ替え */
+  onSwapPair?: () => void;
+  /** 選択メンバーを辺へ寄せる */
+  onGatherToEdge?: (
+    toward: Extract<GatherToward, "shimote" | "kamite" | "back">
+  ) => void;
+  onOpenLegacyMore?: () => void;
+  onDelete?: () => void;
+  /** 選択メンバーを色・名前などのデータごとコピー */
+  onCopyMembers?: () => void;
+  /** コピーしたメンバーを直前のキューの同じ位置へ貼り付け */
+  onPasteToPreviousCue?: () => void;
+  /** コピーしたメンバーを右クリックした位置へ貼り付け */
+  onPasteHere?: () => void;
+  /** 貼り付け対象の表示名（例: 「あこ」「あこ ほか2人」） */
+  clipboardLabel?: string;
+  /** 照明を追加（種類ごと） */
+  lightAddOptions?: { kind: string; label: string }[];
+  onAddLight?: (kind: string) => void;
+  /** 基本照明一式をこのキューへ */
+  onAddBasicLights?: () => void;
+  /** 保存済みプリセットから選んでこのキューへ適用 */
+  onApplyLightingPreset?: () => void;
+  /** 直前キューの照明をこのキューへ適用 */
+  onApplyPreviousCueLights?: () => void;
+  /** 一つ前（直近）の照明を同じ設定で追加 */
+  onAddPreviousLight?: () => void;
+  previousLightHint?: string | null;
+  /** 照明種類一覧を最初から開く */
+  defaultLightOpen?: boolean;
+  /** 舞台上の照明表示オン／オフ */
+  stageLightsVisibleOnStage?: boolean;
+  onToggleStageLightsVisible?: () => void;
+};
+
+const itemBtn: CSSProperties = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  padding: "7px 10px",
+  border: "none",
+  borderRadius: 6,
+  background: "transparent",
+  color: "#e2e8f0",
+  fontSize: 12,
+  fontWeight: 700,
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const subItemBtn: CSSProperties = {
+  ...itemBtn,
+  padding: "5px 10px 5px 16px",
+  fontSize: 11,
+  fontWeight: 600,
+  color: "#cbd5e1",
+};
+
+/**
+ * 選択中の右クリック／ダブルクリック用。右ドックの操作をすぐ選ぶ一覧。
+ */
+export function StageDancerDockQuickMenu({
+  showShape,
+  showDisplay,
+  showSort,
+  onPick,
+  onDuplicate,
+  onSwapPair,
+  onGatherToEdge,
+  onOpenLegacyMore,
+  onDelete,
+  onCopyMembers,
+  onPasteToPreviousCue,
+  onPasteHere,
+  clipboardLabel = "",
+  lightAddOptions,
+  onAddLight,
+  onAddBasicLights,
+  onApplyLightingPreset,
+  onApplyPreviousCueLights,
+  onAddPreviousLight,
+  previousLightHint,
+  defaultLightOpen = false,
+  stageLightsVisibleOnStage = true,
+  onToggleStageLightsVisible,
+}: StageDancerDockQuickMenuProps) {
+  const [dupOpen, setDupOpen] = useState(false);
+  const [gatherOpen, setGatherOpen] = useState(true);
+  const [lightOpen, setLightOpen] = useState(
+    () =>
+      defaultLightOpen ||
+      (!showShape &&
+        !showDisplay &&
+        !showSort &&
+        !onDuplicate &&
+        !onDelete &&
+        !onPasteHere &&
+        !onSwapPair &&
+        !onGatherToEdge)
+  );
+  const entries: { id: StageDockQuickSection; label: string; hint: string }[] =
+    [];
+  if (showShape) {
+    entries.push({ id: "shape", label: "雛形", hint: "隊形を選ぶ" });
+  }
+  if (showDisplay) {
+    entries.push({ id: "display", label: "表示", hint: "名前・色・大きさ" });
+  }
+  if (showSort) {
+    entries.push({ id: "sort", label: "並べ替え", hint: "身長・列・反転" });
+  }
+
+  return (
+    <div data-dancer-dock-quick-menu role="menu" aria-label="ステージ操作">
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 800,
+          letterSpacing: "0.06em",
+          color: "#94a3b8",
+          padding: "1px 6px 4px",
+        }}
+      >
+        クイック操作
+      </div>
+      {entries.map((entry) => (
+        <button
+          key={entry.id}
+          type="button"
+          role="menuitem"
+          style={itemBtn}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
+          onClick={() => onPick(entry.id)}
+        >
+          <span>{entry.label}</span>
+          <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
+            {entry.hint}
+          </span>
+        </button>
+      ))}
+      {onCopyMembers || onPasteHere || onPasteToPreviousCue ? (
+        <>
+          {onCopyMembers ? (
+            <button
+              type="button"
+              role="menuitem"
+              data-dancer-copy
+              style={itemBtn}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(52,211,153,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onClick={onCopyMembers}
+            >
+              <span>メンバーをコピー</span>
+              <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
+                色・名前ごと
+              </span>
+            </button>
+          ) : null}
+          {onPasteToPreviousCue ? (
+            <button
+              type="button"
+              role="menuitem"
+              data-dancer-paste-prev
+              style={itemBtn}
+              title="コピーしたメンバーを、1つ前のキューの同じ位置に置きます（途中から入る人の準備に）"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(52,211,153,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onClick={onPasteToPreviousCue}
+            >
+              <span>前のキューに貼り付け</span>
+              <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
+                同じ位置
+              </span>
+            </button>
+          ) : null}
+          {onPasteHere ? (
+            <button
+              type="button"
+              role="menuitem"
+              data-dancer-paste-here
+              style={itemBtn}
+              title="コピーしたメンバーを、右クリックした場所に置きます"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(52,211,153,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onClick={onPasteHere}
+            >
+              <span>ここに貼り付け</span>
+              <span
+                style={{
+                  color: "#6ee7b7",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  maxWidth: 110,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {clipboardLabel}
+              </span>
+            </button>
+          ) : null}
+          <div style={{ height: 1, background: "#334155", margin: "3px 6px" }} />
+        </>
+      ) : null}
+      {onGatherToEdge ? (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            aria-expanded={gatherOpen}
+            style={itemBtn}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+            onClick={() => setGatherOpen((v) => !v)}
+          >
+            <span>辺に寄せる</span>
+            <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
+              {gatherOpen ? "▾" : "▸"}
+            </span>
+          </button>
+          {gatherOpen
+            ? STAGE_GATHER_EDGE_ACTIONS.map((a) => (
+                <button
+                  key={a.toward}
+                  type="button"
+                  role="menuitem"
+                  style={subItemBtn}
+                  title={a.title}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(251,191,36,0.14)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                  onClick={() => onGatherToEdge(a.toward)}
+                >
+                  <span>
+                    {a.toward === "back"
+                      ? "舞台後ろに寄せる"
+                      : `${a.label}に寄せる`}
+                  </span>
+                </button>
+              ))
+            : null}
+        </>
+      ) : null}
+      {onSwapPair ? (
+        <button
+          type="button"
+          role="menuitem"
+          style={itemBtn}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(56,189,248,0.12)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
+          onClick={onSwapPair}
+        >
+          <span>二人を入れ替え</span>
+          <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
+            立ち位置を交換
+          </span>
+        </button>
+      ) : null}
+      {onDuplicate ? (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            aria-expanded={dupOpen}
+            style={itemBtn}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(56,189,248,0.12)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+            onClick={() => setDupOpen((v) => !v)}
+          >
+            <span>複製</span>
+            <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
+              {dupOpen ? "▾" : "▸"}
+            </span>
+          </button>
+          {dupOpen ? (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                style={subItemBtn}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(56,189,248,0.14)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+                onClick={() => onDuplicate("end")}
+              >
+                <span>一番最後に複製</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                style={subItemBtn}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(56,189,248,0.14)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+                onClick={() => onDuplicate("after")}
+              >
+                <span>すぐ後に複製</span>
+              </button>
+            </>
+          ) : null}
+        </>
+      ) : null}
+      {onToggleStageLightsVisible ||
+      onApplyLightingPreset ||
+      (onAddLight && lightAddOptions && lightAddOptions.length > 0) ? (
+        <>
+          <div
+            style={{
+              height: 1,
+              background: "#334155",
+              margin: "3px 6px",
+            }}
+          />
+          {onToggleStageLightsVisible ? (
+            <button
+              type="button"
+              role="menuitem"
+              style={itemBtn}
+              title={
+                stageLightsVisibleOnStage
+                  ? "舞台上の照明を隠して、立ち位置を操作しやすくします"
+                  : "舞台上の照明を再表示します"
+              }
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleStageLightsVisible();
+              }}
+            >
+              <span>
+                {stageLightsVisibleOnStage
+                  ? "照明を非表示"
+                  : "照明を再表示"}
+              </span>
+              <span
+                style={{
+                  color: stageLightsVisibleOnStage ? "#64748b" : "#fbbf24",
+                  fontSize: 10,
+                  fontWeight: 600,
+                }}
+              >
+                {stageLightsVisibleOnStage ? "表示中" : "非表示中"}
+              </span>
+            </button>
+          ) : null}
+          {onApplyLightingPreset ? (
+            <button
+              type="button"
+              role="menuitem"
+              style={itemBtn}
+              title="保存済みプリセットを選んで、いまのキューの照明を置き換えます"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onApplyLightingPreset();
+              }}
+            >
+              <span>プリセットから選ぶ</span>
+            </button>
+          ) : null}
+          {onAddLight && lightAddOptions && lightAddOptions.length > 0 ? (
+            <>
+          {onApplyPreviousCueLights ? (
+            <button
+              type="button"
+              role="menuitem"
+              style={itemBtn}
+              title="直前のキューの照明を、いまのキューへ適用します"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onApplyPreviousCueLights();
+              }}
+            >
+              <span>前の照明を適応</span>
+            </button>
+          ) : null}
+          {onAddBasicLights ? (
+            <button
+              type="button"
+              role="menuitem"
+              style={itemBtn}
+              title="基本照明一式をいまのキューへ置きます"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onAddBasicLights();
+              }}
+            >
+              <span>基本の照明を追加</span>
+            </button>
+          ) : null}
+          {onAddPreviousLight && previousLightHint ? (
+            <button
+              type="button"
+              role="menuitem"
+              style={itemBtn}
+              title={`「${previousLightHint}」と同じ設定で追加`}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onAddPreviousLight();
+              }}
+            >
+              <span>同じ照明を追加</span>
+              <span
+                style={{
+                  color: "#64748b",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  maxWidth: 88,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {previousLightHint}
+              </span>
+            </button>
+          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            aria-expanded={lightOpen}
+            style={itemBtn}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(251,191,36,0.12)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+            onClick={() => setLightOpen((v) => !v)}
+          >
+            <span>照明を追加</span>
+            <span style={{ color: "#64748b", fontSize: 10, fontWeight: 600 }}>
+              {lightOpen ? "▾" : "▸"}
+            </span>
+          </button>
+          {lightOpen
+            ? lightAddOptions.map((opt) => (
+                <button
+                  key={opt.kind}
+                  type="button"
+                  role="menuitem"
+                  style={subItemBtn}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(251,191,36,0.14)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onAddLight(opt.kind);
+                  }}
+                >
+                  <span>＋{opt.label}</span>
+                </button>
+              ))
+            : null}
+            </>
+          ) : null}
+        </>
+      ) : null}
+      {onDelete || onOpenLegacyMore ? (
+        <div
+          style={{
+            height: 1,
+            background: "#334155",
+            margin: "3px 6px",
+          }}
+        />
+      ) : null}
+      {onDelete ? (
+        <button
+          type="button"
+          role="menuitem"
+          style={{ ...itemBtn, color: "#fca5a5" }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(248,113,113,0.12)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
+          onClick={onDelete}
+        >
+          <span>削除</span>
+        </button>
+      ) : null}
+      {onOpenLegacyMore ? (
+        <button
+          type="button"
+          role="menuitem"
+          style={{ ...itemBtn, color: "#94a3b8", fontWeight: 600 }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(148,163,184,0.1)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
+          onClick={onOpenLegacyMore}
+        >
+          <span>その他の操作…</span>
+        </button>
+      ) : null}
+    </div>
+  );
+}

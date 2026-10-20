@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export type EditorSideSheetProps = {
   open: boolean;
@@ -8,6 +9,11 @@ export type EditorSideSheetProps = {
   zIndex?: number;
   /** true のとき左側クリックでは閉じない（処理中など） */
   blockDismiss?: boolean;
+  /**
+   * true のとき左側（ステージ側）はポインターを通す。
+   * 舞台設定中にヘソ／そで幕をドラッグするため。閉じるのはパネル内ボタンのみ。
+   */
+  passThroughOutside?: boolean;
   /** `role="dialog"` の `aria-labelledby` */
   ariaLabelledBy?: string;
   /** モバイル CSS 上書き用（例: formation-preset-picker） */
@@ -17,9 +23,23 @@ export type EditorSideSheetProps = {
   children: ReactNode;
 };
 
+type ShellMirror = "portrait" | "landscape" | null;
+
+function readShellMirror(): ShellMirror {
+  if (typeof document === "undefined") return null;
+  if (document.querySelector("[data-shell-portrait]")) return "portrait";
+  if (document.querySelector("[data-shell-landscape]")) return "landscape";
+  return null;
+}
+
 /**
  * ステージを暗く覆わず、右からスライドする入力パネル。
- * 左側の透明領域クリックで閉じる（blockDismiss 時は無効）。
+ * 既定では左側の透明領域クリックで閉じる（blockDismiss / passThroughOutside 時は無効）。
+ * passThroughOutside 時はステージ操作（ヘソ・そで幕ドラッグ等）を妨げない。
+ *
+ * body に portal し、MobileShell のステージ stacking context や
+ * メニューシート（z≈521）の下に潜らないようにする。
+ * モバイル時は portal ルートに data-shell-* をミラーし、既存の全画面 CSS を維持する。
  *
  * 開いた直後〜約 320ms は外側クリックで閉じない
  * （PC で開く操作の mouseup / 残クリックで即閉じするのを防ぐ）。
@@ -30,18 +50,22 @@ export function EditorSideSheet({
   width = "min(440px, 44vw)",
   zIndex = 64,
   blockDismiss = false,
+  passThroughOutside = false,
   ariaLabelledBy,
   sheetId,
   panelStyle,
   children,
 }: EditorSideSheetProps) {
   const [dismissArmed, setDismissArmed] = useState(false);
+  const [shellMirror, setShellMirror] = useState<ShellMirror>(null);
 
   useEffect(() => {
     if (!open) {
       setDismissArmed(false);
+      setShellMirror(null);
       return;
     }
+    setShellMirror(readShellMirror());
     setDismissArmed(false);
     const id = window.setTimeout(() => setDismissArmed(true), 320);
     return () => window.clearTimeout(id);
@@ -49,40 +73,69 @@ export function EditorSideSheet({
 
   if (!open) return null;
 
-  const canDismiss = dismissArmed && !blockDismiss;
+  const canDismiss = dismissArmed && !blockDismiss && !passThroughOutside;
+  const mobileWidth = shellMirror != null ? "100%" : width;
 
-  return (
+  const node = (
     <div
-      data-editor-sheet-root={sheetId}
+      data-editor-sheet-root={sheetId ?? ""}
+      {...(shellMirror === "portrait"
+        ? { "data-shell-portrait": "" }
+        : shellMirror === "landscape"
+          ? { "data-shell-landscape": "" }
+          : {})}
       style={
         {
           position: "fixed",
           inset: 0,
           zIndex,
           pointerEvents: "none",
-          ["--ed-sheet-w" as string]: width,
+          ["--ed-sheet-w" as string]: mobileWidth,
         } as React.CSSProperties
       }
     >
-      <button
-        type="button"
-        aria-label="パネルを閉じる"
-        tabIndex={-1}
-        disabled={!canDismiss}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (canDismiss) onClose();
-        }}
-        style={{
-          position: "absolute",
-          inset: 0,
-          right: "var(--ed-sheet-w)",
-          border: "none",
-          background: "transparent",
-          cursor: canDismiss ? "pointer" : "default",
-          pointerEvents: canDismiss ? "auto" : "none",
-        }}
-      />
+      {!passThroughOutside ? (
+        <button
+          type="button"
+          aria-label="パネルを閉じる"
+          tabIndex={-1}
+          disabled={!canDismiss}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (canDismiss) onClose();
+          }}
+          onContextMenu={(e) => {
+            /** 背面のステージへ右クリックを渡し、ブラウザ標準メニューを出さない */
+            e.preventDefault();
+            e.stopPropagation();
+            const { clientX, clientY } = e;
+            const backdrop = e.currentTarget;
+            backdrop.style.pointerEvents = "none";
+            const under = document.elementFromPoint(clientX, clientY);
+            backdrop.style.pointerEvents = "";
+            if (canDismiss) onClose();
+            under?.dispatchEvent(
+              new MouseEvent("contextmenu", {
+                bubbles: true,
+                cancelable: true,
+                clientX,
+                clientY,
+                button: 2,
+                buttons: 2,
+              })
+            );
+          }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            right: "var(--ed-sheet-w)",
+            border: "none",
+            background: "transparent",
+            cursor: canDismiss ? "pointer" : "default",
+            pointerEvents: canDismiss ? "auto" : "none",
+          }}
+        />
+      ) : null}
       <div
         role="dialog"
         aria-modal="true"
@@ -119,4 +172,6 @@ export function EditorSideSheet({
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }

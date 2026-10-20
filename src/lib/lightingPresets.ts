@@ -1,0 +1,521 @@
+/**
+ * 照明プリセット — キューに紐づかない見た目一式を名前付きで localStorage に保存。
+ * どの作品・どのキューからも呼び出して適用できる。
+ */
+
+import type { StageLightFixture, StageLightKind } from "../types/choreography";
+import {
+  createBasicStageLights,
+  createDefaultStageLight,
+  STAGE_LIGHT_KIND_LABELS,
+  STAGE_LIGHT_KINDS,
+} from "./stageLighting";
+
+export const LIGHTING_PRESETS_STORAGE_KEY = "choreogrid_lighting_presets_v1";
+
+const MAX_NAME_LEN = 120;
+const MAX_PRESETS = 40;
+
+/** 同梱サンプルの固定 id（削除しても list 時に再投入される） */
+export const LIGHTING_SAMPLE_PRESET_IDS = [
+  "lp-sample-basic",
+  "lp-sample-side",
+  "lp-sample-sus-pin",
+  "lp-sample-warm",
+  "lp-sample-cool",
+  "lp-sample-center",
+] as const;
+
+/** プリセットに保存する照明（id / cue / 時間は持たない） */
+export type LightingPresetFixture = {
+  kind: StageLightKind;
+  label?: string;
+  xPct: number;
+  yPct: number;
+  color: string;
+  intensity: number;
+  rxPct?: number;
+  ryPct?: number;
+  shape?: "circle" | "ellipse";
+  enabled?: boolean;
+};
+
+export type LightingPresetItem = {
+  id: string;
+  name: string;
+  lights: LightingPresetFixture[];
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type LightingPresetSaveResult =
+  | { ok: true; item: LightingPresetItem }
+  | { ok: false; reason: "quota" | "empty" | "unknown"; message: string };
+
+function clampPct(v: number): number {
+  return Math.max(0, Math.min(100, v));
+}
+
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v));
+}
+
+function clampAxis(v: number): number {
+  return Math.max(2, Math.min(60, v));
+}
+
+function isKind(k: unknown): k is StageLightKind {
+  return (
+    typeof k === "string" &&
+    (STAGE_LIGHT_KINDS as readonly string[]).includes(k)
+  );
+}
+
+export function toLightingPresetFixture(
+  L: StageLightFixture
+): LightingPresetFixture {
+  return {
+    kind: L.kind,
+    ...(L.label ? { label: L.label.slice(0, 40) } : {}),
+    xPct: clampPct(L.xPct),
+    yPct: clampPct(L.yPct),
+    color: /^#[0-9a-fA-F]{6}$/.test(L.color) ? L.color.toLowerCase() : "#ffffff",
+    intensity: clamp01(L.intensity),
+    ...(typeof L.rxPct === "number" && Number.isFinite(L.rxPct)
+      ? { rxPct: clampAxis(L.rxPct) }
+      : {}),
+    ...(typeof L.ryPct === "number" && Number.isFinite(L.ryPct)
+      ? { ryPct: clampAxis(L.ryPct) }
+      : {}),
+    ...(L.shape === "circle" || L.shape === "ellipse"
+      ? { shape: L.shape }
+      : {}),
+    enabled: L.enabled === false ? false : true,
+  };
+}
+
+function normalizeFixture(raw: unknown): LightingPresetFixture | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (!isKind(o.kind)) return null;
+  const xPct =
+    typeof o.xPct === "number" && Number.isFinite(o.xPct)
+      ? clampPct(o.xPct)
+      : 50;
+  const yPct =
+    typeof o.yPct === "number" && Number.isFinite(o.yPct)
+      ? clampPct(o.yPct)
+      : 50;
+  const color =
+    typeof o.color === "string" && /^#[0-9a-fA-F]{6}$/.test(o.color)
+      ? o.color.toLowerCase()
+      : "#ffffff";
+  const intensity =
+    typeof o.intensity === "number" && Number.isFinite(o.intensity)
+      ? clamp01(o.intensity)
+      : 0.4;
+  const rxPct =
+    typeof o.rxPct === "number" && Number.isFinite(o.rxPct)
+      ? clampAxis(o.rxPct)
+      : undefined;
+  const ryPct =
+    typeof o.ryPct === "number" && Number.isFinite(o.ryPct)
+      ? clampAxis(o.ryPct)
+      : undefined;
+  const shape = o.shape === "circle" ? "circle" : "ellipse";
+  return {
+    kind: o.kind,
+    ...(typeof o.label === "string" && o.label.trim()
+      ? { label: o.label.trim().slice(0, 40) }
+      : {}),
+    xPct,
+    yPct,
+    color,
+    intensity,
+    ...(rxPct != null ? { rxPct } : {}),
+    ...(ryPct != null ? { ryPct } : {}),
+    shape,
+    enabled: o.enabled === false ? false : true,
+  };
+}
+
+function isValidItem(x: unknown): x is LightingPresetItem {
+  if (typeof x !== "object" || x === null) return false;
+  const o = x as Record<string, unknown>;
+  return (
+    typeof o.id === "string" &&
+    typeof o.name === "string" &&
+    Array.isArray(o.lights) &&
+    typeof o.createdAt === "number" &&
+    typeof o.updatedAt === "number"
+  );
+}
+
+function readAll(): LightingPresetItem[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(LIGHTING_PRESETS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(isValidItem)
+      .map((item) => ({
+        id: item.id,
+        name: (item.name || "").slice(0, MAX_NAME_LEN),
+        lights: item.lights
+          .map(normalizeFixture)
+          .filter((x): x is LightingPresetFixture => x != null),
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      }))
+      .filter((item) => item.lights.length > 0)
+      .slice(0, MAX_PRESETS);
+  } catch {
+    return [];
+  }
+}
+
+class LightingPresetQuotaError extends Error {
+  constructor() {
+    super(
+      "保存容量がいっぱいのため、照明プリセットを保存できませんでした。古いものを削除してからもう一度お試しください。"
+    );
+    this.name = "LightingPresetQuotaError";
+  }
+}
+
+function writeAll(items: LightingPresetItem[]): void {
+  if (typeof localStorage === "undefined") {
+    throw new Error("localStorage unavailable");
+  }
+  try {
+    const payload = JSON.stringify(items.slice(0, MAX_PRESETS));
+    localStorage.setItem(LIGHTING_PRESETS_STORAGE_KEY, payload);
+    // 書き込み検証（プライベートモード等で失敗を握りつぶさない）
+    const verify = localStorage.getItem(LIGHTING_PRESETS_STORAGE_KEY);
+    if (verify !== payload) {
+      throw new Error("localStorage write verify failed");
+    }
+  } catch (e) {
+    if (
+      typeof DOMException !== "undefined" &&
+      e instanceof DOMException &&
+      (e.name === "QuotaExceededError" ||
+        e.name === "NS_ERROR_DOM_QUOTA_REACHED")
+    ) {
+      throw new LightingPresetQuotaError();
+    }
+    if (e instanceof LightingPresetQuotaError) throw e;
+    throw e instanceof Error
+      ? e
+      : new Error("localStorage write failed");
+  }
+}
+
+function genId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `lp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function fixtureAt(
+  kind: StageLightKind,
+  xPct: number,
+  yPct: number,
+  color: string,
+  intensity: number,
+  opts?: { label?: string; rxPct?: number; ryPct?: number; shape?: "circle" | "ellipse" }
+): LightingPresetFixture {
+  const L = createDefaultStageLight(kind);
+  return toLightingPresetFixture({
+    ...L,
+    xPct,
+    yPct,
+    color,
+    intensity,
+    ...(opts?.label ? { label: opts.label } : {}),
+    ...(opts?.rxPct != null ? { rxPct: opts.rxPct } : {}),
+    ...(opts?.ryPct != null ? { ryPct: opts.ryPct } : {}),
+    ...(opts?.shape ? { shape: opts.shape } : {}),
+  });
+}
+
+/** 同梱サンプル（初回／欠落時に自動投入） */
+export function buildSampleLightingPresets(): LightingPresetItem[] {
+  const now = Date.now();
+  const basic = createBasicStageLights(null).map(toLightingPresetFixture);
+  const sideYs = [28, 50, 72];
+  const sides = [
+    ...sideYs.map((y, i) =>
+      fixtureAt("sideSpot", 10, y, "#ef4444", 0.78, {
+        label: `サイド 下手${i + 1}`,
+        rxPct: 12,
+        ryPct: 7,
+      })
+    ),
+    ...sideYs.map((y, i) =>
+      fixtureAt("sideSpot", 90, y, "#ef4444", 0.78, {
+        label: `サイド 上手${i + 1}`,
+        rxPct: 12,
+        ryPct: 7,
+      })
+    ),
+  ];
+  const susPin = [
+    fixtureAt("suspension", 28, 48, "#22c55e", 0.72, {
+      label: "サス 下手",
+      rxPct: 16,
+      ryPct: 14,
+      shape: "circle",
+    }),
+    fixtureAt("suspension", 72, 48, "#22c55e", 0.72, {
+      label: "サス 上手",
+      rxPct: 16,
+      ryPct: 14,
+      shape: "circle",
+    }),
+    fixtureAt("pinSpot", 50, 50, "#ffffff", 0.9, {
+      label: "ピンスポ ヘソ",
+      rxPct: 9,
+      ryPct: 9,
+      shape: "circle",
+    }),
+  ];
+  const warm = [
+    fixtureAt("backlight", 35, 18, "#f59e0b", 0.7, { label: "暖色バック 下手" }),
+    fixtureAt("backlight", 65, 18, "#f59e0b", 0.7, { label: "暖色バック 上手" }),
+    fixtureAt("suspension", 50, 42, "#fbbf24", 0.65, {
+      label: "暖色サス",
+      rxPct: 22,
+      ryPct: 18,
+    }),
+    fixtureAt("footlight", 30, 88, "#fb923c", 0.7, { label: "暖色フット 下手" }),
+    fixtureAt("footlight", 70, 88, "#fb923c", 0.7, { label: "暖色フット 上手" }),
+  ];
+  const cool = [
+    fixtureAt("backlight", 30, 14, "#38bdf8", 0.72, { label: "寒色バック 下手" }),
+    fixtureAt("backlight", 70, 14, "#38bdf8", 0.72, { label: "寒色バック 上手" }),
+    fixtureAt("sideSpot", 12, 45, "#60a5fa", 0.7, { label: "寒色サイド 下手" }),
+    fixtureAt("sideSpot", 88, 45, "#60a5fa", 0.7, { label: "寒色サイド 上手" }),
+    fixtureAt("suspension", 50, 40, "#93c5fd", 0.55, {
+      label: "寒色サス",
+      rxPct: 20,
+      ryPct: 16,
+    }),
+  ];
+  const center = [
+    fixtureAt("pinSpot", 50, 50, "#ffffff", 0.95, {
+      label: "センターピン",
+      rxPct: 10,
+      ryPct: 10,
+      shape: "circle",
+    }),
+    fixtureAt("suspension", 35, 45, "#fef08a", 0.45, {
+      label: "補助サス 下手",
+      rxPct: 14,
+      ryPct: 12,
+    }),
+    fixtureAt("suspension", 65, 45, "#fef08a", 0.45, {
+      label: "補助サス 上手",
+      rxPct: 14,
+      ryPct: 12,
+    }),
+    fixtureAt("footlight", 50, 90, "#e879f9", 0.55, {
+      label: "補助フット",
+      rxPct: 16,
+      ryPct: 9,
+    }),
+  ];
+
+  const defs: { id: (typeof LIGHTING_SAMPLE_PRESET_IDS)[number]; name: string; lights: LightingPresetFixture[] }[] = [
+    { id: "lp-sample-basic", name: "基本照明（フル）", lights: basic },
+    { id: "lp-sample-side", name: "サイドスポットのみ", lights: sides },
+    { id: "lp-sample-sus-pin", name: "サス＋ピンスポ", lights: susPin },
+    { id: "lp-sample-warm", name: "暖色ウォッシュ", lights: warm },
+    { id: "lp-sample-cool", name: "寒色バック", lights: cool },
+    { id: "lp-sample-center", name: "センターピン強調", lights: center },
+  ];
+
+  return defs.map((d, i) => ({
+    id: d.id,
+    name: d.name,
+    lights: d.lights,
+    // ユーザー保存より下に並ぶよう少し古い時刻にする
+    createdAt: now - (defs.length - i) * 1000,
+    updatedAt: now - (defs.length - i) * 1000,
+  }));
+}
+
+/**
+ * 同梱サンプルを一度だけ投入する（v2: 既存ユーザーにも足りないサンプルを足す）。
+ * 投入後にユーザーが削除したサンプルは戻さない。
+ */
+export function ensureSampleLightingPresets(): void {
+  if (typeof localStorage === "undefined") return;
+  const SEED_FLAG = "choreogrid_lighting_presets_seeded_v2";
+  if (localStorage.getItem(SEED_FLAG) === "1") return;
+  const cur = readAll();
+  const have = new Set(cur.map((x) => x.id));
+  const missing = buildSampleLightingPresets().filter((s) => !have.has(s.id));
+  try {
+    if (missing.length > 0) {
+      writeAll([...cur, ...missing].slice(0, MAX_PRESETS));
+    }
+    localStorage.setItem(SEED_FLAG, "1");
+  } catch {
+    /* 容量不足時はサンプル投入を諦める */
+  }
+}
+
+/** 新しい順（サンプル投入も行う） */
+export function listLightingPresets(): LightingPresetItem[] {
+  ensureSampleLightingPresets();
+  return readAll().sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export function saveLightingPreset(
+  name: string,
+  lights: readonly StageLightFixture[]
+): LightingPresetSaveResult {
+  const fixtures = lights
+    .filter((L) => L.enabled !== false)
+    .map(toLightingPresetFixture);
+  if (fixtures.length === 0) {
+    return {
+      ok: false,
+      reason: "empty",
+      message: "保存する照明がありません。",
+    };
+  }
+  const n =
+    (name || "").trim().slice(0, MAX_NAME_LEN) ||
+    `照明 ${fixtures.length}灯`;
+  const now = Date.now();
+  const item: LightingPresetItem = {
+    id: genId(),
+    name: n,
+    lights: fixtures,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const cur = readAll();
+  cur.unshift(item);
+  try {
+    writeAll(cur);
+    return { ok: true, item };
+  } catch (e) {
+    if (e instanceof LightingPresetQuotaError) {
+      return { ok: false, reason: "quota", message: e.message };
+    }
+    return {
+      ok: false,
+      reason: "unknown",
+      message:
+        "照明プリセットを保存できませんでした。ブラウザの保存領域を確認してからもう一度お試しください。",
+    };
+  }
+}
+
+export function deleteLightingPreset(id: string): boolean {
+  const list = readAll();
+  const next = list.filter((x) => x.id !== id);
+  if (next.length === list.length) return false;
+  try {
+    writeAll(next);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function renameLightingPreset(
+  id: string,
+  name: string
+): LightingPresetSaveResult {
+  const list = readAll();
+  const idx = list.findIndex((x) => x.id === id);
+  if (idx < 0) {
+    return {
+      ok: false,
+      reason: "unknown",
+      message: "プリセットが見つかりません。",
+    };
+  }
+  const n = (name || "").trim().slice(0, MAX_NAME_LEN);
+  if (!n) {
+    return { ok: false, reason: "empty", message: "名前を入力してください。" };
+  }
+  const updated: LightingPresetItem = {
+    ...list[idx]!,
+    name: n,
+    updatedAt: Date.now(),
+  };
+  list[idx] = updated;
+  try {
+    writeAll(list);
+    return { ok: true, item: updated };
+  } catch (e) {
+    if (e instanceof LightingPresetQuotaError) {
+      return { ok: false, reason: "quota", message: e.message };
+    }
+    return {
+      ok: false,
+      reason: "unknown",
+      message: "名前の変更に失敗しました。",
+    };
+  }
+}
+
+/** プリセット灯をキュー（または全体）向けの実体に変換 */
+export function materializeLightingPreset(
+  preset: LightingPresetItem,
+  cueId: string | null
+): StageLightFixture[] {
+  return preset.lights.map((L) => ({
+    id: crypto.randomUUID(),
+    kind: L.kind,
+    label: L.label ?? STAGE_LIGHT_KIND_LABELS[L.kind],
+    xPct: L.xPct,
+    yPct: L.yPct,
+    color: L.color,
+    intensity: L.intensity,
+    ...(L.rxPct != null ? { rxPct: L.rxPct } : {}),
+    ...(L.ryPct != null ? { ryPct: L.ryPct } : {}),
+    shape: L.shape ?? "ellipse",
+    cueId,
+    tStartSec: null,
+    tEndSec: null,
+    enabled: L.enabled !== false,
+  }));
+}
+
+/**
+ * 対象キューの照明を消してプリセットを適用。
+ * cueId が null のときは全体灯だけ置き換える。
+ */
+export function replaceLightsFromPresetDetailed(
+  existing: readonly StageLightFixture[],
+  cueId: string | null,
+  preset: LightingPresetItem
+): { lights: StageLightFixture[]; added: number } {
+  const without =
+    cueId == null
+      ? existing.filter((L) => L.cueId)
+      : existing.filter((L) => L.cueId !== cueId);
+  const added = materializeLightingPreset(preset, cueId);
+  return {
+    lights: [...without, ...added],
+    added: added.length,
+  };
+}
+
+/** @see replaceLightsFromPresetDetailed */
+export function replaceLightsFromPreset(
+  existing: readonly StageLightFixture[],
+  cueId: string | null,
+  preset: LightingPresetItem
+): StageLightFixture[] {
+  return replaceLightsFromPresetDetailed(existing, cueId, preset).lights;
+}

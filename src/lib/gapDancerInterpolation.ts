@@ -126,10 +126,22 @@ export const GAP_APPROACH_OPTIONS: {
   },
 ];
 
-function clampXY(x: number, y: number): { x: number; y: number } {
+/** 袖など舞台外に立つ人は、その始点・終点を含む範囲までは舞台外の移動を許す */
+type ClampBounds = { xLo: number; xHi: number; yLo: number; yHi: number };
+
+function boundsFor(ax: number, ay: number, bx: number, by: number): ClampBounds {
   return {
-    x: Math.min(CLAMP_X_HI, Math.max(CLAMP_X_LO, x)),
-    y: Math.min(CLAMP_Y_HI, Math.max(CLAMP_Y_LO, y)),
+    xLo: Math.min(CLAMP_X_LO, ax, bx),
+    xHi: Math.max(CLAMP_X_HI, ax, bx),
+    yLo: Math.min(CLAMP_Y_LO, ay, by),
+    yHi: Math.max(CLAMP_Y_HI, ay, by),
+  };
+}
+
+function clampXY(x: number, y: number, b: ClampBounds): { x: number; y: number } {
+  return {
+    x: Math.min(b.xHi, Math.max(b.xLo, x)),
+    y: Math.min(b.yHi, Math.max(b.yLo, y)),
   };
 }
 
@@ -174,71 +186,176 @@ function pairXY(
   medY: number,
   sepPct: number
 ): { x: number; y: number } {
+  const bounds = boundsFor(ax, ay, bx, by);
+  const clampIn = (x: number, y: number) => clampXY(x, y, bounds);
   if (Math.hypot(ax - bx, ay - by) < STATIONARY_EPS_PCT) {
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   const mx = (ax + bx) / 2;
   const my = (ay + by) / 2;
 
   if (route === "linear") {
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "detour_bulge") {
     const p = piecewise2(ax, ay, bx, by, mx, my + sepPct, alpha);
-    return clampXY(p.x, p.y);
+    return clampIn(p.x, p.y);
   }
 
   if (route === "kamite_half_via_audience") {
     if (ax >= medX) {
       const p = piecewise2(ax, ay, bx, by, mx, my + sepPct, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "shimote_half_via_audience") {
     if (ax < medX) {
       const p = piecewise2(ax, ay, bx, by, mx, my + sepPct, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "kamite_half_via_upstage") {
     if (ax >= medX) {
       const p = piecewise2(ax, ay, bx, by, mx, my - sepPct, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "shimote_half_via_upstage") {
     if (ax < medX) {
       const p = piecewise2(ax, ay, bx, by, mx, my - sepPct, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "front_half_via_kamite") {
     if (ay >= medY) {
       const p = piecewise2(ax, ay, bx, by, mx + sepPct, my, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
   if (route === "front_half_via_shimote") {
     if (ay >= medY) {
       const p = piecewise2(ax, ay, bx, by, mx - sepPct, my, alpha);
-      return clampXY(p.x, p.y);
+      return clampIn(p.x, p.y);
     }
-    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+    return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
   }
 
-  return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+  return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+}
+
+/**
+ * ギャップ経路プリセットを、パスエディタ用の二次ベジェ制御点に変換する。
+ * （折れ線経由点をベジェ CP に近似: B(0.5)=via ⇒ CP = 2·via − mid）
+ */
+export function controlPointsFromGapApproach(
+  from: DancerSpot[],
+  to: DancerSpot[],
+  route: GapApproachRoute
+): Record<string, { cpX: number; cpY: number }> {
+  const toById = new Map(to.map((d) => [d.id, d]));
+  const medX = median(from.map((d) => d.xPct));
+  const medY = median(from.map((d) => d.yPct));
+  const sepPct = gapPassingSeparationPct(from, to);
+  const out: Record<string, { cpX: number; cpY: number }> = {};
+  for (const a of from) {
+    const b = toById.get(a.id);
+    if (!b) continue;
+    const via = pairXY(
+      a.xPct,
+      a.yPct,
+      b.xPct,
+      b.yPct,
+      0.5,
+      route,
+      medX,
+      medY,
+      sepPct
+    );
+    const mx = (a.xPct + b.xPct) / 2;
+    const my = (a.yPct + b.yPct) / 2;
+    out[a.id] = {
+      cpX: Math.min(Math.max(100, a.xPct, b.xPct), Math.max(Math.min(0, a.xPct, b.xPct), 2 * via.x - mx)),
+      cpY: Math.min(Math.max(100, a.yPct, b.yPct), Math.max(Math.min(0, a.yPct, b.yPct), 2 * via.y - my)),
+    };
+  }
+  return out;
+}
+
+/**
+ * キュー前後の同一人物を対応づける。ID → 名簿メンバー → 残りは並び順。
+ * 片方のキューにしかいない人は相手なし（その場に留まる）。並びは移動先キューの順。
+ */
+export function pairGapDancers(
+  from: readonly DancerSpot[],
+  to: readonly DancerSpot[]
+): Array<[DancerSpot | undefined, DancerSpot | undefined]> {
+  const usedFrom = new Set<number>();
+  const match = new Array<number>(to.length).fill(-1);
+
+  const fromById = new Map<string, number>();
+  from.forEach((d, i) => {
+    if (!fromById.has(d.id)) fromById.set(d.id, i);
+  });
+  to.forEach((d, j) => {
+    const i = fromById.get(d.id);
+    if (i != null && !usedFrom.has(i)) {
+      match[j] = i;
+      usedFrom.add(i);
+    }
+  });
+
+  const fromByCrew = new Map<string, number[]>();
+  from.forEach((d, i) => {
+    if (usedFrom.has(i) || !d.crewMemberId) return;
+    const list = fromByCrew.get(d.crewMemberId) ?? [];
+    list.push(i);
+    fromByCrew.set(d.crewMemberId, list);
+  });
+  to.forEach((d, j) => {
+    if (match[j] !== -1 || !d.crewMemberId) return;
+    const list = fromByCrew.get(d.crewMemberId);
+    const i = list?.shift();
+    if (i != null) {
+      match[j] = i;
+      usedFrom.add(i);
+    }
+  });
+
+  const restFrom = from.map((_, i) => i).filter((i) => !usedFrom.has(i));
+  const restTo = to.map((_, j) => j).filter((j) => match[j] === -1);
+  // 片方にしか ID がない人（削除・追加）は相手を作らない。ID が丸ごと入れ替わった雛形適用などだけ並び順で対応
+  const fromIdsInTo = new Set(to.map((d) => d.id));
+  const toIdsInFrom = new Set(from.map((d) => d.id));
+  const restFromFresh = restFrom.filter((i) => !fromIdsInTo.has(from[i]!.id));
+  const restToFresh = restTo.filter((j) => !toIdsInFrom.has(to[j]!.id));
+  const idsMostlyShared = usedFrom.size > 0;
+  if (!idsMostlyShared) {
+    const k = Math.min(restFromFresh.length, restToFresh.length);
+    for (let x = 0; x < k; x++) {
+      match[restToFresh[x]!] = restFromFresh[x]!;
+      usedFrom.add(restFromFresh[x]!);
+    }
+  }
+
+  const out: Array<[DancerSpot | undefined, DancerSpot | undefined]> = to.map(
+    (b, j) => [match[j]! >= 0 ? from[match[j]!] : undefined, b]
+  );
+  from.forEach((a, i) => {
+    if (!usedFrom.has(i)) out.push([a, undefined]);
+  });
+  return out;
 }
 
 /**
@@ -270,25 +387,24 @@ export function lerpDancersAcrossGap(
   customPaths?: Record<string, { cpX: number; cpY: number }>
 ): DancerSpot[] {
   const r: GapApproachRoute = route ?? "linear";
+  /** 色・名前・形などの見た目は、移動（ギャップ）が始まったら次キューに切り替える（照明と同時） */
+  const keepPrevLook = alpha <= 0;
   const xs = from.map((d) => d.xPct);
   const ys = from.map((d) => d.yPct);
   const medX = median(xs);
   const medY = median(ys);
   const sepPct = gapPassingSeparationPct(from, to);
 
-  const n = Math.max(from.length, to.length);
   const out: DancerSpot[] = [];
 
   function lerp(a: number, b: number, t: number) {
     return a + (b - a) * t;
   }
 
-  for (let i = 0; i < n; i++) {
-    const a = from[i];
-    const b = to[i];
+  for (const [a, b] of pairGapDancers(from, to)) {
     if (a && b) {
       const note =
-        alpha < 0.5
+        keepPrevLook
           ? a.note?.trim()
             ? a.note
             : undefined
@@ -298,13 +414,13 @@ export function lerpDancersAcrossGap(
       const sizePx =
         a.sizePx != null && b.sizePx != null
           ? lerp(a.sizePx, b.sizePx, alpha)
-          : alpha < 0.5
+          : keepPrevLook
             ? a.sizePx
             : b.sizePx;
       const nameBelowFontPx =
         a.nameBelowFontPx != null && b.nameBelowFontPx != null
           ? Math.round(lerp(a.nameBelowFontPx, b.nameBelowFontPx, alpha))
-          : alpha < 0.5
+          : keepPrevLook
             ? a.nameBelowFontPx
             : b.nameBelowFontPx;
       const centerDistanceGap =
@@ -325,7 +441,8 @@ export function lerpDancersAcrossGap(
               { x: cp.cpX, y: cp.cpY },
               { x: b.xPct, y: b.yPct },
               alpha
-            ).y
+            ).y,
+            boundsFor(a.xPct, a.yPct, b.xPct, b.yPct)
           )
         : pairXY(
             a.xPct,
@@ -341,12 +458,12 @@ export function lerpDancersAcrossGap(
 
       out.push({
         id: a.id,
-        label: alpha < 0.5 ? a.label : b.label,
+        label: keepPrevLook ? a.label : b.label,
         xPct: xy.x,
         yPct: xy.y,
-        colorIndex: alpha < 0.5 ? a.colorIndex : b.colorIndex,
+        colorIndex: keepPrevLook ? a.colorIndex : b.colorIndex,
         crewMemberId:
-          alpha < 0.5 ? a.crewMemberId ?? undefined : b.crewMemberId ?? undefined,
+          keepPrevLook ? a.crewMemberId ?? undefined : b.crewMemberId ?? undefined,
         ...(note ? { note } : {}),
         ...(typeof sizePx === "number" ? { sizePx } : {}),
         ...(typeof nameBelowFontPx === "number"
@@ -358,14 +475,14 @@ export function lerpDancersAcrossGap(
               centerDistanceLabelXPct: a.xPct,
             }
           : {
-              ...(alpha < 0.5
+              ...(keepPrevLook
                 ? a.markerBadge !== undefined
                   ? { markerBadge: a.markerBadge }
                   : {}
                 : b.markerBadge !== undefined
                   ? { markerBadge: b.markerBadge }
                   : {}),
-              ...(alpha < 0.5
+              ...(keepPrevLook
                 ? a.markerBadgeSource
                   ? { markerBadgeSource: a.markerBadgeSource }
                   : {}
@@ -373,6 +490,29 @@ export function lerpDancersAcrossGap(
                   ? { markerBadgeSource: b.markerBadgeSource }
                   : {}),
             }),
+        /** 見た目属性は移動中も維持（3D 動物・性別色・身長など） */
+        ...(() => {
+          const src = keepPrevLook ? a : b;
+          return {
+            ...(src.heightCm != null ? { heightCm: src.heightCm } : {}),
+            ...(src.genderLabel ? { genderLabel: src.genderLabel } : {}),
+            ...(src.colorOverridesGender ? { colorOverridesGender: true } : {}),
+            ...(src.gradeLabel ? { gradeLabel: src.gradeLabel } : {}),
+            ...(src.skillRankLabel ? { skillRankLabel: src.skillRankLabel } : {}),
+            ...(src.faceStamp ? { faceStamp: src.faceStamp } : {}),
+            ...(src.figure3d ? { figure3d: src.figure3d } : {}),
+            ...(src.poseLevel ? { poseLevel: src.poseLevel } : {}),
+            ...(src.markerShape ? { markerShape: src.markerShape } : {}),
+          };
+        })(),
+        ...(() => {
+          const fa = a.facingDeg ?? 0;
+          const fb = b.facingDeg ?? 0;
+          if (fa === 0 && fb === 0) return {};
+          const delta = ((((fb - fa) % 360) + 540) % 360) - 180;
+          const deg = (((fa + delta * alpha) % 360) + 360) % 360;
+          return { facingDeg: Math.round(deg * 100) / 100 };
+        })(),
       });
     } else if (a) {
       out.push({ ...a });

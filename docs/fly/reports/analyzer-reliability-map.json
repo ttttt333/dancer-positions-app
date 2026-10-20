@@ -1,0 +1,203 @@
+{
+  "version": "reserved-4.6-pattern",
+  "note": "Not wired to Fusion weights. Beat metric = pattern aggregate, not f1@40ms.",
+  "freeze": [
+    "no_madmom",
+    "no_msaf",
+    "no_cyanite",
+    "no_demucs",
+    "no_fusion_weight_change",
+    "no_formation_engine_change",
+    "no_keep_current",
+    "no_ml_training",
+    "no_musical_change_to_formation_change"
+  ],
+  "librosa": [
+    {
+      "songId": "song-001",
+      "beatAggregate": 0.831416334026377,
+      "period": "WEAK",
+      "phase": "WEAK",
+      "continuity": "WEAK",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.4000000000000001
+    },
+    {
+      "songId": "song-002",
+      "beatAggregate": 0.6970177421142105,
+      "period": "WEAK",
+      "phase": "FAIL",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.24000000000000002
+    },
+    {
+      "songId": "song-003",
+      "beatAggregate": 0.7202720873786532,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.32
+    },
+    {
+      "songId": "song-004",
+      "beatAggregate": 0.7245830188680602,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.16
+    },
+    {
+      "songId": "song-005",
+      "beatAggregate": 0.8045360824743396,
+      "period": "PASS",
+      "phase": "WEAK",
+      "continuity": "WEAK",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.20000000000000004
+    },
+    {
+      "songId": "song-006",
+      "beatAggregate": 0.7401115853658534,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "WEAK",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.3846153846153846
+    },
+    {
+      "songId": "song-007",
+      "beatAggregate": 0.8150106292518138,
+      "period": "PASS",
+      "phase": "WEAK",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.5
+    },
+    {
+      "songId": "song-008",
+      "beatAggregate": 0.684999999999991,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.22222222222222224
+    },
+    {
+      "songId": "song-009",
+      "beatAggregate": 0.5097635689236266,
+      "period": "FAIL",
+      "phase": "FAIL",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.3
+    },
+    {
+      "songId": "song-010",
+      "beatAggregate": 0.6758766706443857,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.3225806451612903
+    },
+    {
+      "songId": "song-011",
+      "beatAggregate": 0.7580391705069384,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "WEAK",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.43478260869565216
+    },
+    {
+      "songId": "song-012",
+      "beatAggregate": 0.6906083293479918,
+      "period": "WEAK",
+      "phase": "FAIL",
+      "continuity": "WEAK",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.25
+    },
+    {
+      "songId": "song-013",
+      "beatAggregate": 0.7338393129769979,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "WEAK",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.18749999999999997
+    },
+    {
+      "songId": "song-014",
+      "beatAggregate": 0.7556524390244008,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "WEAK",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.2580645161290323
+    },
+    {
+      "songId": "song-015",
+      "beatAggregate": 0.7102295969771198,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.3333333333333333
+    },
+    {
+      "songId": "song-016",
+      "beatAggregate": 0.6841451117318015,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.2962962962962963
+    },
+    {
+      "songId": "song-017",
+      "beatAggregate": 0.7103215277777686,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.17647058823529413
+    },
+    {
+      "songId": "song-018",
+      "beatAggregate": 0.7297807692307997,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.2857142857142857
+    },
+    {
+      "songId": "song-019",
+      "beatAggregate": 0.7024117210682448,
+      "period": "PASS",
+      "phase": "FAIL",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.34782608695652173
+    },
+    {
+      "songId": "song-020",
+      "beatAggregate": 0.7541043814432876,
+      "period": "PASS",
+      "phase": "WEAK",
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "sectionLabelF1": 0.375
+    }
+  ],
+  "essentia": {
+    "analyzerId": "essentia",
+    "status": "NOT_AVAILABLE",
+    "reason": "essentia Python package not installed in analyzer venv",
+    "policy": "Do not invent scores; leave Essentia as NOT_AVAILABLE for this GO run"
+  }
+}

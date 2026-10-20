@@ -12,7 +12,14 @@ import type {
   SetPiece,
   StageFloorMarkup,
   StageFloorTextMarkup,
+  StageLightFixture,
+  StageLightKind,
 } from "../types/choreography";
+import {
+  buildFloorLineMarkupFromPoints,
+  isFloorLineInGlobalMarkup,
+  mergeFloorLineMarkupsForDisplay,
+} from "../lib/floorLineMarkup";
 import { useStageBoardController } from "../hooks/useStageBoardController";
 import { useStageBoardStageResize } from "../hooks/useStageBoardStageResize";
 import { useStageBoardLayoutAfterDraft } from "../hooks/useStageBoardLayoutAfterDraft";
@@ -32,8 +39,13 @@ import {
 import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
+  equalizeXPctByStartCenterDistanceSlot,
+  nudgeXPctForAltArrow,
+  nudgeYPctForAltArrow,
+  resolveStageArrowNudgeKey,
   snapXPctToCenterDistanceMmGrid,
 } from "../lib/dancerSpacing";
+import { resolveAlignmentGuides } from "../lib/stageAlignmentGuides";
 import {
   screenDeltaPctToStageDelta,
   screenPctToStagePct,
@@ -48,15 +60,52 @@ import {
   clampNameBelowFontPx,
   computeNameBelowFontResizeDraftSizes,
   defaultNameBelowFontPx,
+  dancerNameBelowLabelOffsetPx,
   effectiveNameBelowFontPx,
   stableDancerMarkerPxForNameFont,
 } from "../lib/stageNameBelowFontSizing";
-import { resolveArrangeTargetIds } from "../lib/stageSelectionArrange";
+import { computeViewerNameOverlapFitScale } from "../lib/viewerMarkerLabelFit";
+import { resolveArrangeTargetIds, swapTwoDancerPositions } from "../lib/stageSelectionArrange";
+import {
+  buildSleeveCurtainMarksFromCurtains,
+  normalizeStageSleeveCurtains,
+} from "../lib/stageSleeveCurtains";
+import { StageSleeveCurtainOverlay } from "./StageSleeveCurtainOverlay";
+import { StageCenterMarkOverlay } from "./StageCenterMarkOverlay";
+import { StageLightingOverlay } from "./StageLightingOverlay";
+import {
+  activeStageLightsAtTime,
+  createDefaultStageLight,
+  nextLightLabel,
+  replaceCueLightsFromPreviousCue,
+  replaceCueWithBasicStageLights,
+  BASIC_STAGE_LIGHT_COLORS,
+  STAGE_LIGHT_KIND_LABELS,
+  STAGE_LIGHT_KINDS,
+} from "../lib/stageLighting";
+import {
+  listLightingPresets,
+  replaceLightsFromPresetDetailed,
+  type LightingPresetItem,
+} from "../lib/lightingPresets";
+import { LightingPresetPickModal } from "./LightingPresetPickModal";
+import { sortCuesByStart } from "../core/timelineController";
+import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { showAppToast } from "../store/appToastStore";
+import {
+  dancerClipboardLabel,
+  pasteDancersIntoCue,
+  previousCueOf,
+  useDancerClipboardStore,
+} from "../lib/dancerClipboard";
+import { useStageLightsViewStore } from "../store/stageLightsViewStore";
+import { playbackEngine } from "../core/playbackEngine";
 import {
   alignSelectedDancers,
   distributeSelectedDancers,
   flipSelectedDancers,
 } from "../lib/stageSelectionTransform";
+import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
 import {
   resolveStageEditMode,
   retainDancerIdsInFormation,
@@ -64,12 +113,15 @@ import {
 import { cueNumberById } from "../lib/cueInterval";
 import {
   getStageEditDockHost,
+  requestStageEditRightPane,
   subscribeStageEditDockHost,
+  subscribeStageDockSectionRequest,
 } from "../lib/stageEditDockHost";
 import {
   buildPrevCueCompareMarks,
   resolvePreviousCueDancers,
   resolvePreviousCueOrdinal,
+  resolveNextCueDancers,
   summarizePrevCueCompare,
 } from "../lib/stagePrevCueCompare";
 import {
@@ -122,17 +174,39 @@ import { StageBoardBulkToolbarSlot } from "./StageBoardBulkToolbarSlot";
 import { StageBoardStageFrame } from "./StageBoardStageFrame";
 import { StageMotionArrowsOverlay } from "./StageMotionArrowsOverlay";
 import { StagePrevCueCompareOverlay } from "./StagePrevCueCompareOverlay";
+import {
+  applyDancerFigure3d,
+  withDancerFigure3d,
+  type DancerFigure3dApplyScope,
+} from "../lib/applyDancerFigure3d";
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
+import type { FloorTextDraftShape } from "./FloorTextDraftEditorForm";
+import {
+  applyDancerMarkerLook,
+  useDancerMarkerLookScopeStore,
+  type DancerMarkerLookScope,
+} from "../lib/applyDancerMarkerLook";
 import { shell } from "../theme/choreoShell";
 import {
+  DANCER_COLOR_RANDOM,
   modDancerColorIndex,
   normalizeDancerFacingDeg,
+  randomDancerColorIndices,
 } from "../lib/dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
+import type { DancerMarkerShape } from "../lib/dancerMarkerShape";
 import {
   pointerInViewportTrashRevealZone,
-  syncRosterAfterRemovingLinkedMembersFromFirstCue,
 } from "../lib/stageBoardRosterAndTrash";
+import {
+  countProjectRosterMembers,
+  enrichDancerSpotsFromCrew,
+} from "../lib/memberRosterSheetFields";
+import {
+  removeMembersFromStage,
+  type MemberDeleteScope,
+} from "../lib/removeMemberFromStage";
+import { MemberDeleteScopeDialog } from "./MemberDeleteScopeDialog";
 import {
   applySetPieceResizePct,
   clamp,
@@ -165,6 +239,37 @@ import {
 import { useStageBoardInteractionStore } from "../store/stage/stageBoardInteractionStore";
 import { STAGE_BOARD_ABORT_POINTER_GESTURES } from "../lib/stageBoardGestureAbort";
 
+/** タッチ時、指で隠れないようマーカーを指より上に置くオフセット（px） */
+const TOUCH_DANCER_FINGER_CLEARANCE_PX = 56;
+/** ここに含まれる要素のタップでは選択を解除しない（舞台本体・ボタン・パネル・メニュー） */
+const KEEP_STAGE_SELECTION_TAP_SELECTOR = [
+  "#stage-export-root",
+  ".stage-board-main-slot",
+  "button",
+  "a",
+  "input",
+  "select",
+  "textarea",
+  "label",
+  "[contenteditable='true']",
+  "[role='button']",
+  "[role='menu']",
+  "[role='menuitem']",
+  "[role='dialog']",
+  "[role='toolbar']",
+  "[role='slider']",
+  "[role='radiogroup']",
+  "[role='listbox']",
+  "[data-editor-sheet-root]",
+  "[data-mobile-menu-sheet]",
+  "[data-stage-edit-dock]",
+  "[data-selection-arrange-panel]",
+  "[data-selection-display-panel]",
+  "[data-selection-compare-panel]",
+].join(", ");
+/** この床幅（px）未満のときだけ個別の印径・名前 px を床幅比で縮める */
+const NARROW_FLOOR_REFERENCE_PX = 640;
+
 /**
  * ステージボードの実装本体。`useStageDancerMarkerElements` / `useSetPieceBlockElements` 等で束ね、return 直前では次の順にオブジェクトを組み立てる:
  * `buildStageBoardExportColumnProps` → `stageBoardLayoutSlots` → `stageBoardOverlaysProps`（`useMemo`）→ `StageBoardShell`。
@@ -189,14 +294,19 @@ export function StageBoardBody({
   viewportTextOverlayRoot = null,
   floorMarkupTool: floorMarkupToolProp,
   onFloorMarkupToolChange,
+  floorLineScope: floorLineScopeProp,
+  onFloorLineScopeChange,
   hideFloorMarkupFloatingToolbars = false,
   textPanelPortalTarget,
   onGestureHistoryBegin,
   onGestureHistoryEnd,
   onGestureHistoryCancel,
+  historyOverlayEpoch = 0,
   markHistorySkipNextPush,
   studentViewerFocus = null,
   markerDisplayScale = 1,
+  nameLabelDisplayScale = 1,
+  nameLabelAutoFit = false,
   compactViewportChrome = false,
   compactLandscapeViewport = false,
   hideStageFloorTextMarkup = false,
@@ -208,6 +318,12 @@ export function StageBoardBody({
   enablePinchViewport = false,
   onCreateNextCue,
   editCueId = null,
+  onSleeveCurtainsChange,
+  onCenterMarksChange,
+  stageArchitectureEditActive = false,
+  onStageLightsChange,
+  selectedStageLightId = null,
+  onSelectStageLightId,
 }: StageBoardBodyProps) {
   const {
     isPlaying,
@@ -238,15 +354,20 @@ export function StageBoardBody({
     setFloorMarkupTool,
     floorLineDraft,
     setFloorLineDraft,
+    floorLineScope,
+    setFloorLineScope,
     floorLineSessionRef,
     stageMainFloorRef,
     setMainFloorPxWidth,
+    mainFloorPxWidth,
     baseMarkerPx,
     nameBelowClearanceExtraPx,
   } = useStageBoardController({
     project,
     floorMarkupTool: floorMarkupToolProp,
     onFloorMarkupToolChange,
+    floorLineScopeProp,
+    onFloorLineScopeChange,
   });
   const audienceEdge = audienceEdgeOverride ?? projectAudienceEdge;
 
@@ -337,6 +458,20 @@ export function StageBoardBody({
   const clearSelectedDancers = useStageBoardInteractionStore(
     (s) => s.clearSelectedDancers,
   );
+  const hasDancerSelection = selectedDancerIds.length > 0;
+  /** タッチ操作では、舞台・操作 UI 以外の画面をタップしたら選択解除 */
+  useEffect(() => {
+    if (!hasDancerSelection) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest(KEEP_STAGE_SELECTION_TAP_SELECTOR)) return;
+      clearSelectedDancers();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [hasDancerSelection, clearSelectedDancers]);
   const [selectedSetPieceId, setSelectedSetPieceId] = useState<string | null>(
     null,
   );
@@ -367,7 +502,7 @@ export function StageBoardBody({
     session: FloorTextPlaceSession;
   } | null>(null);
   /** 床テキストツール：入力内容と次に置くときの書式 */
-  const [floorTextDraft, setFloorTextDraft] = useState({
+  const [floorTextDraft, setFloorTextDraft] = useState<FloorTextDraftShape>({
     ...EMPTY_FLOOR_TEXT_DRAFT,
   });
   /** 選択中の床テキスト id（スライダー・本文はこの項目を更新、空床クリックで移動） */
@@ -408,7 +543,7 @@ export function StageBoardBody({
     baseIds: string[];
     movedPx: number;
   } | null>(null);
-  /** 空床ダブルタップで全員選択 */
+  /** 空床ダブルタップ／ダブルクリックで全員選択 */
   const floorDoubleTapRef = useRef<{ t: number; x: number; y: number } | null>(
     null,
   );
@@ -469,6 +604,12 @@ export function StageBoardBody({
   const [sizeApplyPending, setSizeApplyPending] = useState<{
     kind: StageSizeApplyKind;
     overrides: Map<string, number>;
+  } | null>(null);
+  /** メンバー削除の適用範囲確認（このキュー / すべて） */
+  const [memberDeletePending, setMemberDeletePending] = useState<{
+    dancerIds: string[];
+    formationId: string;
+    label?: string;
   } | null>(null);
   /**
    * 回転ハンドルドラッグ中の向きプレビュー（選択中の各 ID → 度）。
@@ -586,31 +727,32 @@ export function StageBoardBody({
     [markerScale],
   );
 
+  /**
+   * 個別 sizePx・名前 px は PC の床幅で決めた値なので、スマホなど床が狭いときだけ床幅に比例して縮める。
+   * （既定の印径は床幅連動済みなので対象外）
+   */
+  const narrowFloorScale =
+    mainFloorPxWidth > 0
+      ? Math.min(1, mainFloorPxWidth / NARROW_FLOOR_REFERENCE_PX)
+      : 1;
+
   /** ダンサー 1 人分の実効サイズ（px）。draft > 個別 sizePx > プロジェクト共通、の順で解決。 */
   const effectiveMarkerPx = useCallback(
     (d: DancerSpot) => {
       const draft = markerDiamDraft?.get(d.id);
       if (typeof draft === "number" && Number.isFinite(draft)) {
-        return scaleMarkerPx(draft);
+        return scaleMarkerPx(draft * narrowFloorScale);
       }
       if (typeof d.sizePx === "number" && Number.isFinite(d.sizePx)) {
-        return scaleMarkerPx(d.sizePx);
+        return scaleMarkerPx(d.sizePx * narrowFloorScale);
       }
       return scaleMarkerPx(baseMarkerPx);
     },
-    [markerDiamDraft, baseMarkerPx, scaleMarkerPx],
+    [markerDiamDraft, baseMarkerPx, scaleMarkerPx, narrowFloorScale],
   );
 
   /** 名下ラベルの実効フォント（px）。床幅連動の ○ 表示サイズではなく保存値ベースで解決。 */
-  const resolveNameBelowFontPx = useCallback(
-    (d: DancerSpot, _markerPx?: number) =>
-      effectiveNameBelowFontPx(
-        d,
-        stableDancerMarkerPxForNameFont(d, project.dancerMarkerDiameterPx),
-        nameBelowFontDraft?.get(d.id),
-      ),
-    [nameBelowFontDraft, project.dancerMarkerDiameterPx],
-  );
+  // resolveNameBelowFontPx は dancersForStageMarkers 確定後に定義（自動フィット用）
 
   /** 回転ドラッグ中はドラフト、それ以外は `facingDeg`（未設定は 0）。 */
   const effectiveFacingDeg = useCallback(
@@ -652,6 +794,37 @@ export function StageBoardBody({
     useState(false);
   const [prevCueCompareOn, setPrevCueCompareOn] = useState(false);
   const [prevCueMotionViewOn, setPrevCueMotionViewOn] = useState(false);
+  const [dockSectionRequest, setDockSectionRequest] = useState<{
+    requestId: number;
+    section: "shape" | "display" | "sort";
+  } | null>(null);
+  const dockSectionRequestIdRef = useRef(0);
+  /** コンテキストメニューから追加した直近の照明（同じ照明を追加用） */
+  const lastStageLightTemplateRef = useRef<StageLightFixture | null>(null);
+  /** 右クリック位置（メニューを閉じても座標を残す） */
+  const stageLightMenuPointRef = useRef<{
+    clientX: number;
+    clientY: number;
+  } | null>(null);
+  const [lightingPresetPickerOpen, setLightingPresetPickerOpen] =
+    useState(false);
+  const [lightingPresetPickerList, setLightingPresetPickerList] = useState<
+    LightingPresetItem[]
+  >([]);
+
+  useEffect(() => {
+    return subscribeStageDockSectionRequest((req) => {
+      dockSectionRequestIdRef.current = Math.max(
+        dockSectionRequestIdRef.current,
+        req.requestId
+      );
+      setDockSectionRequest({
+        requestId: req.requestId,
+        section: req.section,
+      });
+    });
+  }, []);
+
   const stageEditDockHost = useSyncExternalStore(
     subscribeStageEditDockHost,
     getStageEditDockHost,
@@ -676,7 +849,8 @@ export function StageBoardBody({
     if (lastFormationResetIdRef.current === formationIdForWrites) return;
     lastFormationResetIdRef.current = formationIdForWrites;
 
-    onGestureHistoryCancel?.();
+    // 切替時もドラッグ結果を Undo 可能に残す（Cancel だと立ち位置だけ変わり履歴が消える）
+    onGestureHistoryEnd?.();
     setShapePreviewById(null);
     setShapePreviewMeta(null);
     setDepthPreviewById(null);
@@ -743,9 +917,26 @@ export function StageBoardBody({
   }, [
     formationIdForWrites,
     formations,
-    onGestureHistoryCancel,
+    onGestureHistoryEnd,
     setSelectedDancerIds,
   ]);
+
+  /** Undo/Redo 後は仮配置プレビューを捨て、永続座標だけを見せる */
+  useEffect(() => {
+    if (historyOverlayEpoch === 0) return;
+    setShapePreviewById(null);
+    setShapePreviewMeta(null);
+    setDepthPreviewById(null);
+    setDepthPreviewPair(null);
+    setRotationPreviewById(null);
+    setRotationPreviewDir(null);
+    setTidyPreviewById(null);
+    setTidyPreviewActionId(null);
+    shapePreviewKeyRef.current = "";
+    markerGroupPosDraftRef.current = null;
+    setMarkerGroupPosDraft(null);
+    setDragGhostById(null);
+  }, [historyOverlayEpoch]);
 
   /** ピンチ拡大など: 進行中のドラッグを破棄する */
   useEffect(() => {
@@ -762,7 +953,11 @@ export function StageBoardBody({
         floorTextMultiDragRef.current != null ||
         floorTextTapOrDragRef.current != null ||
         marqueeSessionRef.current != null;
-      if (hadGesture) onGestureHistoryCancel?.();
+      // 既に動いた立ち位置を Undo できるように End（Cancel だと履歴が消える）
+      if (hadGesture) {
+        if (onGestureHistoryEnd) onGestureHistoryEnd();
+        else onGestureHistoryCancel?.();
+      }
       dragRef.current = null;
       groupDragRef.current = null;
       setPieceDragRef.current = null;
@@ -794,7 +989,7 @@ export function StageBoardBody({
     return () => {
       window.removeEventListener(STAGE_BOARD_ABORT_POINTER_GESTURES, abort);
     };
-  }, [onGestureHistoryCancel]);
+  }, [onGestureHistoryEnd, onGestureHistoryCancel]);
 
   useEffect(() => {
     setShowStageDancerColorToolbar(false);
@@ -852,6 +1047,91 @@ export function StageBoardBody({
     [displayDancers, positionOverlays],
   );
 
+  const nameLabelUserScale =
+    typeof nameLabelDisplayScale === "number" &&
+    Number.isFinite(nameLabelDisplayScale) &&
+    nameLabelDisplayScale > 0
+      ? nameLabelDisplayScale
+      : 1;
+
+  /** 閲覧: 名下ラベルの重なりを減らす自動倍率 */
+  const nameLabelAutoFitScale = useMemo(() => {
+    if (!nameLabelAutoFit || !dancerLabelBelow) return 1;
+    if (dancersForStageMarkers.length < 2 || !(mainFloorPxWidth > 40)) return 1;
+    const floorH =
+      stageMainFloorRef.current?.clientHeight ?? mainFloorPxWidth * 1.25;
+    if (!(floorH > 40)) return 1;
+    const sample = dancersForStageMarkers[0]!;
+    const stablePx = stableDancerMarkerPxForNameFont(
+      sample,
+      project.dancerMarkerDiameterPx
+    );
+    const baseFont = effectiveNameBelowFontPx(
+      sample,
+      stablePx,
+      nameBelowFontDraft?.get(sample.id)
+    );
+    const fontBeforeAuto = Math.max(
+      6,
+      baseFont * markerScale * nameLabelUserScale
+    );
+    const markerPxSample = scaleMarkerPx(stablePx);
+    const labelOffsetPx = dancerNameBelowLabelOffsetPx(
+      markerPxSample,
+      nameBelowClearanceExtraPx
+    );
+    return computeViewerNameOverlapFitScale({
+      dancers: dancersForStageMarkers.map((d) => ({
+        xPct: d.xPct,
+        yPct: d.yPct,
+        label: d.label || "?",
+      })),
+      floorW: mainFloorPxWidth,
+      floorH,
+      markerPx: markerPxSample,
+      nameFontPx: fontBeforeAuto,
+      labelOffsetPx,
+    });
+  }, [
+    nameLabelAutoFit,
+    dancerLabelBelow,
+    dancersForStageMarkers,
+    mainFloorPxWidth,
+    stageMainFloorRef,
+    project.dancerMarkerDiameterPx,
+    nameBelowFontDraft,
+    markerScale,
+    nameLabelUserScale,
+    scaleMarkerPx,
+    nameBelowClearanceExtraPx,
+  ]);
+
+  /** 名下ラベルの実効フォント（px）。閲覧時は印倍率・手動倍率・自動フィットを掛け合わせる。 */
+  const resolveNameBelowFontPx = useCallback(
+    (d: DancerSpot, _markerPx?: number) => {
+      const base = effectiveNameBelowFontPx(
+        d,
+        stableDancerMarkerPxForNameFont(d, project.dancerMarkerDiameterPx),
+        nameBelowFontDraft?.get(d.id)
+      );
+      const scaled =
+        base *
+        markerScale *
+        nameLabelUserScale *
+        nameLabelAutoFitScale *
+        narrowFloorScale;
+      return clampNameBelowFontPx(scaled);
+    },
+    [
+      nameBelowFontDraft,
+      project.dancerMarkerDiameterPx,
+      markerScale,
+      nameLabelUserScale,
+      nameLabelAutoFitScale,
+      narrowFloorScale,
+    ]
+  );
+
   /**
    * ドラッグゴースト描画は pointermove ごとに走るため、
    * ghostId -> dancer / index を先に Map 化して find 系の線形探索を避ける。
@@ -874,6 +1154,10 @@ export function StageBoardBody({
   );
   const prevCueDancers = useMemo(
     () => resolvePreviousCueDancers(project.cues, formations, editCueId),
+    [project.cues, formations, editCueId],
+  );
+  const nextCueDancers = useMemo(
+    () => resolveNextCueDancers(project.cues, formations, editCueId),
     [project.cues, formations, editCueId],
   );
   const stageDancerById = useMemo(
@@ -930,6 +1214,8 @@ export function StageBoardBody({
   }, [displayFloorMarkup, floorTextInlineRect?.id]);
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
+  /** 再生中のみ照明編集を止める（雛形プレビュー中は追加・表示を許可） */
+  const lightsLockedByPlayback = Boolean(playbackDancers);
   const prevCueCompareAvailable = Boolean(prevCueDancers && !playbackOrPreview);
   const prevCueOverlayOn =
     prevCueCompareAvailable && (prevCueCompareOn || prevCueMotionViewOn);
@@ -1171,7 +1457,7 @@ export function StageBoardBody({
     (markupId: string, draft: FloorTextDraftPayload) => {
       setFloorTextEditId(markupId);
       setSelectedFloorTextId(markupId);
-      setFloorTextDraft(draft);
+      setFloorTextDraft((d) => ({ ...d, ...draft }));
     },
     [],
   );
@@ -1191,7 +1477,7 @@ export function StageBoardBody({
       });
       setFloorTextEditId(m.id);
       setSelectedFloorTextId(m.id);
-      setFloorTextDraft(draft);
+      setFloorTextDraft((d) => ({ ...d, ...draft }));
     },
     [],
   );
@@ -1249,7 +1535,7 @@ export function StageBoardBody({
       // floorMarkupTool は触らない（floorTextPlaceSession系と競合するため）
       setFloorTextEditId(m.id);
       setSelectedFloorTextId(m.id);
-      setFloorTextDraft(draft);
+      setFloorTextDraft((d) => ({ ...d, ...draft }));
       onOpenTextEditSheet?.(m.id, draft, isGlobal, m);
     },
     [globalFloorMarkup, onOpenTextEditSheet],
@@ -1276,6 +1562,9 @@ export function StageBoardBody({
         fontSizePx: fs,
         fontWeight: fw,
         ...(floorTextDraft.bgColor ? { bgColor: floorTextDraft.bgColor } : {}),
+        ...(floorTextDraft.textAlign && floorTextDraft.textAlign !== "left"
+          ? { textAlign: floorTextDraft.textAlign }
+          : {}),
       };
       if (floorTextDraft.scope === "global" && onUpdateGlobalFloorMarkup) {
         onUpdateGlobalFloorMarkup((prev) => [...prev, newText]);
@@ -1373,9 +1662,28 @@ export function StageBoardBody({
     [floorTextPlaceSession],
   );
 
+  const removeFloorLineById = useCallback(
+    (id: string) => {
+      if (isFloorLineInGlobalMarkup(id, globalFloorMarkup)) {
+        removeGlobalFloorMarkupById(id);
+        return;
+      }
+      removeFloorMarkupById(id);
+    },
+    [globalFloorMarkup, removeGlobalFloorMarkupById, removeFloorMarkupById]
+  );
+
+  const displayFloorLines = useMemo(
+    () =>
+      mergeFloorLineMarkupsForDisplay(displayFloorMarkup, globalFloorMarkup),
+    [displayFloorMarkup, globalFloorMarkup]
+  );
+
   const beginFloorLineDraw = useCallback(
     (clientX: number, clientY: number, r: DOMRect) => {
-      if (!writeFormation || !setPiecesEditable) return;
+      if (!setPiecesEditable) return;
+      if (floorLineScope === "formation" && !writeFormation) return;
+      if (floorLineScope === "global" && !onUpdateGlobalFloorMarkup) return;
       const xPct = round2(clamp(((clientX - r.left) / r.width) * 100, 0, 100));
       const yPct = round2(clamp(((clientY - r.top) / r.height) * 100, 0, 100));
       const session = {
@@ -1410,21 +1718,14 @@ export function StageBoardBody({
         const s = floorLineSessionRef.current;
         floorLineSessionRef.current = null;
         setFloorLineDraft(null);
-        if (!s || s.points.length < 2) return;
-        let len = 0;
-        for (let i = 1; i < s.points.length; i++) {
-          const a = s.points[i - 1]!;
-          const b = s.points[i]!;
-          len += Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (!s) return;
+        const newLine = buildFloorLineMarkupFromPoints(s.points);
+        if (!newLine) return;
+        if (floorLineScope === "global" && onUpdateGlobalFloorMarkup) {
+          onUpdateGlobalFloorMarkup((prev) => [...prev, newLine]);
+          return;
         }
-        if (len < 0.35) return;
-        const newLine: StageFloorMarkup = {
-          kind: "line",
-          id: crypto.randomUUID(),
-          pointsPct: s.points,
-          widthPx: 3,
-          color: "#fbbf24",
-        };
+        if (!writeFormation) return;
         updateActiveFormation((f) => ({
           ...f,
           floorMarkup: [...(f.floorMarkup ?? []), newLine],
@@ -1434,7 +1735,13 @@ export function StageBoardBody({
       window.addEventListener("pointerup", up);
       window.addEventListener("pointercancel", up);
     },
-    [writeFormation, setPiecesEditable, updateActiveFormation],
+    [
+      writeFormation,
+      setPiecesEditable,
+      updateActiveFormation,
+      floorLineScope,
+      onUpdateGlobalFloorMarkup,
+    ],
   );
 
   const removeDancerById = useCallback(
@@ -1445,43 +1752,38 @@ export function StageBoardBody({
         stageInteractionsEnabled === false
       )
         return;
-      const spot = writeFormation.dancers.find((x) => x.id === dancerId);
-      setProject((p) => {
-        let next: ChoreographyProjectJson = {
-          ...p,
-          formations: p.formations.map((f) =>
-            f.id === formationIdForWrites
-              ? { ...f, dancers: f.dancers.filter((x) => x.id !== dancerId) }
-              : f,
-          ),
-        };
-        if (spot) {
-          next = syncRosterAfterRemovingLinkedMembersFromFirstCue(
-            next,
-            formationIdForWrites,
-            [spot],
-          );
-        }
-        return next;
-      });
-      setSelectedDancerIds((ids) =>
-        removeDancerFromSelection(ids, dancerId),
-      );
-      setDancerQuickEditId((id) => (id === dancerId ? null : id));
-      setStageContextMenu(null);
+      const run = (scope: MemberDeleteScope) => {
+        setProject((p) =>
+          removeMembersFromStage(p, {
+            formationId: formationIdForWrites,
+            cueId: editCueId,
+            dancerIds: [dancerId],
+            scope,
+          }),
+        );
+        setSelectedDancerIds((ids) =>
+          removeDancerFromSelection(ids, dancerId),
+        );
+        setDancerQuickEditId((id) => (id === dancerId ? null : id));
+        setStageContextMenu(null);
+        setMemberDeletePending(null);
+      };
+      run("cue");
     },
     [
       writeFormation,
       formationIdForWrites,
+      editCueId,
       setProject,
       viewMode,
       stageInteractionsEnabled,
+      project,
     ],
   );
 
   /** 選択（または右クリック対象）のメンバーを複製し、少しずらして追加。新しい印だけ選択する。 */
   const duplicateDancerIds = useCallback(
-    (ids: string[]) => {
+    (ids: string[], placement: "end" | "after" = "end") => {
       if (
         !writeFormation ||
         viewMode === "view" ||
@@ -1492,9 +1794,9 @@ export function StageBoardBody({
       const uniq = [...new Set(ids.filter(Boolean))];
       if (uniq.length === 0) return;
       const fid = formationIdForWrites;
-      const snapshots = uniq
-        .map((id) => writeFormation.dancers.find((d) => d.id === id))
-        .filter((d): d is DancerSpot => d != null);
+      const idSet = new Set(uniq);
+      /** フォーメーション順を保った複製元 */
+      const snapshots = writeFormation.dancers.filter((d) => idSet.has(d.id));
       if (snapshots.length === 0) return;
       const clones: DancerSpot[] = snapshots.map((d) => {
         const nid = crypto.randomUUID();
@@ -1525,15 +1827,32 @@ export function StageBoardBody({
       const newIds = clones.map((c) => c.id);
       setProject((p) => ({
         ...p,
-        formations: p.formations.map((f) =>
-          f.id === fid
-            ? {
-                ...f,
-                dancers: [...f.dancers, ...clones],
-                confirmedDancerCount: f.dancers.length + clones.length,
-              }
-            : f,
-        ),
+        formations: p.formations.map((f) => {
+          if (f.id !== fid) return f;
+          let dancers: DancerSpot[];
+          if (placement === "after") {
+            let insertAt = -1;
+            for (let i = 0; i < f.dancers.length; i++) {
+              if (idSet.has(f.dancers[i]!.id)) insertAt = i;
+            }
+            if (insertAt < 0) {
+              dancers = [...f.dancers, ...clones];
+            } else {
+              dancers = [
+                ...f.dancers.slice(0, insertAt + 1),
+                ...clones,
+                ...f.dancers.slice(insertAt + 1),
+              ];
+            }
+          } else {
+            dancers = [...f.dancers, ...clones];
+          }
+          return {
+            ...f,
+            dancers,
+            confirmedDancerCount: dancers.length,
+          };
+        }),
       }));
       setSelectedDancerIds(newIds);
       setStageContextMenu(null);
@@ -1547,6 +1866,79 @@ export function StageBoardBody({
       playbackOrPreview,
     ],
   );
+
+  const clipboardSpots = useDancerClipboardStore((s) => s.spots);
+  const canWriteStage =
+    !!writeFormation &&
+    viewMode !== "view" &&
+    stageInteractionsEnabled !== false &&
+    !playbackOrPreview;
+
+  const copySelectedMembers = useCallback(() => {
+    if (!writeFormation) return;
+    const idSet = new Set(selectedDancerIds);
+    const spots = writeFormation.dancers.filter((d) => idSet.has(d.id));
+    if (spots.length === 0) return;
+    useDancerClipboardStore.getState().setSpots(spots);
+    showAppToast({
+      kind: "success",
+      title: `${dancerClipboardLabel(spots)} をコピーしました`,
+      description:
+        "前のキューを選び、舞台を右クリックして「ここに貼り付け」で置けます。",
+    });
+  }, [writeFormation, selectedDancerIds]);
+
+  const previousCue = useMemo(
+    () => previousCueOf(project, editCueId),
+    [project, editCueId]
+  );
+
+  const pasteMembersToPreviousCue = useCallback(() => {
+    if (!canWriteStage || !previousCue || clipboardSpots.length === 0) return;
+    const { project: next } = pasteDancersIntoCue(project, {
+      formationId: previousCue.formationId,
+      cueId: previousCue.id,
+      spots: clipboardSpots,
+    });
+    setProject(next);
+    showAppToast({
+      kind: "success",
+      title: `前のキューに ${dancerClipboardLabel(clipboardSpots)} を貼り付けました`,
+      description: "同じ位置に置いています。必要なら前のキューで袖などへ動かしてください。",
+    });
+  }, [canWriteStage, previousCue, clipboardSpots, project, setProject]);
+
+  const pasteMembersAtMenuPoint = useCallback(() => {
+    if (!canWriteStage || clipboardSpots.length === 0) return;
+    const point = stageContextMenu ?? stageLightMenuPointRef.current;
+    const floor = stageMainFloorRef.current;
+    let at: { xPct: number; yPct: number } | null = null;
+    if (floor && point) {
+      const r = floor.getBoundingClientRect();
+      if (r.width > 1 && r.height > 1) {
+        at = {
+          xPct: ((point.clientX - r.left) / r.width) * 100,
+          yPct: ((point.clientY - r.top) / r.height) * 100,
+        };
+      }
+    }
+    const { project: next, pastedIds } = pasteDancersIntoCue(project, {
+      formationId: formationIdForWrites,
+      cueId: editCueId,
+      spots: clipboardSpots,
+      at,
+    });
+    setProject(next);
+    setSelectedDancerIds(pastedIds);
+  }, [
+    canWriteStage,
+    clipboardSpots,
+    project,
+    formationIdForWrites,
+    editCueId,
+    setProject,
+    stageContextMenu,
+  ]);
 
   /**
    * 範囲選択でまとめた複数ダンサーを一括で削除する。
@@ -1562,39 +1954,34 @@ export function StageBoardBody({
       )
         return;
       const removeSet = new Set(dancerIds);
-      const removedSpots = writeFormation.dancers.filter((x) =>
-        removeSet.has(x.id),
-      );
-      setProject((p) => {
-        let next: ChoreographyProjectJson = {
-          ...p,
-          formations: p.formations.map((f) =>
-            f.id === formationIdForWrites
-              ? { ...f, dancers: f.dancers.filter((x) => !removeSet.has(x.id)) }
-              : f,
-          ),
-        };
-        next = syncRosterAfterRemovingLinkedMembersFromFirstCue(
-          next,
-          formationIdForWrites,
-          removedSpots,
+      const run = (scope: MemberDeleteScope) => {
+        setProject((p) =>
+          removeMembersFromStage(p, {
+            formationId: formationIdForWrites,
+            cueId: editCueId,
+            dancerIds,
+            scope,
+          }),
         );
-        return next;
-      });
-      setSelectedDancerIds((ids) =>
-        removeDancersFromSelection(ids, removeSet),
-      );
-      setDancerQuickEditId((id) =>
-        id != null && removeSet.has(id) ? null : id,
-      );
-      setStageContextMenu(null);
+        setSelectedDancerIds((ids) =>
+          removeDancersFromSelection(ids, removeSet),
+        );
+        setDancerQuickEditId((id) =>
+          id != null && removeSet.has(id) ? null : id,
+        );
+        setStageContextMenu(null);
+        setMemberDeletePending(null);
+      };
+      run("cue");
     },
     [
       writeFormation,
       formationIdForWrites,
+      editCueId,
       setProject,
       viewMode,
       stageInteractionsEnabled,
+      project,
     ],
   );
 
@@ -1844,16 +2231,15 @@ export function StageBoardBody({
         rotationDeg,
       );
       const { xPct, yPct } = point;
-      const mode: StageDancerSnapMode = snapGrid
-        ? shiftKey
-          ? "fine"
-          : "grid"
-        : "free";
-      let snappedX = quantizeCoord(xPct, "x", mode);
-      const snappedY = quantizeCoord(yPct, "y", mode);
       /**
-       * ダンサー移動時: センターからの水平距離が 5cm（50mm）刻みになるよう x を丸める。
-       * Shift 押下時は抑止。大道具の移動では使わない。
+       * 縦線・横線は表示専用。立ち位置／印のドラッグは常に free（格子へ引っ張らない）。
+       * 大道具リサイズ等の snapDim は別経路のまま。
+       */
+      let snappedX = quantizeCoord(xPct, "x", "free");
+      const snappedY = quantizeCoord(yPct, "y", "free");
+      /**
+       * ダンサー移動の 5cm 格子吸着は行わない（補助線のみ。Alt+矢印の 5cm は別経路）。
+       * 互換のため引数は残すが、呼び出し側は常に false。
        */
       const widthMm = stageResizeDraft?.stageWidthMm ?? stageWidthMm ?? null;
       if (
@@ -1862,19 +2248,11 @@ export function StageBoardBody({
         typeof widthMm === "number" &&
         widthMm > 0
       ) {
-        snappedX = round2(
-          snapXPctToCenterDistanceMmGrid(snappedX, widthMm, 50),
-        );
+        snappedX = snapXPctToCenterDistanceMmGrid(snappedX, widthMm, 50);
       }
       return { xPct: snappedX, yPct: snappedY };
     },
-    [
-      snapGrid,
-      quantizeCoord,
-      stageWidthMm,
-      mmSnapGrid,
-      stageResizeDraft?.stageWidthMm,
-    ],
+    [quantizeCoord, stageWidthMm, stageResizeDraft?.stageWidthMm],
   );
 
   const pxToPct = useCallback(
@@ -1908,14 +2286,13 @@ export function StageBoardBody({
   });
 
   /**
-   * ドラッグ中の立ち位置を、ステージのセンター線（x=50 / y=50）および
-   * 他ダンサーの x/y 座標に揃えて吸着させる。
-   * 揃った方向は guideX/guideY として返し、SVG 補助線に反映される。
+   * ドラッグ中、センター線（x=50 / y=50）や他ダンサーの x/y に近づいたら
+   * 補助線（guideX/guideY）だけ出す。座標は動かさない（引っ張られない）。
    *
    * @param xPct       現在の x（％）
    * @param yPct       現在の y（％）
-   * @param excludeIds ドラッグ中のダンサー自身（スナップ候補から除外）
-   * @param strong     Shift 等で一時的にスナップを無効化したい場合は false
+   * @param excludeIds ドラッグ中のダンサー自身（ガイド候補から除外）
+   * @param strong     Shift 等で一時的にガイドを消したい場合は false
    */
   const computeAlignmentSnap = useCallback(
     (
@@ -1932,41 +2309,22 @@ export function StageBoardBody({
       if (!strong) {
         return { xPct, yPct, guideX: null, guideY: null };
       }
-      /** 吸着する距離しきい値（％）。ステージ幅の約 1.2% 程度 */
-      const THRESHOLD = 1.2;
-      /** センター + 他ダンサーの座標をスナップ候補に追加 */
-      const xCandidates: number[] = [50];
-      const yCandidates: number[] = [50];
+      const peerX: number[] = [];
+      const peerY: number[] = [];
       for (const d of displayDancersSnapRef.current) {
         if (excludeIds.has(d.id)) continue;
-        xCandidates.push(d.xPct);
-        yCandidates.push(d.yPct);
+        peerX.push(d.xPct);
+        peerY.push(d.yPct);
       }
-      let bestXDist = THRESHOLD;
-      let guideX: number | null = null;
-      let snappedX = xPct;
-      for (const cx of xCandidates) {
-        const dist = Math.abs(xPct - cx);
-        if (dist < bestXDist) {
-          bestXDist = dist;
-          guideX = cx;
-          snappedX = cx;
-        }
-      }
-      let bestYDist = THRESHOLD;
-      let guideY: number | null = null;
-      let snappedY = yPct;
-      for (const cy of yCandidates) {
-        const dist = Math.abs(yPct - cy);
-        if (dist < bestYDist) {
-          bestYDist = dist;
-          guideY = cy;
-          snappedY = cy;
-        }
-      }
+      const { guideX, guideY } = resolveAlignmentGuides(
+        xPct,
+        yPct,
+        peerX,
+        peerY,
+      );
       return {
-        xPct: round2(snappedX),
-        yPct: round2(snappedY),
+        xPct: round2(xPct),
+        yPct: round2(yPct),
         guideX,
         guideY,
       };
@@ -2167,11 +2525,16 @@ export function StageBoardBody({
       const screenPoint = stagePctToScreenPct({ xPct, yPct }, rot);
       const cx = r.left + (screenPoint.xPct / 100) * r.width;
       const cy = r.top + (screenPoint.yPct / 100) * r.height;
+      const touchClearance =
+        e.pointerType === "touch" || e.pointerType === "pen"
+          ? TOUCH_DANCER_FINGER_CLEARANCE_PX
+          : 0;
       if (nextSelection.length <= 1) {
         dragRef.current = {
           dancerId,
           offsetXPx: e.clientX - cx,
-          offsetYPx: e.clientY - cy,
+          /** タッチでは指の上にマーカーが来るよう Y オフセットを足す */
+          offsetYPx: e.clientY - cy + touchClearance,
           startXPct: xPct,
           startYPct: yPct,
         };
@@ -2305,7 +2668,7 @@ export function StageBoardBody({
         const cur =
           typeof d.sizePx === "number" && Number.isFinite(d.sizePx)
             ? Math.round(d.sizePx)
-            : baseMarkerPx;
+            : Math.round(baseMarkerPx / narrowFloorScale);
         startSizes.set(id, cur);
       }
       if (startSizes.size === 0) return;
@@ -2332,6 +2695,7 @@ export function StageBoardBody({
       writeFormation,
       activeFormation,
       baseMarkerPx,
+      narrowFloorScale,
       setMarkerDiamDraft,
     ],
   );
@@ -2532,6 +2896,7 @@ export function StageBoardBody({
       if (target.closest("[data-dancer-context-toolbar]")) return;
       if (target.closest("[data-name-below-font-handle]")) return;
       if (target.closest("[data-dancer-delete-handle]")) return;
+      if (target.closest("[data-selection-cancel-handle]")) return;
       if (target.closest("[data-group-rotate-handle]")) return;
       if (target.closest("[data-marker-resize-handle]")) return;
       if (target.closest("[data-marker-rotate-handle]")) return;
@@ -2656,6 +3021,9 @@ export function StageBoardBody({
           fontSizePx: fs,
           fontWeight: fw,
           ...(floorTextDraft.bgColor ? { bgColor: floorTextDraft.bgColor } : {}),
+          ...(floorTextDraft.textAlign && floorTextDraft.textAlign !== "left"
+            ? { textAlign: floorTextDraft.textAlign }
+            : {}),
         };
         if (root) {
           const rr = root.getBoundingClientRect();
@@ -2682,7 +3050,13 @@ export function StageBoardBody({
         return;
       }
 
-      if (setPiecesEditable && writeFormation && floorMarkupTool === "line") {
+      if (
+        setPiecesEditable &&
+        floorMarkupTool === "line" &&
+        (floorLineScope === "global"
+          ? Boolean(onUpdateGlobalFloorMarkup)
+          : Boolean(writeFormation))
+      ) {
         if (target.closest("[data-floor-markup]")) return;
         e.preventDefault();
         e.stopPropagation();
@@ -2706,7 +3080,8 @@ export function StageBoardBody({
       floorDoubleTapRef.current = { t: now, x: e.clientX, y: e.clientY };
 
       if (isDoubleTap) {
-        const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+        const dancers =
+          writeFormation?.dancers ?? activeFormation?.dancers ?? [];
         const allIds = dancers.map((d) => d.id);
         if (allIds.length > 0) {
           e.preventDefault();
@@ -2727,6 +3102,7 @@ export function StageBoardBody({
       setFloorTextInlineRect(null);
 
       const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+
       marqueeSessionRef.current = {
         startClientX: e.clientX,
         startClientY: e.clientY,
@@ -2751,6 +3127,8 @@ export function StageBoardBody({
       onFloorTextPlaceSessionChange,
       setPiecesEditable,
       writeFormation,
+      floorLineScope,
+      onUpdateGlobalFloorMarkup,
       viewportTextOverlayRoot,
       floorMarkupTool,
       floorTextDraft,
@@ -2769,8 +3147,8 @@ export function StageBoardBody({
       setSelectedSetPieceId,
       setSelectedDancerIds,
       setMarquee,
-      writeFormation,
       activeFormation,
+      setTrashUiVisible,
     ],
   );
 
@@ -2816,7 +3194,7 @@ export function StageBoardBody({
           e.clientX - d.offsetXPx,
           e.clientY - d.offsetYPx,
           e.shiftKey,
-          true,
+          false,
         );
         if (!next) return;
         const reveal = pointerInViewportTrashRevealZone(
@@ -2836,24 +3214,24 @@ export function StageBoardBody({
           }
           return;
         }
-        /** 中央線・他ダンサーに近づいたら吸着し、揃っている方向をガイド線で示す */
-        const snapped = computeAlignmentSnap(
+        /** 中央線・他ダンサーに近づいたらガイド線だけ出す（座標は引っ張らない） */
+        const aligned = computeAlignmentSnap(
           next.xPct,
           next.yPct,
           new Set([d.dancerId]),
           !e.shiftKey,
         );
         if (
-          snapped.guideX !== alignGuides.x ||
-          snapped.guideY !== alignGuides.y
+          aligned.guideX !== alignGuides.x ||
+          aligned.guideY !== alignGuides.y
         ) {
-          setAlignGuides({ x: snapped.guideX, y: snapped.guideY });
+          setAlignGuides({ x: aligned.guideX, y: aligned.guideY });
         }
         queueFormationUpdate((f) => ({
           ...f,
           dancers: f.dancers.map((x) =>
             x.id === d.dancerId
-              ? { ...x, xPct: snapped.xPct, yPct: snapped.yPct }
+              ? { ...x, xPct: aligned.xPct, yPct: aligned.yPct }
               : x,
           ),
         }));
@@ -3100,7 +3478,7 @@ export function StageBoardBody({
           return;
         }
         /**
-         * 群移動では先頭を代表にセンター線（50%）へだけ吸着し、全体を同じデルタで動かす。
+         * 群移動でも先頭を代表にガイド線だけ出す（座標は引っ張らない）。
          */
         let guideX: number | null = null;
         let guideY: number | null = null;
@@ -3109,11 +3487,9 @@ export function StageBoardBody({
         if (leadStart && !e.shiftKey) {
           const leadX = leadStart.xPct + dxPct;
           const leadY = leadStart.yPct + dyPct;
-          const snapped = computeAlignmentSnap(leadX, leadY, idSet, true);
-          dxPct += snapped.xPct - leadX;
-          dyPct += snapped.yPct - leadY;
-          guideX = snapped.guideX;
-          guideY = snapped.guideY;
+          const aligned = computeAlignmentSnap(leadX, leadY, idSet, true);
+          guideX = aligned.guideX;
+          guideY = aligned.guideY;
         }
         /**
          * 先頭がスナップしなかった場合も、選択中の誰かがセンター線または
@@ -3222,23 +3598,57 @@ export function StageBoardBody({
           { x: grabXPct, y: grabYPct },
         );
         const idSet = new Set(g.ids);
+        const rawNextX = new Map<string, number>();
+        const rawNextY = new Map<string, number>();
+        const startX = new Map<string, number>();
+        for (const id of g.ids) {
+          const s = g.startPositions.get(id);
+          if (!s) continue;
+          startX.set(id, s.xPct);
+          rawNextX.set(
+            id,
+            clamp(
+              ax + (s.xPct - ax) * sx,
+              DANCER_STAGE_POSITION_PCT_LO,
+              DANCER_STAGE_POSITION_PCT_HI,
+            ),
+          );
+          rawNextY.set(
+            id,
+            clamp(
+              ay + (s.yPct - ay) * sy,
+              DANCER_STAGE_POSITION_PCT_LO,
+              DANCER_STAGE_POSITION_PCT_HI,
+            ),
+          );
+        }
+        const widthMm =
+          stageResizeDraft?.stageWidthMm ?? stageWidthMm ?? null;
+        const equalizedX =
+          typeof widthMm === "number" && widthMm > 0
+            ? equalizeXPctByStartCenterDistanceSlot(
+                rawNextX,
+                startX,
+                widthMm,
+                50,
+              )
+            : rawNextX;
         queueFormationUpdate((f) => ({
           ...f,
           dancers: f.dancers.map((x) => {
             if (!idSet.has(x.id)) return x;
-            const s = g.startPositions.get(x.id);
-            if (!s) return x;
-            const nx = clamp(
-              ax + (s.xPct - ax) * sx,
-              DANCER_STAGE_POSITION_PCT_LO,
-              DANCER_STAGE_POSITION_PCT_HI,
-            );
-            const ny = clamp(
-              ay + (s.yPct - ay) * sy,
-              DANCER_STAGE_POSITION_PCT_LO,
-              DANCER_STAGE_POSITION_PCT_HI,
-            );
-            return { ...x, xPct: round2(nx), yPct: round2(ny) };
+            if (!equalizedX.has(x.id) || !rawNextY.has(x.id)) return x;
+            const nx = equalizedX.get(x.id)!;
+            const ny = rawNextY.get(x.id)!;
+            return {
+              ...x,
+              // X は 5cm 格子の mm 復元値をそのまま（round2 で格子崩れしない）
+              xPct:
+                typeof widthMm === "number" && widthMm > 0
+                  ? nx
+                  : round2(nx),
+              yPct: round2(ny),
+            };
           }),
         }));
         setTrashHotIfChanged(false);
@@ -3321,7 +3731,8 @@ export function StageBoardBody({
         const dy = e.clientY - m.startClientY;
         /** 右下方向に引っ張ると大きく、左上に引くと小さくなる */
         const bulk = m.ids.length >= 2;
-        const delta = (dx + dy) * (bulk ? 0.85 : 0.65);
+        const delta =
+          ((dx + dy) * (bulk ? 0.85 : 0.65)) / narrowFloorScale;
         const draft = computeMarkerResizeDraftSizes({
           startSizes: m.startSizes,
           delta,
@@ -3359,8 +3770,16 @@ export function StageBoardBody({
         const el = stageMainFloorRef.current;
         if (!el) return;
         const r = el.getBoundingClientRect();
-        const curXPct = clamp(((e.clientX - r.left) / r.width) * 100, 0, 100);
-        const curYPct = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
+        const curXPct = clamp(
+          ((e.clientX - r.left) / r.width) * 100,
+          DANCER_STAGE_POSITION_PCT_LO,
+          DANCER_STAGE_POSITION_PCT_HI,
+        );
+        const curYPct = clamp(
+          ((e.clientY - r.top) / r.height) * 100,
+          DANCER_STAGE_POSITION_PCT_LO,
+          DANCER_STAGE_POSITION_PCT_HI,
+        );
         mq.movedPx = Math.max(
           mq.movedPx,
           Math.hypot(e.clientX - mq.startClientX, e.clientY - mq.startClientY),
@@ -3488,7 +3907,22 @@ export function StageBoardBody({
           }
         }
         if (facingChanged || posChanged) {
-          setProject((p) => ({
+          const lookScope = useDancerMarkerLookScopeStore.getState().scope;
+          setProject((p0) => {
+            let p: ChoreographyProjectJson = p0;
+            if (facingChanged && lookScope === "all" && formationIdForWrites) {
+              for (const [id, deg] of facingDraftSnap) {
+                if (!rotUp.ids.includes(id)) continue;
+                p = applyDancerMarkerLook(p, {
+                  formationId: formationIdForWrites,
+                  cueId: editCueId,
+                  dancerIds: [id],
+                  scope: "all",
+                  patch: { kind: "facing", deg },
+                });
+              }
+            }
+            return {
             ...p,
             formations: p.formations.map((f) =>
               f.id === formationIdForWrites
@@ -3513,7 +3947,8 @@ export function StageBoardBody({
                   }
                 : f,
             ),
-          }));
+            };
+          });
         }
       }
       markerRotateRef.current = null;
@@ -3563,8 +3998,16 @@ export function StageBoardBody({
         const el = stageMainFloorRef.current;
         if (el) {
           const r = el.getBoundingClientRect();
-          const endXPct = clamp(((e.clientX - r.left) / r.width) * 100, 0, 100);
-          const endYPct = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
+          const endXPct = clamp(
+            ((e.clientX - r.left) / r.width) * 100,
+            DANCER_STAGE_POSITION_PCT_LO,
+            DANCER_STAGE_POSITION_PCT_HI,
+          );
+          const endYPct = clamp(
+            ((e.clientY - r.top) / r.height) * 100,
+            DANCER_STAGE_POSITION_PCT_LO,
+            DANCER_STAGE_POSITION_PCT_HI,
+          );
           const minX = Math.min(mq.startXPct, endXPct);
           const maxX = Math.max(mq.startXPct, endXPct);
           const minY = Math.min(mq.startYPct, endYPct);
@@ -3622,6 +4065,7 @@ export function StageBoardBody({
     setTrashHotIfChanged,
     trashDropEdge,
     markerDiamDraft,
+    narrowFloorScale,
     nameBelowFontDraft,
     setProject,
     writeFormation,
@@ -3630,6 +4074,7 @@ export function StageBoardBody({
     alignGuides.x,
     alignGuides.y,
     formationIdForWrites,
+    editCueId,
     onFloorTextPlaceSessionChange,
     setFloorMarkupTool,
     setPiecesEditable,
@@ -3642,6 +4087,8 @@ export function StageBoardBody({
     displayFloorMarkup,
     setSelectedFloorTextIds,
     rot,
+    stageWidthMm,
+    stageResizeDraft?.stageWidthMm,
   ]);
 
   const cancelShapePreview = useCallback(() => {
@@ -3707,39 +4154,53 @@ export function StageBoardBody({
       }
       /** 選択中が 1 件以上なら Alt+矢印で微移動。複数選択時は群全体を動かす。 */
       if (!e.altKey || selectedDancerIds.length === 0) return;
-      const dk = e.key;
-      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(dk))
-        return;
+      const dk = resolveStageArrowNudgeKey(e);
+      if (!dk) return;
       e.preventDefault();
-      const stepPx = e.shiftKey ? 0.05 : 0.25;
+      const stepPct = e.shiftKey ? 0.05 : 0.25;
       const shiftFine = e.shiftKey;
-      const afterSnap = (nx: number, ny: number) => {
-        const mode: StageDancerSnapMode = snapGrid ? "fine" : "free";
-        let xPct = quantizeCoord(nx, "x", mode);
-        const yPct = quantizeCoord(ny, "y", mode);
-        if (
-          !shiftFine &&
-          typeof stageWidthMm === "number" &&
-          stageWidthMm > 0 &&
-          (dk === "ArrowLeft" || dk === "ArrowRight")
-        ) {
-          xPct = round2(snapXPctToCenterDistanceMmGrid(xPct, stageWidthMm, 50));
-        }
-        return { xPct, yPct };
-      };
       const idSet = new Set(selectedDancerIds);
       updateActiveFormation((f) => ({
         ...f,
         dancers: f.dancers.map((x) => {
           if (!idSet.has(x.id)) return x;
-          let nx = x.xPct;
-          let ny = x.yPct;
-          if (dk === "ArrowLeft") nx -= stepPx;
-          if (dk === "ArrowRight") nx += stepPx;
-          if (dk === "ArrowUp") ny -= stepPx;
-          if (dk === "ArrowDown") ny += stepPx;
-          const q = afterSnap(nx, ny);
-          return { ...x, xPct: q.xPct, yPct: q.yPct };
+          let xPct = x.xPct;
+          let yPct = x.yPct;
+          if (dk === "ArrowLeft" || dk === "ArrowRight") {
+            const dir: -1 | 1 = dk === "ArrowLeft" ? -1 : 1;
+            xPct = shiftFine
+              ? nudgeXPctForAltArrow(xPct, dir, { stepPct })
+              : nudgeXPctForAltArrow(xPct, dir, {
+                  stageWidthMm,
+                  stepPct,
+                });
+          } else {
+            const dir: -1 | 1 = dk === "ArrowUp" ? -1 : 1;
+            yPct = shiftFine
+              ? nudgeYPctForAltArrow(yPct, dir, { stepPct })
+              : nudgeYPctForAltArrow(yPct, dir, {
+                  stageDepthMm,
+                  stepPct,
+                });
+          }
+          return {
+            ...x,
+            // mm スナップ結果は round2 しない（5cm 格子の崩れ防止）
+            xPct:
+              !shiftFine &&
+              (dk === "ArrowLeft" || dk === "ArrowRight") &&
+              typeof stageWidthMm === "number" &&
+              stageWidthMm > 0
+                ? xPct
+                : round2(xPct),
+            yPct:
+              !shiftFine &&
+              (dk === "ArrowUp" || dk === "ArrowDown") &&
+              typeof stageDepthMm === "number" &&
+              stageDepthMm > 0
+                ? yPct
+                : round2(yPct),
+          };
         }),
       }));
     };
@@ -3751,12 +4212,10 @@ export function StageBoardBody({
     previewDancers,
     dancerQuickEditId,
     selectedDancerIds,
-    snapGrid,
-    quantizeCoord,
     updateActiveFormation,
-    mmSnapGrid,
     duplicateDancerIds,
     stageWidthMm,
+    stageDepthMm,
     clearSelectedDancers,
     shapePreviewById,
     depthPreviewById,
@@ -3824,6 +4283,78 @@ export function StageBoardBody({
     }
     return marks;
   }, [centerFieldGuideIntervalMm, Wmm]);
+
+  const currentTimeSec = usePlaybackUiStore((s) => s.currentTimeSec);
+  const stageLightsVisibleOnStage = useStageLightsViewStore(
+    (s) => s.visibleOnStage
+  );
+  const setStageLightsVisibleOnStage = useStageLightsViewStore(
+    (s) => s.setVisibleOnStage
+  );
+  const toggleStageLightsVisibleOnStage = useStageLightsViewStore(
+    (s) => s.toggleVisibleOnStage
+  );
+  const sleeveCurtains = useMemo(
+    () =>
+      normalizeStageSleeveCurtains(
+        project.stageSleeveCurtains,
+        project.stageSleeveCurtainDepthsMm
+      ),
+    [project.stageSleeveCurtains, project.stageSleeveCurtainDepthsMm]
+  );
+  const sleeveMarks = useMemo(
+    () =>
+      buildSleeveCurtainMarksFromCurtains(
+        sleeveCurtains,
+        stageDepthMm,
+        stageWidthMm,
+        sideStageMm
+      ),
+    [sleeveCurtains, stageDepthMm, stageWidthMm, sideStageMm]
+  );
+  const activeStageLights = useMemo(
+    () =>
+      stageLightsVisibleOnStage
+        ? activeStageLightsAtTime(project.stageLights, currentTimeSec, {
+            cues: project.cues,
+            // 再生中は時間帯どおり。停止中は選択キューの照明を優先表示。
+            focusCueId: lightsLockedByPlayback ? null : editCueId,
+          })
+        : [],
+    [
+      stageLightsVisibleOnStage,
+      project.stageLights,
+      project.cues,
+      currentTimeSec,
+      editCueId,
+      lightsLockedByPlayback,
+    ]
+  );
+  const stageHesoVisible = project.stageHesoVisible === true;
+  const stageCenterMarks = project.stageCenterMarks ?? [];
+  const sleeveEditable =
+    viewMode !== "view" &&
+    !playbackOrPreview &&
+    Boolean(onSleeveCurtainsChange) &&
+    typeof stageDepthMm === "number" &&
+    stageDepthMm > 0;
+  const centerMarksEditable =
+    stageArchitectureEditActive &&
+    viewMode !== "view" &&
+    !playbackOrPreview &&
+    Boolean(onCenterMarksChange) &&
+    stageHesoVisible &&
+    stageCenterMarks.length > 0;
+  const stageLightsEditable =
+    viewMode !== "view" &&
+    !lightsLockedByPlayback &&
+    Boolean(onStageLightsChange) &&
+    stageLightsVisibleOnStage;
+
+  useEffect(() => {
+    if (stageLightsVisibleOnStage) return;
+    onSelectStageLightId?.(null);
+  }, [stageLightsVisibleOnStage, onSelectStageLightId]);
 
   const mainFloorStyle: CSSProperties = useMemo(
     () => ({
@@ -3959,6 +4490,16 @@ export function StageBoardBody({
         const cmid = spot.crewMemberId;
         const matches = (x: DancerSpot) =>
           x.id === dancerId || Boolean(cmid && x.crewMemberId === cmid);
+        const genderChanged =
+          (patch.genderLabel ?? "") !== (spot.genderLabel ?? "");
+        const colorPicked =
+          modDancerColorIndex(patch.colorIndex) !==
+          modDancerColorIndex(spot.colorIndex);
+        const colorOverridesGender = genderChanged
+          ? undefined
+          : colorPicked
+            ? true
+            : spot.colorOverridesGender;
 
         let crews = p.crews;
         if (cmid) {
@@ -3973,6 +4514,7 @@ export function StageBoardBody({
                     heightCm: patch.heightCm,
                     gradeLabel: patch.gradeLabel,
                     genderLabel: patch.genderLabel,
+                    colorOverridesGender,
                     skillRankLabel: patch.skillRankLabel,
                     note: patch.note,
                   }
@@ -3989,18 +4531,36 @@ export function StageBoardBody({
             dancers: f.dancers.map((x) => {
               if (!matches(x)) return x;
               const slicedBadge = sliceMarkerBadgeForStorage(patch.markerBadge);
-              return {
-                ...x,
+              const nextFace = patch.faceStamp;
+              const { faceStamp: _dropFace, figure3d: _dropFig, ...restSpot } = x;
+              const withMeta = {
+                ...restSpot,
                 label: patch.label.slice(0, 120),
                 colorIndex: modDancerColorIndex(patch.colorIndex),
                 note: patch.note,
                 heightCm: patch.heightCm,
                 gradeLabel: patch.gradeLabel,
                 genderLabel: patch.genderLabel,
+                colorOverridesGender,
                 skillRankLabel: patch.skillRankLabel,
                 markerBadge: slicedBadge,
                 ...(slicedBadge ? { markerBadgeSource: undefined } : {}),
+                ...(nextFace ? { faceStamp: nextFace } : {}),
               };
+              const figureScope = patch.figure3dScope ?? "all";
+              if (
+                figureScope === "cue" &&
+                f.id !== formationIdForWrites
+              ) {
+                return withDancerFigure3d(
+                  withMeta,
+                  x.figure3d ?? "human"
+                );
+              }
+              return withDancerFigure3d(
+                withMeta,
+                patch.figure3d ?? "human"
+              );
             }),
           })),
         };
@@ -4015,20 +4575,35 @@ export function StageBoardBody({
       if (!formationIdForWrites || targetIds.length === 0) return;
       if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
         return;
-      const ci = modDancerColorIndex(colorIndex);
       const idSet = new Set(targetIds);
       setProject((p) => {
-        const crewIds = new Set<string>();
         const form = p.formations.find((f) => f.id === formationIdForWrites);
         if (!form) return p;
-        for (const d of form.dancers) {
-          if (!idSet.has(d.id)) continue;
-          if (d.crewMemberId) crewIds.add(d.crewMemberId);
+        const targets = form.dancers.filter((d) => idSet.has(d.id));
+        const colorById = new Map<string, number>();
+        if (colorIndex === DANCER_COLOR_RANDOM) {
+          const picks = randomDancerColorIndices(targets.length);
+          targets.forEach((d, i) => colorById.set(d.id, picks[i]!));
+        } else {
+          const ci = modDancerColorIndex(colorIndex);
+          targets.forEach((d) => colorById.set(d.id, ci));
+        }
+        const colorByCrewId = new Map<string, number>();
+        for (const d of targets) {
+          if (d.crewMemberId) {
+            colorByCrewId.set(d.crewMemberId, colorById.get(d.id)!);
+          }
         }
         const crews = p.crews.map((crew) => ({
           ...crew,
           members: crew.members.map((m) =>
-            crewIds.has(m.id) ? { ...m, colorIndex: ci } : m,
+            colorByCrewId.has(m.id)
+              ? {
+                  ...m,
+                  colorIndex: colorByCrewId.get(m.id)!,
+                  colorOverridesGender: true,
+                }
+              : m,
           ),
         }));
         return {
@@ -4039,7 +4614,13 @@ export function StageBoardBody({
             return {
               ...f,
               dancers: f.dancers.map((d) =>
-                idSet.has(d.id) ? { ...d, colorIndex: ci } : d,
+                colorById.has(d.id)
+                  ? {
+                      ...d,
+                      colorIndex: colorById.get(d.id)!,
+                      colorOverridesGender: true,
+                    }
+                  : d,
               ),
             };
           }),
@@ -4156,6 +4737,7 @@ export function StageBoardBody({
           dancerSpacingMm: project.dancerSpacingMm,
           stageWidthMm: project.stageWidthMm,
         },
+        matchSource: prevCueDancers,
       });
       if (!draft) {
         showShapePreviewToast({
@@ -4186,6 +4768,7 @@ export function StageBoardBody({
       writeFormation,
       activeFormation,
       selectedDancerIds,
+      prevCueDancers,
       project.dancerSpacingMm,
       project.stageWidthMm,
       showShapePreviewToast,
@@ -4273,6 +4856,7 @@ export function StageBoardBody({
     setRankPickB(addOrRemove);
   }, [rankPickSlot]);
 
+  /** 列の前後交代はプレビューなしで即書き込み（1 操作 = Undo 1 手） */
   const beginDepthPreview = useCallback(
     (
       colA: number | readonly number[],
@@ -4292,15 +4876,11 @@ export function StageBoardBody({
         b,
       );
       if (byId.size === 0) return false;
-      setShapePreviewById(null);
-      setShapePreviewMeta(null);
-      setRotationPreviewById(null);
-      setRotationPreviewDir(null);
-      setTidyPreviewById(null);
-      setTidyPreviewActionId(null);
-      setDepthPreviewById(byId);
-      setDepthPreviewPair({ colA: a[0] ?? 0, colB: b[0] ?? 1 });
-      shapePreviewKeyRef.current = selectedDancerIds.join("\0");
+      cancelShapePreview();
+      updateActiveFormation((f) => ({
+        ...f,
+        dancers: applyShapePositionsToDancers(f.dancers, byId),
+      }));
       return true;
     },
     [
@@ -4311,6 +4891,8 @@ export function StageBoardBody({
       writeFormation,
       activeFormation,
       selectedDancerIds,
+      cancelShapePreview,
+      updateActiveFormation,
     ],
   );
 
@@ -4577,6 +5159,184 @@ export function StageBoardBody({
     ],
   );
 
+  /** 選択メンバーに表情スタンプを一括設定（null でクリア） */
+  const applyBulkFaceStamp = useCallback(
+    (
+      targetIds: string[],
+      stamp: import("../lib/dancerFaceStamp").DancerFaceStampId | null
+    ) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      const idSet = new Set(targetIds);
+      setProject((p) => ({
+        ...p,
+        formations: p.formations.map((f) => {
+          if (f.id !== formationIdForWrites) return f;
+          return {
+            ...f,
+            dancers: f.dancers.map((d) => {
+              if (!idSet.has(d.id)) return d;
+              if (!stamp) {
+                const { faceStamp: _removed, ...rest } = d;
+                return rest;
+              }
+              return { ...d, faceStamp: stamp };
+            }),
+          };
+        }),
+      }));
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ],
+  );
+
+  /** 印の形を一括設定。scope=cue はこのキューだけ、all は同じ人を全キューで揃える */
+  const applyBulkMarkerShape = useCallback(
+    (
+      targetIds: string[],
+      shape: DancerMarkerShape,
+      scope: DancerMarkerLookScope = "cue",
+    ) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      setProject((p) =>
+        applyDancerMarkerLook(p, {
+          formationId: formationIdForWrites,
+          cueId: editCueId,
+          dancerIds: targetIds,
+          scope,
+          patch: { kind: "shape", shape },
+        }),
+      );
+    },
+    [
+      formationIdForWrites,
+      editCueId,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ],
+  );
+
+  /** 印の向き（0〜359°）を一括設定。scope=cue はこのキューだけ、all は全キュー */
+  const applyBulkFacingDeg = useCallback(
+    (
+      targetIds: string[],
+      deg: number,
+      scope: DancerMarkerLookScope = "cue",
+    ) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      setProject((p) =>
+        applyDancerMarkerLook(p, {
+          formationId: formationIdForWrites,
+          cueId: editCueId,
+          dancerIds: targetIds,
+          scope,
+          patch: { kind: "facing", deg },
+        }),
+      );
+    },
+    [
+      formationIdForWrites,
+      editCueId,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ],
+  );
+
+  /** 選択メンバーの性別を一括設定（null／空でクリア）。名簿紐付け時は名簿も同期 */
+  const applyBulkGenderToDancerIds = useCallback(
+    (targetIds: string[], genderLabel: string | null) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      const idSet = new Set(targetIds);
+      const nextGender =
+        genderLabel && genderLabel.trim()
+          ? genderLabel.trim().slice(0, 32)
+          : undefined;
+      setProject((p) => {
+        const crewIds = new Set<string>();
+        const form = p.formations.find((f) => f.id === formationIdForWrites);
+        if (!form) return p;
+        for (const d of form.dancers) {
+          if (!idSet.has(d.id)) continue;
+          if (d.crewMemberId) crewIds.add(d.crewMemberId);
+        }
+        return {
+          ...p,
+          crews: p.crews.map((crew) => ({
+            ...crew,
+            members: crew.members.map((m) =>
+              crewIds.has(m.id)
+                ? { ...m, genderLabel: nextGender, colorOverridesGender: undefined }
+                : m
+            ),
+          })),
+          formations: p.formations.map((f) => {
+            if (f.id !== formationIdForWrites) return f;
+            return {
+              ...f,
+              dancers: f.dancers.map((d) => {
+                if (!idSet.has(d.id)) return d;
+                const { genderLabel: _g, colorOverridesGender: _c, ...rest } = d;
+                if (!nextGender) return rest;
+                return { ...rest, genderLabel: nextGender };
+              }),
+            };
+          }),
+        };
+      });
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ]
+  );
+
+  /** 選択メンバーの 3D フィギュア設定（このキューだけ / 全キュー） */
+  const applyBulkFigure3dToDancerIds = useCallback(
+    (
+      targetIds: string[],
+      figure3d: import("../lib/dancerFigure3d").DancerFigure3dId,
+      scope: DancerFigure3dApplyScope = "all"
+    ) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      setProject((p) =>
+        applyDancerFigure3d(p, {
+          dancerIds: targetIds,
+          formationId: formationIdForWrites,
+          figure3d,
+          scope,
+        })
+      );
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ]
+  );
+
   /**
    * 「名前は○の下」のとき、○内を「センターからの距離」モードにする。
    * 印の中心 x と現在のステージ幅から毎回 5cm 刻みの整数（cm）で表示するので、隣同士間隔や横幅を変えても数字が追従する。
@@ -4655,7 +5415,10 @@ export function StageBoardBody({
       );
       updateActiveFormation((f) => ({
         ...f,
-        dancers: fn(f.dancers, targetIds),
+        dancers: fn(
+          enrichDancerSpotsFromCrew(f.dancers, project.crews),
+          targetIds
+        ),
       }));
       setStageContextMenu(null);
       setDancerSelectionSheetOpen(false);
@@ -4668,6 +5431,7 @@ export function StageBoardBody({
       arrangeAnchorDancerId,
       selectedDancerIds,
       updateActiveFormation,
+      project.crews,
     ],
   );
 
@@ -4708,7 +5472,10 @@ export function StageBoardBody({
       }
       updateActiveFormation((f) => ({
         ...f,
-        dancers: fn(f.dancers, targetIds),
+        dancers: fn(
+          enrichDancerSpotsFromCrew(f.dancers, project.crews),
+          targetIds
+        ),
       }));
     },
     [
@@ -4718,6 +5485,7 @@ export function StageBoardBody({
       playbackOrPreview,
       selectedDancerIds,
       updateActiveFormation,
+      project.crews,
     ],
   );
 
@@ -4733,6 +5501,47 @@ export function StageBoardBody({
     },
     [selectedDancerIds.length, applySelectedArrange],
   );
+
+  const handleSwapSelectedPair = useCallback(() => {
+    if (
+      viewMode === "view" ||
+      playbackOrPreview ||
+      stageInteractionsEnabled === false ||
+      selectedDancerIds.length !== 2
+    ) {
+      return;
+    }
+    applySelectedArrange((dancers, ids) =>
+      swapTwoDancerPositions(dancers, ids)
+    );
+  }, [
+    viewMode,
+    playbackOrPreview,
+    stageInteractionsEnabled,
+    selectedDancerIds.length,
+    applySelectedArrange,
+  ]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "x" && e.key !== "X") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target;
+      if (
+        t instanceof HTMLElement &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
+      if (selectedDancerIds.length !== 2) return;
+      e.preventDefault();
+      handleSwapSelectedPair();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedDancerIds.length, handleSwapSelectedPair]);
 
   const contextMenuStyle: CSSProperties | null = stageContextMenu
     ? computeStageContextMenuStyle(stageContextMenu)
@@ -4759,8 +5568,11 @@ export function StageBoardBody({
       applyBulkMarkerSequence,
       applyBulkMarkerSame,
       applyBulkMarkerCenterDistance,
+      applyBulkGenderToDancerIds,
+      applyBulkFigure3dToDancerIds,
       applyPermuteArrange,
       applyDancerArrange,
+      prevCueDancers,
     }),
     [
       selectedDancerIds,
@@ -4776,8 +5588,11 @@ export function StageBoardBody({
       applyBulkMarkerSequence,
       applyBulkMarkerSame,
       applyBulkMarkerCenterDistance,
+      applyBulkGenderToDancerIds,
+      applyBulkFigure3dToDancerIds,
       applyPermuteArrange,
       applyDancerArrange,
+      prevCueDancers,
     ],
   );
 
@@ -4815,6 +5630,372 @@ export function StageBoardBody({
     primarySelectedDancer,
     stageMainFloorRef,
   ]);
+
+  const handlePickDockQuickSection = useCallback(
+    (section: "shape" | "display" | "sort") => {
+      requestStageEditRightPane();
+      dockSectionRequestIdRef.current += 1;
+      setDockSectionRequest({
+        requestId: dockSectionRequestIdRef.current,
+        section,
+      });
+    },
+    []
+  );
+
+  /** ステージ床右クリック → クイック一覧（照明追加含む）。色バーは出さない。 */
+  const handleContextMenuFloor = useCallback(
+    (e: ReactMouseEvent<HTMLDivElement>) => {
+      if (viewMode === "view") return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest?.(
+          "input, textarea, select, [contenteditable='true'], [data-set-piece]"
+        )
+      ) {
+        return;
+      }
+      /** 雛形プレビュー中などで印が pointer-events:none でも、ブラウザ標準メニューは出さない */
+      e.preventDefault();
+      e.stopPropagation();
+      if (!stageInteractionsEnabled || playbackDancers) return;
+      const anchorId =
+        primarySelectedDancer?.id ?? selectedDancerIds[0] ?? null;
+      if (anchorId && selectedDancerIds.length >= 1) {
+        stageLightMenuPointRef.current = {
+          clientX: e.clientX,
+          clientY: e.clientY,
+        };
+        setStageContextMenu({
+          kind: "dancerDock",
+          clientX: e.clientX,
+          clientY: e.clientY,
+          dancerId: anchorId,
+        });
+        return;
+      }
+      stageLightMenuPointRef.current = {
+        clientX: e.clientX,
+        clientY: e.clientY,
+      };
+      setStageContextMenu({
+        kind: "floor",
+        clientX: e.clientX,
+        clientY: e.clientY,
+      });
+    },
+    [
+      viewMode,
+      stageInteractionsEnabled,
+      playbackDancers,
+      selectedDancerIds,
+      primarySelectedDancer?.id,
+    ]
+  );
+
+  const focusEditCueForLighting = useCallback(() => {
+    if (!editCueId) return;
+    const cue = project.cues.find((c) => c.id === editCueId);
+    if (!cue) return;
+    const mid = (cue.tStartSec + cue.tEndSec) / 2;
+    usePlaybackUiStore.getState().setIsPlaying(false);
+    usePlaybackUiStore.getState().setCurrentTimeSec(mid);
+    try {
+      playbackEngine.pause();
+      playbackEngine.seek(mid);
+    } catch {
+      /* ignore */
+    }
+  }, [editCueId, project.cues]);
+
+  const handleAddLightFromContextMenu = useCallback(
+    (kindRaw: string) => {
+      if (viewMode === "view") {
+        window.alert("閲覧モードでは照明を追加できません。");
+        return;
+      }
+      if (lightsLockedByPlayback) {
+        window.alert(
+          "再生中は照明を追加できません。停止してから追加してください。"
+        );
+        return;
+      }
+      const kind = kindRaw as StageLightKind;
+      if (!(kind in STAGE_LIGHT_KIND_LABELS)) return;
+
+      let addedId: string | null = null;
+      setProject((p) => {
+        if (!p || p.viewMode === "view") return p;
+        const existing = p.stageLights ?? [];
+        const L = createDefaultStageLight(kind);
+        L.label = nextLightLabel(kind, existing);
+        L.color = BASIC_STAGE_LIGHT_COLORS[kind] ?? L.color;
+        if (editCueId) {
+          L.cueId = editCueId;
+          L.tStartSec = null;
+          L.tEndSec = null;
+        }
+
+        const same = existing.filter((x) => x.kind === kind);
+        if (kind === "sideSpot") {
+          L.xPct = same.length % 2 === 0 ? 12 : 88;
+          L.yPct = 40 + (same.length % 5) * 8;
+        } else if (kind === "footlight") {
+          L.yPct = 90;
+          L.xPct = 20 + (same.length % 5) * 15;
+        } else if (
+          kind === "suspension" ||
+          kind === "backlight" ||
+          kind === "pinSpot"
+        ) {
+          L.xPct = Math.min(85, 25 + (same.length % 4) * 18);
+          L.yPct = Math.min(80, L.yPct + (same.length % 3) * 10);
+        }
+
+        const point = stageLightMenuPointRef.current;
+        const menu = stageContextMenu;
+        const floor = stageMainFloorRef.current;
+        const clientX = point?.clientX ?? menu?.clientX;
+        const clientY = point?.clientY ?? menu?.clientY;
+        if (
+          floor &&
+          typeof clientX === "number" &&
+          typeof clientY === "number"
+        ) {
+          const r = floor.getBoundingClientRect();
+          if (r.width > 1 && r.height > 1) {
+            L.xPct = Math.max(
+              5,
+              Math.min(95, ((clientX - r.left) / r.width) * 100)
+            );
+            L.yPct = Math.max(
+              5,
+              Math.min(95, ((clientY - r.top) / r.height) * 100)
+            );
+          }
+        }
+
+        lastStageLightTemplateRef.current = L;
+        addedId = L.id;
+        return { ...p, stageLights: [...existing, L] };
+      });
+      if (addedId) {
+        setStageLightsVisibleOnStage(true);
+        focusEditCueForLighting();
+        onSelectStageLightId?.(addedId);
+      }
+    },
+    [
+      setProject,
+      onSelectStageLightId,
+      viewMode,
+      lightsLockedByPlayback,
+      editCueId,
+      stageContextMenu,
+      stageMainFloorRef,
+      focusEditCueForLighting,
+      setStageLightsVisibleOnStage,
+    ]
+  );
+
+  /** 直前キューの照明を、いま選択中のキューへ適用 */
+  const handleApplyPreviousCueLightsFromContextMenu = useCallback(() => {
+    if (viewMode === "view" || lightsLockedByPlayback) return;
+    if (!editCueId) {
+      window.alert("キューを選択してから実行してください。");
+      return;
+    }
+    const sorted = sortCuesByStart(project.cues);
+    const i = sorted.findIndex((c) => c.id === editCueId);
+    if (i <= 0) {
+      window.alert("直前のキューがありません。");
+      return;
+    }
+    const prevId = sorted[i - 1]!.id;
+    const existing = project.stageLights ?? [];
+    if (!existing.some((L) => L.cueId === prevId)) {
+      window.alert("直前のキューに照明がありません。");
+      return;
+    }
+    const next = replaceCueLightsFromPreviousCue(existing, prevId, editCueId);
+    setProject((p) => {
+      if (!p || p.viewMode === "view") return p;
+      return { ...p, stageLights: next };
+    });
+    setStageLightsVisibleOnStage(true);
+    focusEditCueForLighting();
+  }, [
+    setProject,
+    viewMode,
+    lightsLockedByPlayback,
+    editCueId,
+    project.cues,
+    project.stageLights,
+    focusEditCueForLighting,
+    setStageLightsVisibleOnStage,
+  ]);
+
+  /** 基本照明一式をいまのキューへ置く */
+  const handleAddBasicLightsFromContextMenu = useCallback(() => {
+    if (viewMode === "view" || lightsLockedByPlayback) return;
+    if (!editCueId) {
+      window.alert("キューを選択してから実行してください。");
+      return;
+    }
+    const existing = project.stageLights ?? [];
+    const next = replaceCueWithBasicStageLights(existing, editCueId);
+    setProject((p) => {
+      if (!p || p.viewMode === "view") return p;
+      return { ...p, stageLights: next };
+    });
+    setStageLightsVisibleOnStage(true);
+    focusEditCueForLighting();
+  }, [
+    setProject,
+    viewMode,
+    lightsLockedByPlayback,
+    editCueId,
+    project.stageLights,
+    focusEditCueForLighting,
+    setStageLightsVisibleOnStage,
+  ]);
+
+  /** プリセット一覧を開いて、いまのキューへ一括適用 */
+  const handleOpenLightingPresetPickerFromContextMenu = useCallback(() => {
+    if (viewMode === "view" || lightsLockedByPlayback) return;
+    if (!editCueId) {
+      window.alert("キューを選択してから実行してください。");
+      return;
+    }
+    const presets = listLightingPresets();
+    if (presets.length === 0) {
+      window.alert(
+        "保存済みの照明プリセットがありません。照明設定から「プリセットに保存」してください。"
+      );
+      return;
+    }
+    setLightingPresetPickerList(presets);
+    setLightingPresetPickerOpen(true);
+  }, [viewMode, lightsLockedByPlayback, editCueId]);
+
+  const handlePickLightingPresetFromContextMenu = useCallback(
+    (preset: LightingPresetItem) => {
+      setLightingPresetPickerOpen(false);
+      setLightingPresetPickerList([]);
+      if (viewMode === "view" || lightsLockedByPlayback) return;
+      if (!editCueId) {
+        window.alert("キューを選択してから実行してください。");
+        return;
+      }
+      setProject((p) => {
+        if (!p || p.viewMode === "view") return p;
+        const result = replaceLightsFromPresetDetailed(
+          p.stageLights ?? [],
+          editCueId,
+          preset
+        );
+        return { ...p, stageLights: result.lights };
+      });
+      setStageLightsVisibleOnStage(true);
+      focusEditCueForLighting();
+    },
+    [
+      setProject,
+      viewMode,
+      lightsLockedByPlayback,
+      editCueId,
+      setStageLightsVisibleOnStage,
+      focusEditCueForLighting,
+    ]
+  );
+
+  /** 直近に追加／選択した照明と同じ設定で、クリック位置に追加 */
+  const handleAddPreviousLightFromContextMenu = useCallback(() => {
+    if (viewMode === "view" || lightsLockedByPlayback) return;
+
+    let addedId: string | null = null;
+    setProject((p) => {
+      if (!p || p.viewMode === "view") return p;
+      const existing = p.stageLights ?? [];
+      const fromTemplate = lastStageLightTemplateRef.current;
+      const fromSelected =
+        selectedStageLightId != null
+          ? existing.find((x) => x.id === selectedStageLightId)
+          : undefined;
+      const src = fromTemplate ?? fromSelected ?? existing[existing.length - 1];
+      if (!src) return p;
+
+      const L: StageLightFixture = {
+        ...src,
+        id: crypto.randomUUID(),
+        label: `${(src.label ?? STAGE_LIGHT_KIND_LABELS[src.kind]).replace(
+          /\s*コピー\d*$/,
+          ""
+        )}`,
+      };
+      if (editCueId) {
+        L.cueId = editCueId;
+        L.tStartSec = null;
+        L.tEndSec = null;
+      }
+      const point = stageLightMenuPointRef.current;
+      const menu = stageContextMenu;
+      const floor = stageMainFloorRef.current;
+      const clientX = point?.clientX ?? menu?.clientX;
+      const clientY = point?.clientY ?? menu?.clientY;
+      if (
+        floor &&
+        typeof clientX === "number" &&
+        typeof clientY === "number"
+      ) {
+        const r = floor.getBoundingClientRect();
+        if (r.width > 1 && r.height > 1) {
+          L.xPct = Math.max(
+            5,
+            Math.min(95, ((clientX - r.left) / r.width) * 100)
+          );
+          L.yPct = Math.max(
+            5,
+            Math.min(95, ((clientY - r.top) / r.height) * 100)
+          );
+        }
+      } else {
+        L.xPct = Math.min(95, src.xPct + 4);
+        L.yPct = Math.min(95, src.yPct + 4);
+      }
+      lastStageLightTemplateRef.current = L;
+      addedId = L.id;
+      return { ...p, stageLights: [...existing, L] };
+    });
+    if (addedId) {
+      setStageLightsVisibleOnStage(true);
+      focusEditCueForLighting();
+      onSelectStageLightId?.(addedId);
+    }
+  }, [
+    setProject,
+    onSelectStageLightId,
+    viewMode,
+    lightsLockedByPlayback,
+    selectedStageLightId,
+    editCueId,
+    stageContextMenu,
+    stageMainFloorRef,
+    focusEditCueForLighting,
+    setStageLightsVisibleOnStage,
+  ]);
+
+  const previousLightAddHint = useMemo(() => {
+    const existing = project.stageLights ?? [];
+    const fromTemplate = lastStageLightTemplateRef.current;
+    const fromSelected =
+      selectedStageLightId != null
+        ? existing.find((x) => x.id === selectedStageLightId)
+        : undefined;
+    const src = fromTemplate ?? fromSelected ?? existing[existing.length - 1];
+    if (!src) return null;
+    return src.label?.trim() || STAGE_LIGHT_KIND_LABELS[src.kind];
+  }, [project.stageLights, selectedStageLightId, stageContextMenu]);
 
   useEffect(() => {
     if (selectedDancerIds.length < 2) {
@@ -4898,11 +6079,11 @@ export function StageBoardBody({
     playbackDancers,
     previewDancers,
     stageInteractionsEnabled,
-    rubyAccent: shell.ruby,
     dancerQuickEditId,
     setShowStageDancerColorToolbar,
     setStageContextMenu,
     setDancerQuickEditId,
+    setSelectedDancerIds,
     studentViewerFocus,
   });
 
@@ -4939,6 +6120,7 @@ export function StageBoardBody({
       stopPlaybackOnFloorTap:
         viewMode !== "view" && !enablePinchViewport,
       onPointerDownFloor: handlePointerDownFloor,
+      onContextMenuFloor: handleContextMenuFloor,
       mainFloorStyle,
       setPiecesEditable,
       /* 床マークアップ浮遊ツール（setPiecesEditable 時のみ有効） */
@@ -4960,6 +6142,8 @@ export function StageBoardBody({
           ? (globalFloorMarkup ?? []).some((x) => x.id === floorTextEditId)
           : floorTextDraft.scope === "global",
         onUpdateGlobalMarkup: onUpdateGlobalFloorMarkup,
+        floorLineScope,
+        setFloorLineScope,
       },
       /* 床下オーバーレイ（形状・格子・ガイド・床線／テキスト） */
       baseOverlaysWithoutShow: {
@@ -4973,13 +6157,18 @@ export function StageBoardBody({
         stageGridLinesHorizontal,
         guideLineDrawMarks,
         alignGuides,
+        stageHesoVisible,
+        stageCenterMarks,
+        activeStageLights,
+        stageMainFloorRef,
         displayFloorMarkup,
+        displayFloorLines,
         globalFloorMarkup: globalFloorMarkup ?? undefined,
         onRemoveGlobalFloorMarkupById: removeGlobalFloorMarkupById,
         floorLineDraft,
         floorMarkupTool,
         setPiecesEditable,
-        onRemoveFloorLineById: removeFloorMarkupById,
+        onRemoveFloorLineById: removeFloorLineById,
         textShared: floorTextMarkupSharedProps,
         floorTextPlaceSession: floorTextPlaceSession ?? null,
         viewportTextOverlayRoot,
@@ -4992,8 +6181,10 @@ export function StageBoardBody({
         hideFloorText: hideStageFloorTextMarkup,
       },
       showStageFloorMarkup:
-        displayFloorMarkup.some((m) => m.kind === "line") ||
+        displayFloorLines.length > 0 ||
         !!floorLineDraft ||
+        floorMarkupTool === "line" ||
+        floorMarkupTool === "erase" ||
         (!hideStageFloorTextMarkup &&
           (displayFloorMarkup.some((m) => m.kind === "text") ||
             (globalFloorMarkup ?? []).some((m) => m.kind === "text") ||
@@ -5035,21 +6226,122 @@ export function StageBoardBody({
         depthRankSelectedB: rankPickB,
         onDepthRankSelect: toggleRankPick,
       },
+      architectureInteractiveOverlay: (() => {
+        const sleeve =
+          sleeveMarks.length > 0 &&
+          typeof stageDepthMm === "number" &&
+          typeof stageWidthMm === "number" ? (
+            <StageSleeveCurtainOverlay
+              marks={sleeveMarks}
+              curtains={sleeveCurtains}
+              stageDepthMm={stageDepthMm}
+              stageWidthMm={stageWidthMm}
+              sideStageMm={typeof sideStageMm === "number" ? sideStageMm : 0}
+              floorRef={stageMainFloorRef}
+              editable={sleeveEditable}
+              onChangeCurtains={(next) => onSleeveCurtainsChange?.(next)}
+            />
+          ) : null;
+        const centerMarksEdit =
+          centerMarksEditable && stageCenterMarks.length > 0 ? (
+            <StageCenterMarkOverlay
+              marks={stageCenterMarks}
+              floorRef={stageMainFloorRef}
+              editable
+              onChangeMarks={(next) => onCenterMarksChange?.(next)}
+            />
+          ) : null;
+        const lightsEdit =
+          stageLightsEditable && activeStageLights.length > 0 ? (
+            <StageLightingOverlay
+              lights={activeStageLights}
+              allLights={project.stageLights ?? []}
+              handlesOnly
+              editable
+              selectedId={selectedStageLightId}
+              onSelectId={onSelectStageLightId}
+              onChangeLights={(nextActive) => {
+                if (!onStageLightsChange) return;
+                const byId = new Map(nextActive.map((L) => [L.id, L]));
+                const merged = (project.stageLights ?? []).map(
+                  (L) => byId.get(L.id) ?? L
+                );
+                onStageLightsChange(merged);
+              }}
+              onChangeAllLights={(next) => onStageLightsChange?.(next)}
+              onGestureBegin={onGestureHistoryBegin}
+              onGestureEnd={onGestureHistoryEnd}
+              floorRef={stageMainFloorRef}
+            />
+          ) : null;
+        const lightsHiddenChip =
+          !stageLightsVisibleOnStage &&
+          viewMode !== "view" &&
+          (project.stageLights?.length ?? 0) > 0 ? (
+            <button
+              type="button"
+              onClick={() => setStageLightsVisibleOnStage(true)}
+              title="舞台上の照明を再表示"
+              style={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                zIndex: 40,
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(251,191,36,0.55)",
+                background: "rgba(15,23,42,0.92)",
+                color: "#fbbf24",
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: "pointer",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+                pointerEvents: "auto",
+              }}
+            >
+              照明：非表示中（タップで再表示）
+            </button>
+          ) : null;
+        if (!sleeve && !centerMarksEdit && !lightsEdit && !lightsHiddenChip)
+          return null;
+        return (
+          <>
+            {sleeve}
+            {centerMarksEdit}
+            {lightsEdit}
+            {lightsHiddenChip}
+          </>
+        );
+      })(),
     } satisfies BuildStageBoardExportColumnInput);
 
-  // 動線矢印オーバーレイ
-  if (showMotionArrows) {
+  // 移動軌跡: 動線表示トグル ON のときのみ（選択中の自動点線は出さない）
+  {
     const highlightId =
       studentViewerFocus?.kind === "one"
         ? studentViewerFocus.crewMemberId
         : null;
-    stageBoardExportColumn.mainFloor.motionArrowsOverlay = (
-      <StageMotionArrowsOverlay
-        formations={project.formations}
-        activeFormationId={activeFormationId}
-        highlightCrewMemberId={highlightId}
-      />
-    );
+    if (showMotionArrows && nextCueDancers) {
+      stageBoardExportColumn.mainFloor.motionArrowsOverlay = (
+        <StageMotionArrowsOverlay
+          fromDancers={displayDancers}
+          toDancers={nextCueDancers}
+          selectedDancerIds={selectedDancerIds}
+          showAll
+          highlightCrewMemberId={highlightId}
+        />
+      );
+    } else if (showMotionArrows) {
+      stageBoardExportColumn.mainFloor.motionArrowsOverlay = (
+        <StageMotionArrowsOverlay
+          formations={project.formations}
+          activeFormationId={activeFormationId}
+          selectedDancerIds={selectedDancerIds}
+          showAll
+          highlightCrewMemberId={highlightId}
+        />
+      );
+    }
   }
   if (prevCueCompareMarks.length > 0) {
     const existing = stageBoardExportColumn.mainFloor.motionArrowsOverlay;
@@ -5069,6 +6361,12 @@ export function StageBoardBody({
     Boolean(primarySelectedDancer) &&
     selectedDancerIds.length >= 1 &&
     !marquee;
+
+  useEffect(() => {
+    if (!showStageEditDock || stageEditDockHost) return;
+    requestStageEditRightPane();
+  }, [showStageEditDock, stageEditDockHost]);
+
   const stageEditDock = showStageEditDock && primarySelectedDancer ? (
     <StageDancerContextToolbar
       placement={stageEditDockHost ? "side" : "floor"}
@@ -5087,6 +6385,10 @@ export function StageBoardBody({
       onMarkerSizeChange={applySelectedMarkerSizePx}
       onColorChange={(i) =>
         applyBulkColorToDancerIds(selectedDancerIds, i)
+      }
+      dockSectionRequest={dockSectionRequest}
+      onDuplicateSelection={(placement) =>
+        duplicateDancerIds(selectedDancerIds, placement)
       }
       onOpenMore={handleOpenToolbarMore}
       onCreateNextCue={
@@ -5119,6 +6421,18 @@ export function StageBoardBody({
       applyBulkMarkerSequence={applyBulkMarkerSequence}
       applyBulkMarkerSame={applyBulkMarkerSame}
       applyBulkMarkerCenterDistance={applyBulkMarkerCenterDistance}
+      applyBulkFaceStamp={applyBulkFaceStamp}
+      applyBulkGenderToDancerIds={applyBulkGenderToDancerIds}
+      applyBulkFigure3dToDancerIds={applyBulkFigure3dToDancerIds}
+      applyBulkMarkerShape={applyBulkMarkerShape}
+      applyBulkFacingDeg={applyBulkFacingDeg}
+      allDancerIds={(writeFormation?.dancers ?? activeFormation?.dancers ?? []).map(
+        (d) => d.id
+      )}
+      primaryMarkerShape={primarySelectedDancer.markerShape ?? "circle"}
+      primaryFacingDeg={normalizeDancerFacingDeg(
+        effectiveFacingDeg(primarySelectedDancer)
+      )}
       shapePreviewActive={Boolean(
         shapePreviewById && shapePreviewById.size > 0
       )}
@@ -5167,6 +6481,7 @@ export function StageBoardBody({
       prevCueMotionViewOn={prevCueMotionViewOn}
       prevCueFromOrdinal={prevCueFromOrdinal}
       prevCueToOrdinal={editCueOrdinal}
+      prevCueDancers={prevCueDancers}
       onTogglePrevCueMotionView={
         prevCueCompareAvailable
           ? () => {
@@ -5239,19 +6554,7 @@ export function StageBoardBody({
           />
         }
         editDock={
-          !stageEditDockHost && stageEditDock ? (
-            <div
-              style={{
-                flexShrink: 0,
-                width: "100%",
-                display: "flex",
-                justifyContent: "center",
-                padding: "4px 0 8px",
-              }}
-            >
-              {stageEditDock}
-            </div>
-          ) : null
+          !stageEditDockHost && stageEditDock ? stageEditDock : null
         }
         bulkToolbar={
           canStageBulkTools ? (
@@ -5296,6 +6599,130 @@ export function StageBoardBody({
             containerRef={stageContextMenuRef}
             onCloseMenu={() => setStageContextMenu(null)}
             dancerMenu={dancerContextMenuShared}
+            dockQuickMenu={
+              stageContextMenu.kind === "dancerDock" ||
+              stageContextMenu.kind === "floor"
+                ? {
+                    showShape:
+                      stageContextMenu.kind === "dancerDock" &&
+                      (stageEditMode === "formation" ||
+                        stageEditMode === "group") &&
+                      selectedDancerIds.length >= 2,
+                    showDisplay:
+                      stageContextMenu.kind === "dancerDock" &&
+                      selectedDancerIds.length >= 1,
+                    showSort:
+                      stageContextMenu.kind === "dancerDock" &&
+                      (stageEditMode === "formation" ||
+                        stageEditMode === "group") &&
+                      selectedDancerIds.length >= 2,
+                    onPick: handlePickDockQuickSection,
+                    onDuplicate:
+                      stageContextMenu.kind === "dancerDock"
+                        ? (placement) =>
+                            duplicateDancerIds(selectedDancerIds, placement)
+                        : undefined,
+                    onSwapPair:
+                      stageContextMenu.kind === "dancerDock" &&
+                      selectedDancerIds.length === 2
+                        ? () => handleSwapSelectedPair()
+                        : undefined,
+                    onGatherToEdge:
+                      stageContextMenu.kind === "dancerDock" &&
+                      selectedDancerIds.length >= 1
+                        ? (toward) =>
+                            applySelectedArrange((dancers, ids) =>
+                              gatherSelectedDancersToEdge(dancers, ids, toward)
+                            )
+                        : undefined,
+                    onDelete:
+                      stageContextMenu.kind === "dancerDock"
+                        ? handleDeleteSelectedDancers
+                        : undefined,
+                    onCopyMembers:
+                      stageContextMenu.kind === "dancerDock" &&
+                      canWriteStage &&
+                      selectedDancerIds.length >= 1
+                        ? copySelectedMembers
+                        : undefined,
+                    onPasteToPreviousCue:
+                      stageContextMenu.kind === "dancerDock" &&
+                      canWriteStage &&
+                      previousCue &&
+                      clipboardSpots.length > 0
+                        ? pasteMembersToPreviousCue
+                        : undefined,
+                    onPasteHere:
+                      canWriteStage && clipboardSpots.length > 0
+                        ? pasteMembersAtMenuPoint
+                        : undefined,
+                    clipboardLabel: dancerClipboardLabel(clipboardSpots),
+                    onOpenLegacyMore:
+                      stageContextMenu.kind === "dancerDock"
+                        ? () => {
+                            const m = stageContextMenu;
+                            setStageContextMenu({
+                              kind: "dancer",
+                              clientX: m.clientX,
+                              clientY: m.clientY,
+                              dancerId: m.dancerId,
+                            });
+                          }
+                        : undefined,
+                    lightAddOptions:
+                      viewMode !== "view" &&
+                      !lightsLockedByPlayback &&
+                      Boolean(onStageLightsChange)
+                        ? STAGE_LIGHT_KINDS.map((kind) => ({
+                            kind,
+                            label: STAGE_LIGHT_KIND_LABELS[kind],
+                          }))
+                        : undefined,
+                    onAddLight:
+                      viewMode !== "view" &&
+                      !lightsLockedByPlayback &&
+                      Boolean(onStageLightsChange)
+                        ? handleAddLightFromContextMenu
+                        : undefined,
+                    onAddBasicLights:
+                      viewMode !== "view" &&
+                      !lightsLockedByPlayback &&
+                      Boolean(onStageLightsChange)
+                        ? handleAddBasicLightsFromContextMenu
+                        : undefined,
+                    onApplyLightingPreset:
+                      viewMode !== "view" &&
+                      !lightsLockedByPlayback &&
+                      Boolean(onStageLightsChange)
+                        ? handleOpenLightingPresetPickerFromContextMenu
+                        : undefined,
+                    onApplyPreviousCueLights:
+                      viewMode !== "view" &&
+                      !lightsLockedByPlayback &&
+                      Boolean(onStageLightsChange)
+                        ? handleApplyPreviousCueLightsFromContextMenu
+                        : undefined,
+                    onAddPreviousLight:
+                      viewMode !== "view" &&
+                      !lightsLockedByPlayback &&
+                      Boolean(onStageLightsChange) &&
+                      Boolean(previousLightAddHint)
+                        ? handleAddPreviousLightFromContextMenu
+                        : undefined,
+                    previousLightHint: previousLightAddHint,
+                    defaultLightOpen: stageContextMenu.kind === "floor",
+                    stageLightsVisibleOnStage,
+                    onToggleStageLightsVisible:
+                      viewMode !== "view" &&
+                      Boolean(onStageLightsChange) &&
+                      (project.stageLights?.length ?? 0) > 0
+                        ? () => {
+                            toggleStageLightsVisibleOnStage();
+                          }
+                        : undefined,
+                  }
+                : undefined
+            }
             onOpenDancerPathEditor={onOpenDancerPathEditor}
             viewMode={viewMode}
             setPiecesEditable={setPiecesEditable}
@@ -5307,6 +6734,17 @@ export function StageBoardBody({
             removeSetPieceById={removeSetPieceById}
           />
         ) : null}
+        <LightingPresetPickModal
+          open={lightingPresetPickerOpen}
+          title="プリセットから選ぶ"
+          subtitle="クリックしたプリセットで、いまのキューの照明を置き換えます"
+          presets={lightingPresetPickerList}
+          onClose={() => {
+            setLightingPresetPickerOpen(false);
+            setLightingPresetPickerList([]);
+          }}
+          onPick={handlePickLightingPresetFromContextMenu}
+        />
         {dancerSelectionSheetOpen && primarySelectedDancer ? (
           <StageDancerContextMenuSheet
             open
@@ -5357,6 +6795,11 @@ export function StageBoardBody({
       viewMode,
       onCloseQuickEdit: () => setDancerQuickEditId(null),
       onApplyQuickEdit: applyDancerQuickEdit,
+      skillOptionCount: Math.max(
+        writeFormation?.dancers.length ?? 0,
+        countProjectRosterMembers(project.crews),
+        1
+      ),
     }),
     [
       applyDancerQuickEdit,
@@ -5369,8 +6812,10 @@ export function StageBoardBody({
       handleDeleteSelectedDancers,
       handleFloorTextInlineRequestClose,
       onUpdateGlobalFloorMarkup,
+      project.crews,
       quickEditDancerForDialog,
       selectedDancerIds,
+      writeFormation?.dancers.length,
       setDancerQuickEditId,
       setFloorTextDraft,
       setFloorMarkupTool,
@@ -5401,6 +6846,33 @@ export function StageBoardBody({
               kind={sizeApplyPending.kind}
               onChoose={commitSizeApplyPending}
               onCancel={cancelSizeApplyPending}
+            />
+          ) : null}
+          {memberDeletePending ? (
+            <MemberDeleteScopeDialog
+              memberLabel={memberDeletePending.label}
+              count={memberDeletePending.dancerIds.length}
+              onCancel={() => setMemberDeletePending(null)}
+              onChoose={(scope) => {
+                const pending = memberDeletePending;
+                const removeSet = new Set(pending.dancerIds);
+                setProject((p) =>
+                  removeMembersFromStage(p, {
+                    formationId: pending.formationId,
+                    cueId: editCueId,
+                    dancerIds: pending.dancerIds,
+                    scope,
+                  }),
+                );
+                setSelectedDancerIds((ids) =>
+                  removeDancersFromSelection(ids, removeSet),
+                );
+                setDancerQuickEditId((id) =>
+                  id != null && removeSet.has(id) ? null : id,
+                );
+                setStageContextMenu(null);
+                setMemberDeletePending(null);
+              }}
             />
           ) : null}
         </>

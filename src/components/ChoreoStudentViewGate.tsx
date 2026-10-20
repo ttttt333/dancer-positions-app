@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 import type { ViewRosterEntry } from "../lib/viewRoster";
+import { ChoreoViewerViralCta } from "./ChoreoViewerViralCta";
 
 export type StudentPick =
   | { kind: "all" }
@@ -14,6 +16,7 @@ export function ChoreoMemberPickerPanel({
   subheading = "あなたの立ち位置を大きく表示するか、全員同じ大きさで表示します。",
   compact = false,
   publicSheet = false,
+  hideAllButton = false,
 }: {
   entries: ViewRosterEntry[];
   onPick: (p: StudentPick) => void;
@@ -23,6 +26,8 @@ export function ChoreoMemberPickerPanel({
   compact?: boolean;
   /** 生徒閲覧のメンバー変更シート — 全員スクロール表示 */
   publicSheet?: boolean;
+  /** 名前の一覧だけ出す（全員表示ボタンを出さない） */
+  hideAllButton?: boolean;
 }) {
   return (
     <div
@@ -123,6 +128,7 @@ export function ChoreoMemberPickerPanel({
                 {e.label}
               </button>
             ))}
+            {hideAllButton ? null : (
             <button
               type="button"
               onClick={() => onPick({ kind: "all" })}
@@ -138,6 +144,7 @@ export function ChoreoMemberPickerPanel({
             >
               全員表示
             </button>
+            )}
           </div>
         </div>
       )}
@@ -165,6 +172,7 @@ export function ChoreoStudentViewGate({
   onRemindContinue,
   onRemindChooseOther,
 }: Props) {
+  const [pickStep, setPickStep] = useState<"mode" | "member">("mode");
   if (gateMode === "remind" && lastPick && onRemindContinue && onRemindChooseOther) {
     return (
       <div
@@ -240,6 +248,9 @@ export function ChoreoStudentViewGate({
               </button>
             </div>
           </div>
+          <div style={{ marginTop: 20 }}>
+            <ChoreoViewerViralCta variant="gate" />
+          </div>
         </div>
       </div>
     );
@@ -288,15 +299,97 @@ export function ChoreoStudentViewGate({
         </h1>
       </div>
       <div className="choreo-student-view-gate__pick-body">
-        <ChoreoMemberPickerPanel
-          entries={entries}
-          onPick={onPick}
-          heading="あなたは誰ですか？"
-          subheading="スマホでも見やすい閲覧モードです。あなたの立ち位置を大きく光らせるか、全員同じ大きさで表示するかを選びます。"
-          compact
-          publicSheet
-        />
+        {pickStep === "mode" || entries.length === 0 ? (
+          <div
+            data-student-view-mode-choice
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              maxWidth: 420,
+              width: "100%",
+              margin: "auto",
+              textAlign: "center",
+            }}
+          >
+            <p style={{ margin: "0 0 2px", fontSize: 17, color: "#e2e8f0", fontWeight: 700 }}>
+              表示のしかたを選んでください
+            </p>
+            <button
+              type="button"
+              data-student-view-mode="all"
+              onClick={() => onPick({ kind: "all" })}
+              style={{ ...btnSecondary, ...modeBtn }}
+            >
+              <span style={{ fontSize: 18, fontWeight: 700 }}>全体表示</span>
+              <span style={modeBtnHint}>全員を同じ大きさで表示します</span>
+            </button>
+            <button
+              type="button"
+              data-student-view-mode="member"
+              disabled={entries.length === 0}
+              onClick={() => setPickStep("member")}
+              style={{ ...btnAccent, ...modeBtn, opacity: entries.length === 0 ? 0.45 : 1 }}
+            >
+              <span style={{ fontSize: 18, fontWeight: 700 }}>個別表示</span>
+              <span style={{ ...modeBtnHint, color: "inherit", opacity: 0.85 }}>
+                {entries.length === 0
+                  ? "名簿にメンバーがいないため選べません"
+                  : "自分の名前を選び、自分の立ち位置を大きく光らせます"}
+              </span>
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              data-student-view-back
+              onClick={() => setPickStep("mode")}
+              style={{
+                ...btnSecondary,
+                alignSelf: "flex-start",
+                padding: "8px 14px",
+                fontSize: 14,
+                minHeight: 40,
+                marginBottom: 10,
+                flexShrink: 0,
+              }}
+            >
+              ← 戻る
+            </button>
+            <ChoreoMemberPickerPanel
+              entries={entries}
+              onPick={onPick}
+              heading="あなたは誰ですか？"
+              subheading="名前を選ぶと、あなたの立ち位置を大きく光らせて表示します。"
+              compact
+              publicSheet
+              hideAllButton
+            />
+          </>
+        )}
+      </div>
+      <div className="choreo-student-view-gate__viral">
+        <ChoreoViewerViralCta variant="gate" />
       </div>
     </div>
   );
 }
+
+const modeBtn = {
+  display: "flex",
+  flexDirection: "column" as const,
+  alignItems: "center",
+  gap: 4,
+  padding: "18px 16px",
+  minHeight: 76,
+  width: "100%",
+  boxSizing: "border-box" as const,
+};
+
+const modeBtnHint = {
+  fontSize: 13,
+  fontWeight: 500,
+  color: "#94a3b8",
+  lineHeight: 1.4,
+};

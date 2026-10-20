@@ -13,10 +13,26 @@ uvicorn main:app --reload --port 8080
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | liveness + versions |
+| GET | `/health` | liveness + versions + All-In-One ready |
 | POST | `/analyze` | v1 RMS blocks + `section_families` |
-| POST | `/api/v2/analyze-structure` | **v2** chroma-SSM → `StructureResultV2` |
+| POST | `/api/v2/analyze-structure` | **All-In-One 優先** → chroma-SSM フォールバック |
+| POST | `/api/v2/analyze-structure-aio` | All-In-One のみ（Replicate / mock） |
 | POST | `/analyze-structure` | alias of v2 |
+
+### All-In-One（Replicate）
+
+Fly secrets:
+
+```bash
+fly secrets set REPLICATE_API_TOKEN=r8_... -a choreocore-song-analyzer
+# 任意
+fly secrets set REPLICATE_AIO_MODEL=sakemin/all-in-one-music-structure-analyzer -a choreocore-song-analyzer
+# ローカル開発（Replicate 無し）
+fly secrets set REPLICATE_AIO_MOCK=1 -a choreocore-song-analyzer
+```
+
+成功時の `structure_v2` には `beats` / `downbeats`（秒）が含まれ、フロントの 8カウントグリッドは AI ダウンビートを優先する。
+
 
 ### v2 request
 

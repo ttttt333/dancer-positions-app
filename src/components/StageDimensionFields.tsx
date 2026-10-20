@@ -12,10 +12,14 @@ import {
   renameStagePreset,
   saveStagePreset,
   STAGE_PRESETS_CHANGE_EVENT,
+  stagePresetGuideSnapshot,
+  stagePresetHasGuideFields,
   updateStagePreset,
+  type StagePresetDimensions,
   type StagePresetItem,
 } from "../lib/stagePresets";
 import { stripFormationStageSnapshots } from "../lib/savedSpotStageSnapshot";
+import { sleeveCurtainsToDepthsMm } from "../lib/stageSleeveCurtains";
 
 const MAX_MM = STAGE_MAIN_FLOOR_MM_MAX;
 
@@ -439,50 +443,86 @@ export function StageDimensionFields({
     return () => window.removeEventListener(STAGE_PRESETS_CHANGE_EVENT, onChange);
   }, [reloadPresets]);
 
+  const applyPreset = useCallback(
+    (p: StagePresetItem) => {
+      setDraft({
+        width: mmToDecimalStr(p.stageWidthMm),
+        depth: mmToDecimalStr(p.stageDepthMm),
+        side: mmToDecimalStr(p.sideStageMm),
+        back: mmToDecimalStr(p.backStageMm),
+        guide: mmToDecimalStr(p.centerFieldGuideIntervalMm),
+      });
+      // 新プリセットにヘソ／幕があればプロジェクトへ即反映（寸法は確定ボタン）
+      if (stagePresetHasGuideFields(p)) {
+        const guides = stagePresetGuideSnapshot(p);
+        setProject((prev) =>
+          stripFormationStageSnapshots({
+            ...prev,
+            stageHesoVisible: guides.stageHesoVisible === true,
+            stageCenterMarks: guides.stageCenterMarks ?? [],
+            stageSleeveCurtains: guides.stageSleeveCurtains ?? [],
+            stageSleeveCurtainDepthsMm: sleeveCurtainsToDepthsMm(
+              guides.stageSleeveCurtains ?? []
+            ),
+          })
+        );
+      }
+      setSelectedPresetId(p.id);
+    },
+    [setProject]
+  );
 
-  const applyPreset = useCallback((p: StagePresetItem) => {
-    setDraft({
-      width: mmToDecimalStr(p.stageWidthMm),
-      depth: mmToDecimalStr(p.stageDepthMm),
-      side: mmToDecimalStr(p.sideStageMm),
-      back: mmToDecimalStr(p.backStageMm),
-      guide: mmToDecimalStr(p.centerFieldGuideIntervalMm),
-    });
-    setSelectedPresetId(p.id);
-  }, []);
+  const presetDimsFromCurrent = useCallback((): StagePresetDimensions => {
+    const { width, depth, side, back, guide } = previewMm;
+    return {
+      stageWidthMm: width,
+      stageDepthMm: depth,
+      sideStageMm: side,
+      backStageMm: back,
+      centerFieldGuideIntervalMm: guide,
+      ...stagePresetGuideSnapshot({
+        stageHesoVisible: project.stageHesoVisible === true,
+        stageCenterMarks: project.stageCenterMarks ?? [],
+        stageSleeveCurtains: project.stageSleeveCurtains ?? [],
+      }),
+    };
+  }, [previewMm, project.stageHesoVisible, project.stageCenterMarks, project.stageSleeveCurtains]);
+
 
   const saveAsNewPreset = useCallback(() => {
     if (disabled) return;
-    const { width, depth, side, back, guide } = previewMm;
-    if (width == null && depth == null && side == null && back == null && guide == null) {
+    const dims = presetDimsFromCurrent();
+    if (
+      dims.stageWidthMm == null &&
+      dims.stageDepthMm == null &&
+      dims.sideStageMm == null &&
+      dims.backStageMm == null &&
+      dims.centerFieldGuideIntervalMm == null &&
+      !dims.stageHesoVisible &&
+      (dims.stageCenterMarks?.length ?? 0) === 0 &&
+      (dims.stageSleeveCurtains?.length ?? 0) === 0
+    ) {
       window.alert("保存する寸法が入っていません。");
       return;
     }
     const defaultName = `ステージ ${presets.length + 1}`;
     const name = window.prompt("保存プリセットの名前（あとで変更可）", defaultName);
     if (name === null) return;
-    const result = saveStagePreset(name.trim() || defaultName, {
-      stageWidthMm: width,
-      stageDepthMm: depth,
-      sideStageMm: side,
-      backStageMm: back,
-      centerFieldGuideIntervalMm: guide,
-    });
+    const result = saveStagePreset(name.trim() || defaultName, dims);
     if (!result.ok) { window.alert(result.message); return; }
     setSelectedPresetId(result.item.id);
     reloadPresets();
-  }, [disabled, previewMm, presets.length, reloadPresets]);
+  }, [disabled, presetDimsFromCurrent, presets.length, reloadPresets]);
 
   const overwriteSelectedPreset = useCallback(() => {
     if (disabled || !selectedPresetId) return;
     const target = presets.find((x) => x.id === selectedPresetId);
     if (!target) return;
     if (!window.confirm(`「${target.name}」を現在の入力内容で上書き保存しますか？`)) return;
-    const { width, depth, side, back, guide } = previewMm;
-    const result = updateStagePreset(selectedPresetId, { stageWidthMm: width, stageDepthMm: depth, sideStageMm: side, backStageMm: back, centerFieldGuideIntervalMm: guide });
+    const result = updateStagePreset(selectedPresetId, presetDimsFromCurrent());
     if (!result.ok) { window.alert(result.message); return; }
     reloadPresets();
-  }, [disabled, selectedPresetId, presets, previewMm, reloadPresets]);
+  }, [disabled, selectedPresetId, presets, presetDimsFromCurrent, reloadPresets]);
 
   const renameSelectedPreset = useCallback(() => {
     if (disabled || !selectedPresetId) return;

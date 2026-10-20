@@ -2,6 +2,57 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function () {
+        /** 古いデプロイの JS を取りに行き HTML が返ると #root が空のまま真っ黒になる */
+        var RELOAD_KEY = "choreocore-stale-asset-reload";
+        function recoverStaleAssets() {
+          try {
+            if (sessionStorage.getItem(RELOAD_KEY) === "1") return;
+            sessionStorage.setItem(RELOAD_KEY, "1");
+          } catch (e) {
+            return;
+          }
+          var reload = function () {
+            location.reload();
+          };
+          var clearCaches = function () {
+            if (!window.caches || !caches.keys) return Promise.resolve();
+            return caches.keys().then(function (names) {
+              return Promise.all(
+                names.map(function (name) {
+                  return caches.delete(name);
+                })
+              );
+            });
+          };
+          if (!("serviceWorker" in navigator)) {
+            clearCaches().then(reload, reload);
+            return;
+          }
+          navigator.serviceWorker
+            .getRegistrations()
+            .then(function (regs) {
+              return Promise.all(
+                regs.map(function (reg) {
+                  return reg.unregister();
+                })
+              );
+            })
+            .then(clearCaches, clearCaches)
+            .then(reload, reload);
+        }
+        window.addEventListener(
+          "error",
+          function (ev) {
+            var t = ev && ev.target;
+            if (!t || t.tagName !== "SCRIPT") return;
+            recoverStaleAssets();
+          },
+          true
+        );
+      })();
+    </script>
     <meta
       http-equiv="Cache-Control"
       content="no-cache, no-store, must-revalidate"
@@ -12,7 +63,7 @@
     <link rel="apple-touch-icon" href="/brand/app-icon.png" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#060606" />
     <meta name="theme-color" content="#060606" media="(prefers-color-scheme: dark)" />
@@ -22,15 +73,27 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta
       name="description"
-      content="ChoreoCore — 楽曲タイムラインと舞台上の立ち位置を同期する、ダンスチーム向けツール。"
+      content="ChoreoCoreは、音楽からフォーメーション・トランジション・舞台に持ち込める振付設計を支援するツールです。"
+    />
+    <meta property="og:title" content="ChoreoCore — 音楽を動きへ" />
+    <meta
+      property="og:description"
+      content="ChoreoCoreは、音楽からフォーメーション・トランジション・舞台に持ち込める振付設計を支援するツールです。"
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ChoreoCore — 音楽を動きへ" />
+    <meta
+      name="twitter:description"
+      content="ChoreoCoreは、音楽からフォーメーション・トランジション・舞台に持ち込める振付設計を支援するツールです。"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&family=Noto+Sans+JP:wght@400;600;700&family=Syne:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&family=Noto+Sans+JP:wght@400;600;700&family=Syne:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <title>ChoreoCore</title>
+    <title>ChoreoCore — 音楽を動きへ</title>
   </head>
   <body>
     <script>

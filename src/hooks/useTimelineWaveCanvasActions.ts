@@ -130,9 +130,9 @@ export function useTimelineWaveCanvasActions({
 
   const onWaveClick = useCallback(
     (e: MouseEvent<HTMLCanvasElement>) => {
-      if (suppressNextWaveSeekRef.current) {
+      const blockSeek = suppressNextWaveSeekRef.current;
+      if (blockSeek) {
         suppressNextWaveSeekRef.current = false;
-        return;
       }
       const c = e.currentTarget as HTMLCanvasElement;
       if (!c || duration <= 0) return;
@@ -162,6 +162,8 @@ export function useTimelineWaveCanvasActions({
         // is playing (especially after move/resize when suppress flags miss).
         return;
       }
+      /** 直前のキュー操作後の合成 click ではシークだけ抑止（選択は上で許可） */
+      if (blockSeek) return;
       onSelectedCueIdsChange([]);
       if (!playbackEngine.getMediaSourceUrl()) return;
       if (e.altKey && peaks != null && cuesSorted.length >= 2 && viewMode !== "view") {
@@ -248,31 +250,33 @@ export function useTimelineWaveCanvasActions({
       const portraitActive = useTimelineWaveBridgeStore.getState().portraitActive;
       const gapTouchPad = portraitActive ? MOBILE_GAP_TOUCH_PADDING_PX : 0;
 
-      if (portraitActive) {
-        const gapLink = pickGapLinkAtWave(
-          e.clientX,
-          e.clientY,
-          c,
-          cuesSorted,
-          viewStart,
-          viewSpan,
-          cueDragPreviewRangeRef.current,
-          gapTouchPad
-        );
-        if (gapLink) {
-          e.preventDefault();
-          e.stopPropagation();
-          setWaveCueMenu(null);
-          setWaveCueConfirm(null);
-          onSelectedCueIdsChange([gapLink.nextCueId]);
-          setGapRouteMenu({
-            nextCueId: gapLink.nextCueId,
-            clientX: e.clientX,
-            clientY: e.clientY,
-            fullscreen: true,
-          });
-          return;
-        }
+      /**
+       * キュー間（移動）を先に判定。
+       * pickCueIdAtWave は空白も直前キューに含めるため、順序を逆にすると動線メニューが出せない。
+       */
+      const gapLink = pickGapLinkAtWave(
+        e.clientX,
+        e.clientY,
+        c,
+        cuesSorted,
+        viewStart,
+        viewSpan,
+        cueDragPreviewRangeRef.current,
+        gapTouchPad
+      );
+      if (gapLink) {
+        e.preventDefault();
+        e.stopPropagation();
+        setWaveCueMenu(null);
+        setWaveCueConfirm(null);
+        onSelectedCueIdsChange([gapLink.nextCueId]);
+        setGapRouteMenu({
+          nextCueId: gapLink.nextCueId,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          ...(portraitActive ? { fullscreen: true } : {}),
+        });
+        return;
       }
 
       const id = pickCueIdAtWave(
@@ -291,29 +295,7 @@ export function useTimelineWaveCanvasActions({
         onSelectedCueIdsChange([id]);
         setWaveCueConfirm(null);
         setWaveCueMenu({ cueId: id, clientX: e.clientX, clientY: e.clientY });
-        return;
       }
-      const gapLink = pickGapLinkAtWave(
-        e.clientX,
-        e.clientY,
-        c,
-        cuesSorted,
-        viewStart,
-        viewSpan,
-        cueDragPreviewRangeRef.current,
-        gapTouchPad
-      );
-      if (!gapLink) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setWaveCueMenu(null);
-      setWaveCueConfirm(null);
-      onSelectedCueIdsChange([gapLink.nextCueId]);
-      setGapRouteMenu({
-        nextCueId: gapLink.nextCueId,
-        clientX: e.clientX,
-        clientY: e.clientY,
-      });
     },
     [
       viewMode,
@@ -505,6 +487,33 @@ export function useTimelineWaveCanvasActions({
       const portraitActive = useTimelineWaveBridgeStore.getState().portraitActive;
       const gapTouchPad = portraitActive ? MOBILE_GAP_TOUCH_PADDING_PX : PC_GAP_LONG_PRESS_PAD_PX;
 
+      /**
+       * 空白（移動）区間を先に判定。
+       * pickCueIdAtWave は空白も直前キューの選択に含めるため、順序を逆にすると動線メニューが出せない。
+       */
+      const gapLink = pickGapLinkAtWave(
+        clientX,
+        clientY,
+        c,
+        cuesSorted,
+        viewStart,
+        viewSpan,
+        cueDragPreviewRangeRef.current,
+        gapTouchPad
+      );
+      if (gapLink) {
+        setWaveCueMenu(null);
+        setWaveCueConfirm(null);
+        onSelectedCueIdsChange([gapLink.nextCueId]);
+        setGapRouteMenu({
+          nextCueId: gapLink.nextCueId,
+          clientX,
+          clientY,
+          ...(portraitActive ? { fullscreen: true } : {}),
+        });
+        return;
+      }
+
       const cueId = pickCueIdAtWave(
         clientX,
         clientY,
@@ -572,29 +581,7 @@ export function useTimelineWaveCanvasActions({
           clientY: portraitActive ? menuClientY : clientY,
           ...(portraitActive ? { fullscreen: true } : {}),
         });
-        return;
       }
-
-      const gapLink = pickGapLinkAtWave(
-        clientX,
-        clientY,
-        c,
-        cuesSorted,
-        viewStart,
-        viewSpan,
-        cueDragPreviewRangeRef.current,
-        gapTouchPad
-      );
-      if (!gapLink) return;
-      setWaveCueMenu(null);
-      setWaveCueConfirm(null);
-      onSelectedCueIdsChange([gapLink.nextCueId]);
-      setGapRouteMenu({
-        nextCueId: gapLink.nextCueId,
-        clientX,
-        clientY,
-        ...(portraitActive ? { fullscreen: true } : {}),
-      });
     },
     [
       viewMode,

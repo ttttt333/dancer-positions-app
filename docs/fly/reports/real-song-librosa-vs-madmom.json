@@ -1,0 +1,667 @@
+{
+  "experimentId": "4.6-exp-madmom-beat-v1",
+  "status": "COMPARE_COMPLETE",
+  "adoption": "NOT_DECIDED",
+  "computedAt": "2026-09-13T04:58:39.665Z",
+  "locks": {
+    "datasetVersion": "4.6.1-double-consensus",
+    "axes": [
+      "Period",
+      "Phase",
+      "Continuity",
+      "Evidence"
+    ],
+    "fusion": false,
+    "msaf": false,
+    "librosaUntouched": true
+  },
+  "headline": {
+    "librosa": {
+      "period": 16,
+      "phase": 0,
+      "continuity": 0,
+      "evidence": 20,
+      "n": 20
+    },
+    "madmom": {
+      "period": 19,
+      "phase": 0,
+      "continuity": 2,
+      "evidence": 18,
+      "n": 20
+    },
+    "beatClasses": {
+      "librosa": {
+        "PASS": 0,
+        "WEAK": 9,
+        "GT-AMBIGUITY": 0,
+        "ANALYZER-LIMIT": 11
+      },
+      "madmom": {
+        "PASS": 0,
+        "WEAK": 8,
+        "GT-AMBIGUITY": 0,
+        "ANALYZER-LIMIT": 12
+      }
+    },
+    "phaseDeltas": {
+      "improved": 1,
+      "same": 18,
+      "regressed": 1
+    }
+  },
+  "song013": {
+    "librosa": {
+      "period": "PASS",
+      "phase": "FAIL",
+      "phaseMs": 166,
+      "halfBeat": 0.6793456032728065,
+      "continuity": "WEAK",
+      "evidence": "PASS",
+      "class": "WEAK"
+    },
+    "madmom": {
+      "period": "PASS",
+      "phase": "FAIL",
+      "phaseMs": 121,
+      "halfBeat": 0.49488752555775617,
+      "continuity": "FAIL",
+      "evidence": "PASS",
+      "class": "ANALYZER-LIMIT"
+    },
+    "delta": {
+      "period": "same",
+      "phase": "same",
+      "continuity": "regressed",
+      "phaseMsDelta": -45
+    },
+    "note": "Primary Golden Case — judge Phase, not BPM alone"
+  },
+  "decisionHints": {
+    "promoteCandidateIf": "Phase PASS lift + 013 Phase improves with Period held + halfbeat-unstable cluster shrinks + GT-AMBIGUITY stays 0",
+    "doNotFuseYet": true,
+    "humanReviewRequired": true
+  },
+  "perSong": [
+    {
+      "songId": "song-001",
+      "title": "アイドル",
+      "focus": true,
+      "librosa": {
+        "period": "WEAK",
+        "phase": "WEAK",
+        "phaseMs": 81,
+        "halfBeat": 0.4495821727019907,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "WEAK",
+        "phaseMs": 88,
+        "halfBeat": 0.4902506963788355,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "delta": {
+        "period": "improved",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": 7
+      }
+    },
+    {
+      "songId": "song-002",
+      "title": "ダンスホール",
+      "focus": true,
+      "librosa": {
+        "period": "WEAK",
+        "phase": "FAIL",
+        "phaseMs": 116,
+        "halfBeat": 0.4304832713757027,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 130,
+        "halfBeat": 0.48327137546466936,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "improved",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": 14
+      }
+    },
+    {
+      "songId": "song-003",
+      "title": "唱",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 120,
+        "halfBeat": 0.5224890829693236,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 114,
+        "halfBeat": 0.4978165938864292,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": -6
+      }
+    },
+    {
+      "songId": "song-004",
+      "title": "ポリリズム",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 116,
+        "halfBeat": 0.49957081544947834,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 119,
+        "halfBeat": 0.5107296137332935,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": 3
+      }
+    },
+    {
+      "songId": "song-005",
+      "title": "Super Shy",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "WEAK",
+        "phaseMs": 96,
+        "halfBeat": 0.4856423173800796,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "WEAK",
+        "phaseMs": 96,
+        "halfBeat": 0.48362720403025367,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": 0
+      }
+    },
+    {
+      "songId": "song-006",
+      "title": "MIC Drop",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 174,
+        "halfBeat": 0.4925141242937877,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 160,
+        "halfBeat": 0.4519774011310589,
+        "continuity": "WEAK",
+        "evidence": "WEAK",
+        "class": "WEAK"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": -14
+      }
+    },
+    {
+      "songId": "song-007",
+      "title": "How You Like That",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "WEAK",
+        "phaseMs": 87,
+        "halfBeat": 0.37548806941408097,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "WEAK",
+        "phaseMs": 57,
+        "halfBeat": 0.24728850325349705,
+        "continuity": "PASS",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "improved",
+        "phaseMsDelta": -30
+      }
+    },
+    {
+      "songId": "song-008",
+      "title": "God's Menu",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 105,
+        "halfBeat": 0.5475880052152188,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "WEAK",
+        "phaseMs": 81,
+        "halfBeat": 0.42242503259446607,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "improved",
+        "continuity": "improved",
+        "phaseMsDelta": -24
+      }
+    },
+    {
+      "songId": "song-009",
+      "title": "Get Ur Freak On",
+      "focus": true,
+      "librosa": {
+        "period": "FAIL",
+        "phase": "FAIL",
+        "phaseMs": 180,
+        "halfBeat": 0.5332344213651871,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 167,
+        "halfBeat": 0.4955489614243322,
+        "continuity": "PASS",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "delta": {
+        "period": "improved",
+        "phase": "same",
+        "continuity": "improved",
+        "phaseMsDelta": -13
+      }
+    },
+    {
+      "songId": "song-010",
+      "title": "Still D.R.E.",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 173,
+        "halfBeat": 0.5361801242236381,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 182,
+        "halfBeat": 0.5652173913044206,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": 9
+      }
+    },
+    {
+      "songId": "song-011",
+      "title": "HUMBLE.",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 108,
+        "halfBeat": 0.5333333333330769,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 106,
+        "halfBeat": 0.5234567901231488,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": -2
+      }
+    },
+    {
+      "songId": "song-012",
+      "title": "SICKO MODE",
+      "focus": true,
+      "librosa": {
+        "period": "WEAK",
+        "phase": "FAIL",
+        "phaseMs": 106,
+        "halfBeat": 0.5002352941177354,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "madmom": {
+        "period": "FAIL",
+        "phase": "FAIL",
+        "phaseMs": 105,
+        "halfBeat": 0.49411764705864186,
+        "continuity": "WEAK",
+        "evidence": "WEAK",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "regressed",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": -1
+      }
+    },
+    {
+      "songId": "song-013",
+      "title": "One More Time",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 166,
+        "halfBeat": 0.6793456032728065,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 121,
+        "halfBeat": 0.49488752555775617,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "regressed",
+        "phaseMsDelta": -45
+      }
+    },
+    {
+      "songId": "song-014",
+      "title": "Omen",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 126,
+        "halfBeat": 0.5883720930231573,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 128,
+        "halfBeat": 0.5953488372088406,
+        "continuity": "WEAK",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": 2
+      }
+    },
+    {
+      "songId": "song-015",
+      "title": "Bangarang",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 129,
+        "halfBeat": 0.4746323529427229,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 137,
+        "halfBeat": 0.5036764705891263,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": 8
+      }
+    },
+    {
+      "songId": "song-016",
+      "title": "24K Magic",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 140,
+        "halfBeat": 0.4953982300887955,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 147,
+        "halfBeat": 0.520353982302768,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": 7
+      }
+    },
+    {
+      "songId": "song-017",
+      "title": "Billie Jean",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 152,
+        "halfBeat": 0.595886385896253,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 147,
+        "halfBeat": 0.5749265426052783,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": -5
+      }
+    },
+    {
+      "songId": "song-018",
+      "title": "Thinkin Bout You",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 104,
+        "halfBeat": 0.44784482758594546,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 105,
+        "halfBeat": 0.45258620689464074,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": 1
+      }
+    },
+    {
+      "songId": "song-019",
+      "title": "カタオモイ",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 114,
+        "halfBeat": 0.36146496815289497,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 163,
+        "halfBeat": 0.5191082802546307,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "same",
+        "continuity": "same",
+        "phaseMsDelta": 49
+      }
+    },
+    {
+      "songId": "song-020",
+      "title": "Cornfield Chase",
+      "focus": true,
+      "librosa": {
+        "period": "PASS",
+        "phase": "WEAK",
+        "phaseMs": 94,
+        "halfBeat": 0.29888357256780057,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "WEAK"
+      },
+      "madmom": {
+        "period": "PASS",
+        "phase": "FAIL",
+        "phaseMs": 105,
+        "halfBeat": 0.3349282296649486,
+        "continuity": "FAIL",
+        "evidence": "PASS",
+        "class": "ANALYZER-LIMIT"
+      },
+      "delta": {
+        "period": "same",
+        "phase": "regressed",
+        "continuity": "same",
+        "phaseMsDelta": 11
+      }
+    }
+  ]
+}

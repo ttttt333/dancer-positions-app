@@ -80,6 +80,23 @@ export function gatherDancersToEdge(
   });
 }
 
+/**
+ * 選択メンバーだけを上手／下手（または前後）へ寄せて並べ替える。
+ * 非選択メンバーの座標は変えない。
+ */
+export function gatherSelectedDancersToEdge(
+  dancers: DancerSpot[],
+  targetIds: readonly string[],
+  toward: GatherToward
+): DancerSpot[] {
+  const idSet = new Set(targetIds);
+  const subset = dancers.filter((d) => idSet.has(d.id));
+  if (subset.length === 0) return dancers;
+  const gathered = gatherDancersToEdge(subset, toward);
+  const byId = new Map(gathered.map((d) => [d.id, d]));
+  return dancers.map((d) => byId.get(d.id) ?? d);
+}
+
 export const GATHER_TOWARD_OPTIONS: {
   id: GatherToward;
   label: string;

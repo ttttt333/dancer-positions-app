@@ -1,0 +1,42 @@
+{
+  "specId": "4.6-f-phase-anchor-independence-audit-v1",
+  "status": "COMPLETE_A_CONDITIONAL_GO",
+  "stubLockedAt": "2026-09-13",
+  "prerequisite": "4.6-E Pilot 5\u00d7 phase-anchor.json",
+  "centerSong": "song-013",
+  "pilotSongIds": [
+    "song-013",
+    "song-020",
+    "song-009",
+    "song-005",
+    "song-002"
+  ],
+  "auditAxes": [
+    "independence-vs-beat-countgrid",
+    "reproducibility",
+    "anchor-kinds-inventory",
+    "rationale-consistency"
+  ],
+  "successMetric": "Phase Anchor exists as observation independent of Beat/CountGrid",
+  "outOfScope": [
+    "analyzer-phase-accuracy",
+    "fusion",
+    "msaf",
+    "pointwise-f1"
+  ],
+  "verdicts": {
+    "A_CONDITIONAL_GO": "extra Pilot \u2192 GO for L3 model design",
+    "B_L3_REEVALUATE": "do not force Layer 3"
+  },
+  "frozen": [
+    "beat-gt",
+    "consensus-gt",
+    "analyzers",
+    "fusion",
+    "msaf",
+    "formation"
+  ],
+  "completedAt": "2026-09-14",
+  "verdict": "A_CONDITIONAL_GO",
+  "report": "docs/fly/reports/phase-anchor-independence-audit.{md,json}"
+}

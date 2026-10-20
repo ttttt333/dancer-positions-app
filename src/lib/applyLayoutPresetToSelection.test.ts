@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { DancerSpot } from "../types/choreography";
 import {
   applyLayoutPresetToTargetDancers,
+  frontRowCentroidOf,
   layoutPresetPositionsById,
   resolveChangeTargetIds,
+  resolveNearestMatchSpots,
   translateSpotsToMatchCentroid,
+  translateSpotsToMatchFrontRow,
 } from "./applyLayoutPresetToSelection";
 import {
   dancersForLayoutPreset,
+  transferDancerIdentitiesByNearestPosition,
   transferDancerIdentitiesByOrder,
 } from "./formationLayouts";
 
@@ -31,6 +35,19 @@ function spot(
 function identityOf(d: DancerSpot) {
   const { xPct: _x, yPct: _y, ...rest } = d;
   return rest;
+}
+
+function totalTravelSq(from: DancerSpot[], to: DancerSpot[]): number {
+  const byId = new Map(to.map((d) => [d.id, d]));
+  let sum = 0;
+  for (const a of from) {
+    const b = byId.get(a.id);
+    if (!b) continue;
+    const dx = a.xPct - b.xPct;
+    const dy = a.yPct - b.yPct;
+    sum += dx * dx + dy * dy;
+  }
+  return sum;
 }
 
 describe("resolveChangeTargetIds", () => {
@@ -61,24 +78,92 @@ describe("resolveChangeTargetIds", () => {
 });
 
 describe("applyLayoutPresetToTargetDancers", () => {
-  it("matches existing Change identity transfer when everyone is the target", () => {
-    const dancers = [
-      spot("a", 10, 40, { facingDeg: 15 }),
-      spot("b", 20, 40),
-      spot("c", 30, 40),
-    ];
+  it("assigns by nearest travel (not roster order) for full-formation Change", () => {
+    const dancers = [spot("a", 80, 50), spot("b", 20, 50)];
     const next = applyLayoutPresetToTargetDancers(
       dancers,
       dancers.map((d) => d.id),
       "line"
     );
-    const expected = transferDancerIdentitiesByOrder(
-      dancersForLayoutPreset(3, "line"),
+    const byOrder = transferDancerIdentitiesByOrder(
+      dancersForLayoutPreset(2, "line"),
       dancers
     );
-    expect(next.map((d) => d.id)).toEqual(expected.map((d) => d.id));
-    expect(next.map((d) => d.xPct)).toEqual(expected.map((d) => d.xPct));
-    expect(next.map((d) => d.yPct)).toEqual(expected.map((d) => d.yPct));
+    const byNearest = transferDancerIdentitiesByNearestPosition(
+      dancersForLayoutPreset(2, "line"),
+      dancers
+    );
+    expect(next.map((d) => d.id)).toEqual(dancers.map((d) => d.id));
+    expect(totalTravelSq(dancers, next)).toBeLessThanOrEqual(
+      totalTravelSq(dancers, byOrder)
+    );
+    expect(next.find((d) => d.id === "a")!.xPct).toBe(
+      byNearest.find((d) => d.id === "a")!.xPct
+    );
+    expect(next.find((d) => d.id === "b")!.xPct).toBe(
+      byNearest.find((d) => d.id === "b")!.xPct
+    );
+  });
+
+  it("uses previous-cue positions as the travel baseline when matchSource is set", () => {
+    const prev = [spot("a", 20, 50), spot("b", 80, 50)];
+    const current = [spot("a", 50, 50), spot("b", 55, 50)];
+    const next = applyLayoutPresetToTargetDancers(
+      current,
+      current.map((d) => d.id),
+      "line",
+      undefined,
+      prev
+    );
+    const slots = translateSpotsToMatchFrontRow(
+      dancersForLayoutPreset(2, "line"),
+      prev
+    );
+    const fromPrev = transferDancerIdentitiesByNearestPosition(
+      slots,
+      resolveNearestMatchSpots(current, prev)
+    );
+    expect(next.find((d) => d.id === "a")!.xPct).toBe(
+      fromPrev.find((d) => d.id === "a")!.xPct
+    );
+    expect(next.find((d) => d.id === "b")!.xPct).toBe(
+      fromPrev.find((d) => d.id === "b")!.xPct
+    );
+    expect(next.find((d) => d.id === "a")!.xPct).toBeLessThan(
+      next.find((d) => d.id === "b")!.xPct
+    );
+  });
+
+  it("assigns on final slots (front-row anchored) so travel from prev cue is shortest", () => {
+    /** 前キュー: A は左奥、B は右手前。中央寄せ後に割当すると交差しやすい配置 */
+    const prev = [spot("a", 15, 35), spot("b", 85, 75)];
+    const current = [spot("a", 40, 50), spot("b", 60, 50)];
+    const next = applyLayoutPresetToTargetDancers(
+      current,
+      current.map((d) => d.id),
+      "line",
+      undefined,
+      prev
+    );
+    const slots = translateSpotsToMatchFrontRow(
+      dancersForLayoutPreset(2, "line"),
+      prev
+    );
+    const matchSpots = resolveNearestMatchSpots(current, prev);
+    const optimal = transferDancerIdentitiesByNearestPosition(slots, matchSpots);
+    expect(next.find((d) => d.id === "a")!.xPct).toBe(
+      optimal.find((d) => d.id === "a")!.xPct
+    );
+    expect(next.find((d) => d.id === "b")!.xPct).toBe(
+      optimal.find((d) => d.id === "b")!.xPct
+    );
+    /** 交差しない: 左にいた A は左スロットへ */
+    expect(next.find((d) => d.id === "a")!.xPct).toBeLessThan(
+      next.find((d) => d.id === "b")!.xPct
+    );
+    expect(totalTravelSq(matchSpots, next)).toBeLessThanOrEqual(
+      totalTravelSq(matchSpots, optimal) + 1e-6
+    );
   });
 
   it("moves only the selected people and keeps everyone else's position and id", () => {
@@ -96,11 +181,7 @@ describe("applyLayoutPresetToTargetDancers", () => {
     const dancers = [...back, ...front];
     const selected = front.map((d) => d.id);
 
-    const next = applyLayoutPresetToTargetDancers(
-      dancers,
-      selected,
-      "line"
-    );
+    const next = applyLayoutPresetToTargetDancers(dancers, selected, "line");
 
     expect(next.map((d) => d.id)).toEqual(dancers.map((d) => d.id));
     for (const id of ["b1", "b2", "b3"]) {
@@ -131,11 +212,7 @@ describe("applyLayoutPresetToTargetDancers", () => {
     const dancers = [...backRow, ...frontRow];
     const selected = frontRow.map((d) => d.id);
 
-    const next = applyLayoutPresetToTargetDancers(
-      dancers,
-      selected,
-      "pyramid"
-    );
+    const next = applyLayoutPresetToTargetDancers(dancers, selected, "pyramid");
 
     for (const d of backRow) {
       const after = next.find((x) => x.id === d.id)!;
@@ -146,8 +223,7 @@ describe("applyLayoutPresetToTargetDancers", () => {
     const moved = next.filter((d) => selected.includes(d.id));
     const ys = [...new Set(moved.map((d) => Math.round(d.yPct)))];
     expect(ys.length).toBeGreaterThan(1);
-    const cy =
-      moved.reduce((s, d) => s + d.yPct, 0) / moved.length;
+    const cy = moved.reduce((s, d) => s + d.yPct, 0) / moved.length;
     expect(cy).toBeGreaterThan(55);
   });
 
@@ -175,6 +251,53 @@ describe("translateSpotsToMatchCentroid", () => {
     expect(from.x).toBeCloseTo(30, 5);
     expect(from.y).toBeCloseTo(80, 5);
     expect(next[1]!.xPct - next[0]!.xPct).toBeCloseTo(20, 5);
+  });
+});
+
+describe("translateSpotsToMatchFrontRow", () => {
+  it("anchors the new front row to the previous cue's front row depth", () => {
+    const prev = [
+      spot("b1", 30, 30),
+      spot("b2", 50, 30),
+      spot("b3", 70, 30),
+      spot("f1", 25, 72),
+      spot("f2", 50, 72),
+      spot("f3", 75, 72),
+    ];
+    const centeredLine = dancersForLayoutPreset(3, "line");
+    const next = translateSpotsToMatchFrontRow(centeredLine, prev);
+    const front = frontRowCentroidOf(next)!;
+    expect(front.y).toBeCloseTo(72, 0);
+  });
+
+  it("full-formation Change with matchSource places line near previous front row", () => {
+    const prev = [
+      spot("a", 20, 70),
+      spot("b", 50, 70),
+      spot("c", 80, 70),
+    ];
+    const current = [
+      spot("a", 20, 40),
+      spot("b", 50, 40),
+      spot("c", 80, 40),
+    ];
+    const withoutPrev = applyLayoutPresetToTargetDancers(
+      current,
+      current.map((d) => d.id),
+      "line"
+    );
+    const withPrev = applyLayoutPresetToTargetDancers(
+      current,
+      current.map((d) => d.id),
+      "line",
+      undefined,
+      prev
+    );
+    const yWithout =
+      withoutPrev.reduce((s, d) => s + d.yPct, 0) / withoutPrev.length;
+    const yWith = withPrev.reduce((s, d) => s + d.yPct, 0) / withPrev.length;
+    expect(yWith).toBeGreaterThan(yWithout + 10);
+    expect(yWith).toBeCloseTo(70, 0);
   });
 });
 

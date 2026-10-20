@@ -16,10 +16,17 @@ type Params = {
   projectRef: MutableRefObject<ChoreographyProjectJson | null>;
   projectName: string;
   serverId: number | null;
-  syncProjectToCloud: () => Promise<{ id: number; share_token?: string | null }>;
+  syncProjectToCloud: (opts?: {
+    force?: boolean;
+    quietConflict?: boolean;
+  }) => Promise<{
+    id: number;
+    share_token?: string | null;
+    conflict?: unknown;
+  }>;
   setSaving: (saving: boolean) => void;
-  /** プロジェクト内容の変化検知用（JSON シグネチャ等） */
-  projectChangeSig: string;
+  /** 変化検知用。編集のたびに新しい参照になる作品オブジェクトを渡す */
+  projectChangeSig: unknown;
 };
 
 /**
@@ -64,7 +71,8 @@ export function useEditorAutoSave({
         return;
       }
       if (json === lastCloudJsonRef.current) {
-        persistLocalDraft();
+        // クラウドと同一なら草稿を残さない（再読込時の競合ダイアログ連発を防ぐ）
+        clearEditorDraft(serverId);
         return;
       }
       if (cloudInFlightRef.current) {
@@ -74,7 +82,12 @@ export function useEditorAutoSave({
       cloudInFlightRef.current = true;
       if (!opts?.silent) setSaving(true);
       try {
-        await syncProjectToCloud();
+        // 自動保存は競合ダイアログを出さない（手動保存・⌘S のみ警告）
+        const result = await syncProjectToCloud({ quietConflict: true });
+        if (result.conflict) {
+          persistLocalDraft();
+          return;
+        }
         lastCloudJsonRef.current = json;
         clearEditorDraft(serverId);
       } catch {
@@ -109,6 +122,8 @@ export function useEditorAutoSave({
   }, [flushCloudSave]);
 
   const scheduleLocalDraft = useCallback(() => {
+    // 端末草稿は少しまとめて書く（ドラッグ中に毎フレーム全体を書き込むと重くなる）。
+    // 再読込・タブを閉じる直前は pagehide / visibilitychange で必ず書き出す
     if (localTimerRef.current != null) {
       window.clearTimeout(localTimerRef.current);
     }

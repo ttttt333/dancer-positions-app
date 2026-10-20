@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useRef } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { flushEditorAutoSaveBeforeLeave } from "../../lib/editorAutoSaveBridge";
 import { StageBoard } from "../../components/StageBoard";
-import { EditorPerspectiveToggle } from "../../components/EditorPerspectiveToggle";
+import {
+  EditorPerspectiveToggle,
+  EditorStageView3DToggle,
+} from "../../components/EditorPerspectiveToggle";
 import { EditorStageWorkbench, WorkbenchCuePager } from "../../components/EditorStageWorkbench";
 import { RosterTimelineStrip } from "../../components/RosterTimelineStrip";
 import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
@@ -15,11 +18,22 @@ import { playbackEngine } from "../../core/playbackEngine";
 import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSession";
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
-import {
-  PUBLIC_VIEWER_MARKER_DISPLAY_SCALE,
-} from "../../components/ChoreoViewerBottomBar";
+import { useViewerChromeStore } from "../../store/viewerChromeStore";
 import { sortCuesByStart } from "../../core/timelineController";
+import { pickCueAfterDelete } from "../../lib/cueSelectionAfterDelete";
+import {
+  notifyFormationChosenWhenStopped,
+  syncPlaybackHeadAfterCueEditWhenStopped,
+} from "../../lib/playbackTransport";
+import { cueSelectionExtentSec } from "../../lib/cueSelectionExtent";
 import { TransportIconUndo, TransportIconRedo } from "../../components/mobile/TransportIcons";
+import type { DancerSpot } from "../../types/choreography";
+import { applyDancerFigure3d } from "../../lib/applyDancerFigure3d";
+import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "../../lib/projectDefaults";
+
+const Stage3DView = lazy(() =>
+  import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
+);
 
 export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const activeFormationId = props.activeFormationId as never;
@@ -62,12 +76,14 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const editorSurfaceEl = props.editorSurfaceEl as never;
   const editorViewerSheetOpen = props.editorViewerSheetOpen as never;
   const endGestureHistory = props.endGestureHistory as never;
+  const historyOverlayEpoch = props.historyOverlayEpoch as never;
   const endSplitDrag = props.endSplitDrag as never;
   const endTopDockResize = props.endTopDockResize as never;
   const exportDialogEl = props.exportDialogEl as never;
   const f = props.f as never;
   const fid = props.fid as never;
   const floorMarkupTool = props.floorMarkupTool as never;
+  const floorLineScope = props.floorLineScope as never;
   const floorTextPlaceSession = props.floorTextPlaceSession as never;
   const floorTextSideSheetOpen = props.floorTextSideSheetOpen as never;
   const flowLibraryDialogEl = props.flowLibraryDialogEl as never;
@@ -101,7 +117,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const onSplitLostCapture = props.onSplitLostCapture as never;
   const onSplitPointerDown = props.onSplitPointerDown as never;
   const onSplitPointerMove = props.onSplitPointerMove as never;
-  const onStageGridCmInput = props.onStageGridCmInput as never;
+  const onSleeveCurtainsChange = props.onSleeveCurtainsChange as never;
+  const onCenterMarksChange = props.onCenterMarksChange as never;
+  const onStageLightsChange = props.onStageLightsChange as never;
+  const selectedStageLightId = props.selectedStageLightId as never;
+  const setSelectedStageLightId = props.setSelectedStageLightId as never;
   const onTopDockResizeDoubleClick = props.onTopDockResizeDoubleClick as never;
   const onTopDockResizeDown = props.onTopDockResizeDown as never;
   const onTopDockResizeMove = props.onTopDockResizeMove as never;
@@ -145,6 +165,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const setEditorViewerPreviewPick = props.setEditorViewerPreviewPick as never;
   const setEditorViewerSheetOpen = props.setEditorViewerSheetOpen as never;
   const setFloorMarkupTool = props.setFloorMarkupTool as never;
+  const setFloorLineScope = props.setFloorLineScope as never;
   const setFloorTextPlaceSession = props.setFloorTextPlaceSession as never;
   const setFloorTextSideSheetOpen = props.setFloorTextSideSheetOpen as never;
   const setFlowLibraryOpen = props.setFlowLibraryOpen as never;
@@ -174,12 +195,23 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     props.setEditorAudiencePerspective as (
       next: "stage" | "audience"
     ) => void;
+  const stageView = (props.stageView as "2d" | "3d" | undefined) ?? "2d";
+  const setStageView = props.setStageView as
+    | ((next: "2d" | "3d") => void)
+    | undefined;
+  const onStageViewChange = useCallback(
+    (next: "2d" | "3d") => {
+      setStageView?.(next);
+    },
+    [setStageView]
+  );
   const setStageZenFullscreen = props.setStageZenFullscreen as never;
   const setTextPanelPortalEl = props.setTextPanelPortalEl as never;
   const shareLinksOpen = props.shareLinksOpen as never;
   const shareLinksUrls = props.shareLinksUrls as never;
   const shortcutsHelpOpen = props.shortcutsHelpOpen as never;
   const showTopWaveDock = props.showTopWaveDock as never;
+  const showMotionArrows = props.showMotionArrows as never;
   const sortedCuesForEditor = props.sortedCuesForEditor as never;
   const stageAreaDraftHasMainFloor = props.stageAreaDraftHasMainFloor as never;
   const stageAreaPresetList = props.stageAreaPresetList as never;
@@ -210,6 +242,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const undo = props.undo as never;
   const v = props.v as never;
   const viewerLocalStorageKey = props.viewerLocalStorageKey as never;
+  const viewerMarkerDisplayScale = useViewerChromeStore(
+    (s) => s.markerDisplayScale
+  );
+  const viewerNameLabelScale = useViewerChromeStore((s) => s.nameLabelScale);
+  const viewerAutoNameFit = useViewerChromeStore((s) => s.autoNameFit);
   const wideBottomDockPx = props.wideBottomDockPx as never;
   const wideEditorLayout = props.wideEditorLayout as never;
   const workbenchInRightRail = props.workbenchInRightRail as never;
@@ -368,14 +405,14 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     const showPager = cues.length > 0 || hasRoster;
 
     setMobileShellBridge({
-      stageView: "2d",
+      stageView,
       undoDisabled: stageUndoDisabled as boolean,
       redoDisabled: stageRedoDisabled as boolean,
       currentCueIndex: slotIdx >= 0 ? slotIdx : 0,
       totalCues: total,
       onCuePrev: handleMobileCuePrev,
       onCueNext: handleMobileCueNext,
-      onStageViewChange: () => {},
+      onStageViewChange,
       onAddCue: () => addCueFnRef.current?.(true),
       onDeleteSelectedCue: () => {
         if ((project as { viewMode?: string }).viewMode === "view") return;
@@ -385,11 +422,49 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
             ? selectedCueId
             : null;
         if (!id || !cues.some((c) => c.id === id)) return;
-        setProjectSafe((prev: { cues: Array<{ id: string }> } & Record<string, unknown>) => ({
-          ...prev,
-          cues: sortCuesByStart(prev.cues.filter((c) => c.id !== id)),
-        }));
-        setSelectedCueIds((prev: string[]) => prev.filter((x) => x !== id));
+        const deleted = new Set([id]);
+        let nextSelected: string[] = [];
+        let seekT: number | null = null;
+        let trimStartSec = 0;
+        let trimEndSec: number | null = null;
+        setProjectSafe(
+          (
+            prev: {
+              cues: Array<{
+                id: string;
+                tStartSec: number;
+                tEndSec: number;
+                formationId: string;
+              }>;
+              trimStartSec?: number;
+              trimEndSec?: number | null;
+              activeFormationId?: string;
+            } & Record<string, unknown>
+          ) => {
+            const pick = pickCueAfterDelete(prev.cues, deleted);
+            nextSelected = pick ? [pick.id] : [];
+            seekT = pick ? pick.tStartSec : null;
+            trimStartSec =
+              typeof prev.trimStartSec === "number" ? prev.trimStartSec : 0;
+            trimEndSec = prev.trimEndSec ?? null;
+            return {
+              ...prev,
+              cues: sortCuesByStart(prev.cues.filter((c) => c.id !== id)),
+              ...(pick ? { activeFormationId: pick.formationId } : {}),
+            };
+          }
+        );
+        setSelectedCueIds(nextSelected);
+        if (seekT != null) {
+          const dur = typeof duration === "number" ? duration : 0;
+          syncPlaybackHeadAfterCueEditWhenStopped({
+            t: seekT,
+            durationSec: dur,
+            trimStartSec,
+            trimEndSec,
+          });
+          notifyFormationChosenWhenStopped(undefined);
+        }
       },
       canDeleteSelectedCue:
         (project as { viewMode?: string }).viewMode !== "view" &&
@@ -425,6 +500,18 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       cueStartTimes: Array.isArray(sortedCuesForEditor)
         ? (sortedCuesForEditor as Array<{ tStartSec: number }>).map((c) => c.tStartSec)
         : [],
+      selectedCueRangeSec: (() => {
+        if (typeof selectedCueId !== "string" || selectedCueId.length === 0) return null;
+        const cue = (cues as Array<{ id: string; tStartSec: number; tEndSec: number }>).find(
+          (c) => c.id === selectedCueId
+        );
+        if (!cue) return null;
+        const extent = cueSelectionExtentSec(
+          cue,
+          cues as Array<{ id: string; tStartSec: number; tEndSec: number }>
+        );
+        return { startSec: extent.startSec, endSec: extent.endSec };
+      })(),
       onSelectCueNearTime: handleMobileSelectCueNearTime,
       trimStartSec:
         typeof (project as { trimStartSec?: number })?.trimStartSec === "number"
@@ -449,6 +536,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     setFormationPresetPickerOpen,
     setProjectSafe,
     setSelectedCueIds,
+    duration,
+    stageView,
+    onStageViewChange,
   ]);
 
   return (
@@ -757,26 +847,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       >
                         ホーム
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormationPresetPickerOpen(true)}
-                        title="立ち位置の雛形を選ぶ"
-                        aria-label="立ち位置の雛形を選ぶ"
-                        style={{
-                          ...btnSecondary,
-                          minHeight: 32,
-                          padding: "4px 10px",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          borderRadius: 8,
-                          borderColor: "#d4af37",
-                          color: "#fef3c7",
-                          background: "rgba(15,23,42,0.88)",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-                        }}
-                      >
-                        Change
-                      </button>
+                      {/* Change/雛形は縦画面ボトムバーへ移したのでステージ角からは出さない */}
                     </div>
                     <div
                       style={{
@@ -793,44 +864,22 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         compact
                         style={{ width: "100%", minHeight: 32 }}
                       />
-                      <Link
-                        to="/update-log"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={t("updateLog.openTitle")}
-                        aria-label={t("updateLog.openAria")}
-                        style={{
-                          ...btnSecondary,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          minHeight: 32,
-                          boxSizing: "border-box",
-                          padding: "4px 6px",
-                          fontSize: 9,
-                          fontWeight: 750,
-                          lineHeight: 1,
-                          letterSpacing: "0.04em",
-                          borderRadius: 8,
-                          whiteSpace: "nowrap",
-                          textAlign: "center",
-                          textDecoration: "none",
-                          borderColor: "rgba(96, 165, 250, 0.55)",
-                          color: "#dbeafe",
-                          background: "rgba(30, 58, 138, 0.55)",
-                        }}
-                      >
-                        UPDATE LOG
-                      </Link>
+                      <EditorStageView3DToggle
+                        stageView={stageView}
+                        onChange={onStageViewChange}
+                        compact
+                        style={{ width: "100%", minHeight: 32 }}
+                      />
                     </div>
                   </div>
                 ) : (
                   <div
                     role="group"
-                    aria-label="客席側／舞台裏側の視点切り替え"
+                    aria-label="視点・表示モード"
                     style={{
                       display: choreoPublicView ? "none" : "flex",
-                      flexDirection: "row",
+                      flexDirection: "column",
+                      alignItems: "stretch",
                       gap: mobileStackEditor ? 4 : 3,
                       flexShrink: 0,
                     }}
@@ -838,6 +887,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     <EditorPerspectiveToggle
                       perspective={editorAudiencePerspective}
                       onChange={setEditorAudiencePerspective}
+                      compact={Boolean(mobileStackEditor)}
+                    />
+                    <EditorStageView3DToggle
+                      stageView={stageView}
+                      onChange={onStageViewChange}
                       compact={Boolean(mobileStackEditor)}
                     />
                   </div>
@@ -853,6 +907,202 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   flexDirection: "column",
                 }}
               >
+                {stageView === "3d" ? (
+                  <Suspense
+                    fallback={
+                      <div
+                        style={{
+                          flex: 1,
+                          minHeight: 0,
+                          display: "grid",
+                          placeItems: "center",
+                          color: "#94a3b8",
+                          fontSize: 13,
+                        }}
+                      >
+                        3Dを読み込み中…
+                      </div>
+                    }
+                  >
+                    <Stage3DView
+                      dancers={(() => {
+                        const base =
+                          (stagePreviewDancers as DancerSpot[] | null | undefined) ??
+                          (playbackDancersForStage as DancerSpot[] | null | undefined) ??
+                          (browseFormationDancers as DancerSpot[] | null | undefined) ??
+                          [];
+                        const crews = Array.isArray(project.crews)
+                          ? project.crews
+                          : [];
+                        const heightByMemberId = new Map<string, number>();
+                        const genderByMemberId = new Map<string, string>();
+                        for (const c of crews) {
+                          for (const m of c.members ?? []) {
+                            if (
+                              typeof m.heightCm === "number" &&
+                              Number.isFinite(m.heightCm) &&
+                              m.heightCm > 0
+                            ) {
+                              heightByMemberId.set(m.id, m.heightCm);
+                            }
+                            if (m.genderLabel?.trim()) {
+                              genderByMemberId.set(
+                                m.id,
+                                m.genderLabel.trim().slice(0, 32)
+                              );
+                            }
+                          }
+                        }
+                        if (
+                          heightByMemberId.size === 0 &&
+                          genderByMemberId.size === 0
+                        ) {
+                          return base;
+                        }
+                        return base.map((d) => {
+                          let next = d;
+                          if (
+                            !(
+                              typeof d.heightCm === "number" &&
+                              Number.isFinite(d.heightCm) &&
+                              d.heightCm > 0
+                            ) &&
+                            d.crewMemberId != null
+                          ) {
+                            const fromCrew = heightByMemberId.get(d.crewMemberId);
+                            if (fromCrew != null) {
+                              next = { ...next, heightCm: fromCrew };
+                            }
+                          }
+                          if (
+                            !d.genderLabel?.trim() &&
+                            d.crewMemberId != null
+                          ) {
+                            const g = genderByMemberId.get(d.crewMemberId);
+                            if (g) next = { ...next, genderLabel: g };
+                          }
+                          return next;
+                        });
+                      })()}
+                      markerDiameterPx={
+                        typeof (stageBoardProject as { dancerMarkerDiameterPx?: number })
+                          ?.dancerMarkerDiameterPx === "number"
+                          ? (stageBoardProject as { dancerMarkerDiameterPx: number })
+                              .dancerMarkerDiameterPx
+                          : DEFAULT_DANCER_MARKER_DIAMETER_PX
+                      }
+                      stageWidthMm={
+                        typeof project.stageWidthMm === "number"
+                          ? project.stageWidthMm
+                          : null
+                      }
+                      stageDepthMm={
+                        typeof project.stageDepthMm === "number"
+                          ? project.stageDepthMm
+                          : null
+                      }
+                      centerFieldGuideIntervalMm={
+                        typeof project.centerFieldGuideIntervalMm === "number"
+                          ? project.centerFieldGuideIntervalMm
+                          : null
+                      }
+                      stageGridLinesVertical={
+                        project.stageGridLinesVerticalEnabled ??
+                        project.stageGridLinesEnabled ??
+                        false
+                      }
+                      stageGridLinesHorizontal={
+                        project.stageGridLinesHorizontalEnabled ??
+                        project.stageGridLinesEnabled ??
+                        false
+                      }
+                      stageGridSpacingWidthMm={
+                        typeof project.stageGridSpacingWidthMm === "number"
+                          ? project.stageGridSpacingWidthMm
+                          : null
+                      }
+                      stageGridSpacingDepthMm={
+                        typeof project.stageGridSpacingDepthMm === "number"
+                          ? project.stageGridSpacingDepthMm
+                          : null
+                      }
+                      stageGridLineSpacingMm={
+                        typeof project.stageGridLineSpacingMm === "number"
+                          ? project.stageGridLineSpacingMm
+                          : null
+                      }
+                      audienceEdge={
+                        (audienceEdgeOverride as "top" | "bottom" | undefined) ??
+                        (project.audienceEdge === "top" ? "top" : "bottom")
+                      }
+                      readOnly={project.viewMode === "view"}
+                      onPatchDancer={(dancerId, patch) => {
+                        if (project.viewMode === "view") return;
+                        setProjectSafe((p: typeof project) => {
+                          const fid = p.activeFormationId;
+                          const form = p.formations.find((f) => f.id === fid);
+                          const spot = form?.dancers.find((d) => d.id === dancerId);
+                          if (!form || !spot) return p;
+                          const cmid = spot.crewMemberId;
+                          let nextProject = p;
+                          if (cmid && patch.genderLabel !== undefined) {
+                            nextProject = {
+                              ...nextProject,
+                              crews: nextProject.crews.map((crew) => ({
+                                ...crew,
+                                members: crew.members.map((m) =>
+                                  m.id === cmid
+                                    ? {
+                                        ...m,
+                                        genderLabel: patch.genderLabel,
+                                        colorOverridesGender: undefined,
+                                      }
+                                    : m
+                                ),
+                              })),
+                            };
+                          }
+                          if (patch.genderLabel !== undefined) {
+                            nextProject = {
+                              ...nextProject,
+                              formations: nextProject.formations.map((f) => {
+                                if (f.id !== fid) return f;
+                                return {
+                                  ...f,
+                                  dancers: f.dancers.map((d) => {
+                                    if (d.id !== dancerId) return d;
+                                    const {
+                                      genderLabel: _g,
+                                      colorOverridesGender: _c,
+                                      ...rest
+                                    } = d;
+                                    if (patch.genderLabel) {
+                                      return {
+                                        ...rest,
+                                        genderLabel: patch.genderLabel,
+                                      };
+                                    }
+                                    return rest;
+                                  }),
+                                };
+                              }),
+                            };
+                          }
+                          // 3D フィギュア（このキューだけ / すべてのキュー）
+                          if (patch.figure3d !== undefined) {
+                            nextProject = applyDancerFigure3d(nextProject, {
+                              dancerIds: [dancerId],
+                              formationId: fid,
+                              figure3d: patch.figure3d,
+                              scope: patch.figure3dScope ?? "all",
+                            });
+                          }
+                          return nextProject;
+                        });
+                      }}
+                    />
+                  </Suspense>
+                ) : (
                 <StageBoard
                     project={stageBoardProject}
                     setProject={setProjectSafe}
@@ -876,6 +1126,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     onFloorTextPlaceSessionChange={onFloorTextPlaceSessionChange}
                     floorMarkupTool={floorMarkupTool}
                     onFloorMarkupToolChange={setFloorMarkupTool}
+                    floorLineScope={floorLineScope}
+                    onFloorLineScopeChange={setFloorLineScope}
                     hideFloorMarkupFloatingToolbars={showTopWaveDock}
                     textPanelPortalTarget={showTopWaveDock ? textPanelPortalEl : null}
                     onOpenTextEditSheet={showTopWaveDock ? (id, draft, isGlobal, markup) => {
@@ -890,6 +1142,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         xPct: markup?.xPct ?? 50,
                         yPct: markup?.yPct ?? 50,
                         scale: markup?.scale ?? 1,
+                        textAlign: markup?.textAlign ?? "left",
                         scope: isGlobal ? "global" : "formation",
                       });
                       setFloorTextSideSheetOpen(true);
@@ -903,20 +1156,31 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     onGestureHistoryCancel={
                       collabActive ? undefined : cancelGestureHistory
                     }
+                    historyOverlayEpoch={
+                      collabActive ? 0 : (historyOverlayEpoch as number)
+                    }
                     markHistorySkipNextPush={
                       collabActive ? undefined : markHistorySkipNextPush
                     }
                     viewportTextOverlayRoot={editorSurfaceEl}
                     studentViewerFocus={studentViewerFocusForStage}
                     markerDisplayScale={
-                      choreoPublicView ? PUBLIC_VIEWER_MARKER_DISPLAY_SCALE : 1
+                      choreoPublicView
+                        ? viewerMarkerDisplayScale
+                        : 1
+                    }
+                    nameLabelDisplayScale={
+                      choreoPublicView ? viewerNameLabelScale : 1
+                    }
+                    nameLabelAutoFit={
+                      choreoPublicView ? viewerAutoNameFit : false
                     }
                     compactViewportChrome={choreoPublicView}
                     compactLandscapeViewport={choreoPublicView && publicViewTightHeight}
                     hideStageFloorTextMarkup={choreoPublicView}
                     audienceEdgeOverride={audienceEdgeOverride}
                     trashDropEdge={mobileStackEditor ? "bottom" : "left"}
-                    showMotionArrows={false}
+                    showMotionArrows={Boolean(showMotionArrows)}
                     enablePinchViewport={
                       Boolean(mobileStackEditor) || Boolean(publicNarrowLayout)
                     }
@@ -937,7 +1201,34 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     editCueId={
                       typeof selectedCueId === "string" ? selectedCueId : null
                     }
+                    onSleeveCurtainsChange={
+                      choreoPublicView || project.viewMode === "view"
+                        ? undefined
+                        : onSleeveCurtainsChange
+                    }
+                    onCenterMarksChange={
+                      choreoPublicView || project.viewMode === "view"
+                        ? undefined
+                        : onCenterMarksChange
+                    }
+                    stageArchitectureEditActive={Boolean(stageAreaSettingsOpen)}
+                    onStageLightsChange={
+                      choreoPublicView || project.viewMode === "view"
+                        ? undefined
+                        : onStageLightsChange
+                    }
+                    selectedStageLightId={
+                      typeof selectedStageLightId === "string"
+                        ? selectedStageLightId
+                        : null
+                    }
+                    onSelectStageLightId={
+                      typeof setSelectedStageLightId === "function"
+                        ? setSelectedStageLightId
+                        : undefined
+                    }
                   />
+                )}
                 {mobileStackEditor &&
                 editorMobileLandscape &&
                 !landscapeWaveCollapsed &&
@@ -952,15 +1243,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     <div className="editor-stage-landscape-stack">
                       <button
                         type="button"
-                        className="editor-stage-landscape-btn editor-stage-landscape-btn--change"
-                        onClick={() => setFormationPresetPickerOpen(true)}
-                        title="立ち位置の雛形を選ぶ"
-                        aria-label="立ち位置の雛形を選ぶ"
-                      >
-                        Change
-                      </button>
-                      <button
-                        type="button"
                         className="editor-stage-landscape-btn editor-stage-landscape-btn--wave-collapse"
                         onClick={() => onLandscapeWaveCollapse?.()}
                         aria-label="波形をたたむ"
@@ -969,9 +1251,24 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         <span aria-hidden>▼</span>
                         <span>たたむ</span>
                       </button>
+                      <button
+                        type="button"
+                        className="editor-stage-landscape-btn editor-stage-landscape-btn--change"
+                        onClick={() => setFormationPresetPickerOpen(true)}
+                        title="立ち位置の雛形を選ぶ"
+                        aria-label="立ち位置の雛形を選ぶ"
+                      >
+                        Change
+                      </button>
                       <EditorPerspectiveToggle
                         perspective={editorAudiencePerspective}
                         onChange={setEditorAudiencePerspective}
+                        compact
+                        className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
+                      />
+                      <EditorStageView3DToggle
+                        stageView={stageView}
+                        onChange={onStageViewChange}
                         compact
                         className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
                       />
@@ -1056,6 +1353,13 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
                       />
                     </div>
+                    <EditorStageView3DToggle
+                      stageView={stageView}
+                      onChange={onStageViewChange}
+                      compact
+                      className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
+                      style={{ width: "70%" }}
+                    />
                     <Link
                       to="/update-log"
                       target="_blank"

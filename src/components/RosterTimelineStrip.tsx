@@ -26,9 +26,22 @@ import {
   sortStandaloneDancerSpots,
 } from "../lib/rosterSortKeys";
 import {
+  memberRosterSelectOptions,
+  memberRosterSkillOptions,
+} from "../lib/memberRosterSheetFields";
+import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
+import {
+  genderLabelForColor,
+  resolveDancerDisplayHex,
+} from "../lib/dancerGender";
+import {
+  countExportableRosterMembers,
+  downloadRosterCsv,
+  downloadRosterXlsx,
+} from "../lib/crewCsvExport";
 import { dancerMarkerDiameterAfterRosterImport } from "../lib/projectDefaults";
 import { useI18n } from "../i18n/I18nContext";
 import {
@@ -220,6 +233,23 @@ export function RosterTimelineStrip({
     setProject((p) => ({ ...p, rosterHidesTimeline: false }));
   }, [setProject]);
 
+  const exportRosterSpreadsheet = useCallback(async () => {
+    const crews = project.crews ?? [];
+    if (countExportableRosterMembers(crews) === 0) {
+      window.alert("書き出す名簿メンバーがいません。");
+      return;
+    }
+    const title =
+      project.pieceTitle?.trim() ||
+      crews.find((c) => c.members.length > 0)?.name ||
+      "名簿";
+    try {
+      await downloadRosterXlsx(crews, { pieceTitle: title });
+    } catch {
+      downloadRosterCsv(crews, { pieceTitle: title });
+    }
+  }, [project.crews, project.pieceTitle]);
+
   const onSortModeChange = useCallback(
     (next: RosterStripSortMode) => {
       setProject((p) => ({ ...p, rosterStripSortMode: next }));
@@ -252,7 +282,18 @@ export function RosterTimelineStrip({
               if (patch.label !== undefined) {
                 /** trim は毎回かけない。空欄も許可（ステージ表示は StageBoard 側で ? フォールバック） */
                 const raw = patch.label.slice(0, 120);
-                nm = { ...nm, label: raw };
+                const keepPrefix =
+                  nm.labelPrefix &&
+                  raw.startsWith(nm.labelPrefix)
+                    ? nm.labelPrefix
+                    : undefined;
+                nm = {
+                  ...nm,
+                  label: raw,
+                  ...(keepPrefix
+                    ? { labelPrefix: keepPrefix }
+                    : { labelPrefix: undefined }),
+                };
               }
               if ("heightCm" in patch) {
                 nm = { ...nm, heightCm: patch.heightCm };
@@ -295,7 +336,10 @@ export function RosterTimelineStrip({
             if (patch.label !== undefined) {
               nd = {
                 ...nd,
-                label: updatedMember.label.trim().slice(0, 8),
+                label: updatedMember.label.trim().slice(0, 120) || "?",
+                ...(updatedMember.labelPrefix
+                  ? { labelPrefix: updatedMember.labelPrefix }
+                  : { labelPrefix: undefined }),
               };
             }
             if ("heightCm" in patch) {
@@ -434,6 +478,9 @@ export function RosterTimelineStrip({
                     {
                       id: crypto.randomUUID(),
                       label: m.label.trim().slice(0, 120) || "?",
+                      ...(m.labelPrefix?.trim()
+                        ? { labelPrefix: m.labelPrefix.trim().slice(0, 8) }
+                        : {}),
                       markerBadge: "",
                       xPct: 50 + (idx % 5) * 5,
                       yPct: 40 + Math.floor(idx / 5) * 10,
@@ -444,6 +491,9 @@ export function RosterTimelineStrip({
                         : {}),
                       ...(m.gradeLabel?.trim()
                         ? { gradeLabel: m.gradeLabel.trim().slice(0, 32) }
+                        : {}),
+                      ...(m.genderLabel?.trim()
+                        ? { genderLabel: m.genderLabel.trim().slice(0, 32) }
                         : {}),
                       ...(m.skillRankLabel?.trim()
                         ? { skillRankLabel: m.skillRankLabel.trim().slice(0, 24) }
@@ -483,6 +533,9 @@ export function RosterTimelineStrip({
             return {
               id: crypto.randomUUID(),
               label: m.label.trim().slice(0, 120) || "?",
+              ...(m.labelPrefix?.trim()
+                ? { labelPrefix: m.labelPrefix.trim().slice(0, 8) }
+                : {}),
               markerBadge: "",
               xPct: 50,
               yPct: 40,
@@ -491,6 +544,9 @@ export function RosterTimelineStrip({
               ...(typeof m.heightCm === "number" ? { heightCm: m.heightCm } : {}),
               ...(m.gradeLabel?.trim()
                 ? { gradeLabel: m.gradeLabel.trim().slice(0, 32) }
+                : {}),
+              ...(m.genderLabel?.trim()
+                ? { genderLabel: m.genderLabel.trim().slice(0, 32) }
                 : {}),
               ...(m.skillRankLabel?.trim()
                 ? { skillRankLabel: m.skillRankLabel.trim().slice(0, 24) }
@@ -607,6 +663,9 @@ export function RosterTimelineStrip({
           return {
             id: crypto.randomUUID(),
             label: m.label.trim().slice(0, 120) || "?",
+            ...(m.labelPrefix?.trim()
+              ? { labelPrefix: m.labelPrefix.trim().slice(0, 8) }
+              : {}),
             markerBadge: "",
             xPct: 50,
             yPct: 40,
@@ -766,6 +825,9 @@ export function RosterTimelineStrip({
             return {
               id: crypto.randomUUID(),
               label: m.label.trim().slice(0, 120) || "?",
+              ...(m.labelPrefix?.trim()
+                ? { labelPrefix: m.labelPrefix.trim().slice(0, 8) }
+                : {}),
               markerBadge: "",
               xPct: 50,
               yPct: 40,
@@ -827,8 +889,13 @@ export function RosterTimelineStrip({
 
   if (flatRows.length === 0) return null;
 
+  const skillRankOptions = memberRosterSkillOptions(flatRows.length);
+
   const chipBg = (m: CrewMember) =>
-    DANCER_PALETTE[modDancerColorIndex(m.colorIndex)];
+    resolveDancerDisplayHex(
+      genderLabelForColor(m),
+      DANCER_PALETTE[modDancerColorIndex(m.colorIndex)]!
+    );
 
   if (collapsed) {
     return (
@@ -971,6 +1038,32 @@ export function RosterTimelineStrip({
               }}
             >
               決定
+            </button>
+            <button
+              type="button"
+              onClick={() => void exportRosterSpreadsheet()}
+              disabled={
+                project.viewMode === "view" || flatRows.length === 0
+              }
+              title="アプリで編集したスキル・学年・身長などを Excel / スプレッドシート用ファイルに書き出します。書き出したファイルを編集して、再び「名簿取り込み」で読み込めます。"
+              style={{
+                fontSize: "10px",
+                padding: "2px 8px",
+                borderRadius: "6px",
+                border: "1px solid #334155",
+                background: "#0f172a",
+                color: "#e2e8f0",
+                cursor:
+                  project.viewMode === "view" || flatRows.length === 0
+                    ? "not-allowed"
+                    : "pointer",
+                whiteSpace: "nowrap",
+                fontWeight: 600,
+                lineHeight: 1.2,
+                flexShrink: 0,
+              }}
+            >
+              表に書き出し
             </button>
             <button
               type="button"
@@ -1322,19 +1415,28 @@ export function RosterTimelineStrip({
                   }
                   style={inp}
                 />
-                <input
+                <select
                   aria-label={t("editor.comp.k025")}
-                  placeholder={t("editor.comp.k025")}
+                  title="スキル（小さいほど上手）。名簿人数分の番号から選びます"
                   disabled={vm}
                   value={m.skillRankLabel ?? ""}
-                  maxLength={24}
                   onChange={(e) =>
                     updateCrewMemberInProject(row.crewId, m.id, {
                       skillRankLabel: e.target.value,
                     })
                   }
                   style={inp}
-                />
+                >
+                  <option value="">—</option>
+                  {memberRosterSelectOptions(
+                    skillRankOptions,
+                    m.skillRankLabel
+                  ).map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
                 <div
                   style={{
                     display: "flex",
@@ -1398,7 +1500,7 @@ export function RosterTimelineStrip({
           })}
         </div>
         <div style={{ fontSize: "9px", color: "#64748b", flexShrink: 0, lineHeight: 1.3, marginTop: "1px" }}>
-          上部の「メンバー追加」で行を足せます。表示名・身長・学年・スキルを編集したうえで「追加」、「削除」で名簿からすぐ除外できます（取り消しは戻る）。並び順は上のプルダウンまたは雛形モーダル内で選べます。約{" "}
+          上部の「メンバー追加」で行を足せます。表示名・身長・学年・スキルを編集したうえで「追加」、「削除」で名簿からすぐ除外できます（取り消しは戻る）。並び順は上のプルダウンまたは雛形モーダル内で選べます。「表に書き出し」で Excel 用ファイルに保存し、スプレッドシートで直してから再び「名簿取り込み」できます。約{" "}
           {ROWS_PER_PAGE} 行が収まるよう行高を調整しています。
         </div>
       </div>
@@ -1771,19 +1873,28 @@ export function RosterTimelineStrip({
                   }
                   style={chipInp}
                 />
-                <input
+                <select
                   aria-label={t("editor.comp.k025")}
-                  placeholder={t("editor.comp.k025")}
+                  title="スキル（小さいほど上手）。名簿人数分の番号から選びます"
                   disabled={vm}
                   value={m.skillRankLabel ?? ""}
-                  maxLength={24}
                   onChange={(e) =>
                     updateCrewMemberInProject(row.crewId, m.id, {
                       skillRankLabel: e.target.value,
                     })
                   }
                   style={chipInp}
-                />
+                >
+                  <option value="">—</option>
+                  {memberRosterSelectOptions(
+                    skillRankOptions,
+                    m.skillRankLabel
+                  ).map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
               </div>
               <span style={{ fontSize: "9px", color: "#64748b" }} title={row.crewName}>
                 {row.crewName}

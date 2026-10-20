@@ -1,0 +1,258 @@
+{
+  "specId": "4.6-f-phase-anchor-independence-audit-v1",
+  "status": "COMPLETE",
+  "ranAt": "2026-09-14T03:55:07.899192+00:00",
+  "centerSong": "song-013",
+  "pilotSongIds": [
+    "song-013",
+    "song-020",
+    "song-009",
+    "song-005",
+    "song-002"
+  ],
+  "soleQuestion": "Was an independent observation discovered that justifies existing L3 — not Analyzer accuracy?",
+  "tolerancesSec": {
+    "near": 0.08,
+    "softNear": 0.25
+  },
+  "axes": {
+    "independence": {
+      "counts": {
+        "FAR_FROM_ORIGIN_ON_LATER_GRID": 3,
+        "FAR_FROM_ORIGIN_OFF_OR_HALF_GRID": 1,
+        "TIME_NEAR_ORIGIN_REASON_INDEPENDENT": 1
+      },
+      "summary": "4/5 FAR from Beat0/CountGrid; NEAR_COPY=0"
+    },
+    "reproducibility": {
+      "doubleAnnotation": false,
+      "confidence": [
+        0.7,
+        0.7,
+        0.7,
+        0.7,
+        0.7
+      ],
+      "assessment": "Single-annotator Pilot only. conf uniformly 0.7. Shared decision rule visible (section/vocal entry). Second annotator needed before strong reproducibility claim."
+    },
+    "anchorKinds": {
+      "inventory": {
+        "SECTION": 4,
+        "HIT": 1,
+        "VOCAL": 2
+      },
+      "primary": [
+        "SECTION",
+        "SECTION",
+        "SECTION",
+        "VOCAL",
+        "VOCAL"
+      ],
+      "assessment": "SECTION×3, VOCAL×2 primary; HIT only as extra on 013. Soft vocabulary used beyond BEAT/DOWNBEAT."
+    },
+    "rationaleConsistency": {
+      "beatCopyLexicon": 0,
+      "bodyOrSectionLexicon": 5,
+      "sharedStructure": "musical change / vocal entry → ensemble count1 start",
+      "templateReuse": 5
+    }
+  },
+  "songs": [
+    {
+      "songId": "song-013",
+      "gtSource": "consensus.json",
+      "anchorTimeSec": 31.419,
+      "anchorType": "SECTION",
+      "confidence": 0.7,
+      "rationale": "イントロ後、ビートの質が変わって動き出しやすくなる境。ここを起点にカウント1から全体で前に移動し始める。",
+      "typesAll": [
+        "SECTION",
+        "HIT",
+        "SECTION"
+      ],
+      "extraAnchors": 2,
+      "beat0": 0.287,
+      "down0": 0.287,
+      "countGridStart": 0.287,
+      "intervalSec": 0.4897959183673469,
+      "bpm": 122.5,
+      "deltaBeat0Sec": 31.132,
+      "deltaCountGridSec": 31.132,
+      "deltaDown0Sec": 31.132,
+      "signedResidualToBeat0GridSec": -0.2149387755102019,
+      "absResidualToBeat0GridSec": 0.2149387755102019,
+      "anchorInsideBeatSeedRange": true,
+      "beatSeedRange": [
+        0.287,
+        319.579
+      ],
+      "vsOriginClass": "FAR_FROM_ORIGIN",
+      "vsBeatGridClass": "SOFT_ON_BEAT_GRID",
+      "independenceClass": "FAR_FROM_ORIGIN_ON_LATER_GRID",
+      "rationaleHasBeatCopyLexicon": false,
+      "rationaleHasBodyOrSectionLexicon": true,
+      "rationaleUsesSharedTemplate": true,
+      "consultedMusicBeatUi": false
+    },
+    {
+      "songId": "song-020",
+      "gtSource": "annotator-a.json",
+      "anchorTimeSec": 33.08,
+      "anchorType": "SECTION",
+      "confidence": 0.7,
+      "rationale": "イントロ後、楽器が変わって動き出しやすくなる境。ここを起点にカウント1から全体で広がり始める。",
+      "typesAll": [
+        "SECTION"
+      ],
+      "extraAnchors": 0,
+      "beat0": 5.499,
+      "down0": 5.499,
+      "countGridStart": 5.499,
+      "intervalSec": 0.625,
+      "bpm": 96,
+      "deltaBeat0Sec": 27.581,
+      "deltaCountGridSec": 27.581,
+      "deltaDown0Sec": 27.581,
+      "signedResidualToBeat0GridSec": 0.08099999999999952,
+      "absResidualToBeat0GridSec": 0.08099999999999952,
+      "anchorInsideBeatSeedRange": false,
+      "beatSeedRange": [
+        5.499,
+        17.951
+      ],
+      "vsOriginClass": "FAR_FROM_ORIGIN",
+      "vsBeatGridClass": "SOFT_ON_BEAT_GRID",
+      "independenceClass": "FAR_FROM_ORIGIN_ON_LATER_GRID",
+      "rationaleHasBeatCopyLexicon": false,
+      "rationaleHasBodyOrSectionLexicon": true,
+      "rationaleUsesSharedTemplate": true,
+      "consultedMusicBeatUi": false
+    },
+    {
+      "songId": "song-009",
+      "gtSource": "annotator-a.json",
+      "anchorTimeSec": 34.7,
+      "anchorType": "SECTION",
+      "confidence": 0.7,
+      "rationale": "イントロの声が始まった後、ビートが変わって動き出しやすくなる境。ここを起点にカウント1から全体の合わせが始まる。",
+      "typesAll": [
+        "SECTION"
+      ],
+      "extraAnchors": 0,
+      "beat0": 13.221,
+      "down0": 13.129,
+      "countGridStart": 13.218,
+      "intervalSec": 0.6623978803267829,
+      "bpm": 90.58,
+      "deltaBeat0Sec": 21.479000000000003,
+      "deltaCountGridSec": 21.482000000000003,
+      "deltaDown0Sec": 21.571000000000005,
+      "signedResidualToBeat0GridSec": 0.28226782954294904,
+      "absResidualToBeat0GridSec": 0.28226782954294904,
+      "anchorInsideBeatSeedRange": false,
+      "beatSeedRange": [
+        13.221,
+        26.002
+      ],
+      "vsOriginClass": "FAR_FROM_ORIGIN",
+      "vsBeatGridClass": "ON_HALF_BEAT",
+      "independenceClass": "FAR_FROM_ORIGIN_OFF_OR_HALF_GRID",
+      "rationaleHasBeatCopyLexicon": false,
+      "rationaleHasBodyOrSectionLexicon": true,
+      "rationaleUsesSharedTemplate": true,
+      "consultedMusicBeatUi": false
+    },
+    {
+      "songId": "song-005",
+      "gtSource": "consensus.json",
+      "anchorTimeSec": 13.19,
+      "anchorType": "VOCAL",
+      "confidence": 0.7,
+      "rationale": "イントロの声が始まった後、歌が入って動き出しやすくなる境。ここを起点にカウント1から全体の合わせが始まる。",
+      "typesAll": [
+        "VOCAL"
+      ],
+      "extraAnchors": 0,
+      "beat0": 0.506,
+      "down0": 0.506,
+      "countGridStart": 0.506,
+      "intervalSec": 0.39867109634551495,
+      "bpm": 150.5,
+      "deltaBeat0Sec": 12.684,
+      "deltaCountGridSec": 12.684,
+      "deltaDown0Sec": 12.684,
+      "signedResidualToBeat0GridSec": -0.0734750830564792,
+      "absResidualToBeat0GridSec": 0.0734750830564792,
+      "anchorInsideBeatSeedRange": false,
+      "beatSeedRange": [
+        0.506,
+        12.783
+      ],
+      "vsOriginClass": "FAR_FROM_ORIGIN",
+      "vsBeatGridClass": "ON_BEAT_GRID",
+      "independenceClass": "FAR_FROM_ORIGIN_ON_LATER_GRID",
+      "rationaleHasBeatCopyLexicon": false,
+      "rationaleHasBodyOrSectionLexicon": true,
+      "rationaleUsesSharedTemplate": true,
+      "consultedMusicBeatUi": false
+    },
+    {
+      "songId": "song-002",
+      "gtSource": "consensus.json",
+      "anchorTimeSec": 2.437,
+      "anchorType": "VOCAL",
+      "confidence": 0.7,
+      "rationale": "イントロの声が始まった後、歌が入って動き出しやすくなる境。ここを起点にカウント1から全体の構成や合わせが始まる。",
+      "typesAll": [
+        "VOCAL"
+      ],
+      "extraAnchors": 0,
+      "beat0": 2.554,
+      "down0": 2.497,
+      "countGridStart": 2.528,
+      "intervalSec": 0.543877301280831,
+      "bpm": 110.319,
+      "deltaBeat0Sec": 0.11699999999999999,
+      "deltaCountGridSec": 0.09100000000000019,
+      "deltaDown0Sec": 0.06000000000000005,
+      "signedResidualToBeat0GridSec": -0.11699999999999999,
+      "absResidualToBeat0GridSec": 0.11699999999999999,
+      "anchorInsideBeatSeedRange": false,
+      "beatSeedRange": [
+        2.554,
+        12.815
+      ],
+      "vsOriginClass": "SOFT_NEAR_BEAT0",
+      "vsBeatGridClass": "SOFT_ON_BEAT_GRID",
+      "independenceClass": "TIME_NEAR_ORIGIN_REASON_INDEPENDENT",
+      "rationaleHasBeatCopyLexicon": false,
+      "rationaleHasBodyOrSectionLexicon": true,
+      "rationaleUsesSharedTemplate": true,
+      "consultedMusicBeatUi": false
+    }
+  ],
+  "verdict": "A_CONDITIONAL_GO",
+  "verdictReasons": [
+    "4/5 primary Anchors FAR from Beat0/CountGrid origin",
+    "0/5 rationales use Beat/CountGrid/Analyzer copy lexicon",
+    "primary types: ['SECTION', 'SECTION', 'SECTION', 'VOCAL', 'VOCAL'] (not BEAT/DOWNBEAT-only)",
+    "013 center case: Anchor ≠ Beat0/CountGrid; SECTION + body rationale"
+  ],
+  "caveats": [
+    "013 is ON a later Beat-grid pulse (not off-grid microtiming) — independence is from origin/phase0, not from pulse quantization",
+    "5/5 share similar rationale template (section/vocal entry → count1) — kinds discovery still narrow; expand types in extra Pilot",
+    "Beat GT seeds sparse/out-of-range for ['song-020', 'song-009', 'song-005'] — nearest-seed distance not used; residual uses beat0+bpm/interval grid"
+  ],
+  "next": [
+    "Extra Pilot: double-annotate at least 013 (+1–2 more) for reproducibility",
+    "Optional expand types (HIT/GROOVE/ANTICIPATION) if they appear",
+    "Then GO for L3 Dance Phase data model design",
+    "Still freeze Fusion/MSAF/Analyzer retargeting"
+  ],
+  "outOfScope": [
+    "analyzer-phase-accuracy",
+    "fusion",
+    "msaf",
+    "pointwise-f1"
+  ]
+}

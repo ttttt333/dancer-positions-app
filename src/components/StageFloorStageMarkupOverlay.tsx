@@ -1,5 +1,9 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
-import type { FloorTextPlaceSession, StageFloorMarkup } from "../types/choreography";
+import type {
+  FloorTextPlaceSession,
+  StageFloorLineMarkup,
+  StageFloorMarkup,
+} from "../types/choreography";
 import { floorTextLayer } from "../lib/stageBoardModelHelpers";
 import {
   FloorTextMarkupBlock,
@@ -12,6 +16,8 @@ import type { FloorTextDraftShape } from "./FloorTextDraftEditorForm";
 
 export type StageFloorStageMarkupOverlayProps = {
   displayFloorMarkup: StageFloorMarkup[];
+  /** キュー固有＋全編の線（マージ済み）。省略時は displayFloorMarkup の線だけ */
+  displayFloorLines?: StageFloorLineMarkup[];
   globalFloorMarkup?: StageFloorMarkup[] | null;
   /** 生徒閲覧: テキストは専用帯へ（線はステージ上に残す） */
   hideFloorText?: boolean;
@@ -37,6 +43,7 @@ export type StageFloorStageMarkupOverlayProps = {
 /** メイン床ブロック上: 線 SVG・床テキスト・置きプレビュー */
 export function StageFloorStageMarkupOverlay({
   displayFloorMarkup,
+  displayFloorLines,
   globalFloorMarkup,
   hideFloorText = false,
   onRemoveGlobalFloorMarkupById,
@@ -53,6 +60,13 @@ export function StageFloorStageMarkupOverlay({
   floorTextDraftGhost,
   floorTextGhostPos,
 }: StageFloorStageMarkupOverlayProps) {
+  const linesForSvg =
+    displayFloorLines ??
+    displayFloorMarkup.filter(
+      (m): m is StageFloorLineMarkup =>
+        m.kind === "line" && m.pointsPct.length >= 2
+    );
+
   return (
     <div
       style={{
@@ -63,7 +77,7 @@ export function StageFloorStageMarkupOverlay({
       }}
     >
       <StageFloorLineMarkupSvg
-        displayFloorMarkup={displayFloorMarkup}
+        displayFloorLines={linesForSvg}
         floorLineDraft={floorLineDraft}
         floorMarkupTool={floorMarkupTool}
         setPiecesEditable={setPiecesEditable}

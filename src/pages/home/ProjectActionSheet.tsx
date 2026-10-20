@@ -9,6 +9,7 @@ export type ProjectSheetAction =
   | "share"
   | "collab"
   | "exportPdf"
+  | "exportImages"
   | "delete"
   | "close";
 
@@ -16,6 +17,8 @@ type Props = {
   open: boolean;
   projectName: string;
   showCollab: boolean;
+  /** false: 端末のみ作品（共有 URL なし） */
+  showShareActions?: boolean;
   busy: boolean;
   labels: {
     rename: string;
@@ -24,6 +27,7 @@ type Props = {
     manageAccess: string;
     copyLink: string;
     exportPdf: string;
+    exportImages: string;
     delete: string;
     close: string;
   };
@@ -67,6 +71,7 @@ export function ProjectActionSheet({
   open,
   projectName,
   showCollab,
+  showShareActions = true,
   busy,
   labels,
   onAction,
@@ -146,33 +151,46 @@ export function ProjectActionSheet({
           onClick={() => onAction("duplicate")}
         />
 
+        {showShareActions ? (
+          <>
+            <div style={homeDivider} />
+
+            <SheetRow
+              icon="＋"
+              label={labels.share}
+              disabled={busy}
+              onClick={() => onAction("share")}
+            />
+            {showCollab ? (
+              <SheetRow
+                icon="👥"
+                label={labels.manageAccess}
+                disabled={busy}
+                onClick={() => onAction("collab")}
+              />
+            ) : null}
+            <SheetRow
+              icon="⛓"
+              label={labels.copyLink}
+              disabled={busy}
+              onClick={() => onAction("copyLink")}
+            />
+          </>
+        ) : null}
+
         <div style={homeDivider} />
 
-        <SheetRow
-          icon="＋"
-          label={labels.share}
-          disabled={busy}
-          onClick={() => onAction("share")}
-        />
-        {showCollab ? (
-          <SheetRow
-            icon="👥"
-            label={labels.manageAccess}
-            disabled={busy}
-            onClick={() => onAction("collab")}
-          />
-        ) : null}
-        <SheetRow
-          icon="⛓"
-          label={labels.copyLink}
-          disabled={busy}
-          onClick={() => onAction("copyLink")}
-        />
         <SheetRow
           icon="⇪"
           label={labels.exportPdf}
           disabled={busy}
           onClick={() => onAction("exportPdf")}
+        />
+        <SheetRow
+          icon="🖼"
+          label={labels.exportImages}
+          disabled={busy}
+          onClick={() => onAction("exportImages")}
         />
 
         <div style={homeDivider} />

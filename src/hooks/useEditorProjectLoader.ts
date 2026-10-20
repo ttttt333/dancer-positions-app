@@ -17,7 +17,7 @@ import {
   tryMigrateFromLocalStorage,
 } from "../lib/projectDefaults";
 import { normalizeProject } from "../lib/normalizeProject";
-import { loadEditorDraft } from "../lib/editorDraftStorage";
+import { clearEditorDraft, loadEditorDraft } from "../lib/editorDraftStorage";
 import { getEntitlements } from "../lib/entitlements";
 import {
   analyzeFreePlanExcessFromList,
@@ -26,6 +26,17 @@ import {
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { Me } from "../types/authMe";
 import { loadShareViewProject, primeShareViewLoaderState } from "../lib/shareViewProjectCache";
+import { projectJsonDiffers, shouldPreferLocalDraft } from "../lib/projectConflict";
+
+export type PendingLoadConflict = {
+  kind: "load-draft";
+  serverUpdatedAt: string;
+  localSavedAt: string;
+  serverJson: ChoreographyProjectJson;
+  draftJson: ChoreographyProjectJson;
+  draftName: string;
+  serverName: string;
+};
 
 export type UseEditorProjectLoaderOptions = {
   projectId?: string;
@@ -68,6 +79,11 @@ export function useEditorProjectLoader({
   );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [knownServerUpdatedAt, setKnownServerUpdatedAt] = useState<string | null>(
+    null
+  );
+  const [pendingLoadConflict, setPendingLoadConflict] =
+    useState<PendingLoadConflict | null>(null);
   const skipNextProjectFetchRef = useRef<number | null>(null);
 
   const projectSaveRef = useRef<ChoreographyProjectJson | null>(null);
@@ -76,6 +92,10 @@ export function useEditorProjectLoader({
   } else {
     projectSaveRef.current = null;
   }
+
+  /** 同一 user + project ではクラウド再取得しない（トークン更新で編集が消えるのを防ぐ） */
+  const loadedKeyRef = useRef<string | null>(null);
+  const meUserId = me?.user?.id ?? null;
 
   useEffect(() => {
     if (choreoPublicView && shareTokenParam) {
@@ -109,6 +129,7 @@ export function useEditorProjectLoader({
     }
 
     if (projectId === "new" || !projectId) {
+      loadedKeyRef.current = null;
       const search = new URLSearchParams(location.search);
       const flowId = search.get("flow")?.trim();
       if (flowId) {
@@ -128,12 +149,27 @@ export function useEditorProjectLoader({
           setPlainProject(fromFlow);
           setProjectName(fromFlow.pieceTitle?.trim() || item.name || "無題の作品");
           const linkId = item.linkedServerProjectId;
-          setServerId(
+          const linkedId =
             typeof linkId === "number" && Number.isFinite(linkId) && linkId > 0
               ? linkId
-              : null
-          );
+              : null;
+          setServerId(linkedId);
           setServerShareToken(null);
+          // 紐付け済みなら updated_at を学習（未設定のままだと保存のたびに誤競合しやすい）
+          if (linkedId != null && me) {
+            void projectApi
+              .get(linkedId)
+              .then((row) => {
+                if (cancelled) return;
+                setKnownServerUpdatedAt(row.updated_at);
+                if (row.share_token) setServerShareToken(row.share_token);
+              })
+              .catch(() => {
+                /* 取得失敗時は初回保存で学習 */
+              });
+          } else {
+            setKnownServerUpdatedAt(null);
+          }
           setLoadError(null);
           onHistoryReset();
         });
@@ -168,14 +204,18 @@ export function useEditorProjectLoader({
 
     const id = Number(projectId);
     if (!Number.isFinite(id)) {
+      loadedKeyRef.current = null;
       setPlainProject(null);
       setLoadError("無効な ID");
       return;
     }
 
     if (!authReady) {
-      setPlainProject(null);
-      setLoadError(null);
+      // 初回ハイドレーション中は既存画面を消さない（ちらつき・巻き戻り防止）
+      if (loadedKeyRef.current == null) {
+        setPlainProject(null);
+        setLoadError(null);
+      }
       return;
     }
 
@@ -188,13 +228,22 @@ export function useEditorProjectLoader({
     }
 
     if (isSupabaseBackend() && !me && !choreoPublicView) {
-      setPlainProject(null);
-      setLoadError("ログインが必要です");
+      // セッション確立直後の一瞬だけ me が空でも、既に開いている作品は維持
+      if (loadedKeyRef.current == null) {
+        setPlainProject(null);
+        setLoadError("ログインが必要です");
+      }
       return;
     }
 
     if (skipNextProjectFetchRef.current === id) {
       skipNextProjectFetchRef.current = null;
+      return;
+    }
+
+    const loadKey = `${meUserId ?? "anon"}:${id}`;
+    if (loadedKeyRef.current === loadKey && projectSaveRef.current != null) {
+      // 同一作品を保持中 → me 参照更新や課金マージでは再取得しない
       return;
     }
 
@@ -210,6 +259,7 @@ export function useEditorProjectLoader({
       const title = seeded.pieceTitle?.trim() || "無題の作品";
       setProjectName(title);
       setLoadError(null);
+      loadedKeyRef.current = loadKey;
       skipNextProjectFetchRef.current = id;
       navigate(
         { pathname: location.pathname, search: location.search },
@@ -220,34 +270,55 @@ export function useEditorProjectLoader({
 
     let cancelled = false;
     (async () => {
-      setPlainProject(null);
+      // 既に編集中の同一 ID なら画面を消さない（再取得中の巻き戻り防止）
+      const keepingLive =
+        (serverId === id && projectSaveRef.current != null) ||
+        loadedKeyRef.current === loadKey;
+      if (!keepingLive) {
+        setPlainProject(null);
+      }
       setLoadError(null);
       try {
         const row = await projectApi.get(id);
         if (cancelled) return;
         setServerId(row.id);
         setServerShareToken(row.share_token ?? null);
-        setProjectName(row.name);
+        setKnownServerUpdatedAt(row.updated_at);
         const baseJson = normalizeProject(row.json);
         const draft = loadEditorDraft(id);
         let loadedJson = baseJson;
-        if (
+        let nameToSet: string | null = row.name;
+
+        // 編集中のメモリ内容がクラウドと違う場合はメモリを優先（巻き戻り防止）
+        const live = projectSaveRef.current;
+        const liveDiffers =
+          keepingLive && live != null && projectJsonDiffers(live, baseJson);
+
+        if (liveDiffers && live) {
+          loadedJson = live;
+          nameToSet = null;
+        } else if (
+          !choreoPublicView &&
           draft &&
           draft.serverId === id &&
           draft.project
         ) {
-          const draftMs = Date.parse(draft.savedAt);
-          const serverMs = Date.parse(row.updated_at);
-          if (
-            Number.isFinite(draftMs) &&
-            (!Number.isFinite(serverMs) || draftMs > serverMs + 500)
-          ) {
-            loadedJson = normalizeProject(draft.project);
-            setProjectName(
-              draft.projectName?.trim() ||
+          if (projectJsonDiffers(draft.project, baseJson)) {
+            if (shouldPreferLocalDraft(draft.savedAt, row.updated_at)) {
+              loadedJson = normalizeProject(draft.project);
+              nameToSet =
+                draft.projectName?.trim() ||
                 draft.project.pieceTitle?.trim() ||
-                row.name
-            );
+                row.name;
+            } else if (!keepingLive) {
+              clearEditorDraft(id);
+              loadedJson = baseJson;
+            } else {
+              loadedJson = live ?? normalizeProject(draft.project);
+              nameToSet = null;
+            }
+          } else {
+            clearEditorDraft(id);
           }
         }
 
@@ -256,7 +327,7 @@ export function useEditorProjectLoader({
           try {
             const list = await projectApi.list();
             const report = analyzeFreePlanExcessFromList(
-              list.map((p) => ({
+              list.filter((p) => !p.is_shared).map((p) => ({
                 id: p.id,
                 name: p.name,
                 updated_at: p.updated_at,
@@ -264,8 +335,10 @@ export function useEditorProjectLoader({
                 dancerCount: p.dancerCount,
               }))
             );
-            const contentOver = trimProjectToFreeLimits(loadedJson).changed;
-            if (report.hasExcess || contentOver) {
+            const isSharedWithMe = list.some((p) => p.id === id && p.is_shared);
+            const contentOver =
+              !isSharedWithMe && trimProjectToFreeLimits(loadedJson).changed;
+            if (!isSharedWithMe && (report.hasExcess || contentOver)) {
               if (!cancelled) {
                 navigate("/", { replace: true });
               }
@@ -278,13 +351,18 @@ export function useEditorProjectLoader({
 
         if (collabParam && me) {
           setPlainProject(null);
+        } else if (liveDiffers && live) {
+          // 編集中はそのまま維持
         } else {
           setPlainProject(
             choreoPublicView ? { ...loadedJson, viewMode: "view" } : loadedJson
           );
+          if (nameToSet) setProjectName(nameToSet);
         }
+        loadedKeyRef.current = loadKey;
+        setPendingLoadConflict(null);
         setLoadError(null);
-        onHistoryReset();
+        if (!keepingLive) onHistoryReset();
       } catch (e) {
         if (!cancelled) {
           setLoadError(e instanceof Error ? e.message : "読み込み失敗");
@@ -298,6 +376,7 @@ export function useEditorProjectLoader({
     projectId,
     shareTokenParam,
     collabParam,
+    meUserId,
     me,
     authReady,
     location.state,
@@ -308,6 +387,26 @@ export function useEditorProjectLoader({
     onHistoryReset,
   ]);
 
+  const resolveLoadConflictKeepLocal = () => {
+    const c = pendingLoadConflict;
+    if (!c) return;
+    setPlainProject(c.draftJson);
+    setProjectName(c.draftName);
+    setPendingLoadConflict(null);
+    onHistoryReset();
+  };
+
+  const resolveLoadConflictTakeServer = () => {
+    const c = pendingLoadConflict;
+    if (!c) return;
+    setPlainProject(c.serverJson);
+    setProjectName(c.serverName);
+    setKnownServerUpdatedAt(c.serverUpdatedAt);
+    if (serverId != null) clearEditorDraft(serverId);
+    setPendingLoadConflict(null);
+    onHistoryReset();
+  };
+
   return {
     plainProject,
     setPlainProject,
@@ -317,6 +416,11 @@ export function useEditorProjectLoader({
     setServerId,
     serverShareToken,
     setServerShareToken,
+    knownServerUpdatedAt,
+    setKnownServerUpdatedAt,
+    pendingLoadConflict,
+    resolveLoadConflictKeepLocal,
+    resolveLoadConflictTakeServer,
     loadError,
     setLoadError,
     saving,

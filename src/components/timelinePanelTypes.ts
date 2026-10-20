@@ -53,8 +53,28 @@ export type TimelinePanelBodyProps = {
   cueListPortalTarget?: HTMLElement | null;
   onSave?: () => void;
   onOpenAudioImport?: () => void;
+  onApplyAiSectionKeyframes?: () => void;
+  aiSectionKeyframesAvailable?: boolean;
+  /** セクション種別ごとの隊形一括適用 */
+  onApplySectionFormationPatterns?: () => void;
+  sectionFormationPatternsAvailable?: boolean;
+  /** ワイド: 波形直下の一列統合バー */
+  floatingChrome?: boolean;
+  /** ワイド統合バー: ダンサー追加 */
+  onAddDancer?: () => void;
+  /** ワイド統合バー: 右パネル開閉 */
+  onToggleRightPane?: () => void;
+  rightPaneOpen?: boolean;
+  playbackRate?: number;
+  onPlaybackRateChange?: (rate: number) => void;
   /** ギャップ右クリックメニューから個人軌道エディタを開くコールバック */
   onOpenPathEditor?: (cueId: string) => void;
+  /** キュー右クリック「照明設定」からサイドシートを開く */
+  onOpenLightingSettings?: (cueId: string) => void;
+  /** キュー間ギャップ右クリック「照明設定」 */
+  onOpenGapLightingSettings?: (nextCueId: string) => void;
+  /** キュー照明を見えるようシーク・選択 */
+  onFocusCueForLighting?: (cueId: string) => void;
   /** 生徒閲覧（/view/s/…）: ログインなしで Supabase 音源を読む */
   publicShareView?: boolean;
   /** PC 上部ドック外枠の高さ（px）。波形を再生エリアに連動させる */

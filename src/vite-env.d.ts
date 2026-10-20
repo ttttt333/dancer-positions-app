@@ -31,4 +31,6 @@ interface ImportMetaEnv {
    * Edge Function 経由が失敗したときの direct フォールバックに使う。
    */
   readonly VITE_ANALYZER_API_URL?: string;
+  /** ビルド／デプロイ識別子（設定画面のバージョン表示） */
+  readonly VITE_APP_BUILD?: string;
 }

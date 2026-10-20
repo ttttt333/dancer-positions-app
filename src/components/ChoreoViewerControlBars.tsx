@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { RefObject } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { TimelinePanelHandle } from "./timelinePanelTypes";
@@ -13,10 +13,15 @@ import { useI18n } from "../i18n/I18nContext";
 import { formatMmSsFloor } from "../lib/timeFormat";
 import { playbackEngine } from "../core/playbackEngine";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
+import {
+  PRACTICE_PLAYBACK_RATES,
+  normalizePracticePlaybackRate,
+} from "../store/practicePlaybackStore";
 import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { useViewerTransportActions } from "../hooks/useViewerTransportActions";
 import { ViewerMemberModeSwitch } from "./ViewerMemberModeSwitch";
 import { ViewerAudiencePerspectiveSwitch } from "./ViewerAudiencePerspectiveSwitch";
+import { ViewerMarkerSizeControls } from "./ViewerMarkerSizeControls";
 import { ChoreoViewerVideoSaveButton } from "./ChoreoViewerVideoSaveButton";
 import { ViewerFullscreenButton } from "./ViewerFullscreenButton";
 import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
@@ -46,7 +51,36 @@ type Props = {
   onCuePrev: () => void;
   onCueNext: () => void;
   onInsetsChange?: (insets: ViewerChromeInsets) => void;
+  onPlaybackRateChange?: (rate: number) => void;
 };
+
+function ViewerPlaybackRateSelect({
+  playbackRate,
+  onPlaybackRateChange,
+}: {
+  playbackRate: number;
+  onPlaybackRateChange: (rate: number) => void;
+}) {
+  const rate = normalizePracticePlaybackRate(playbackRate);
+  return (
+    <select
+      className="choreo-viewer-bars__rate-select"
+      value={String(rate)}
+      aria-label="再生速度（ピッチ固定）"
+      title="ピッチ固定の再生速度"
+      onChange={(e) => {
+        const next = Number(e.target.value);
+        if (Number.isFinite(next)) onPlaybackRateChange(next);
+      }}
+    >
+      {PRACTICE_PLAYBACK_RATES.map((r) => (
+        <option key={r} value={String(r)}>
+          {r === 1 ? "1x" : `${r}x`}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 function ViewerTransportControls({
   showCueNav,
@@ -55,6 +89,8 @@ function ViewerTransportControls({
   isPlaying,
   duration,
   playReadyGlow,
+  playbackRate,
+  onPlaybackRateChange,
   onPlayPointerDown,
   togglePlay,
   seekBack,
@@ -68,6 +104,8 @@ function ViewerTransportControls({
   isPlaying: boolean;
   duration: number;
   playReadyGlow: boolean;
+  playbackRate: number;
+  onPlaybackRateChange?: (rate: number) => void;
   onPlayPointerDown: () => void;
   togglePlay: () => void;
   seekBack: () => void;
@@ -145,8 +183,24 @@ function ViewerTransportControls({
           <TransportIconPlay size={24} />
         )}
       </button>
+      {onPlaybackRateChange ? (
+        <ViewerPlaybackRateSelect
+          playbackRate={playbackRate}
+          onPlaybackRateChange={onPlaybackRateChange}
+        />
+      ) : null}
     </div>
   );
+}
+
+const LANDSCAPE_RAIL_COLLAPSED_KEY = "choreocore.viewer.landscapeRailCollapsed";
+
+function readLandscapeRailCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(LANDSCAPE_RAIL_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 /** 生徒閲覧: 操作帯（縦=下部、横=左レール） */
@@ -168,6 +222,7 @@ export function ChoreoViewerControlBars({
   onCuePrev,
   onCueNext,
   onInsetsChange,
+  onPlaybackRateChange,
 }: Props) {
   const { t } = useI18n();
   const trimStartSec = project.trimStartSec ?? 0;
@@ -203,6 +258,16 @@ export function ChoreoViewerControlBars({
 
   const chromeRef = useRef<HTMLElement | null>(null);
 
+  const [railCollapsed, setRailCollapsed] = useState(readLandscapeRailCollapsed);
+  const toggleRailCollapsed = useCallback((next: boolean) => {
+    setRailCollapsed(next);
+    try {
+      window.localStorage.setItem(LANDSCAPE_RAIL_COLLAPSED_KEY, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const reportInsets = useCallback(() => {
     const el = chromeRef.current;
     if (!el) {
@@ -214,7 +279,7 @@ export function ChoreoViewerControlBars({
       onInsetsChange?.({
         topPx: 0,
         bottomPx: 0,
-        leftPx: Math.ceil(rect.width),
+        leftPx: railCollapsed ? 0 : Math.ceil(rect.width),
       });
       return;
     }
@@ -223,7 +288,7 @@ export function ChoreoViewerControlBars({
       bottomPx: Math.ceil(rect.height),
       leftPx: 0,
     });
-  }, [landscapeMode, onInsetsChange]);
+  }, [landscapeMode, railCollapsed, onInsetsChange]);
 
   useEffect(() => {
     const el = chromeRef.current;
@@ -257,6 +322,8 @@ export function ChoreoViewerControlBars({
       isPlaying={isPlaying}
       duration={duration}
       playReadyGlow={playReadyGlow}
+      playbackRate={project.playbackRate ?? 1}
+      onPlaybackRateChange={onPlaybackRateChange}
       onPlayPointerDown={onPlayPointerDown}
       togglePlay={togglePlay}
       seekBack={seekBack}
@@ -296,6 +363,53 @@ export function ChoreoViewerControlBars({
   );
 
   const fullscreenBtn = <ViewerFullscreenButton showLabel={landscapeMode} />;
+  const markerSizeControls = (
+    <ViewerMarkerSizeControls
+      layout={landscapeMode ? "stack" : "inline"}
+      compact
+    />
+  );
+
+  if (landscapeMode && railCollapsed) {
+    return (
+      <aside
+        ref={chromeRef}
+        className="choreo-viewer-bars choreo-viewer-bars--landscape-collapsed"
+        aria-label={t("editor.layout.viewerControlBarsAria")}
+      >
+        <button
+          type="button"
+          className="choreo-viewer-bars__rail-open"
+          aria-label="操作パネルを開く"
+          title="操作パネルを開く"
+          onClick={() => toggleRailCollapsed(false)}
+        >
+          ›
+        </button>
+        {showTransport ? (
+          <button
+            type="button"
+            className={[
+              "choreo-viewer-bars__mini-play",
+              playReadyGlow && !isPlaying ? "choreo-viewer-play--ready" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+            title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+            onPointerDown={onPlayPointerDown}
+            onClick={togglePlay}
+          >
+            {isPlaying ? (
+              <TransportIconPause size={20} />
+            ) : (
+              <TransportIconPlay size={20} />
+            )}
+          </button>
+        ) : null}
+      </aside>
+    );
+  }
 
   if (landscapeMode) {
     return (
@@ -305,10 +419,20 @@ export function ChoreoViewerControlBars({
         style={{ ["--choreo-viewer-left-rail-w" as string]: `${VIEWER_LEFT_RAIL_PX}px` }}
         aria-label={t("editor.layout.viewerControlBarsAria")}
       >
+        <button
+          type="button"
+          className="choreo-viewer-bars__rail-collapse"
+          aria-label="操作パネルを畳んでステージを大きく表示"
+          title="パネルを畳む"
+          onClick={() => toggleRailCollapsed(true)}
+        >
+          ‹ 畳む
+        </button>
         <div className="choreo-viewer-bars__left-stack">
           <div className="choreo-viewer-bars__left-col choreo-viewer-bars__left-col--meta">
             {modeSwitch}
             {perspectiveSwitch}
+            {markerSizeControls}
             {videoSave}
             {fullscreenBtn}
           </div>
@@ -332,8 +456,9 @@ export function ChoreoViewerControlBars({
         aria-label={t("editor.layout.viewerControlBarsAria")}
       >
         <div className="choreo-viewer-bars__bottom-panel">
-          <div className="choreo-viewer-bars__bottom-meta">
+          <div className="choreo-viewer-bars__bottom-meta choreo-viewer-bars__bottom-meta--tools">
             {perspectiveSwitch}
+            {markerSizeControls}
             {videoSave}
             {fullscreenBtn}
           </div>
@@ -349,10 +474,15 @@ export function ChoreoViewerControlBars({
       aria-label={t("editor.layout.viewerControlBarsAria")}
     >
       <div className="choreo-viewer-bars__bottom-panel">
-        {modeSwitch || perspectiveSwitch || videoSave ? (
-          <div className="choreo-viewer-bars__bottom-meta">
+        {modeSwitch || perspectiveSwitch ? (
+          <div className="choreo-viewer-bars__bottom-meta choreo-viewer-bars__bottom-meta--primary">
             {modeSwitch}
             {perspectiveSwitch}
+          </div>
+        ) : null}
+        {markerSizeControls || videoSave || fullscreenBtn ? (
+          <div className="choreo-viewer-bars__bottom-meta choreo-viewer-bars__bottom-meta--tools">
+            {markerSizeControls}
             {videoSave}
             {fullscreenBtn}
           </div>

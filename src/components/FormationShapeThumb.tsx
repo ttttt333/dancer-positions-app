@@ -4,6 +4,7 @@ import {
   modDancerColorIndex,
   normalizeDancerFacingDeg,
 } from "../lib/dancerColorPalette";
+import { DancerShapeGlyph } from "./DancerShapeGlyph";
 
 const VB_W = 100;
 const VB_H = 60;
@@ -82,15 +83,16 @@ export function FormationShapeThumb({ dancers, width = 36, className }: Props) {
             ? normalizeDancerFacingDeg(d.facingDeg)
             : 0;
         return (
-          <circle
+          <DancerShapeGlyph
             key={d.id}
             cx={cx}
             cy={cy}
             r={3.1}
+            shape={d.markerShape}
+            facingDeg={rot}
             fill={PALETTE[modDancerColorIndex(d.colorIndex)]}
             stroke="rgba(15,23,42,0.65)"
             strokeWidth={0.45}
-            transform={rot !== 0 ? `rotate(${rot}, ${cx}, ${cy})` : undefined}
           />
         );
       })}

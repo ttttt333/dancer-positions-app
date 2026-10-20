@@ -6,6 +6,7 @@ import {
   rescaleSpotsForSpacing,
 } from "./dancerSpacing";
 import { modDancerColorIndex } from "./dancerColorPalette";
+import { MAX_DANCERS_PER_FORMATION } from "./dancerCountLimits";
 import {
   balancedHorizontalLineSpots,
   balancedVerticalColumnSpots,
@@ -16,6 +17,18 @@ import {
   EXTRA_LAYOUT_PRESET_OPTIONS,
   tryApplyExtraLayoutPreset,
 } from "./formationLayoutPresetsExtra";
+import {
+  GALLERY_LAYOUT_PRESET_OPTIONS,
+  tryApplyGalleryLayoutPreset,
+} from "./formationLayoutPresetsGallery";
+import {
+  COMPOSITE_LAYOUT_PRESET_OPTIONS,
+  tryApplyCompositeLayoutPreset,
+} from "./formationLayoutPresetsComposite";
+import {
+  CLASSIC_LAYOUT_PRESET_OPTIONS,
+  tryApplyClassicLayoutPreset,
+} from "./formationClassicSuggestions";
 import { getPresetTier } from "./formationPresetTiers";
 import { minCostBipartiteAssignment } from "./minCostAssignment";
 import {
@@ -232,6 +245,45 @@ function evenRowCounts(n: number, targetRows: number): number[] {
 }
 
 /**
+ * 交互列（窓あき）の行人数。前列から「W, W-1, W, W-1…」と交互に並べ、最奥列に余りを置く。
+ * W は横長の比率（W ≈ √(1.5n)）に近く、最奥列がなるべく埋まるものを選ぶ。
+ * 例: 82 人 → [11, 10, 11, 10, 11, 10, 11, 8]
+ *
+ * 戻り値は `counts[0]` が **最前列（客席側）**。
+ */
+export function alternatingRowCounts(n: number): number[] {
+  const total = Math.floor(n);
+  if (total <= 0) return [];
+  if (total <= 3) return [total];
+  const build = (w: number): number[] => {
+    const counts: number[] = [];
+    let left = total;
+    for (let r = 0; left > 0; r++) {
+      const cap = r % 2 === 0 ? w : w - 1;
+      const c = Math.min(cap, left);
+      counts.push(c);
+      left -= c;
+    }
+    return counts;
+  };
+  const ideal = Math.sqrt(total * 1.5);
+  let best: number[] = [total];
+  let bestScore = Infinity;
+  for (let w = 3; w <= total; w++) {
+    const counts = build(w);
+    const lastIdx = counts.length - 1;
+    const lastCap = lastIdx % 2 === 0 ? w : w - 1;
+    const fill = counts[lastIdx]! / lastCap;
+    const score = Math.abs(w - ideal) + (1 - fill) * 5;
+    if (score < bestScore - 1e-9) {
+      bestScore = score;
+      best = counts;
+    }
+  }
+  return best;
+}
+
+/**
  * グリッドの横人数を選ぶ（ほぼ正方形）。奥に1人だけ残る配分は避ける。
  */
 function chooseGridCols(n: number): number {
@@ -301,7 +353,7 @@ function pushGridFrontFilled(
  * 客席側（y 大）の列から埋める行人数: first, first+1, first+2, …（最後の列は余りのみ）。
  * rowCounts[0] が最前列（手前）。
  */
-function frontAudienceGrowingRowCounts(n: number, firstRow: number): number[] {
+export function frontAudienceGrowingRowCounts(n: number, firstRow: number): number[] {
   if (n <= 0) return [];
   const rows: number[] = [];
   let rem = n;
@@ -313,6 +365,31 @@ function frontAudienceGrowingRowCounts(n: number, firstRow: number): number[] {
     w += 1;
   }
   return rows;
+}
+
+/** `front_stair_from_N` 用の配置を out に積む */
+function pushFrontStairRows(out: DancerSpot[], n: number, firstRow: number) {
+  const rowCounts = frontAudienceGrowingRowCounts(n, firstRow);
+  const nr = rowCounts.length;
+  if (nr === 0) return;
+  const maxCnt = Math.max(1, ...rowCounts);
+  let idx = 0;
+  for (let r = 0; r < nr; r++) {
+    const cnt = rowCounts[r]!;
+    const y = yPctPyramidRow(nr - 1 - r, nr);
+    for (let j = 0; j < cnt; j++) {
+      pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt, nr), y);
+    }
+  }
+}
+
+/** `front_stair_from_12` など動的 id も解釈する */
+export function parseFrontStairFromPresetId(preset: string): number | null {
+  const m = /^front_stair_from_(\d+)$/.exec(preset);
+  if (!m) return null;
+  const first = Number.parseInt(m[1]!, 10);
+  if (!Number.isFinite(first) || first < 1) return null;
+  return first;
 }
 
 /**
@@ -455,6 +532,7 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "pyramid_inverse", label: "逆ピラミッド" },
   { id: "stagger", label: "千鳥" },
   { id: "stagger_inverse", label: "逆千鳥" },
+  { id: "alternating_rows", label: "交互列（窓あき）" },
   { id: "two_rows", label: "2列" },
   { id: "rows_3", label: "3列" },
   { id: "rows_4", label: "4列" },
@@ -641,6 +719,9 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "m_shape_deep", label: "M字形（深）" },
   { id: "fan_360", label: "360°扇形（全周）" },
   ...EXTRA_LAYOUT_PRESET_OPTIONS,
+  ...GALLERY_LAYOUT_PRESET_OPTIONS,
+  ...COMPOSITE_LAYOUT_PRESET_OPTIONS,
+  ...CLASSIC_LAYOUT_PRESET_OPTIONS,
 ] as const;
 
 export type LayoutPresetId = (typeof LAYOUT_PRESET_OPTIONS)[number]["id"];
@@ -704,11 +785,18 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "m_shape",
       "m_shape_wide",
       "m_shape_deep",
+      "gallery_twin_peaks",
+      "gallery_twin_peaks_wide",
+      "gallery_dense_m_base",
+      "gallery_w_layered",
+      "gallery_flat_pyramid",
+      "gallery_front_pair_back_wide",
     ],
   },
   {
     label: "複数列・千鳥",
     ids: [
+      "alternating_rows",
       "two_rows",
       "two_rows_equal",
       "two_rows_dense_back",
@@ -741,6 +829,7 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "extra_triple_line_back",
       "extra_parallel_3",
       "extra_parallel_4",
+      "gallery_slant_block",
     ],
   },
   {
@@ -761,6 +850,11 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "front_stair_from_11",
       "extra_stair_inv_3",
       "extra_stair_inv_4",
+      "gallery_back_taper_3",
+      "gallery_back_taper_4",
+      "gallery_mid_heavy_3",
+      "gallery_trapezoid_2",
+      "gallery_trapezoid_arc",
     ],
   },
   {
@@ -811,6 +905,8 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "columns_11",
       "columns_12",
       "column_pair",
+      "gallery_pointed_col_up",
+      "gallery_pointed_col_down",
     ],
   },
   {
@@ -839,6 +935,7 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "extra_horseshoe_tight",
       "extra_c_shape",
       "extra_c_shape_open",
+      "gallery_u_square",
       "concentric",
     ],
   },
@@ -863,6 +960,7 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "extra_wings_only",
       "wing_spread",
       "bracket_lr",
+      "gallery_twin_pyramids",
     ],
   },
   {
@@ -937,6 +1035,31 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "s_curve",
       "u_deep",
       "fan_360",
+    ],
+  },
+  {
+    label: "複合・グループ",
+    ids: [
+      "comp_dense_inv_triangle",
+      "comp_wings_diamond",
+      "comp_wings_wedge",
+      "comp_edge_diag_caps",
+      "comp_diag_pair_accents",
+      "comp_grid_column",
+      "comp_grid_heart_column",
+      "comp_grid_x",
+      "comp_dual_stagger",
+      "comp_chorus_front_pair",
+      "comp_chorus_front_solo",
+      "comp_flank_frontline",
+      "comp_flank_midline",
+      "comp_backblock_sides_point",
+      "comp_twin_blocks_line",
+      "comp_twin_blocks_pyramid",
+      "comp_t_layout",
+      "comp_fan_focal",
+      "comp_triple_inv_vee",
+      "comp_tilt_block_wing",
     ],
   },
 ];
@@ -1203,20 +1326,11 @@ export function dancersForLayoutPreset(
     case "front_stair_from_10":
     case "front_stair_from_11": {
       const first = parseInt(preset.replace("front_stair_from_", ""), 10);
-      const rowCounts = frontAudienceGrowingRowCounts(
+      pushFrontStairRows(
+        out,
         n,
-        Math.max(2, Math.min(11, first))
+        Number.isFinite(first) ? Math.max(1, first) : 2
       );
-      const nr = rowCounts.length;
-      const maxCnt = Math.max(1, ...rowCounts);
-      let idx = 0;
-      for (let r = 0; r < nr; r++) {
-        const cnt = rowCounts[r]!;
-        const y = yPctPyramidRow(nr - 1 - r, nr);
-        for (let j = 0; j < cnt; j++) {
-          pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt, nr), y);
-        }
-      }
       break;
     }
     case "waist_stair_from_3":
@@ -1268,6 +1382,23 @@ export function dancersForLayoutPreset(
       const pts = generateStructuredStaggered(n);
       for (let i = 0; i < pts.length; i += 1) {
         pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
+      }
+      break;
+    }
+    case "alternating_rows": {
+      /** 全行で横ステップを共通にし、W-1 の行が W の行のちょうど間に入るようにする */
+      const rowCounts = alternatingRowCounts(n);
+      const nr = rowCounts.length;
+      const widest = Math.max(...rowCounts);
+      const step =
+        widest > 1 ? Math.min(TARGET_STEP_X, 90 / (widest - 1)) : TARGET_STEP_X;
+      let idx = 0;
+      for (let r = 0; r < nr; r++) {
+        const cnt = rowCounts[r]!;
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        for (let j = 0; j < cnt; j++) {
+          pushSpot(out, idx++, 50 + (j - (cnt - 1) / 2) * step, y);
+        }
       }
       break;
     }
@@ -2829,7 +2960,17 @@ export function dancersForLayoutPreset(
       break;
     }
     default: {
-      if (!tryApplyExtraLayoutPreset(preset, n, out)) {
+      const stairFirst = parseFrontStairFromPresetId(preset);
+      if (stairFirst != null) {
+        pushFrontStairRows(out, n, stairFirst);
+        break;
+      }
+      if (
+        !tryApplyExtraLayoutPreset(preset, n, out) &&
+        !tryApplyGalleryLayoutPreset(preset, n, out) &&
+        !tryApplyCompositeLayoutPreset(preset, n, out) &&
+        !tryApplyClassicLayoutPreset(preset, n, out)
+      ) {
         for (let i = 0; i < n; i++) {
           const x = n === 1 ? 50 : 12 + ((76 * i) / (n - 1 || 1));
           pushSpot(out, i, x, 44);
@@ -2902,7 +3043,7 @@ export function dancersWithPresetAndWingSurplus(
   enableWingSurplus: boolean,
   opts?: LayoutPresetOptions
 ): DancerSpot[] {
-  const nn = Math.max(0, Math.min(80, Math.floor(n) || 0));
+  const nn = Math.max(0, Math.min(MAX_DANCERS_PER_FORMATION, Math.floor(n) || 0));
   if (nn <= 0) return [];
   const prev = Math.max(0, Math.floor(previousBodyCount) || 0);
   if (!enableWingSurplus || nn <= prev || prev < MIN_BODY_FOR_WING_SURPLUS) {
@@ -2950,92 +3091,114 @@ export function transferDancerIdentitiesByOrder(
       sizePx: od.sizePx ?? nd.sizePx,
       note: od.note ?? nd.note,
       heightCm: od.heightCm ?? nd.heightCm,
+      gradeLabel: od.gradeLabel ?? nd.gradeLabel,
+      skillRankLabel: od.skillRankLabel ?? nd.skillRankLabel,
+      facingDeg: od.facingDeg ?? nd.facingDeg,
+      ...(od.markerShape ? { markerShape: od.markerShape } : {}),
     };
   });
 }
 
 /**
- * プリセット座標に、既存ダンサーを「位置が近い順」で割り当てる。
- * 最小費用マッチングで greedy の罠を避ける（AI提案・形の箱適用向け）。
+ * プリセット座標へ、既存ダンサーを「前の立ち位置から移動距離の総和が最小」になるよう割り当てて
+ * id / 表示 / 名簿紐付けを引き継ぐ。
+ *
+ * 貪欲な「近い順に確定」だと、中央付近の取り合いで端の人が遠くへ押し出されることがあるため、
+ * 最小費用マッチング（Hungarian）で全体最適にする。
+ *
+ * 重要: 出力配列の並びは identitySource（前キュー）の順を保つ。
+ * キュー間ギャップ補間は配列インデックスでも結ぶため、雛形スロット順に並べ替えると
+ * 「移動の途中で別人の場所へ入る」見た目になる。座標だけ最寄りスロットへ移す。
  */
 export function transferDancerIdentitiesByNearestPosition(
   positioned: DancerSpot[],
   identitySource: DancerSpot[]
 ): DancerSpot[] {
   if (positioned.length === 0) return [];
-  if (identitySource.length === 0) return positioned;
+  if (identitySource.length === 0) return positioned.map((d) => ({ ...d }));
 
-  const n = Math.min(positioned.length, identitySource.length);
-  const cost: number[][] = [];
-  for (let i = 0; i < n; i++) {
-    const src = identitySource[i]!;
-    const row: number[] = [];
-    for (let j = 0; j < positioned.length; j++) {
-      const dst = positioned[j]!;
-      const dx = src.xPct - dst.xPct;
-      const dy = src.yPct - dst.yPct;
-      row.push(dx * dx + dy * dy);
-    }
-    cost.push(row);
-  }
-
+  const cost: number[][] = identitySource.map((od) =>
+    positioned.map((nd) => {
+      const dx = od.xPct - nd.xPct;
+      const dy = od.yPct - nd.yPct;
+      return dx * dx + dy * dy;
+    })
+  );
   const assignment = minCostBipartiteAssignment(cost);
-  const usedSlots = new Set<number>();
-  const out: DancerSpot[] = positioned.map((p) => ({ ...p }));
 
-  for (let i = 0; i < assignment.length; i++) {
-    const slot = assignment[i]!;
-    if (slot < 0 || slot >= out.length) continue;
-    usedSlots.add(slot);
-    const od = identitySource[i]!;
-    const nd = out[slot]!;
-    const markerBadge =
-      od.crewMemberId
-        ? ""
-        : od.markerBadge !== undefined
-          ? od.markerBadge
-          : nd.markerBadge;
-    const markerBadgeSource = od.crewMemberId
-      ? undefined
-      : od.markerBadgeSource;
-    out[slot] = {
-      ...nd,
-      id: od.id,
-      label: od.label,
-      colorIndex: od.colorIndex,
-      crewMemberId: od.crewMemberId,
-      markerBadge,
-      markerBadgeSource,
-      sizePx: od.sizePx ?? nd.sizePx,
-      note: od.note ?? nd.note,
-      heightCm: od.heightCm ?? nd.heightCm,
-    };
+  const usedNew = new Set<number>();
+  /** oldIndex → newSlotIndex */
+  const oldToNew = new Map<number, number>();
+  for (let oi = 0; oi < assignment.length; oi++) {
+    const ni = assignment[oi]!;
+    if (ni < 0) continue;
+    oldToNew.set(oi, ni);
+    usedNew.add(ni);
   }
 
-  // 余った identity は未使用スロットへ順番で埋める
-  let nextId = n;
-  for (let j = 0; j < out.length; j++) {
-    if (usedSlots.has(j)) continue;
-    const od = identitySource[nextId++];
-    if (!od) break;
-    const nd = out[j]!;
-    out[j] = {
-      ...nd,
-      id: od.id,
-      label: od.label,
-      colorIndex: od.colorIndex,
-      crewMemberId: od.crewMemberId,
-      markerBadge: od.crewMemberId
-        ? ""
-        : od.markerBadge !== undefined
-          ? od.markerBadge
-          : nd.markerBadge,
-      markerBadgeSource: od.crewMemberId ? undefined : od.markerBadgeSource,
-      sizePx: od.sizePx ?? nd.sizePx,
-      note: od.note ?? nd.note,
-      heightCm: od.heightCm ?? nd.heightCm,
-    };
+  const inheritCenterDistance = identitySource.some(
+    (d) => d.markerBadgeSource === "centerDistance"
+  );
+
+  const result: DancerSpot[] = [];
+  for (let oi = 0; oi < identitySource.length; oi++) {
+    const ni = oldToNew.get(oi);
+    if (ni === undefined) continue;
+    result.push(
+      mergeDancerIdentityOntoPosition(positioned[ni]!, identitySource[oi]!)
+    );
+  }
+  // 余った雛形スロット（人数増）は末尾に追加
+  for (let ni = 0; ni < positioned.length; ni++) {
+    if (usedNew.has(ni)) continue;
+    const nd = { ...positioned[ni]! };
+    if (inheritCenterDistance) {
+      nd.markerBadge = "";
+      nd.markerBadgeSource = "centerDistance";
+    }
+    result.push(nd);
+  }
+  return result;
+}
+
+/** 座標は `positioned`、身元・○内表示モードは `identity` から引き継ぐ */
+function mergeDancerIdentityOntoPosition(
+  positioned: DancerSpot,
+  identity: DancerSpot
+): DancerSpot {
+  const keepCenterDistance = identity.markerBadgeSource === "centerDistance";
+
+  let markerBadge: string | undefined;
+  let markerBadgeSource: DancerSpot["markerBadgeSource"];
+
+  if (keepCenterDistance) {
+    markerBadge = "";
+    markerBadgeSource = "centerDistance";
+  } else if (identity.crewMemberId) {
+    markerBadge = "";
+    markerBadgeSource = undefined;
+  } else {
+    markerBadge =
+      identity.markerBadge !== undefined
+        ? identity.markerBadge
+        : positioned.markerBadge;
+    markerBadgeSource = identity.markerBadgeSource;
   }
 
-  return out;
+  return {
+    ...positioned,
+    id: identity.id,
+    label: identity.label,
+    colorIndex: identity.colorIndex,
+    crewMemberId: identity.crewMemberId,
+    markerBadge,
+    markerBadgeSource,
+    sizePx: identity.sizePx ?? positioned.sizePx,
+    note: identity.note ?? positioned.note,
+    heightCm: identity.heightCm ?? positioned.heightCm,
+    gradeLabel: identity.gradeLabel ?? positioned.gradeLabel,
+    skillRankLabel: identity.skillRankLabel ?? positioned.skillRankLabel,
+    facingDeg: identity.facingDeg ?? positioned.facingDeg,
+    ...(identity.markerShape ? { markerShape: identity.markerShape } : {}),
+  };
 }

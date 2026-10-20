@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -33,6 +33,34 @@ function ffmpegCoreStaticPlugin(): Plugin {
     },
     configureServer() {
       syncFfmpegCoreAssets();
+    },
+  };
+}
+
+/**
+ * 共有閲覧（/view/*）用の HTML。manifest（start_url="/"）を含めないことで、
+ * iOS の「ホーム画面に追加」が本体ではなく共有 URL を全画面で開く。
+ */
+function shareViewHtmlPlugin(): Plugin {
+  let outDir = "dist";
+  return {
+    name: "share-view-html",
+    apply: "build",
+    enforce: "post",
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    closeBundle: {
+      order: "post",
+      handler() {
+        const src = join(outDir, "index.html");
+        if (!existsSync(src)) return;
+        const html = readFileSync(src, "utf8").replace(
+          /<link[^>]*rel=["']manifest["'][^>]*>\s*/gi,
+          ""
+        );
+        writeFileSync(join(outDir, "view.html"), html);
+      },
     },
   };
 }
@@ -85,12 +113,22 @@ function devOpenBrowserPlugin(): Plugin {
 }
 
 export default defineConfig({
+  define: {
+    /** 設定画面などでデプロイ差分を確認できるようにする */
+    "import.meta.env.VITE_APP_BUILD": JSON.stringify(
+      (process.env.VERCEL_GIT_COMMIT_SHA || process.env.CF_PAGES_COMMIT_SHA || "")
+        .slice(0, 7) || new Date().toISOString().slice(0, 10)
+    ),
+  },
   plugins: [
     react(),
     ffmpegCoreStaticPlugin(),
     devOpenBrowserPlugin(),
+    shareViewHtmlPlugin(),
     VitePWA({
       registerType: "autoUpdate",
+      /** main.tsx で registerSW するため自動注入はオフ（二重登録防止） */
+      injectRegister: false,
       devOptions: {
         enabled: false,
       },
@@ -114,26 +152,37 @@ export default defineConfig({
         ],
       },
       workbox: {
+        /** Safari / Mac で古い SW が残りやすいので即時切り替え */
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,wasm}"],
         /** 大きめのチャンク（FFmpeg.wasm コア 等）もプリキャッシュ対象に含める */
         maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
         /** SPA ルート直アクセス時も index.html を返す */
         navigateFallback: "/index.html",
-        /** API はフォールバック対象外 */
-        navigateFallbackDenylist: [/^\/api/],
+        /** 静的アセット欠落時に HTML を返すと MIME エラーで真っ黒になる */
+        navigateFallbackDenylist: [/^\/api/, /^\/assets\//, /^\/view\//],
         runtimeCaching: [
           {
-            /** デプロイ後の古い SW が存在しない JS チャンクを参照するのを防ぐ */
-            urlPattern: /\/assets\/.*\.js$/,
+            /** ナビ（HTML）は常にネットワーク優先で最新シェルを取る */
+            urlPattern: ({ request }) => request.mode === "navigate",
             handler: "NetworkFirst",
             options: {
-              cacheName: "choreocore-assets-js-v2",
-              expiration: {
-                maxEntries: 64,
-                maxAgeSeconds: 60 * 60 * 24 * 7,
-              },
+              cacheName: "choreocore-html-v5",
+              networkTimeoutSeconds: 4,
               cacheableResponse: { statuses: [0, 200] },
-              networkTimeoutSeconds: 8,
+            },
+          },
+          {
+            /**
+             * ハッシュ付き JS は precache 済み。ランタイムで NetworkFirst すると
+             * 欠落チャンクの SPA HTML(200) を JS としてキャッシュしてしまう。
+             */
+            urlPattern: /\/assets\/.*\.js$/,
+            handler: "NetworkOnly",
+            options: {
+              cacheName: "choreocore-assets-js-v5",
             },
           },
           {

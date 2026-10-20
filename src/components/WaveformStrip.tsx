@@ -5,13 +5,18 @@ import {
 } from "../lib/waveDrawRangeSync";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { formatMmSs, waveRulerTicks } from "../lib/timeFormat";
-import { waveTimeToPercent } from "../lib/timelineWaveGeometry";
+import {
+  resolveCanonicalTimelineView,
+  timelineClientXToTime,
+  timelineTimeToPercent,
+} from "../hooks/useTimelinePixels";
 import { WaveformLoadOverlay } from "./WaveformLoadOverlay";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
 import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
 import { PC_WAVE_RULER_HEIGHT_CSS } from "../lib/waveDockMetrics";
 
-const SECTION_BAR_HEIGHT = 10;
+/** ラベル＋ドラッグハンドルが収まるセクション帯 */
+const SECTION_BAR_HEIGHT = 22;
 
 /** 波形下端の再生位置線のはみ出し（CSS px）— 上部ドックではクリップを避ける */
 const PLAYHEAD_LINE_BLEED_BOTTOM_CSS = 8;
@@ -89,23 +94,31 @@ export function WaveformStrip({
   const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
   const showWaveLoadOverlay = !hasPeaks && waveLoadProgress != null;
   const sectionSegments = useMusicSectionOverlayStore((s) => s.segments);
+  const sectionAnalyzing = useMusicSectionOverlayStore((s) => s.analyzing);
+  const sectionAnalyzeStatus = useMusicSectionOverlayStore((s) => s.analyzeStatus);
+  const updateSectionBoundary = useMusicSectionOverlayStore((s) => s.updateBoundary);
+  const nudgeBeatGrid = useMusicSectionOverlayStore((s) => s.nudgeBeatGrid);
+  const canEditSections =
+    viewMode !== "view" && sectionSegments.length > 0 && !sectionAnalyzing;
   const playheadHeight = `calc(${rulerHeight} + ${
-    sectionSegments.length > 0 ? SECTION_BAR_HEIGHT : 0
+    sectionSegments.length > 0 || sectionAnalyzing ? SECTION_BAR_HEIGHT : 0
   }px + ${waveCanvasCssH}px + ${playheadBleedPx}px)`;
   const drawWaveView = useSyncExternalStore(
     subscribeWaveDrawRange,
     getWaveDrawRangeSnapshot,
     getWaveDrawRangeSnapshot
   );
-  const rulerView =
-    drawWaveView.span > 0 && drawWaveView.span < duration - 1e-6
-      ? drawWaveView
-      : waveView;
+  /** Canvas 公開レンジと常に同じ窓（フル表示でも fallback しない） */
+  const rulerView = resolveCanonicalTimelineView(
+    drawWaveView,
+    waveView,
+    duration
+  );
   /** ズーム中のみ赤バー上でポインタを受け、ドラッグで波形を横スクロール（非ズーム時はキャンバスでキュー操作を優先） */
   const zoomedWaveView =
     duration > 0 &&
-    drawWaveView.span > 0 &&
-    drawWaveView.span < duration - 1e-6;
+    rulerView.span > 0 &&
+    rulerView.span < duration - 1e-6;
   const playheadStripPointerEvents =
     zoomedWaveView && hasPeaks && viewMode !== "view" ? "auto" : "none";
 
@@ -147,7 +160,7 @@ export function WaveformStrip({
         >
           {duration > 0
             ? waveRulerTicks(rulerView.start, rulerView.end, 10).map((tick) => {
-                const p = waveTimeToPercent(tick, rulerView.start, rulerView.span);
+                const p = timelineTimeToPercent(tick, rulerView);
                 const pRounded = Math.round(p * 10000) / 10000;
                 return (
                   <span
@@ -174,8 +187,9 @@ export function WaveformStrip({
         </div>
         {sectionSegments.length > 0 && duration > 0 ? (
           <div
-            aria-label="AIが認識した曲のセクション"
-            title="AIの曲理解（セクション）"
+            data-section-track
+            aria-label="AIが認識した曲のセクション。境界をドラッグして微調整できます"
+            title="AIの曲理解（セクション）— 端をドラッグでビート吸着"
             style={{
               position: "relative",
               height: SECTION_BAR_HEIGHT,
@@ -184,23 +198,65 @@ export function WaveformStrip({
               overflow: "hidden",
             }}
           >
+            {canEditSections ? (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 4,
+                  top: 2,
+                  zIndex: 3,
+                  display: "flex",
+                  gap: 2,
+                  pointerEvents: "auto",
+                }}
+              >
+                <button
+                  type="button"
+                  title="グリッドを -10ms（ビートナッジ）"
+                  aria-label="グリッドを10ミリ秒早める"
+                  onClick={() => nudgeBeatGrid(-0.01)}
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    padding: "1px 5px",
+                    borderRadius: 4,
+                    border: "1px solid rgba(212,175,55,0.35)",
+                    background: "rgba(10,9,8,0.75)",
+                    color: "#e8d48b",
+                    cursor: "pointer",
+                  }}
+                >
+                  −10ms
+                </button>
+                <button
+                  type="button"
+                  title="グリッドを +10ms（ビートナッジ）"
+                  aria-label="グリッドを10ミリ秒遅らせる"
+                  onClick={() => nudgeBeatGrid(0.01)}
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    padding: "1px 5px",
+                    borderRadius: 4,
+                    border: "1px solid rgba(212,175,55,0.35)",
+                    background: "rgba(10,9,8,0.75)",
+                    color: "#e8d48b",
+                    cursor: "pointer",
+                  }}
+                >
+                  +10ms
+                </button>
+              </div>
+            ) : null}
             {sectionSegments.map((seg, i) => {
-              const left = waveTimeToPercent(
-                seg.startSec,
-                rulerView.start,
-                rulerView.span
-              );
-              const right = waveTimeToPercent(
-                seg.endSec,
-                rulerView.start,
-                rulerView.span
-              );
+              const left = timelineTimeToPercent(seg.startSec, rulerView);
+              const right = timelineTimeToPercent(seg.endSec, rulerView);
               const width = Math.max(0, right - left);
               if (width < 0.05) return null;
               return (
                 <div
                   key={`${seg.sectionType}-${seg.startSec}-${i}`}
-                  title={`${seg.label} ${formatMmSs(seg.startSec)}–${formatMmSs(seg.endSec)}`}
+                  title={`${seg.label} ${formatMmSs(seg.startSec)}–${formatMmSs(seg.endSec)}（左端ドラッグでビート整列）`}
                   style={{
                     position: "absolute",
                     left: `${left}%`,
@@ -208,12 +264,113 @@ export function WaveformStrip({
                     top: 1,
                     bottom: 1,
                     background: seg.color,
-                    borderRadius: 2,
-                    pointerEvents: "none",
+                    borderRadius: 3,
+                    pointerEvents: canEditSections ? "auto" : "none",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "visible",
+                    boxShadow: "inset 0 0 0 1px rgba(15, 23, 42, 0.35)",
                   }}
-                />
+                >
+                  {width > 4 ? (
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: "rgba(248, 250, 252, 0.92)",
+                        textShadow: "0 1px 2px rgba(0,0,0,0.55)",
+                        letterSpacing: "0.02em",
+                        whiteSpace: "nowrap",
+                        pointerEvents: "none",
+                        padding: "0 6px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: "100%",
+                      }}
+                    >
+                      {seg.label}
+                    </span>
+                  ) : null}
+                  {canEditSections ? (
+                    <>
+                      <SectionEdgeHandle
+                        edge="start"
+                        onDrag={(clientX, trackEl) => {
+                          const t = timelineClientXToTime(
+                            clientX,
+                            trackEl,
+                            rulerView
+                          );
+                          if (t != null) {
+                            updateSectionBoundary(i, "start", t, {
+                              skipMagnet: true,
+                              realignGrid: true,
+                            });
+                          }
+                        }}
+                      />
+                      <SectionEdgeHandle
+                        edge="end"
+                        onDrag={(clientX, trackEl) => {
+                          const t = timelineClientXToTime(
+                            clientX,
+                            trackEl,
+                            rulerView
+                          );
+                          if (t != null) updateSectionBoundary(i, "end", t);
+                        }}
+                      />
+                    </>
+                  ) : null}
+                </div>
               );
             })}
+          </div>
+        ) : sectionAnalyzing ? (
+          <div
+            aria-live="polite"
+            style={{
+              position: "relative",
+              height: SECTION_BAR_HEIGHT,
+              borderBottom: "1px solid #1e293b",
+              background:
+                "linear-gradient(90deg, rgba(15,23,42,0.95), rgba(30,41,59,0.9), rgba(15,23,42,0.95))",
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "linear-gradient(90deg, transparent, rgba(56,189,248,0.35), transparent)",
+                animation: "choreocore-wave-scan 1.4s ease-in-out infinite",
+              }}
+            />
+            <span
+              style={{
+                position: "relative",
+                zIndex: 1,
+                fontSize: 9,
+                fontWeight: 700,
+                color: "#7dd3fc",
+                letterSpacing: "0.04em",
+                textShadow: "0 0 8px rgba(56,189,248,0.45)",
+              }}
+            >
+              {sectionAnalyzeStatus ?? "AIがBPMとビートを展開解析中…"}
+            </span>
+            <style>{`
+              @keyframes choreocore-wave-scan {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(100%); }
+              }
+            `}</style>
           </div>
         ) : null}
         <div style={{ position: "relative", width: "100%" }}>
@@ -328,5 +485,59 @@ export function WaveformStrip({
         />
       ) : null}
     </div>
+  );
+}
+
+function SectionEdgeHandle({
+  edge,
+  onDrag,
+}: {
+  edge: "start" | "end";
+  onDrag: (clientX: number, trackEl: HTMLElement) => void;
+}) {
+  return (
+    <div
+      role="slider"
+      aria-label={edge === "start" ? "セクション開始" : "セクション終了"}
+      onPointerDown={(e: PointerEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const handle = e.currentTarget;
+        const trackEl = handle.closest("[data-section-track]") as HTMLElement | null;
+        if (!trackEl) return;
+        const pointerId = e.pointerId;
+        handle.setPointerCapture(pointerId);
+        const move = (ev: globalThis.PointerEvent) => {
+          onDrag(ev.clientX, trackEl);
+        };
+        const up = (ev: globalThis.PointerEvent) => {
+          onDrag(ev.clientX, trackEl);
+          try {
+            handle.releasePointerCapture(pointerId);
+          } catch {
+            /* already released */
+          }
+          handle.removeEventListener("pointermove", move);
+          handle.removeEventListener("pointerup", up);
+          handle.removeEventListener("pointercancel", up);
+        };
+        handle.addEventListener("pointermove", move);
+        handle.addEventListener("pointerup", up);
+        handle.addEventListener("pointercancel", up);
+      }}
+      style={{
+        position: "absolute",
+        top: 0,
+        bottom: 0,
+        [edge === "start" ? "left" : "right"]: -3,
+        width: 8,
+        cursor: "ew-resize",
+        touchAction: "none",
+        zIndex: 2,
+        background: "rgba(248, 250, 252, 0.55)",
+        borderRadius: 2,
+        boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.4)",
+      }}
+    />
   );
 }

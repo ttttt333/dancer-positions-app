@@ -1,6 +1,6 @@
 /**
  * Fly.io song_structure_v2 へのフロント向けクライアント層。
- * 実体の正規化・Edge 経由取得は `songAnalyzeClient` に委譲する。
+ * FLY Music Intelligence 入口もここから再エクスポートする。
  */
 
 import {
@@ -8,6 +8,7 @@ import {
   normalizeStructureResultV2,
 } from "../songAnalyzeClient";
 import type { StructureResultV2 } from "../choreocore/types/songStructure";
+import { analyzeSongWithFly } from "../fly/client";
 
 /** 直接叩き用。未設定時は Edge analyze-song 経由のみ。 */
 export function getFlyAnalyzerBaseUrl(): string | null {
@@ -70,4 +71,4 @@ export async function fetchSongStructureV2(
   }
 }
 
-export { normalizeStructureResultV2 };
+export { normalizeStructureResultV2, analyzeSongWithFly };

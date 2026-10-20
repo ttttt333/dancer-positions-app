@@ -37,6 +37,8 @@ export function StageFloorMarkupToolbarHost({
     onAddTemplateText,
     floorTextEditIsGlobal,
     onUpdateGlobalMarkup,
+    floorLineScope,
+    setFloorLineScope,
   } = toolbar;
 
   const clearLineEraseSession = () => {
@@ -64,8 +66,21 @@ export function StageFloorMarkupToolbarHost({
         maxWidth: "calc(100% - 12px)",
       }}
     >
+      {/*
+        上部ドック時: 浮遊帯は出さない（テキスト／落書きはサイドシートのタブ）。
+        落書きツール起動中だけ床下に短いヒントを出す。
+      */}
       {!hideFloorMarkupFloatingToolbars ? (
         <StageFloorMarkupFloatingToolbars {...toolbar} />
+      ) : null}
+      {hideFloorMarkupFloatingToolbars &&
+      (floorMarkupTool === "line" || floorMarkupTool === "erase") ? (
+        <StageFloorMarkupHiddenLineEraseStrip
+          tool={floorMarkupTool}
+          onDone={clearLineEraseSession}
+          floorLineScope={floorLineScope}
+          setFloorLineScope={setFloorLineScope}
+        />
       ) : null}
       {hideFloorMarkupFloatingToolbars && floorMarkupTool === "text" && !textPanelPortalTarget ? (
         <StageFloorMarkupHiddenTextPanel
@@ -98,13 +113,6 @@ export function StageFloorMarkupToolbarHost({
             textPanelPortalTarget
           )
         : null}
-      {hideFloorMarkupFloatingToolbars &&
-      (floorMarkupTool === "line" || floorMarkupTool === "erase") ? (
-        <StageFloorMarkupHiddenLineEraseStrip
-          tool={floorMarkupTool}
-          onDone={clearLineEraseSession}
-        />
-      ) : null}
     </div>
   );
 }

@@ -34,6 +34,7 @@ type Props = {
     proBadge: string;
     freeBadge: string;
     faq: string;
+    appeal: string;
     help: string;
     renamePrompt: string;
     deleteConfirm: string;
@@ -331,6 +332,7 @@ export function HomeSettingsView({
         </p>
       ) : null}
 
+      <SettingsRow icon="★" label={labels.appeal} to="/appeal" />
       <SettingsRow icon="?" label={labels.faq} to="/update-log" />
       <SettingsRow
         icon="✉"

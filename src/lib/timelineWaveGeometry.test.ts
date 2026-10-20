@@ -75,8 +75,21 @@ describe("pickCueDragKindAtWave", () => {
       { id: "tiny", tStartSec: 50, tEndSec: 51, formationId: "f1" },
     ];
     const canvas = mockCanvas(1000, 80);
-    const hit = pickCueDragKindAtWave(500, 40, canvas, cues, 0, 100, null);
+    const hit = pickCueDragKindAtWave(505, 40, canvas, cues, 0, 100, null);
     expect(hit).toEqual({ cueId: "tiny", mode: "move" });
+  });
+
+  it("allows resizing narrow cues when zoomed out (edges and outer grips)", () => {
+    const cues: Cue[] = [
+      { id: "tiny", tStartSec: 50, tEndSec: 51, formationId: "f1" },
+    ];
+    const canvas = mockCanvas(1000, 80);
+    const pick = (x: number) =>
+      pickCueDragKindAtWave(x, 40, canvas, cues, 0, 100, null);
+    expect(pick(490)).toEqual({ cueId: "tiny", mode: "start" });
+    expect(pick(501)).toEqual({ cueId: "tiny", mode: "start" });
+    expect(pick(509)).toEqual({ cueId: "tiny", mode: "end" });
+    expect(pick(520)).toEqual({ cueId: "tiny", mode: "end" });
   });
 
   it("prefers cue resize at adjacent cue junction over gap-only hit", () => {
@@ -110,6 +123,22 @@ describe("pickCueDragKindAtWave", () => {
     const id = pickCueIdAtWave(200, 40, canvas, overlap, 0, 100, null);
     const hit = pickCueDragKindAtWave(200, 40, canvas, overlap, 0, 100, null);
     expect(hit?.cueId).toBe(id);
+  });
+
+  it("portrait: gap between cues is move on the previous cue (matches drawn frame)", () => {
+    const gapped: Cue[] = [
+      { id: "a", tStartSec: 10, tEndSec: 20, formationId: "f1" },
+      { id: "b", tStartSec: 40, tEndSec: 50, formationId: "f2" },
+    ];
+    const canvas = mockCanvas(1000, 80);
+    // 30s → x=300
+    expect(pickCueIdAtWave(300, 40, canvas, gapped, 0, 100, null)).toBe("a");
+    expect(
+      pickCueDragKindAtWave(300, 40, canvas, gapped, 0, 100, null, undefined, null, false)
+    ).toBeNull();
+    expect(
+      pickCueDragKindAtWave(300, 40, canvas, gapped, 0, 100, null, undefined, null, true)
+    ).toEqual({ cueId: "a", mode: "move" });
   });
 });
 
@@ -191,7 +220,7 @@ describe("resolveWaveDrawView", () => {
     expect(v.start).toBe(12);
   });
 
-  it("keeps override while cue drag is armed during playback", () => {
+  it("follows playhead even while cue drag is armed during playback", () => {
     const v = resolveWaveDrawView({
       durationSec: 100,
       viewPortion: 0.2,
@@ -200,7 +229,9 @@ describe("resolveWaveDrawView", () => {
       viewStartOverride: 18,
       cueDragArmed: true,
     });
-    expect(v.start).toBe(18);
+    expect(v.span).toBeCloseTo(20, 5);
+    expect(v.start).toBeCloseTo(40, 5);
+    expect(v.start + v.span * 0.5).toBeCloseTo(50, 5);
   });
 });
 

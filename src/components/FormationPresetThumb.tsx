@@ -65,7 +65,35 @@ export function FormationPresetThumb({ preset, width = 36, className }: Props) {
   const h = Math.round((width * 60) / 100);
   let pts: readonly (readonly [number, number])[] = [];
 
-  switch (preset) {
+  const stairFirst = (() => {
+    const m = /^front_stair_from_(\d+)$/.exec(String(preset));
+    if (!m) return null;
+    const k = Number.parseInt(m[1]!, 10);
+    return Number.isFinite(k) ? Math.max(1, k) : null;
+  })();
+  const twoRowsFront = (() => {
+    const m = /^classic_two_rows_(\d+)$/.exec(String(preset));
+    if (!m) return null;
+    const k = Number.parseInt(m[1]!, 10);
+    return Number.isFinite(k) && k >= 1 ? k : null;
+  })();
+
+  if (stairFirst != null) {
+    pts = thumbPointsFrontStair(stairFirst);
+  } else if (twoRowsFront != null) {
+    const back = Math.max(1, twoRowsFront + (twoRowsFront <= 3 ? 2 : -1));
+    const frontPts = Array.from({ length: Math.min(6, twoRowsFront) }, (_, i) => {
+      const cnt = Math.min(6, twoRowsFront);
+      const x = cnt <= 1 ? 50 : 20 + (i * 60) / (cnt - 1);
+      return [x, 48] as const;
+    });
+    const backPts = Array.from({ length: Math.min(6, back) }, (_, i) => {
+      const cnt = Math.min(6, back);
+      const x = cnt <= 1 ? 50 : 20 + (i * 60) / (cnt - 1);
+      return [x, 22] as const;
+    });
+    pts = [...frontPts, ...backPts];
+  } else switch (preset) {
     case "line":
       pts = [
         [16, 28],

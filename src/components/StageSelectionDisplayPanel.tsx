@@ -1,6 +1,16 @@
-import { useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
+import {
+  useState,
+  type CSSProperties,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
-import { DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE } from "../lib/dancerColorPalette";
+import {
+  DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
+  DANCER_COLOR_RANDOM,
+} from "../lib/dancerColorPalette";
+import { DancerColorRandomSwatch } from "./DancerColorRandomSwatch";
 import {
   NAME_BELOW_FONT_PX_MAX,
   NAME_BELOW_FONT_PX_MIN,
@@ -16,6 +26,22 @@ import {
   dockSectionHint,
   dockSectionTitle,
 } from "./stageDockPanelStyles";
+import { DancerFaceStampPicker } from "./DancerFaceStampPicker";
+import { DancerFigure3dPicker } from "./DancerFigure3dPicker";
+import { DancerFigure3dApplyScopeToggle } from "./DancerFigure3dApplyScopeToggle";
+import { DancerGenderPicker } from "./DancerGenderPicker";
+import type { DancerFaceStampId } from "../lib/dancerFaceStamp";
+import type { DancerFigure3dApplyScope } from "../lib/applyDancerFigure3d";
+import {
+  useDancerMarkerLookScopeStore,
+  type DancerMarkerLookScope,
+} from "../lib/applyDancerMarkerLook";
+import { withDancerLabelPosition } from "../lib/withDancerLabelPosition";
+import {
+  DANCER_MARKER_SHAPE_POINTS,
+  DANCER_MARKER_SHAPES,
+  type DancerMarkerShape,
+} from "../lib/dancerMarkerShape";
 
 const PRIMARY_COLOR_COUNT = 8;
 
@@ -31,6 +57,156 @@ const markerActionBtn: CSSProperties = {
   wordBreak: "keep-all",
   overflowWrap: "normal",
 };
+
+type DisclosureId = "name" | "shape" | "color" | "face" | "figure3d" | "gender";
+
+const FACING_QUICK_DEGS = [0, 45, 90, 135, 180, 225, 270, 315] as const;
+
+function ShapeIcon({ shape, size = 18 }: { shape: DancerMarkerShape; size?: number }) {
+  return (
+    <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden>
+      {shape === "circle" ? (
+        <circle cx="50" cy="50" r="44" fill="currentColor" />
+      ) : (
+        <polygon points={DANCER_MARKER_SHAPE_POINTS[shape]} fill="currentColor" />
+      )}
+    </svg>
+  );
+}
+
+function DockDisclosure({
+  id,
+  title,
+  summary,
+  open,
+  onToggle,
+  children,
+}: {
+  id: DisclosureId;
+  title: string;
+  summary?: string;
+  open: boolean;
+  onToggle: (id: DisclosureId) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div style={{ ...dockCard, padding: 0, marginBottom: 8, overflow: "hidden" }}>
+      <button
+        type="button"
+        data-dock-disclosure={id}
+        aria-expanded={open}
+        onClick={() => onToggle(id)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "10px 12px",
+          border: "none",
+          background: open ? "rgba(251,191,36,0.08)" : "transparent",
+          color: "#e2e8f0",
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 700 }}>{title}</span>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            minWidth: 0,
+            color: "#94a3b8",
+            fontSize: 11,
+            fontWeight: 600,
+          }}
+        >
+          {!open && summary ? (
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: 88,
+              }}
+            >
+              {summary}
+            </span>
+          ) : null}
+          <span aria-hidden style={{ color: open ? "#fbbf24" : "#64748b" }}>
+            {open ? "▾" : "▸"}
+          </span>
+        </span>
+      </button>
+      {open ? (
+        <div style={{ padding: "0 10px 10px" }}>{children}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function NestedDisclosure({
+  title,
+  summary,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  summary?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        borderRadius: 8,
+        border: "1px solid #334155",
+        background: "#020617",
+        overflow: "hidden",
+      }}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "9px 10px",
+          border: "none",
+          background: open ? "rgba(251,191,36,0.08)" : "transparent",
+          color: "#e2e8f0",
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 700 }}>{title}</span>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            color: "#94a3b8",
+            fontSize: 11,
+            fontWeight: 600,
+          }}
+        >
+          {!open && summary ? <span>{summary}</span> : null}
+          <span aria-hidden style={{ color: open ? "#fbbf24" : "#64748b" }}>
+            {open ? "▾" : "▸"}
+          </span>
+        </span>
+      </button>
+      {open ? <div style={{ padding: "0 8px 8px" }}>{children}</div> : null}
+    </div>
+  );
+}
 
 function SizeSlider({
   label,
@@ -103,6 +279,33 @@ export type StageSelectionDisplayPanelProps = {
   applyBulkMarkerSequence: (ids: string[], start: number) => void;
   applyBulkMarkerSame: (ids: string[], badgeRaw: string) => void;
   applyBulkMarkerCenterDistance: (ids: string[]) => void;
+  applyBulkFaceStamp?: (
+    ids: string[],
+    stamp: import("../lib/dancerFaceStamp").DancerFaceStampId | null
+  ) => void;
+  applyBulkGenderToDancerIds?: (
+    ids: string[],
+    genderLabel: string | null
+  ) => void;
+  applyBulkFigure3dToDancerIds?: (
+    ids: string[],
+    figure3d: import("../lib/dancerFigure3d").DancerFigure3dId,
+    scope?: DancerFigure3dApplyScope
+  ) => void;
+  applyBulkMarkerShape?: (
+    ids: string[],
+    shape: DancerMarkerShape,
+    scope?: DancerMarkerLookScope
+  ) => void;
+  applyBulkFacingDeg?: (
+    ids: string[],
+    deg: number,
+    scope?: DancerMarkerLookScope
+  ) => void;
+  /** 「全員」に適用するときの対象（このキューの全ダンサー） */
+  allDancerIds?: readonly string[];
+  primaryMarkerShape?: DancerMarkerShape;
+  primaryFacingDeg?: number;
   selectedDancerIds: readonly string[];
   markerPx: number;
   nameFontPx: number;
@@ -123,6 +326,14 @@ export function StageSelectionDisplayPanel({
   applyBulkMarkerSequence,
   applyBulkMarkerSame,
   applyBulkMarkerCenterDistance,
+  applyBulkFaceStamp,
+  applyBulkGenderToDancerIds,
+  applyBulkFigure3dToDancerIds,
+  applyBulkMarkerShape,
+  applyBulkFacingDeg,
+  allDancerIds,
+  primaryMarkerShape = "circle",
+  primaryFacingDeg = 0,
   selectedDancerIds,
   markerPx,
   nameFontPx,
@@ -132,29 +343,79 @@ export function StageSelectionDisplayPanel({
   onSizeGestureEnd,
 }: StageSelectionDisplayPanelProps) {
   const [showAllColors, setShowAllColors] = useState(false);
-  const colors = showAllColors ? DANCER_PALETTE : DANCER_PALETTE.slice(0, PRIMARY_COLOR_COUNT);
+  const [figure3dScope, setFigure3dScope] =
+    useState<DancerFigure3dApplyScope>("all");
+  const [openSection, setOpenSection] = useState<DisclosureId | null>(null);
+  const [markerInsideOpen, setMarkerInsideOpen] = useState(false);
+  const [shapeScope, setShapeScope] = useState<"selected" | "all">("selected");
+  const lookCueScope = useDancerMarkerLookScopeStore((s) => s.scope);
+  const setLookCueScope = useDancerMarkerLookScopeStore((s) => s.setScope);
+  const colors = showAllColors
+    ? DANCER_PALETTE
+    : DANCER_PALETTE.slice(0, PRIMARY_COLOR_COUNT);
   const ids = [...selectedDancerIds];
   const busy = Boolean(disabled) || selectedCount === 0;
+  const labelPos = rawDancerLabelPosition ?? "inside";
+  const nameSummary = labelPos === "inside" ? "丸の内" : "丸の下";
+  const shapeTargetIds =
+    shapeScope === "all" && allDancerIds && allDancerIds.length > 0
+      ? [...allDancerIds]
+      : ids;
+  const shapeBusy = busy || !applyBulkMarkerShape;
+  const facingBusy = busy || !applyBulkFacingDeg;
+  const shapeSummary = `${
+    DANCER_MARKER_SHAPES.find((s) => s.id === primaryMarkerShape)?.label ?? "丸"
+  }・${Math.round(primaryFacingDeg)}°`;
+  const scopeBtn = (on: boolean): CSSProperties => ({
+    flex: 1,
+    padding: "7px 8px",
+    borderRadius: 8,
+    border: on ? "1px solid rgba(251,191,36,0.9)" : "1px solid #334155",
+    background: on ? "rgba(251,191,36,0.16)" : "#020617",
+    color: on ? "#fde68a" : "#94a3b8",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  });
+
+  const toggleSection = (id: DisclosureId) => {
+    setOpenSection((cur) => (cur === id ? null : id));
+  };
 
   return (
     <div data-selection-display-panel>
-      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
-        <div style={{ ...dockSectionTitle, marginBottom: 8 }}>名前の表示</div>
-        <div style={{ display: "flex", gap: 8, marginBottom: dancerLabelBelow ? 8 : 0 }}>
+      <DockDisclosure
+        id="name"
+        title="名前の表示"
+        summary={nameSummary}
+        open={openSection === "name"}
+        onToggle={toggleSection}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginBottom: 0,
+          }}
+        >
           {(["inside", "below"] as const).map((pos) => {
-            const current = rawDancerLabelPosition ?? "inside";
-            const on = current === pos;
+            const on = labelPos === pos;
             return (
               <button
                 key={pos}
                 type="button"
                 disabled={busy}
-                onClick={() => setProject((p) => ({ ...p, dancerLabelPosition: pos }))}
+                onClick={() =>
+                  setProject((p) => withDancerLabelPosition(p, pos))
+                }
                 style={{
                   flex: 1,
                   padding: "10px 12px",
                   borderRadius: 8,
-                  border: on ? "1px solid rgba(251,191,36,0.9)" : "1px solid #334155",
+                  border: on
+                    ? "1px solid rgba(251,191,36,0.9)"
+                    : "1px solid #334155",
                   background: on ? "rgba(251,191,36,0.16)" : "#020617",
                   color: on ? "#fde68a" : "#94a3b8",
                   fontSize: 13,
@@ -168,71 +429,80 @@ export function StageSelectionDisplayPanel({
           })}
         </div>
         {dancerLabelBelow ? (
-          <>
-            <div style={{ ...dockSectionTitle, marginTop: 8 }}>丸の内</div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 8,
-              }}
+          <div style={{ marginTop: 8 }}>
+            <NestedDisclosure
+              title="丸の内の内容"
+              summary="空白・連番など"
+              open={markerInsideOpen}
+              onToggle={() => setMarkerInsideOpen((v) => !v)}
             >
-              <button
-                type="button"
-                disabled={busy}
-                style={markerActionBtn}
-                onClick={() => applyBulkMarkerClear(ids)}
-              >
-                空白
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                style={markerActionBtn}
-                onClick={() => {
-                  const raw = window.prompt(
-                    "連番の開始番号（整数）。フォーメーション順で丸の内に入れます。",
-                    "1"
-                  );
-                  if (raw == null || raw.trim() === "") return;
-                  const v = Number.parseInt(raw.trim(), 10);
-                  if (!Number.isFinite(v)) {
-                    window.alert("整数として読めませんでした。");
-                    return;
-                  }
-                  applyBulkMarkerSequence(ids, v);
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
                 }}
               >
-                連番
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                style={markerActionBtn}
-                onClick={() => {
-                  const raw = window.prompt("全員の丸の内を同じ内容に（最大3文字）。", "1");
-                  if (raw == null || raw.trim() === "") return;
-                  applyBulkMarkerSame(ids, raw);
-                }}
-              >
-                同じ
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                style={{ ...markerActionBtn, gridColumn: "1 / -1" }}
-                onClick={() => applyBulkMarkerCenterDistance(ids)}
-              >
-                センターからの距離
-              </button>
-            </div>
-          </>
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={markerActionBtn}
+                  onClick={() => applyBulkMarkerClear(ids)}
+                >
+                  空白
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={markerActionBtn}
+                  onClick={() => {
+                    const raw = window.prompt(
+                      "連番の開始番号（整数）。フォーメーション順で丸の内に入れます。",
+                      "1"
+                    );
+                    if (raw == null || raw.trim() === "") return;
+                    const v = Number.parseInt(raw.trim(), 10);
+                    if (!Number.isFinite(v)) {
+                      window.alert("整数として読めませんでした。");
+                      return;
+                    }
+                    applyBulkMarkerSequence(ids, v);
+                  }}
+                >
+                  連番
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={markerActionBtn}
+                  onClick={() => {
+                    const raw = window.prompt(
+                      "全員の丸の内を同じ内容に（最大3文字）。",
+                      "1"
+                    );
+                    if (raw == null || raw.trim() === "") return;
+                    applyBulkMarkerSame(ids, raw);
+                  }}
+                >
+                  同じ
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={{ ...markerActionBtn, gridColumn: "1 / -1" }}
+                  onClick={() => applyBulkMarkerCenterDistance(ids)}
+                >
+                  センターからの距離
+                </button>
+              </div>
+            </NestedDisclosure>
+          </div>
         ) : (
           <p style={{ ...dockSectionHint, margin: "8px 0 0" }}>
             「丸の下」にすると、丸の内に連番などを入れられます。
           </p>
         )}
-      </div>
+      </DockDisclosure>
 
       <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
         <div style={{ ...dockSectionTitle, marginBottom: 8 }}>大きさ</div>
@@ -260,9 +530,187 @@ export function StageSelectionDisplayPanel({
         />
       </div>
 
-      <div style={{ ...dockCard, marginBottom: 0, padding: "8px 8px 10px" }}>
-        <div style={{ ...dockSectionTitle, marginBottom: 8 }}>印の色（選択に一括）</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+      <DockDisclosure
+        id="shape"
+        title="形と向き"
+        summary={shapeSummary}
+        open={openSection === "shape"}
+        onToggle={toggleSection}
+      >
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          <button
+            type="button"
+            aria-pressed={shapeScope === "selected"}
+            onClick={() => setShapeScope("selected")}
+            style={scopeBtn(shapeScope === "selected")}
+          >
+            選択中 {selectedCount}人
+          </button>
+          <button
+            type="button"
+            aria-pressed={shapeScope === "all"}
+            disabled={!allDancerIds || allDancerIds.length === 0}
+            onClick={() => setShapeScope("all")}
+            style={scopeBtn(shapeScope === "all")}
+          >
+            全員 {allDancerIds?.length ?? 0}人
+          </button>
+        </div>
+        <DancerFigure3dApplyScopeToggle
+          value={lookCueScope}
+          onChange={setLookCueScope}
+          disabled={shapeBusy && facingBusy}
+          ariaLabel="形と向きの適用範囲"
+        />
+        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>形</div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+            gap: 6,
+            marginBottom: 10,
+          }}
+        >
+          {DANCER_MARKER_SHAPES.map((s) => {
+            const on = shapeScope === "selected" && primaryMarkerShape === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                data-marker-shape={s.id}
+                disabled={shapeBusy}
+                title={`${s.label}にする`}
+                onClick={() => applyBulkMarkerShape?.(shapeTargetIds, s.id, lookCueScope)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 3,
+                  padding: "7px 2px",
+                  whiteSpace: "nowrap",
+                  borderRadius: 8,
+                  border: on
+                    ? "1px solid rgba(251,191,36,0.9)"
+                    : "1px solid #334155",
+                  background: on ? "rgba(251,191,36,0.16)" : "#020617",
+                  color: on ? "#fde68a" : "#cbd5e1",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: shapeBusy ? "not-allowed" : "pointer",
+                }}
+              >
+                <ShapeIcon shape={s.id} size={16} />
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+        <SizeSlider
+          label="向き（0°＝客席側）"
+          value={Math.round(primaryFacingDeg)}
+          min={0}
+          max={359}
+          unit="°"
+          disabled={facingBusy}
+          onChange={(deg) => applyBulkFacingDeg?.(shapeTargetIds, deg, lookCueScope)}
+          onGestureBegin={onSizeGestureBegin}
+          onGestureEnd={onSizeGestureEnd}
+        />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+            gap: 6,
+            marginBottom: 6,
+          }}
+        >
+          {FACING_QUICK_DEGS.map((deg) => (
+            <button
+              key={deg}
+              type="button"
+              disabled={facingBusy}
+              title={`${deg}°に向ける`}
+              onClick={() => applyBulkFacingDeg?.(shapeTargetIds, deg, lookCueScope)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 3,
+                padding: "6px 2px",
+                borderRadius: 8,
+                border:
+                  Math.round(primaryFacingDeg) === deg
+                    ? "1px solid rgba(251,191,36,0.9)"
+                    : "1px solid #334155",
+                background: "#020617",
+                color: "#cbd5e1",
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: facingBusy ? "not-allowed" : "pointer",
+              }}
+            >
+              <span
+                aria-hidden
+                style={{ display: "inline-block", transform: `rotate(${deg}deg)` }}
+              >
+                ↓
+              </span>
+              {deg}°
+            </button>
+          ))}
+        </div>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 11,
+            color: "#94a3b8",
+          }}
+        >
+          角度を入力
+          <input
+            type="number"
+            min={0}
+            max={359}
+            step={1}
+            disabled={facingBusy}
+            value={Math.round(primaryFacingDeg)}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (Number.isFinite(v)) applyBulkFacingDeg?.(shapeTargetIds, v, lookCueScope);
+            }}
+            style={{
+              width: 64,
+              height: 26,
+              borderRadius: 6,
+              border: "1px solid #334155",
+              background: "#020617",
+              color: "#e2e8f0",
+              padding: "0 6px",
+              fontSize: 12,
+            }}
+          />
+          °
+        </label>
+        <p style={{ ...dockSectionHint, margin: "8px 0 0" }}>
+          {lookCueScope === "cue"
+            ? "形と向きは、このキューだけに反映します。"
+            : "形と向きは、同じメンバーのすべてのキューに反映します。"}
+        </p>
+      </DockDisclosure>
+
+      <DockDisclosure
+        id="color"
+        title="印の色"
+        summary="選択に一括"
+        open={openSection === "color"}
+        onToggle={toggleSection}
+      >
+        <div
+          style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}
+        >
           {colors.map((hex, i) => (
             <button
               key={`dock-color-${i}`}
@@ -281,6 +729,12 @@ export function StageSelectionDisplayPanel({
               }}
             />
           ))}
+          <DancerColorRandomSwatch
+            size={38}
+            radius={8}
+            disabled={busy}
+            onClick={() => applyBulkColorToDancerIds(ids, DANCER_COLOR_RANDOM)}
+          />
         </div>
         {DANCER_PALETTE.length > PRIMARY_COLOR_COUNT ? (
           <button
@@ -297,7 +751,84 @@ export function StageSelectionDisplayPanel({
             {showAllColors ? "色を減らす" : "もっと見る"}
           </button>
         ) : null}
-      </div>
+      </DockDisclosure>
+
+      <DockDisclosure
+        id="face"
+        title="表情スタンプ"
+        summary="選ぶ"
+        open={openSection === "face"}
+        onToggle={toggleSection}
+      >
+        <p style={{ ...dockSectionHint, margin: "0 0 8px" }}>
+          選択中の丸に LINE 風の表情を付けます（名前は丸の下に出ます）。
+        </p>
+        <DancerFaceStampPicker
+          value={null}
+          compact
+          disabled={busy || !applyBulkFaceStamp}
+          onChange={(stamp: DancerFaceStampId | null) =>
+            applyBulkFaceStamp?.(ids, stamp)
+          }
+        />
+      </DockDisclosure>
+
+      <DockDisclosure
+        id="figure3d"
+        title="3Dの見た目"
+        summary="キャラを選ぶ"
+        open={openSection === "figure3d"}
+        onToggle={toggleSection}
+      >
+        <p
+          style={{
+            margin: "0 0 8px",
+            fontSize: 11,
+            color: "#94a3b8",
+            lineHeight: 1.4,
+          }}
+        >
+          選択中の立ち位置を人型・動物にします。適用範囲を選べます。
+        </p>
+        <DancerFigure3dApplyScopeToggle
+          value={figure3dScope}
+          onChange={setFigure3dScope}
+          disabled={busy || !applyBulkFigure3dToDancerIds}
+        />
+        <DancerFigure3dPicker
+          value="human"
+          compact
+          disabled={busy || !applyBulkFigure3dToDancerIds}
+          onChange={(fig) =>
+            applyBulkFigure3dToDancerIds?.(ids, fig, figure3dScope)
+          }
+        />
+      </DockDisclosure>
+
+      <DockDisclosure
+        id="gender"
+        title="性別"
+        summary="男子／女子"
+        open={openSection === "gender"}
+        onToggle={toggleSection}
+      >
+        <p style={{ ...dockSectionHint, margin: "0 0 8px" }}>
+          男子＝青・女子＝ピンク。選択中に一括で付けます。
+        </p>
+        <DancerGenderPicker
+          value=""
+          disabled={busy || !applyBulkGenderToDancerIds}
+          onChange={(next) => applyBulkGenderToDancerIds?.(ids, next || null)}
+        />
+        <button
+          type="button"
+          disabled={busy || !applyBulkGenderToDancerIds}
+          style={{ ...markerActionBtn, marginTop: 8, width: "100%" }}
+          onClick={() => applyBulkGenderToDancerIds?.(ids, null)}
+        >
+          性別をクリア
+        </button>
+      </DockDisclosure>
     </div>
   );
 }

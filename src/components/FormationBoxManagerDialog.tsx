@@ -21,6 +21,7 @@ import {
 } from "../lib/formationBox";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
 import { EditorSideSheet } from "./EditorSideSheet";
+import { isImeComposingKey } from "../lib/keyboardIme";
 
 type Props = {
   open: boolean;
@@ -176,7 +177,11 @@ function ItemRow({ item, currentDancers, onRefresh }: ItemRowProps) {
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleRenameCommit();
+                if (e.key === "Enter") {
+                  if (isImeComposingKey(e)) return;
+                  e.preventDefault();
+                  handleRenameCommit();
+                }
                 if (e.key === "Escape") setEditing(false);
               }}
               style={{ ...inputBase, fontSize: "13px", padding: "4px 8px" }}
@@ -478,7 +483,11 @@ function DateWorkGroupedList({ items, currentDancers, onRefresh }: GroupedListPr
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") commitRenameWork(group.items);
+                      if (e.key === "Enter") {
+                        if (isImeComposingKey(e)) return;
+                        e.preventDefault();
+                        commitRenameWork(group.items);
+                      }
                       if (e.key === "Escape") setEditingKey(null);
                     }}
                     placeholder="作品名"
@@ -725,7 +734,11 @@ export function FormationBoxManagerDialog({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleSaveNew();
+                if (e.key !== "Enter") return;
+                // かな変換の確定 Enter では保存しない
+                if (isImeComposingKey(e)) return;
+                e.preventDefault();
+                handleSaveNew();
               }}
               style={inputBase}
             />

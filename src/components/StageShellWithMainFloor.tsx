@@ -1,5 +1,6 @@
 import type {
   CSSProperties,
+  MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
   RefObject,
@@ -39,12 +40,16 @@ export type StageShellWithMainFloorProps = {
    */
   stopPlaybackOnFloorTap?: boolean;
   onPointerDownFloor: (e: ReactPointerEvent<HTMLDivElement>) => void;
+  /** 選択中の床右クリック（ブラウザメニューを抑止してクイック操作） */
+  onContextMenuFloor?: (e: ReactMouseEvent<HTMLDivElement>) => void;
   mainFloorStyle: CSSProperties;
   floorMarkupToolbar?: StageFloorMarkupToolbarHostProps;
   /** 最背面レイヤー：大道具をここに置きBaseOverlays/InteractionLayerより下に描画 */
   setPieceElements?: ReactNode;
   baseOverlays: StageMainFloorBaseOverlaysProps;
   interaction: StageMainFloorInteractionLayerProps;
+  /** そで幕など、床上でドラッグ可能な建築ガイド */
+  architectureInteractiveOverlay?: ReactNode;
   /** 動線矢印SVGオーバーレイ（ダンサー印の上に重ねる） */
   motionArrowsOverlay?: ReactNode;
 };
@@ -59,11 +64,13 @@ export function StageShellWithMainFloor({
   trimStartSec,
   stopPlaybackOnFloorTap = true,
   onPointerDownFloor,
+  onContextMenuFloor,
   mainFloorStyle,
   floorMarkupToolbar,
   setPieceElements,
   baseOverlays,
   interaction,
+  architectureInteractiveOverlay,
   motionArrowsOverlay,
 }: StageShellWithMainFloorProps) {
   const {
@@ -84,6 +91,7 @@ export function StageShellWithMainFloor({
       Wmm={Wmm}
       Smm={Smm}
       labelScreenKeepUpright={labelScreenKeepUpright}
+      onPointerDownStrip={onPointerDownFloor}
       center={
         <StageMainFloorGridCell
           cellStyle={{
@@ -117,6 +125,7 @@ export function StageShellWithMainFloor({
                 stopPlaybackAtTrimStart(trimStartSec);
               }}
               onPointerDown={onPointerDownFloor}
+              onContextMenu={onContextMenuFloor}
               style={{
                 ...mainFloorStyle,
                 flex: "1 1 0%",
@@ -137,6 +146,7 @@ export function StageShellWithMainFloor({
               {setPieceElements}
               <StageMainFloorBaseOverlays {...baseOverlays} />
               <StageMainFloorInteractionLayer {...interaction} />
+              {architectureInteractiveOverlay}
               {motionArrowsOverlay}
             </StageMainFloorPanel>
           }

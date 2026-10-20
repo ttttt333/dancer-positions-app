@@ -30,6 +30,7 @@ import {
 } from "../lib/formationPresetTiers";
 import {
   firstPresetIdInCategories,
+  splitClassicPresetCategories,
   useFormationPresetCategoryPreviews,
 } from "../hooks/useFormationPresetCategoryPreviews";
 import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
@@ -88,10 +89,8 @@ type Props = {
 };
 
 const PRESETS = LAYOUT_PRESET_OPTIONS;
-const DEFAULT_TEMPLATE_PRESET_ID =
-  filterPresetCategories(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER)[0]?.ids[0] ??
-  PRESETS[0]?.id ??
-  null;
+const DEFAULT_TEMPLATE_PRESET_ID: LayoutPresetId =
+  "classic_pyramid";
 
 function formatSec(s: number): string {
   if (!Number.isFinite(s) || s < 0) return "0:00.0";
@@ -411,6 +410,7 @@ export function AddCueWithFormationDialog({
   const [addMode, setAddMode] = useState<AddMode | null>(null);
   const [templatePresetId, setTemplatePresetId] = useState<LayoutPresetId | null>(null);
   const [showAllPresetTiers, setShowAllPresetTiers] = useState(false);
+  const [basicPresetTab, setBasicPresetTab] = useState(false);
   const {
     favoriteSet,
     favoriteCount,
@@ -490,15 +490,18 @@ export function AddCueWithFormationDialog({
     showAllPresetTiers
   );
 
-  const visiblePresetCategories = useMemo(
-    () =>
-      filterPresetItemsByFavorites(
-        presetCategoryPreviews,
-        favoriteSet,
-        favoritesOnly
-      ),
-    [presetCategoryPreviews, favoriteSet, favoritesOnly]
-  );
+  const visiblePresetCategories = useMemo(() => {
+    const filtered = filterPresetItemsByFavorites(
+      presetCategoryPreviews,
+      favoriteSet,
+      favoritesOnly
+    );
+    const { classic, catalog } = splitClassicPresetCategories(filtered);
+    if (basicPresetTab) {
+      return classic && classic.items.length > 0 ? [classic] : [];
+    }
+    return catalog;
+  }, [presetCategoryPreviews, favoriteSet, favoritesOnly, basicPresetTab]);
 
   const hiddenPresetTierCount = useMemo(
     () => countPresetsAboveTierFrom(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER),
@@ -513,6 +516,7 @@ export function AddCueWithFormationDialog({
       setAddMode(null);
       setTemplatePresetId(null);
       setShowAllPresetTiers(false);
+      setBasicPresetTab(false);
       setSavedBoxId(null);
       setSavedSlotId(null);
       setTimeMode("now");
@@ -1325,15 +1329,45 @@ export function AddCueWithFormationDialog({
                 }}
               >
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setBasicPresetTab((v) => !v)}
+                    aria-pressed={basicPresetTab}
+                    title={
+                      basicPresetTab
+                        ? "すべての雛形カテゴリを表示"
+                        : "定番の提案だけを表示"
+                    }
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 8,
+                      border: basicPresetTab
+                        ? "1px solid #d4af37"
+                        : "1px solid #334155",
+                      background: basicPresetTab
+                        ? "rgba(212,175,55,0.22)"
+                        : "rgba(15,23,42,0.94)",
+                      color: basicPresetTab ? "#fef3c7" : "#94a3b8",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      letterSpacing: "0.06em",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    BASIC
+                  </button>
                   <span style={sectionNumberStyle}>4</span>
                   雛形（プリセット）
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <FormationPresetTierToggle
-                    showAll={showAllPresetTiers}
-                    onToggle={() => setShowAllPresetTiers((v) => !v)}
-                    hiddenCount={hiddenPresetTierCount}
-                  />
+                  {!basicPresetTab ? (
+                    <FormationPresetTierToggle
+                      showAll={showAllPresetTiers}
+                      onToggle={() => setShowAllPresetTiers((v) => !v)}
+                      hiddenCount={hiddenPresetTierCount}
+                    />
+                  ) : null}
                   <FormationPresetFavoritesFilter
                     active={favoritesOnly}
                     onToggle={toggleFavoritesOnly}
@@ -1536,7 +1570,7 @@ export function AddCueWithFormationDialog({
         </div>
 
         <div className="add-cue-with-formation-dialog-footer" style={footerStyle}>
-          <span style={{ marginRight: "auto", fontSize: "11px", color: "#64748b", minWidth: 0 }}>
+          <span className="add-cue-with-formation-dialog-footer-preview" style={{ marginRight: "auto", fontSize: "11px", color: "#64748b", minWidth: 0 }}>
             {dancerCountPreview > 0 ? (
               <>
                 プレビュー <strong style={{ color: "#cbd5e1" }}>{dancerCountPreview} 人</strong>
@@ -1549,6 +1583,7 @@ export function AddCueWithFormationDialog({
             )}
           </span>
           <div
+            className="add-cue-with-formation-dialog-footer-actions"
             style={{
               display: "flex",
               flexWrap: "wrap",

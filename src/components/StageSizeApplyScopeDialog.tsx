@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 import type { DancerSizeApplyScope } from "../lib/applyDancerSizeOverrides";
@@ -14,7 +15,7 @@ type Props = {
 const backdrop: CSSProperties = {
   position: "fixed",
   inset: 0,
-  zIndex: 80,
+  zIndex: 11000,
   background: "rgba(0,0,0,0.55)",
   display: "flex",
   alignItems: "center",
@@ -43,7 +44,9 @@ export function StageSizeApplyScopeDialog({ kind, onChoose, onCancel }: Props) {
       ? "変更した丸の大きさを、どこに適用しますか？"
       : "変更した名前の大きさを、どこに適用しますか？";
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       style={backdrop}
       role="dialog"
@@ -51,10 +54,7 @@ export function StageSizeApplyScopeDialog({ kind, onChoose, onCancel }: Props) {
       aria-labelledby="stage-size-apply-title"
       onClick={onCancel}
     >
-      <div
-        style={card}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div style={card} onClick={(e) => e.stopPropagation()}>
         <h2
           id="stage-size-apply-title"
           style={{
@@ -124,6 +124,7 @@ export function StageSizeApplyScopeDialog({ kind, onChoose, onCancel }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

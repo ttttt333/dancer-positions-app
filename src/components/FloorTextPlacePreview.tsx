@@ -64,6 +64,7 @@ export function FloorTextPlacePreview({
         }),
         textShadow: "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
         whiteSpace: "pre",
+        textAlign: session.textAlign ?? "left",
         wordBreak: "normal",
         outline: "2px dashed rgba(56, 189, 248, 0.95)",
         outlineOffset: 2,

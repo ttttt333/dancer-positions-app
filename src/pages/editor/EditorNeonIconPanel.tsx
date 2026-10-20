@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { NeonIconPanel } from "../../components/NeonIconPanel";
 import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSession";
 import { abortTimelineWavePointerGestures } from "../../lib/abortTimelineWavePointerGestures";
+import { subscribeStageEditRightPaneRequest } from "../../lib/stageEditDockHost";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 
@@ -21,6 +23,9 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   const floorTextPlaceSession = props.floorTextPlaceSession;
   const setFloorTextPlaceSession = props.setFloorTextPlaceSession as (v: unknown) => void;
   const setFloorTextSideSheetOpen = props.setFloorTextSideSheetOpen as (open: boolean) => void;
+  const setFloorTextPreferredTab = props.setFloorTextPreferredTab as
+    | ((v: "text" | "lights" | "scribble" | null) => void)
+    | undefined;
   const setEditorViewerSheetOpen = props.setEditorViewerSheetOpen as (open: boolean) => void;
   const setStageZenFullscreen = props.setStageZenFullscreen as (v: boolean) => void;
   const openAudioImport = props.openAudioImport as () => void;
@@ -30,6 +35,9 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   const addDancerFromStageToolbar = props.addDancerFromStageToolbar as () => void;
   const setMemberRosterSheetOpen = props.setMemberRosterSheetOpen as (open: boolean) => void;
   const setStageShapePickerOpen = props.setStageShapePickerOpen as (open: boolean) => void;
+  const setFormationPresetPickerOpen = props.setFormationPresetPickerOpen as (
+    open: boolean
+  ) => void;
   const rightPaneCollapsed = props.rightPaneCollapsed as boolean;
   const wideEditorLayout = props.wideEditorLayout as boolean;
   const setRightPaneCollapsed = props.setRightPaneCollapsed as (
@@ -38,8 +46,25 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   const setStageAreaSettingsOpen = props.setStageAreaSettingsOpen as (open: boolean) => void;
   const t = props.t as (key: string, params?: Record<string, string | number>) => string;
 
+  useEffect(() => {
+    if (!wideEditorLayout) return;
+    return subscribeStageEditRightPaneRequest(() => {
+      setRightPaneCollapsed(false);
+    });
+  }, [wideEditorLayout, setRightPaneCollapsed]);
+
   return (
-    <div className="editor-neon-icon-panel-wrapper"><NeonIconPanel
+    <div
+      className="editor-neon-icon-panel-wrapper"
+      style={{
+        display: "flex",
+        flexShrink: 0,
+        height: "100%",
+        minHeight: 0,
+        alignSelf: "stretch",
+      }}
+    >
+      <NeonIconPanel
       {...choreoToolbarSharedProps}
       onOpenStageShapePicker={() => setStageAreaSettingsOpen(true)}
       onUndo={undo}
@@ -59,8 +84,10 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
         if (floorTextPlaceSession) {
           setFloorTextPlaceSession(null);
           setFloorTextSideSheetOpen(false);
+          setFloorTextPreferredTab?.(null);
         } else {
           setFloorTextPlaceSession(createDefaultFloorTextPlaceSession());
+          setFloorTextPreferredTab?.("text");
           setFloorTextSideSheetOpen(true);
         }
       }}
@@ -74,9 +101,14 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
       onOpenRoster={() => setMemberRosterSheetOpen(true)}
       onOpenStageTransform={() => setStageShapePickerOpen(true)}
       onOpenVideoExport={() => useVideoExportUiStore.getState().openSheet()}
+      onOpenFormationChange={
+        project?.viewMode === "view"
+          ? undefined
+          : () => setFormationPresetPickerOpen(true)
+      }
       collapsed={rightPaneCollapsed && wideEditorLayout}
       onCollapsePointerDown={
-        wideEditorLayout && !rightPaneCollapsed
+        wideEditorLayout
           ? () => abortTimelineWavePointerGestures()
           : undefined
       }
@@ -84,11 +116,12 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
         wideEditorLayout
           ? () =>
               setRightPaneCollapsed((v) => {
-                if (!v) abortTimelineWavePointerGestures();
+                abortTimelineWavePointerGestures();
                 return !v;
               })
           : undefined
       }
-    /></div>
+    />
+    </div>
   );
 }

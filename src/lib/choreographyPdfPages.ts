@@ -3,6 +3,7 @@ import {
   DANCER_COLOR_PALETTE_HEX,
   modDancerColorIndex,
 } from "./dancerColorPalette";
+import { genderLabelForColor, resolveDancerDisplayHex } from "./dancerGender";
 import type { ExportFormationFrame } from "./drawStageExportFrame";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 
@@ -58,7 +59,13 @@ function mapDancers(dancers: DancerSpot[]) {
     centerDistanceLabelXPct: d.centerDistanceLabelXPct,
     nameBelowFontPx: d.nameBelowFontPx,
     sizePx: d.sizePx,
-    color: DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)],
+    faceStamp: d.faceStamp,
+    markerShape: d.markerShape,
+    facingDeg: d.facingDeg,
+    color: resolveDancerDisplayHex(
+      genderLabelForColor(d),
+      DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)]!
+    ),
     x: d.xPct / 100,
     y: d.yPct / 100,
   }));

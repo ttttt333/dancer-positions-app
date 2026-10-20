@@ -83,8 +83,17 @@ export function StageBoardStageFrame({
    * `cqb` を少しだけ削ってラベルが切れないようにする。
    * 横画面の実測フィット時は帯余白ゼロ（ラベルは重ね描き）。
    */
-  const audienceBandPad = compactLandscapeViewport ? 0 : 42;
-  const backstageBandPad = compactLandscapeViewport ? 0 : 28;
+  /* 生徒閲覧は帯余白を抑えてステージを大きく（横は実質ゼロ） */
+  const audienceBandPad = compactLandscapeViewport
+    ? 0
+    : compactViewportChrome
+      ? 18
+      : 42;
+  const backstageBandPad = compactLandscapeViewport
+    ? 0
+    : compactViewportChrome
+      ? 14
+      : 28;
 
   let paddingTop: number | undefined;
   let paddingBottom: number | undefined;

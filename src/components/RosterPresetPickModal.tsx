@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { MAX_DANCERS_PER_FORMATION } from "../lib/dancerCountLimits";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -14,7 +15,7 @@ import {
   getPresetTier,
 } from "../lib/formationPresetTiers";
 import {
-  firstPresetIdInCategories,
+  splitClassicPresetCategories,
   useFormationPresetCategoryPreviews,
 } from "../hooks/useFormationPresetCategoryPreviews";
 import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
@@ -39,7 +40,7 @@ type Props = {
   /** 配置前に並び順を選ぶ（名簿ストリップと同じ基準） */
   rosterSortMode: RosterStripSortMode;
   onRosterSortModeChange: (mode: RosterStripSortMode) => void;
-  /** 雛形を選択するたびにステージプレビューを更新するコールバック（null でクリア） */
+  /** 閉じる／適用時にステージプレビューをクリアする（null でクリア） */
   onPreviewPreset?: (presetId: LayoutPresetId | null) => void;
 };
 
@@ -60,11 +61,12 @@ export function RosterPresetPickModal({
   onRosterSortModeChange,
   onPreviewPreset,
 }: Props) {
-  const n = Math.max(1, Math.min(80, previewCount));
+  const n = Math.max(1, Math.min(MAX_DANCERS_PER_FORMATION, previewCount));
 
   /** 選択中の雛形（未確定状態） */
   const [selectedPresetId, setSelectedPresetId] = useState<LayoutPresetId | null>(null);
   const [showAllTiers, setShowAllTiers] = useState(false);
+  const [basicTab, setBasicTab] = useState(false);
   const {
     favoriteSet,
     favoriteCount,
@@ -84,35 +86,35 @@ export function RosterPresetPickModal({
   );
 
   const categoryPreviews = useFormationPresetCategoryPreviews(n, spacingOpts, showAllTiers);
-  const visibleCategories = useMemo(
-    () =>
-      filterPresetItemsByFavorites(categoryPreviews, favoriteSet, favoritesOnly),
-    [categoryPreviews, favoriteSet, favoritesOnly]
-  );
+  const visibleCategories = useMemo(() => {
+    const filtered = filterPresetItemsByFavorites(
+      categoryPreviews,
+      favoriteSet,
+      favoritesOnly
+    );
+    const { classic, catalog } = splitClassicPresetCategories(filtered);
+    if (basicTab) {
+      return classic && classic.items.length > 0 ? [classic] : [];
+    }
+    return catalog;
+  }, [categoryPreviews, favoriteSet, favoritesOnly, basicTab]);
 
   const hiddenTierCount = useMemo(
     () => countPresetsAboveTierFrom(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER),
     []
   );
 
-  /** 雛形をクリック → プレビュー表示（まだ適用しない） */
+  /** 雛形をタップ → すぐ配置してモーダルを閉じる */
   const handleSelect = useCallback(
     (presetId: LayoutPresetId) => {
       if (disabled) return;
-      setSelectedPresetId(presetId);
-      onPreviewPreset?.(presetId);
+      onPreviewPreset?.(null);
+      onPickPreset(presetId);
+      setSelectedPresetId(null);
+      onClose();
     },
-    [disabled, onPreviewPreset]
+    [disabled, onPreviewPreset, onPickPreset, onClose]
   );
-
-  /** 決定ボタン → 適用してモーダルを閉じる */
-  const handleConfirm = useCallback(() => {
-    if (!selectedPresetId || disabled) return;
-    onPreviewPreset?.(null);
-    onPickPreset(selectedPresetId);
-    setSelectedPresetId(null);
-    onClose();
-  }, [selectedPresetId, disabled, onPreviewPreset, onPickPreset, onClose]);
 
   /** 閉じる（キャンセル） → プレビューをクリアして閉じる */
   const handleClose = useCallback(() => {
@@ -120,6 +122,7 @@ export function RosterPresetPickModal({
     setSelectedPresetId(null);
     setShowAllTiers(false);
     setFavoritesOnly(false);
+    setBasicTab(false);
     onClose();
   }, [onPreviewPreset, onClose, setFavoritesOnly]);
 
@@ -128,6 +131,7 @@ export function RosterPresetPickModal({
       setSelectedPresetId(null);
       setShowAllTiers(false);
       setFavoritesOnly(false);
+      setBasicTab(false);
       return;
     }
     if (!selectedPresetId) return;
@@ -135,10 +139,9 @@ export function RosterPresetPickModal({
     const stillVisible = visibleCategories.some((cat) =>
       cat.items.some((item) => item.id === selectedPresetId)
     );
-    if (getPresetTier(selectedPresetId) > maxTier || !stillVisible) {
-      const next = firstPresetIdInCategories(visibleCategories);
-      setSelectedPresetId(next);
-      onPreviewPreset?.(next);
+    if ((!basicTab && getPresetTier(selectedPresetId) > maxTier) || !stillVisible) {
+      setSelectedPresetId(null);
+      onPreviewPreset?.(null);
     }
   }, [
     open,
@@ -147,6 +150,7 @@ export function RosterPresetPickModal({
     visibleCategories,
     onPreviewPreset,
     setFavoritesOnly,
+    basicTab,
   ]);
 
   const sortSelectValue =
@@ -273,8 +277,6 @@ export function RosterPresetPickModal({
                 disabled={disabled}
                 onChange={(e) => {
                   onRosterSortModeChange(e.target.value as RosterStripSortMode);
-                  /** 並び順を変えたら即プレビューを再要求（presetId は変わらないので親側で再計算させる） */
-                  if (selectedPresetId) onPreviewPreset?.(selectedPresetId);
                 }}
                 style={{
                   fontSize: "12px",
@@ -307,22 +309,57 @@ export function RosterPresetPickModal({
               marginBottom: "10px",
             }}
           >
-            <div
-              style={{
-                fontSize: "10px",
-                fontWeight: 600,
-                color: "#94a3b8",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-              }}
-            >
-              2. 立ち位置の雛形を選ぶ
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <button
+                type="button"
+                onClick={() => setBasicTab((v) => !v)}
+                aria-pressed={basicTab}
+                title={
+                  basicTab ? "すべての雛形カテゴリを表示" : "定番の提案だけを表示"
+                }
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 8,
+                  border: basicTab ? "1px solid #d4af37" : "1px solid #334155",
+                  background: basicTab
+                    ? "rgba(212,175,55,0.22)"
+                    : "rgba(15,23,42,0.94)",
+                  color: basicTab ? "#fef3c7" : "#94a3b8",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.06em",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                BASIC
+              </button>
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                2. 立ち位置の雛形を選ぶ
+              </div>
             </div>
-            <FormationPresetTierToggle
-              showAll={showAllTiers}
-              onToggle={() => setShowAllTiers((v) => !v)}
-              hiddenCount={hiddenTierCount}
-            />
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              {!basicTab ? (
+                <FormationPresetTierToggle
+                  showAll={showAllTiers}
+                  onToggle={() => setShowAllTiers((v) => !v)}
+                  hiddenCount={hiddenTierCount}
+                />
+              ) : null}
+              <FormationPresetFavoritesFilter
+                active={favoritesOnly}
+                onToggle={toggleFavoritesOnly}
+                count={favoriteCount}
+              />
+            </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -330,7 +367,9 @@ export function RosterPresetPickModal({
               <div style={{ fontSize: 12, color: "#64748b", padding: "8px 0" }}>
                 {favoritesOnly
                   ? "お気に入りの雛形がありません。☆を押して追加できます。"
-                  : "表示できる雛形がありません。"}
+                  : basicTab
+                    ? "定番の提案がありません。"
+                    : "表示できる雛形がありません。"}
               </div>
             ) : (
               visibleCategories.map((cat) => (
@@ -369,7 +408,6 @@ export function RosterPresetPickModal({
           </div>
         </div>
 
-        {/* 決定フッター（常に表示・選択前はグレーアウト） */}
         <div
           style={{
             flexShrink: 0,
@@ -381,15 +419,9 @@ export function RosterPresetPickModal({
             background: "#020617",
           }}
         >
-          {selectedPresetId ? (
-            <span style={{ flex: 1, fontSize: "11px", color: "#a5b4fc" }}>
-              「{PRESET_LABEL_MAP[selectedPresetId] ?? selectedPresetId}」を選択中
-            </span>
-          ) : (
-            <span style={{ flex: 1, fontSize: "11px", color: "#475569" }}>
-              雛形をタップするとステージにプレビューが表示されます
-            </span>
-          )}
+          <span style={{ flex: 1, fontSize: "11px", color: "#475569" }}>
+            雛形をタップするとすぐに配置されます
+          </span>
           <button
             type="button"
             onClick={handleClose}
@@ -404,32 +436,8 @@ export function RosterPresetPickModal({
               cursor: "pointer",
             }}
           >
-            キャンセル
+            閉じる
           </button>
-          <button
-            type="button"
-            disabled={!selectedPresetId || disabled}
-            onClick={handleConfirm}
-            style={{
-              padding: "7px 20px",
-              borderRadius: "8px",
-              border: "none",
-              background: !selectedPresetId || disabled ? "#1e293b" : "#4f46e5",
-              color: !selectedPresetId || disabled ? "#475569" : "#fff",
-              fontSize: "12px",
-              fontWeight: 700,
-              cursor: !selectedPresetId || disabled ? "not-allowed" : "pointer",
-              transition: "background 0.15s",
-            }}
-          >
-            ✓ 決定
-          </button>
-          <FormationPresetFavoritesFilter
-            active={favoritesOnly}
-            onToggle={toggleFavoritesOnly}
-            count={favoriteCount}
-            style={{ marginLeft: "auto" }}
-          />
         </div>
       </div>
     </EditorSideSheet>

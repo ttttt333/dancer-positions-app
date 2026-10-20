@@ -6,12 +6,12 @@ import {
 import {
   dancersForLayoutPreset,
   transferDancerIdentitiesByNearestPosition,
-  transferDancerIdentitiesByOrder,
   type LayoutPresetId,
   type LayoutPresetOptions,
 } from "./formationLayouts";
 import type { StagePosPct } from "./stageEffectivePosition";
 import { retainDancerIdsInFormation } from "./stageEditMode";
+import { clusterSelectionByDepthRows } from "./stageColumnSwap";
 
 /**
  * Change の適用先。2人以上選択していればその人だけ。
@@ -60,20 +60,13 @@ function clampPct(v: number): number {
   );
 }
 
-/**
- * 選択メンバーの今いる場所に形を寄せる。
- * bbox に縮めない（前列だけピラミッド、などに奥行きが要るため）。
- */
-export function translateSpotsToMatchCentroid(
+function translateSpotsByDelta(
   spots: readonly DancerSpot[],
-  reference: readonly { xPct: number; yPct: number }[]
+  dx0: number,
+  dy0: number
 ): DancerSpot[] {
-  if (spots.length === 0 || reference.length === 0) return [...spots];
-  const from = centroidOf(spots);
-  const to = centroidOf(reference);
-  let dx = to.x - from.x;
-  let dy = to.y - from.y;
-
+  let dx = dx0;
+  let dy = dy0;
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
@@ -105,32 +98,120 @@ export function translateSpotsToMatchCentroid(
 }
 
 /**
+ * 選択メンバーの今いる場所に形を寄せる。
+ * bbox に縮めない（前列だけピラミッド、などに奥行きが要るため）。
+ */
+export function translateSpotsToMatchCentroid(
+  spots: readonly DancerSpot[],
+  reference: readonly { xPct: number; yPct: number }[]
+): DancerSpot[] {
+  if (spots.length === 0 || reference.length === 0) return [...spots];
+  const from = centroidOf(spots);
+  const to = centroidOf(reference);
+  return translateSpotsByDelta(spots, to.x - from.x, to.y - from.y);
+}
+
+/**
+ * 客席側の一列目（手前・y が大きい段）の重心。
+ * 段が取れないときは全員の重心にフォールバック。
+ */
+export function frontRowCentroidOf(
+  dancers: readonly DancerSpot[]
+): { x: number; y: number } | null {
+  if (dancers.length === 0) return null;
+  const ids = dancers.map((d) => d.id);
+  const rows = clusterSelectionByDepthRows([...dancers], ids);
+  const front = rows[0] ?? [...dancers];
+  if (front.length === 0) return null;
+  return centroidOf(front);
+}
+
+/**
+ * 新しい雛形の一列目を、参照（直前キューなど）の一列目の位置へ平行移動する。
+ * ステージセンター基準の雛形を、前キューの前列位置ベースに寄せる。
+ */
+export function translateSpotsToMatchFrontRow(
+  spots: readonly DancerSpot[],
+  reference: readonly DancerSpot[]
+): DancerSpot[] {
+  if (spots.length === 0 || reference.length === 0) return [...spots];
+  const from = frontRowCentroidOf(spots);
+  const to = frontRowCentroidOf(reference);
+  if (!from || !to) return [...spots];
+  return translateSpotsByDelta(spots, to.x - from.x, to.y - from.y);
+}
+
+/**
+ * 最短距離マッチ用の「前の立ち位置」。
+ * matchSource にあればその座標を使い、身元は targets 側を保つ。
+ */
+export function resolveNearestMatchSpots(
+  targets: readonly DancerSpot[],
+  matchSource?: readonly DancerSpot[] | null
+): DancerSpot[] {
+  if (!matchSource || matchSource.length === 0) return [...targets];
+  const byId = new Map(matchSource.map((d) => [d.id, d]));
+  return targets.map((d) => {
+    const src = byId.get(d.id);
+    if (!src) return d;
+    return { ...d, xPct: src.xPct, yPct: src.yPct };
+  });
+}
+
+/**
+ * 雛形スロットを最終位置へ寄せてから、前キュー座標に対して最短距離で人を割り当てる。
+ * （先に割当してから平行移動すると、最終軌道が最短にならない）
+ */
+function placePresetWithShortestTravel(
+  dancers: readonly DancerSpot[],
+  targetIds: readonly string[],
+  presetId: LayoutPresetId,
+  opts?: LayoutPresetOptions,
+  matchSource?: readonly DancerSpot[] | null
+): DancerSpot[] | null {
+  const idSet = new Set(targetIds);
+  const targets = dancers.filter((d) => idSet.has(d.id));
+  if (targets.length === 0) return null;
+
+  const positioned = dancersForLayoutPreset(targets.length, presetId, opts);
+  if (positioned.length === 0) return null;
+
+  const full = isFullFormationTarget(dancers, targetIds);
+  /** 全員適用かつ直前キューあり → 一列目位置へ寄せたスロットで最短割当 */
+  const slots =
+    full && matchSource && matchSource.length > 0
+      ? translateSpotsToMatchFrontRow(positioned, matchSource)
+      : positioned;
+
+  const matchSpots = resolveNearestMatchSpots(targets, matchSource);
+  const assigned = transferDancerIdentitiesByNearestPosition(slots, matchSpots);
+
+  if (full) return assigned;
+  /** 部分適用は選択メンバーの今の重心へ寄せる（割当後） */
+  return translateSpotsToMatchCentroid(assigned, targets);
+}
+
+/**
  * 雛形を targetIds にだけ当てる。配列順と未選択の座標は変えない。
- * 全員対象のときは既存 Change と同じ（順番で identity を載せる）。
+ * matchSource（直前キュー）があるとき、最終スロット位置へ寄せたうえで
+ * 前の立ち位置から最短距離（Hungarian）で人を割り当てる。
  */
 export function applyLayoutPresetToTargetDancers(
   dancers: DancerSpot[],
   targetIds: readonly string[],
   presetId: LayoutPresetId,
-  opts?: LayoutPresetOptions
+  opts?: LayoutPresetOptions,
+  matchSource?: readonly DancerSpot[] | null
 ): DancerSpot[] {
   if (dancers.length === 0) return dancers;
-  const idSet = new Set(targetIds);
-  const targets = dancers.filter((d) => idSet.has(d.id));
-  if (targets.length === 0) return dancers;
-
-  const positioned = dancersForLayoutPreset(targets.length, presetId, opts);
-  if (positioned.length === 0) return dancers;
-
-  if (isFullFormationTarget(dancers, targetIds)) {
-    return transferDancerIdentitiesByOrder(positioned, dancers);
-  }
-
-  const assigned = transferDancerIdentitiesByNearestPosition(
-    positioned,
-    targets
+  const placed = placePresetWithShortestTravel(
+    dancers,
+    targetIds,
+    presetId,
+    opts,
+    matchSource
   );
-  const placed = translateSpotsToMatchCentroid(assigned, targets);
+  if (!placed) return dancers;
   const byId = new Map(placed.map((d) => [d.id, d]));
   return dancers.map((d) => {
     const next = byId.get(d.id);
@@ -141,29 +222,23 @@ export function applyLayoutPresetToTargetDancers(
 
 /**
  * 形プレビュー用。配列順は変えない。id → 新座標だけ返す。
- * 全員対象でも順番入れ替えはしない（Apply は x/y だけ書く）。
  */
 export function layoutPresetPositionsById(
   dancers: readonly DancerSpot[],
   targetIds: readonly string[],
   presetId: LayoutPresetId,
-  opts?: LayoutPresetOptions
+  opts?: LayoutPresetOptions,
+  matchSource?: readonly DancerSpot[] | null
 ): Map<string, StagePosPct> {
   const positions = new Map<string, StagePosPct>();
-  const idSet = new Set(targetIds);
-  const targets = dancers.filter((d) => idSet.has(d.id));
-  if (targets.length === 0) return positions;
-
-  const positioned = dancersForLayoutPreset(targets.length, presetId, opts);
-  if (positioned.length === 0) return positions;
-
-  const assigned = transferDancerIdentitiesByNearestPosition(
-    positioned,
-    targets
+  const placed = placePresetWithShortestTravel(
+    dancers,
+    targetIds,
+    presetId,
+    opts,
+    matchSource
   );
-  const placed = isFullFormationTarget(dancers, targetIds)
-    ? assigned
-    : translateSpotsToMatchCentroid(assigned, targets);
+  if (!placed) return positions;
   for (const d of placed) {
     positions.set(d.id, { xPct: d.xPct, yPct: d.yPct });
   }

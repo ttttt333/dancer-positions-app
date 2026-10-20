@@ -1,15 +1,20 @@
 /**
- * 再生時計・固定幅用。分:秒を常に `M:SS.cc`（センチ秒2桁）で揃え、桁の伸縮によるブレを防ぐ。
+ * キュー一覧など: `M:SS` のみ（秒未満は切り捨て・小数は出さない）
+ */
+export function formatMmSsFloor(sec: number): string {
+  if (!Number.isFinite(sec)) return "0:00";
+  const sign = sec < 0 ? "-" : "";
+  const totalSec = Math.floor(Math.abs(sec) + 1e-9);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${sign}${m}:${String(s).padStart(2, "0")}`;
+}
+
+/**
+ * 再生時計用。分:秒を `M:SS`（秒まで）で揃え、桁の伸縮によるブレを防ぐ。
  */
 export function formatMmSsClock(sec: number): string {
-  if (!Number.isFinite(sec)) return "0:00.00";
-  const sign = sec < 0 ? "-" : "";
-  const c = Math.round(Math.abs(sec) * 100);
-  const m = Math.floor(c / 6000);
-  const r = c % 6000;
-  const s = Math.floor(r / 100);
-  const cs = r % 100;
-  return `${sign}${m}:${String(s).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
+  return formatMmSsFloor(sec);
 }
 
 /** 表示用: 1:23（秒は切り捨て）。小数があれば 1:23.45 */
@@ -25,16 +30,6 @@ export function formatMmSs(sec: number): string {
   if (frac < 0.001) return base;
   const fracStr = frac.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
   return `${base}.${fracStr}`;
-}
-
-/** キュー一覧など: `M:SS` のみ（秒未満は切り捨て・小数は出さない） */
-export function formatMmSsFloor(sec: number): string {
-  if (!Number.isFinite(sec)) return "0:00";
-  const sign = sec < 0 ? "-" : "";
-  const totalSec = Math.floor(Math.abs(sec) + 1e-9);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${sign}${m}:${String(s).padStart(2, "0")}`;
 }
 
 /**

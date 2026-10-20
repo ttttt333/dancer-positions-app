@@ -1,0 +1,242 @@
+/**
+ * 解析結果を音楽セクション・オーバーレイ store へ反映する。
+ */
+
+import type { AudioAnalysisResult } from "../../types/audioAnalysis";
+import type { StructureResultV2 } from "../choreocore/types/songStructure";
+import {
+  segmentsFromChangePoints,
+  segmentsFromMusicSections,
+  type MusicSectionOverlaySegment,
+} from "../musicSectionOverlay";
+import type { ChangePoint } from "../choreocore/types";
+import { useMusicSectionOverlayStore } from "../../store/musicSectionOverlayStore";
+import {
+  audioAnalysisFromStructureV2,
+  beatsFromTempo,
+  musicSectionFromRaw,
+  overlaySegmentsFromAnalysis,
+} from "./fromStructureV2";
+import { mapEngineTypeToSectionType } from "./sectionMeta";
+import { applyDownbeatSnapToAnalysis } from "./snapToDownbeat";
+import {
+  cleanseMusicSections,
+  isDegenerateSectionLayout,
+  repairDegenerateSections,
+} from "./cleanseSections";
+import { refineSectionsForEditTrack } from "./editTrackRefine";
+import type { TrackAnalysisMode } from "./cueCategories";
+import {
+  inferTempoFromEightTimes,
+  logAudioAnalysisEngine,
+} from "./evenBeatGrid";
+
+export function publishAudioAnalysisOverlay(
+  analysis: AudioAnalysisResult,
+  opts?: {
+    applySnap?: boolean;
+    force?: boolean;
+    peaks?: number[];
+    /** edit のときのみ無音カット等の EDIT 精錬を適用。未指定は peaks があれば適用（後方互換） */
+    trackMode?: TrackAnalysisMode;
+  }
+): void {
+  if (useMusicSectionOverlayStore.getState().userEdited && !opts?.force) {
+    useMusicSectionOverlayStore.getState().setAnalyzing(false);
+    return;
+  }
+  let final =
+    opts?.applySnap === false
+      ? analysis
+      : applyDownbeatSnapToAnalysis(analysis);
+
+  const bpm = final.bpm && final.bpm > 0 ? final.bpm : 120;
+  let sections = cleanseMusicSections(final.sections, {
+    duration: final.duration,
+    bpm,
+  });
+  // EDIT 明示、または互換のため trackMode 未指定＋peaks → 精錬。clean はスキップ
+  if (
+    opts?.peaks &&
+    opts.peaks.length > 0 &&
+    opts.trackMode !== "clean"
+  ) {
+    sections = refineSectionsForEditTrack({
+      sections,
+      peaks: opts.peaks,
+      duration: final.duration,
+      bpm,
+    });
+    sections = cleanseMusicSections(sections, {
+      duration: final.duration,
+      bpm,
+    });
+  }
+  const wasDegenerate = isDegenerateSectionLayout(sections, final.duration);
+  sections = repairDegenerateSections({
+    sections,
+    duration: final.duration,
+    bpm,
+    peaks: opts?.peaks,
+  });
+  if (
+    wasDegenerate &&
+    !/form-ratio|browser-auto|edit-aware/i.test(final.sourceLabel ?? "")
+  ) {
+    final = {
+      ...final,
+      sourceLabel: `${final.sourceLabel ?? "remote"}+form-ratio-repair`,
+    };
+  }
+  final = { ...final, sections };
+
+  // ビートが不揃い／空なら BPM 均等グリッドで差し替え
+  // All-In-One 由来の精密ダウンビートは上書きしない
+  const preferKeepAiBeats = /all-in-one|aio|replicate/i.test(
+    final.sourceLabel ?? ""
+  );
+
+  if (
+    !preferKeepAiBeats &&
+    (final.beats.length < 2 || !isEvenGrid(final.beats, bpm))
+  ) {
+    final = {
+      ...final,
+      beats: beatsFromTempo({
+        bpm,
+        duration: final.duration,
+        firstDownbeatTime:
+          final.beats.find((b) => b.isDownbeat)?.timestamp ?? 0,
+      }),
+    };
+  }
+
+  const segments = overlaySegmentsFromAnalysis(
+    final
+  ) as MusicSectionOverlaySegment[];
+  useMusicSectionOverlayStore
+    .getState()
+    .setFromAnalysis(final, segments, { force: opts?.force });
+}
+
+function isEvenGrid(beats: AudioAnalysisResult["beats"], bpm: number): boolean {
+  if (beats.length < 3) return false;
+  const spb = 60 / Math.max(1, bpm);
+  let checked = 0;
+  for (let i = 1; i < Math.min(beats.length, 24); i += 1) {
+    const gap = beats[i]!.timestamp - beats[i - 1]!.timestamp;
+    if (Math.abs(gap - spb) > spb * 0.12) return false;
+    checked += 1;
+  }
+  return checked > 0;
+}
+
+/** Structure v2 優先。無ければ changePoints / eval sections にフォールバック。 */
+export function publishSnappedOverlayFromSources(opts: {
+  duration: number;
+  sourceLabel?: string | null;
+  structureV2?: StructureResultV2 | null;
+  changePoints?: ChangePoint[] | undefined;
+  evalSections?: Array<{ type: string; startTime: number; endTime: number }>;
+  eightTimes?: number[];
+  bpm?: number;
+  peaks?: number[];
+  /** true のとき手動編集済みでも上書き（AI提案など明示操作） */
+  force?: boolean;
+  trackMode?: TrackAnalysisMode;
+}): AudioAnalysisResult | null {
+  const { duration, sourceLabel, force, peaks, trackMode } = opts;
+
+  if (
+    useMusicSectionOverlayStore.getState().userEdited &&
+    !force
+  ) {
+    useMusicSectionOverlayStore.getState().setAnalyzing(false);
+    return null;
+  }
+
+  if (opts.structureV2?.sections?.length) {
+    const analysis = audioAnalysisFromStructureV2(opts.structureV2, {
+      applySnap: true,
+      cleanse: true,
+    });
+    if (sourceLabel) analysis.sourceLabel = sourceLabel;
+    publishAudioAnalysisOverlay(analysis, {
+      applySnap: false,
+      force,
+      peaks,
+      trackMode,
+    });
+    return analysis;
+  }
+
+  const fromEval =
+    opts.evalSections && opts.evalSections.length > 0
+      ? segmentsFromMusicSections(opts.evalSections, duration)
+      : [];
+  const segments =
+    fromEval.length > 0
+      ? fromEval
+      : segmentsFromChangePoints(opts.changePoints, duration);
+
+  const eightTimes =
+    opts.eightTimes?.length
+      ? opts.eightTimes
+      : opts.structureV2?.eight_times ?? [];
+  const inferred = eightTimes.length
+    ? inferTempoFromEightTimes(eightTimes)
+    : null;
+  const bpm =
+    opts.bpm && opts.bpm > 0
+      ? opts.bpm
+      : inferred?.bpm && inferred.bpm > 0
+        ? inferred.bpm
+        : 120;
+  const firstDownbeatTime = inferred?.firstDownbeatTime ?? 0;
+  const beats = beatsFromTempo({ bpm, duration, firstDownbeatTime });
+
+  if (segments.length === 0 && beats.length === 0) {
+    useMusicSectionOverlayStore
+      .getState()
+      .setSegments([], duration, sourceLabel ?? null);
+    return null;
+  }
+
+  let analysis: AudioAnalysisResult = {
+    duration,
+    beats,
+    sections: segments.map((seg) =>
+      musicSectionFromRaw({
+        type: mapEngineTypeToSectionType(seg.sectionType),
+        startTime: seg.startSec,
+        endTime: seg.endSec,
+        label: seg.label,
+        bpm,
+      })
+    ),
+    sourceLabel: sourceLabel ?? undefined,
+    bpm,
+  };
+
+  analysis = applyDownbeatSnapToAnalysis(analysis);
+  analysis = {
+    ...analysis,
+    sections: cleanseMusicSections(analysis.sections, { duration, bpm }),
+  };
+
+  logAudioAnalysisEngine({
+    engine: sourceLabel ?? "change-points",
+    bpm,
+    beatsCount: analysis.beats.length,
+    sectionsCount: analysis.sections.length,
+    sourceLabel,
+  });
+
+  publishAudioAnalysisOverlay(analysis, {
+    applySnap: false,
+    force,
+    peaks,
+    trackMode,
+  });
+  return analysis;
+}

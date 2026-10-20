@@ -2,6 +2,8 @@ export type ProjectThumbDancer = {
   xPct: number;
   yPct: number;
   colorIndex: number;
+  markerShape?: string;
+  facingDeg?: number;
 };
 
 export type ProjectListSummary = {
@@ -68,6 +70,12 @@ export function summarizeProjectJson(raw: unknown): ProjectListSummary {
         xPct: Number(spot?.xPct),
         yPct: Number(spot?.yPct),
         colorIndex,
+        markerShape:
+          typeof spot?.markerShape === "string" ? spot.markerShape : undefined,
+        facingDeg:
+          typeof spot?.facingDeg === "number" && Number.isFinite(spot.facingDeg)
+            ? spot.facingDeg
+            : undefined,
       };
     })
     .filter((d) => Number.isFinite(d.xPct) && Number.isFinite(d.yPct))
@@ -75,6 +83,8 @@ export function summarizeProjectJson(raw: unknown): ProjectListSummary {
       xPct: d.xPct,
       yPct: d.yPct,
       colorIndex: d.colorIndex,
+      ...(d.markerShape ? { markerShape: d.markerShape } : {}),
+      ...(d.facingDeg != null ? { facingDeg: d.facingDeg } : {}),
     }));
 
   const pieceCount =

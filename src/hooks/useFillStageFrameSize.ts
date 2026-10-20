@@ -47,8 +47,13 @@ export function useFillStageFrameSize(params: {
 
     const measure = () => {
       const rect = el.getBoundingClientRect();
-      const availW = Math.max(0, rect.width - leftInsetPx - rightInsetPx);
-      const availH = Math.max(0, rect.height - topInsetPx - bottomInsetPx);
+      const cs = window.getComputedStyle(el);
+      const padX =
+        (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+      const padY =
+        (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      const availW = Math.max(0, rect.width - padX - leftInsetPx - rightInsetPx);
+      const availH = Math.max(0, rect.height - padY - topInsetPx - bottomInsetPx);
       if (availW < 8 || availH < 8) return;
 
       let widthPx = availW;

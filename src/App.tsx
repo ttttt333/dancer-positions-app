@@ -1,10 +1,10 @@
-import { Component, Fragment, type ReactNode, type ErrorInfo, useState, useEffect, useCallback } from "react";
+import { Component, Fragment, lazy, Suspense, type ReactNode, type ErrorInfo, useState, useEffect, useCallback } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
+import { AppToastHost } from "./components/AppToastHost";
 import { AuthProvider } from "./context/AuthContext";
 import { useUserLibraryCloudSync } from "./hooks/useUserLibraryCloudSync";
 import { DashboardPage } from "./pages/DashboardPage";
-import { EditorPage } from "./pages/EditorPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { VideoPage } from "./pages/VideoPage";
@@ -12,8 +12,10 @@ import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
 import { PlanConfirmationPage } from "./pages/billing/PlanConfirmationPage";
 import { TokushohoPage } from "./pages/legal/TokushohoPage";
 import { UpdateLogPage } from "./pages/UpdateLogPage";
+import { AppealPage } from "./pages/appeal/AppealPage";
 import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
 import { AnnotationWorkbenchPage } from "./pages/AnnotationWorkbenchPage";
+import { JoinCollabPage } from "./pages/JoinCollabPage";
 import { isQuotaError, recoverBlindStorageQuota } from "./pages/annotation/sessionHistory";
 import { MobileShell } from "./components/mobile/MobileShell";
 import {
@@ -25,9 +27,14 @@ import { useMobileShellBridgeStore } from "./store/useMobileShellBridgeStore";
 import { playbackEngine } from "./core/playbackEngine";
 import {
   seekPlaybackClampedAndSyncStore,
-  stopPlaybackAtTrimStart,
+  stopOrRewindPlayback,
   togglePlaybackRespectingTrimStart,
 } from "./lib/playbackTransport";
+
+/** 編集／閲覧とも重いためルート単位で code-split（/view 初期表示を軽くする） */
+const EditorPage = lazy(() =>
+  import("./pages/EditorPage").then((m) => ({ default: m.EditorPage }))
+);
 
 type EBState = { error: Error | null };
 
@@ -203,7 +210,7 @@ function MobileEditorRoute() {
   }, [trimStartSec]);
 
   const onStop = useCallback(() => {
-    stopPlaybackAtTrimStart(trimStartSec);
+    stopOrRewindPlayback(trimStartSec);
   }, [trimStartSec]);
 
   const onSeek = useCallback(
@@ -260,12 +267,14 @@ function AppShell() {
   const location = useLocation();
   const hideFloatingLocale =
     location.pathname === "/" ||
+    location.pathname.startsWith("/appeal") ||
     location.pathname.startsWith("/view") ||
     location.pathname.startsWith("/evaluation");
 
   return (
     <Fragment>
       {!hideFloatingLocale ? <LanguageSwitcher variant="floating" /> : null}
+      <AppToastHost />
       <div className="app-shell">
         <AuthProvider>
           <UserLibraryCloudSyncBridge />
@@ -276,19 +285,34 @@ function AppShell() {
             <Route path="/library" element={<Navigate to="/" replace />} />
             <Route path="/video" element={<VideoPage />} />
             <Route path="/update-log" element={<UpdateLogPage />} />
+            <Route path="/appeal" element={<AppealPage />} />
+            <Route path="/lp" element={<Navigate to="/appeal" replace />} />
             <Route path="/changelog" element={<Navigate to="/update-log" replace />} />
             <Route path="/billing/success" element={<BillingSuccessPage />} />
             <Route path="/billing/canceled" element={<BillingCanceledPage />} />
             <Route path="/billing/confirm" element={<PlanConfirmationPage />} />
             <Route path="/legal/tokushoho" element={<TokushohoPage />} />
-            <Route path="/editor/:projectId" element={<MobileEditorRoute />} />
+            <Route path="/join/:token" element={<JoinCollabPage />} />
+            <Route path="/editor/:projectId" element={
+              <Suspense fallback={<div style={{ padding: 24, color: "#94a3b8" }}>Loading…</div>}>
+                <MobileEditorRoute />
+              </Suspense>
+            } />
             <Route
               path="/view/s/:shareToken"
-              element={<EditorPage choreoPublicView />}
+              element={
+                <Suspense fallback={<div style={{ padding: 24, color: "#94a3b8" }}>Loading…</div>}>
+                  <EditorPage choreoPublicView />
+                </Suspense>
+              }
             />
             <Route
               path="/view/:projectId"
-              element={<EditorPage choreoPublicView />}
+              element={
+                <Suspense fallback={<div style={{ padding: 24, color: "#94a3b8" }}>Loading…</div>}>
+                  <EditorPage choreoPublicView />
+                </Suspense>
+              }
             />
             <Route
               path="/demo/mobile-formation-editor"

@@ -34,9 +34,9 @@ interface Props {
   onSkipForward: () => void
   onZoomIn: () => void
   onZoomOut: () => void
-  /** 波形を + ボタン15回相当の倍率へ一気にズーム */
+  /** 選択キューが調整しやすい倍率へ一気にズーム */
   onZoomToBig?: () => void
-  /** 波形全体が見える倍率へ一気にズーム */
+  /** 曲全体が見える倍率へ一気にズーム */
   onZoomToFit?: () => void
   landscapeWaveExpanded?: boolean
   onWaveExpand?: () => void
@@ -296,6 +296,27 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           <TransportIconSkipForward size={20} className={ctrlStyles.icon} />
           <span className={ctrlStyles.skipBadge}>5</span>
         </button>
+      </div>
+
+      <div className={`${ctrlStyles.controls} ${styles.controlGrid}`} role="group" aria-label="波形の拡大縮小">
+        <button
+          className={`${ctrlStyles.btn} ${styles.gridBtn}`}
+          onClick={onZoomToFit}
+          disabled={transportDisabled || !onZoomToFit}
+          aria-label="波形を全体表示"
+          title="曲全体を表示"
+        >
+          <TransportIconWaveZoomFit size={20} className={ctrlStyles.icon} />
+        </button>
+        <button
+          className={`${ctrlStyles.btn} ${styles.gridBtn}`}
+          onClick={onZoomToBig}
+          disabled={transportDisabled || !onZoomToBig}
+          aria-label="選択キューを調整しやすい大きさに拡大"
+          title="選択キューを調整しやすい大きさに拡大"
+        >
+          <TransportIconWaveZoomBig size={20} className={ctrlStyles.icon} />
+        </button>
         <button
           className={`${ctrlStyles.btn} ${styles.gridBtn}`}
           onClick={onZoomIn}
@@ -313,27 +334,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           title="縮小"
         >
           <TransportIconZoomOut size={20} className={ctrlStyles.icon} />
-        </button>
-      </div>
-
-      <div className={`${ctrlStyles.controls} ${styles.controlGrid}`} role="group" aria-label="波形の拡大縮小プリセット">
-        <button
-          className={`${ctrlStyles.btn} ${styles.gridBtn}`}
-          onClick={onZoomToBig}
-          disabled={transportDisabled || !onZoomToBig}
-          aria-label="波形を大きく拡大"
-          title="波形を大きく拡大"
-        >
-          <TransportIconWaveZoomBig size={20} className={ctrlStyles.icon} />
-        </button>
-        <button
-          className={`${ctrlStyles.btn} ${styles.gridBtn}`}
-          onClick={onZoomToFit}
-          disabled={transportDisabled || !onZoomToFit}
-          aria-label="波形を全体表示"
-          title="波形を全体表示"
-        >
-          <TransportIconWaveZoomFit size={20} className={ctrlStyles.icon} />
         </button>
       </div>
 

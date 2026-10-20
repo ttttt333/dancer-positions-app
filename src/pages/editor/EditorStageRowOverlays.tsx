@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import { useSafeElementRef } from "./useSafeElementRef";
 import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoGridLogo";
@@ -17,20 +17,55 @@ import { ViewerModeSheetContent } from "../../components/ViewerModeSheetContent"
 import { ChoreoViewerBottomBar } from "../../components/ChoreoViewerBottomBar";
 import { ChoreoViewerControlBars } from "../../components/ChoreoViewerControlBars";
 import { ChoreoViewerMemberSheet } from "../../components/ChoreoViewerMemberSheet";
+import { ChoreoViewerViralCta } from "../../components/ChoreoViewerViralCta";
 import { VideoExportSheet } from "../../components/VideoExportSheet";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import { playbackEngine } from "../../core/playbackEngine";
+import { withDancerLabelPosition } from "../../lib/withDancerLabelPosition";
 import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
 import { panelCard, shell } from "../../theme/choreoShell";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../../lib/dancerColorPalette";
+import {
+  MEMBER_ROSTER_GRADE_OPTIONS,
+  countProjectRosterMembers,
+  memberRosterHeightSelectOptions,
+  memberRosterSelectOptions,
+  memberRosterSkillOptions,
+  patchMemberRosterDancerInProject,
+  reorderFormationDancersInProject,
+  resolveMemberRosterFields,
+  sortFormationDancersInProject,
+  type MemberRosterSortKey,
+} from "../../lib/memberRosterSheetFields";
+import {
+  moveOtherMembersToWings,
+  removeMembersFromStage,
+  type MemberDeleteScope,
+} from "../../lib/removeMemberFromStage";
+import { MemberDeleteScopeDialog } from "../../components/MemberDeleteScopeDialog";
 import { sortCuesByStart, MIN_CUE_DURATION_SEC, DEFAULT_CUE_SPAN_WITH_AUDIO_SEC } from "../../core/timelineController";
 import { dancersForLayoutPreset, transferDancerIdentitiesByOrder } from "../../lib/formationLayouts";
 import { formatMmSsFloor } from "../../lib/timeFormat";
 import { dancerMarkerDiameterAfterRosterImport } from "../../lib/projectDefaults";
 import { getViewRosterEntries } from "../../lib/viewRoster";
-import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
+import {
+  deleteStagePreset,
+  listStagePresets,
+  saveStagePreset,
+} from "../../lib/stagePresets";
 import { stripFormationStageSnapshots } from "../../lib/savedSpotStageSnapshot";
-import { parseMeterCmDraftToMm } from "./stageAreaSettingsDraft";
+import {
+  createEmptySleeveDraft,
+  ensureCenterMarksWhenVisible,
+  mmToMeterCmDraft,
+  parseMeterCmDraftToMm,
+  stagePresetPayloadFromAreaDraft,
+  type StageAreaSettingsDraft,
+} from "./stageAreaSettingsDraft";
+import {
+  createDefaultCenterMark,
+  nextCenterMarkOffset,
+} from "../../lib/stageCenterMarks";
 import {
   StageAreaDimensionRows,
   StageAreaGridSpacingControls,
@@ -54,6 +89,22 @@ const Stage3DView = lazy(() =>
 
 
 export function EditorStageRowOverlays(props: EditorLayoutProps) {
+  const [memberDeletePending, setMemberDeletePending] = useState<{
+    formationId: string;
+    cueId: string | null;
+    dancerId: string;
+    label: string;
+  } | null>(null);
+  const [rosterDragFrom, setRosterDragFrom] = useState<number | null>(null);
+  const [rosterDragOver, setRosterDragOver] = useState<number | null>(null);
+  const [rosterCheckedIds, setRosterCheckedIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+  const [rosterSort, setRosterSort] = useState<{
+    key: MemberRosterSortKey;
+    dir: "asc" | "desc";
+  } | null>(null);
+
   const videoExportOpen = useVideoExportUiStore((s) => s.open);
   const closeVideoExport = useVideoExportUiStore((s) => s.closeSheet);
   const activeFormationId = props.activeFormationId as never;
@@ -107,8 +158,18 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const f = props.f as never;
   const fid = props.fid as never;
   const floorMarkupTool = props.floorMarkupTool as never;
+  const floorLineScope = props.floorLineScope as "formation" | "global" | undefined;
   const floorTextPlaceSession = props.floorTextPlaceSession as never;
   const floorTextSideSheetOpen = props.floorTextSideSheetOpen as never;
+  const floorTextPreferredTab = props.floorTextPreferredTab as
+    | "text"
+    | "lights"
+    | "scribble"
+    | null
+    | undefined;
+  const setFloorTextPreferredTab = props.setFloorTextPreferredTab as
+    | ((v: "text" | "lights" | "scribble" | null) => void)
+    | undefined;
   const flowLibraryDialogEl = props.flowLibraryDialogEl as never;
   const fontFamily = props.fontFamily as never;
   const formationBoxManagerDialogEl = props.formationBoxManagerDialogEl as never;
@@ -122,6 +183,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const gridWidthCmInput = props.gridWidthCmInput as never;
   const hasRosterMembers = props.hasRosterMembers as never;
   const importCrewCsvFromStageToolbar = props.importCrewCsvFromStageToolbar as never;
+  const exportCrewRosterSpreadsheet = props.exportCrewRosterSpreadsheet as
+    | (() => void)
+    | undefined;
   const input = props.input as never;
   const isPlaying = props.isPlaying as never;
   const jumpToPagerSlot = props.jumpToPagerSlot as never;
@@ -174,6 +238,13 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const scale = props.scale as never;
   const selectedCue = props.selectedCue as never;
   const selectedCueId = props.selectedCueId as never;
+  const selectedStageLightId = props.selectedStageLightId as
+    | string
+    | null
+    | undefined;
+  const setSelectedStageLightId = props.setSelectedStageLightId as
+    | ((id: string | null) => void)
+    | undefined;
   const serverId = props.serverId as never;
   const setAddCueDialogOpen = props.setAddCueDialogOpen as never;
   const setAiSuggestOpen = props.setAiSuggestOpen as never;
@@ -192,6 +263,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const setEditorViewerPreviewPick = props.setEditorViewerPreviewPick as never;
   const setEditorViewerSheetOpen = props.setEditorViewerSheetOpen as never;
   const setFloorMarkupTool = props.setFloorMarkupTool as never;
+  const setFloorLineScope = props.setFloorLineScope as
+    | ((v: "formation" | "global" | ((prev: "formation" | "global") => "formation" | "global")) => void)
+    | undefined;
   const setFloorTextPlaceSession = props.setFloorTextPlaceSession as never;
   const setFloorTextSideSheetOpen = props.setFloorTextSideSheetOpen as never;
   const setFlowLibraryOpen = props.setFlowLibraryOpen as never;
@@ -209,7 +283,6 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const setShowMotionArrows = props.setShowMotionArrows as never;
   const setStageAreaPresetList = props.setStageAreaPresetList as never;
   const setStageAreaPresetSelectNonce = props.setStageAreaPresetSelectNonce as never;
-  const setStageAreaSettingsDraft = props.setStageAreaSettingsDraft as never;
   const setStageAreaSettingsOpen = props.setStageAreaSettingsOpen as never;
   const setStagePreviewDancers = props.setStagePreviewDancers as never;
   const setStageSettingsOpen = props.setStageSettingsOpen as never;
@@ -226,7 +299,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const stageAreaDraftHasMainFloor = props.stageAreaDraftHasMainFloor as never;
   const stageAreaPresetList = props.stageAreaPresetList as never;
   const stageAreaPresetSelectNonce = props.stageAreaPresetSelectNonce as never;
-  const stageAreaSettingsDraft = props.stageAreaSettingsDraft as never;
+  const stageAreaSettingsDraft = props.stageAreaSettingsDraft as unknown as StageAreaSettingsDraft;
+  const setStageAreaSettingsDraft = props.setStageAreaSettingsDraft as Dispatch<
+    SetStateAction<StageAreaSettingsDraft>
+  >;
   const stageAreaSettingsDraftRef = props.stageAreaSettingsDraftRef as never;
   const stageAreaSettingsOpen = props.stageAreaSettingsOpen as never;
   const stageBoardProject = props.stageBoardProject as never;
@@ -467,7 +543,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
       <EditorSideSheet
         open={memberRosterSheetOpen}
         zIndex={2200}
-        width="min(380px, calc(100vw - 16px))"
+        width="min(520px, calc(100vw - 16px))"
         onClose={() => setMemberRosterSheetOpen(false)}
         ariaLabelledBy="member-roster-sheet-title"
       >
@@ -482,6 +558,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             <h2 id="member-roster-sheet-title" style={{
               margin: 0, fontSize: "13px", fontWeight: 700, color: shell.text,
               display: "flex", alignItems: "center", gap: 7, letterSpacing: "0.03em",
+              minWidth: 0,
             }}>
               <span style={{ color: shell.accent, display: "flex", opacity: 0.9 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -491,17 +568,55 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               </span>
               メンバー
             </h2>
-            <button
-              type="button"
-              aria-label={t("editor.layout.close")}
-              onClick={() => setMemberRosterSheetOpen(false)}
-              style={{ background: "transparent", border: `1px solid ${shell.border}`, borderRadius: 6, color: shell.textMuted, fontSize: 16, lineHeight: 1, padding: "3px 9px", cursor: "pointer" }}
-            >×</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              {exportCrewRosterSpreadsheet ? (
+                <button
+                  type="button"
+                  disabled={
+                    project?.viewMode === "view" ||
+                    !(project?.crews?.some((c) => c.members.length > 0) ?? false)
+                  }
+                  title="アプリで編集したスキル・学年・身長などを Excel / スプレッドシート用ファイルに書き出します"
+                  onClick={() => exportCrewRosterSpreadsheet()}
+                  style={{
+                    height: 28,
+                    padding: "0 10px",
+                    borderRadius: 6,
+                    border: `1px solid ${shell.border}`,
+                    background: "rgba(255,255,255,0.06)",
+                    color: shell.text,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor:
+                      project?.viewMode === "view" ||
+                      !(project?.crews?.some((c) => c.members.length > 0) ?? false)
+                        ? "not-allowed"
+                        : "pointer",
+                    opacity:
+                      project?.viewMode === "view" ||
+                      !(project?.crews?.some((c) => c.members.length > 0) ?? false)
+                        ? 0.45
+                        : 1,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  表に書き出し
+                </button>
+              ) : null}
+              <button
+                type="button"
+                aria-label={t("editor.layout.close")}
+                onClick={() => setMemberRosterSheetOpen(false)}
+                style={{ background: "transparent", border: `1px solid ${shell.border}`, borderRadius: 6, color: shell.textMuted, fontSize: 16, lineHeight: 1, padding: "3px 9px", cursor: "pointer" }}
+              >×</button>
+            </div>
           </div>
           {/* 本文 */}
-          <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "8px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
             {(() => {
-              const fid = project?.activeFormationId;
+              const fid =
+                (selectedCue as { formationId?: string } | null | undefined)
+                  ?.formationId ?? project?.activeFormationId;
               const formation = fid ? formationById.get(fid) : null;
               if (!formation || formation.dancers.length === 0) {
                 return (
@@ -511,88 +626,506 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   </p>
                 );
               }
-              return formation.dancers.map((dancer, idx) => {
-                const colorHex = DANCER_COLOR_PALETTE_HEX[dancer.colorIndex % DANCER_COLOR_PALETTE_HEX.length];
+              const viewOnly = project?.viewMode === "view";
+              const rosterMemberCount = Math.max(
+                formation.dancers.length,
+                countProjectRosterMembers(project?.crews)
+              );
+              const selectStyle: CSSProperties = {
+                height: 26,
+                maxWidth: "100%",
+                boxSizing: "border-box",
+                borderRadius: 6,
+                border: `1px solid ${shell.border}`,
+                background: "rgba(255,255,255,0.04)",
+                color: shell.text,
+                fontSize: 10,
+                fontWeight: 600,
+                padding: "0 2px",
+                outline: "none",
+                cursor: viewOnly ? "default" : "pointer",
+              };
+              const checkedIds = formation.dancers
+                .filter((d) => rosterCheckedIds.has(d.id))
+                .map((d) => d.id);
+              const allChecked =
+                checkedIds.length === formation.dancers.length;
+              const cueIdForEdit =
+                (selectedCue as { id?: string } | null | undefined)?.id ??
+                (typeof selectedCueId === "string" ? selectedCueId : null);
+              const bulkBtnStyle = (danger: boolean): CSSProperties => ({
+                height: 28,
+                padding: "0 10px",
+                borderRadius: 6,
+                border: danger
+                  ? "1px solid rgba(248,113,113,0.45)"
+                  : `1px solid ${shell.border}`,
+                background: danger
+                  ? "rgba(127,29,29,0.35)"
+                  : "rgba(255,255,255,0.06)",
+                color: danger ? "#fecaca" : shell.text,
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: checkedIds.length === 0 ? "not-allowed" : "pointer",
+                opacity: checkedIds.length === 0 ? 0.45 : 1,
+                whiteSpace: "nowrap",
+              });
+              const bulkBar = viewOnly ? null : (
+                <div
+                  key="__roster-bulk"
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 4px 8px",
+                    marginBottom: 2,
+                    borderBottom: `1px solid ${shell.border}`,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      width: "100%",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span style={{ fontSize: 11, color: shell.textMuted }}>
+                      並び替え
+                    </span>
+                    {(
+                      [
+                        ["height", "身長順", "低い順", "高い順"],
+                        ["grade", "学年順", "下の学年から", "上の学年から"],
+                        ["skill", "スキル順", "上手い順", "下から"],
+                      ] as const
+                    ).map(([key, label, ascHint, descHint]) => {
+                      const active = rosterSort?.key === key;
+                      const nextDir: "asc" | "desc" =
+                        active && rosterSort?.dir === "asc" ? "desc" : "asc";
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          title={`${label}（押すたびに ${ascHint}／${descHint} を切り替え）`}
+                          onClick={() => {
+                            if (!fid) return;
+                            setProjectSafe((p) =>
+                              sortFormationDancersInProject(p, fid, key, nextDir)
+                            );
+                            setRosterSort({ key, dir: nextDir });
+                          }}
+                          style={{
+                            ...bulkBtnStyle(false),
+                            cursor: "pointer",
+                            opacity: 1,
+                            border: active
+                              ? "1px solid rgba(251,191,36,0.85)"
+                              : `1px solid ${shell.border}`,
+                            background: active
+                              ? "rgba(251,191,36,0.14)"
+                              : "rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          {label}
+                          {active
+                            ? rosterSort?.dir === "asc"
+                              ? ` ↑ ${ascHint}`
+                              : ` ↓ ${descHint}`
+                            : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                      fontSize: 11,
+                      color: shell.textMuted,
+                      cursor: "pointer",
+                      marginRight: "auto",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={allChecked}
+                      ref={(el) => {
+                        if (el) {
+                          el.indeterminate =
+                            checkedIds.length > 0 && !allChecked;
+                        }
+                      }}
+                      onChange={() =>
+                        setRosterCheckedIds(
+                          allChecked
+                            ? new Set()
+                            : new Set(formation.dancers.map((d) => d.id))
+                        )
+                      }
+                    />
+                    {checkedIds.length > 0
+                      ? `${checkedIds.length}人選択中`
+                      : "全員選択"}
+                  </label>
+                  <button
+                    type="button"
+                    disabled={checkedIds.length === 0}
+                    title="チェックしたメンバーだけ舞台上に残し、それ以外を舞台そでに待機させます（このキュー）"
+                    onClick={() => {
+                      if (!fid || checkedIds.length === 0) return;
+                      setProjectSafe((p) =>
+                        moveOtherMembersToWings(p, {
+                          formationId: fid,
+                          cueId: cueIdForEdit,
+                          keepDancerIds: checkedIds,
+                        })
+                      );
+                      setStagePreviewDancers?.(null);
+                    }}
+                    style={bulkBtnStyle(false)}
+                  >
+                    選んだメンバーだけ舞台に残す
+                  </button>
+                  <button
+                    type="button"
+                    disabled={checkedIds.length === 0}
+                    title="チェックしたメンバーをまとめて削除（このキュー）"
+                    onClick={() => {
+                      if (!fid || checkedIds.length === 0) return;
+                      setProjectSafe((p) =>
+                        removeMembersFromStage(p, {
+                          formationId: fid,
+                          cueId: cueIdForEdit,
+                          dancerIds: checkedIds,
+                          scope: "cue",
+                        })
+                      );
+                      setStagePreviewDancers?.(null);
+                      setRosterCheckedIds(new Set());
+                    }}
+                    style={bulkBtnStyle(true)}
+                  >
+                    選んだメンバーを削除
+                  </button>
+                </div>
+              );
+              const rows = formation.dancers.map((dancer, idx) => {
+                const colorIdx = modDancerColorIndex(dancer.colorIndex);
+                const colorHex = DANCER_COLOR_PALETTE_HEX[colorIdx]!;
                 const badgeLabel = dancer.markerBadge ?? String(idx + 1);
+                const fields = project
+                  ? resolveMemberRosterFields(dancer, project)
+                  : {
+                      heightCm: dancer.heightCm,
+                      gradeLabel: dancer.gradeLabel,
+                      skillRankLabel: dancer.skillRankLabel,
+                    };
+                const gradeOpts = memberRosterSelectOptions(
+                  MEMBER_ROSTER_GRADE_OPTIONS,
+                  fields.gradeLabel
+                );
+                const skillOpts = memberRosterSelectOptions(
+                  memberRosterSkillOptions(rosterMemberCount),
+                  fields.skillRankLabel
+                );
+                const heightOpts = memberRosterHeightSelectOptions(fields.heightCm);
+                const patchDancer = (
+                  patch: Parameters<typeof patchMemberRosterDancerInProject>[3]
+                ) => {
+                  if (!fid || viewOnly) return;
+                  setProjectSafe((p) =>
+                    patchMemberRosterDancerInProject(p, fid, dancer.id, patch)
+                  );
+                };
                 return (
-                  <div key={dancer.id} style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "7px 10px", borderRadius: 10,
-                    border: `1px solid ${shell.border}`,
-                    background: "rgba(255,255,255,0.025)",
-                  }}>
-                    {/* カラーサークル */}
-                    <div style={{
-                      width: 28, height: 28, borderRadius: "50%",
-                      background: colorHex, flexShrink: 0,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 10, fontWeight: 700,
-                      color: "#fff", textShadow: "0 0 2px rgba(0,0,0,0.6)",
-                    }}>
+                  <div
+                    key={dancer.id}
+                    data-roster-row={dancer.id}
+                    onDragOver={
+                      viewOnly
+                        ? undefined
+                        : (e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            if (rosterDragOver !== idx) setRosterDragOver(idx);
+                          }
+                    }
+                    onDrop={
+                      viewOnly
+                        ? undefined
+                        : (e) => {
+                            e.preventDefault();
+                            const raw = e.dataTransfer.getData("text/plain");
+                            const from = Number.parseInt(raw, 10);
+                            setRosterDragFrom(null);
+                            setRosterDragOver(null);
+                            if (!Number.isFinite(from) || from === idx || !fid) {
+                              return;
+                            }
+                            setProjectSafe((p) =>
+                              reorderFormationDancersInProject(p, fid, from, idx)
+                            );
+                          }
+                    }
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "4px 6px",
+                      borderRadius: 8,
+                      border: `1px solid ${
+                        rosterDragOver === idx && rosterDragFrom !== idx
+                          ? "rgba(251,191,36,0.85)"
+                          : shell.border
+                      }`,
+                      background:
+                        rosterDragFrom === idx
+                          ? "rgba(251,191,36,0.1)"
+                          : "rgba(255,255,255,0.025)",
+                      minWidth: 0,
+                      opacity: rosterDragFrom === idx ? 0.72 : 1,
+                    }}
+                  >
+                    {!viewOnly ? (
+                      <button
+                        type="button"
+                        draggable
+                        aria-label="ドラッグして並び替え"
+                        title="上下にドラッグして並び替え"
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", String(idx));
+                          e.dataTransfer.effectAllowed = "move";
+                          setRosterDragFrom(idx);
+                          setRosterDragOver(idx);
+                        }}
+                        onDragEnd={() => {
+                          setRosterDragFrom(null);
+                          setRosterDragOver(null);
+                        }}
+                        style={{
+                          flexShrink: 0,
+                          width: 18,
+                          height: 26,
+                          padding: 0,
+                          border: "none",
+                          borderRadius: 4,
+                          background: "transparent",
+                          color: shell.textMuted,
+                          cursor: "grab",
+                          fontSize: 12,
+                          lineHeight: 1,
+                          letterSpacing: -1,
+                          touchAction: "none",
+                        }}
+                      >
+                        ⠿
+                      </button>
+                    ) : null}
+                    {!viewOnly ? (
+                      <input
+                        type="checkbox"
+                        aria-label="選択"
+                        checked={rosterCheckedIds.has(dancer.id)}
+                        onChange={() =>
+                          setRosterCheckedIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(dancer.id)) next.delete(dancer.id);
+                            else next.add(dancer.id);
+                            return next;
+                          })
+                        }
+                        style={{ flexShrink: 0, margin: 0, cursor: "pointer" }}
+                      />
+                    ) : null}
+                    <select
+                      aria-label="色"
+                      title="色"
+                      disabled={viewOnly}
+                      value={colorIdx}
+                      onChange={(e) =>
+                        patchDancer({ colorIndex: Number(e.target.value) })
+                      }
+                      style={{
+                        ...selectStyle,
+                        width: 28,
+                        flexShrink: 0,
+                        background: colorHex,
+                        color: "#0f172a",
+                        textAlign: "center",
+                        padding: 0,
+                      }}
+                    >
+                      {DANCER_COLOR_PALETTE_HEX.map((hex, ci) => (
+                        <option key={hex} value={ci} style={{ background: hex, color: "#0f172a" }}>
+                          {ci + 1}
+                        </option>
+                      ))}
+                    </select>
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        width: 18,
+                        textAlign: "center",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: shell.textMuted,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
                       {badgeLabel}
-                    </div>
-                    {/* 名前入力 */}
+                    </span>
                     <input
                       type="text"
                       value={dancer.label ?? ""}
                       placeholder={t("editor.layout.dancerPlaceholder", { n: idx + 1 })}
-                      disabled={project?.viewMode === "view"}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setProjectSafe((p) => ({
-                          ...p,
-                          formations: p.formations.map((f) =>
-                            f.id !== fid ? f : {
-                              ...f,
-                              dancers: f.dancers.map((d) => d.id === dancer.id ? { ...d, label: val } : d),
-                            }
-                          ),
-                        }));
-                      }}
+                      disabled={viewOnly}
+                      onChange={(e) => patchDancer({ label: e.target.value })}
                       style={{
-                        flex: 1, background: "rgba(255,255,255,0.04)",
-                        border: `1px solid ${shell.border}`, borderRadius: 6,
-                        color: shell.text, fontSize: 12, padding: "5px 8px", outline: "none",
+                        flex: "1 1 72px",
+                        minWidth: 56,
+                        height: 26,
+                        boxSizing: "border-box",
+                        background: "rgba(255,255,255,0.04)",
+                        border: `1px solid ${shell.border}`,
+                        borderRadius: 6,
+                        color: shell.text,
+                        fontSize: 11,
+                        padding: "0 6px",
+                        outline: "none",
                       }}
                     />
-                    {/* カラー変更 */}
-                    {project?.viewMode !== "view" && (
-                      <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-                        {DANCER_COLOR_PALETTE_HEX.slice(0, 9).map((hex, ci) => (
-                          <button
-                            key={hex}
-                            type="button"
-                            title={hex}
-                            onClick={() => {
-                              setProjectSafe((p) => ({
-                                ...p,
-                                formations: p.formations.map((f) =>
-                                  f.id !== fid ? f : {
-                                    ...f,
-                                    dancers: f.dancers.map((d) =>
-                                      d.id === dancer.id ? { ...d, colorIndex: ci } : d
-                                    ),
-                                  }
-                                ),
-                              }));
-                            }}
-                            style={{
-                              width: 14, height: 14, borderRadius: "50%", background: hex,
-                              border: dancer.colorIndex === ci ? `2px solid #fff` : `1px solid transparent`,
-                              cursor: "pointer", padding: 0, flexShrink: 0,
-                            }}
-                          />
-                        ))}
-                      </div>
-                    )}
+                    <select
+                      aria-label="学年"
+                      title="学年"
+                      disabled={viewOnly}
+                      value={fields.gradeLabel?.trim() ?? ""}
+                      onChange={(e) =>
+                        patchDancer({ gradeLabel: e.target.value })
+                      }
+                      style={{ ...selectStyle, width: 52, flexShrink: 0 }}
+                    >
+                      <option value="">学年</option>
+                      {gradeOpts.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="身長"
+                      title="身長（cm）"
+                      disabled={viewOnly}
+                      value={
+                        typeof fields.heightCm === "number" &&
+                        Number.isFinite(fields.heightCm)
+                          ? String(Math.round(fields.heightCm))
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (!raw) {
+                          patchDancer({ heightCm: undefined });
+                          return;
+                        }
+                        const h = Number(raw);
+                        patchDancer({
+                          heightCm:
+                            Number.isFinite(h) && h > 0 && h < 300
+                              ? h
+                              : undefined,
+                        });
+                      }}
+                      style={{ ...selectStyle, width: 54, flexShrink: 0 }}
+                    >
+                      <option value="">身長</option>
+                      {heightOpts.map((h) => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="スキル"
+                      title="スキル"
+                      disabled={viewOnly}
+                      value={fields.skillRankLabel?.trim() ?? ""}
+                      onChange={(e) =>
+                        patchDancer({ skillRankLabel: e.target.value })
+                      }
+                      style={{ ...selectStyle, width: 52, flexShrink: 0 }}
+                    >
+                      <option value="">Sk</option>
+                      {skillOpts.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    {!viewOnly ? (
+                      <button
+                        type="button"
+                        aria-label="削除"
+                        title="舞台から削除"
+                        onClick={() => {
+                          const editFid =
+                            (selectedCue as { formationId?: string } | null | undefined)
+                              ?.formationId ?? project?.activeFormationId;
+                          if (!editFid || !project) return;
+                          const cueId =
+                            (selectedCue as { id?: string } | null | undefined)?.id ??
+                            (typeof selectedCueId === "string" ? selectedCueId : null);
+                          const run = (scope: MemberDeleteScope) => {
+                            setProjectSafe((p) =>
+                              removeMembersFromStage(p, {
+                                formationId: editFid,
+                                cueId,
+                                dancerIds: [dancer.id],
+                                scope,
+                              })
+                            );
+                            setStagePreviewDancers?.(null);
+                            setMemberDeletePending(null);
+                          };
+                          run("cue");
+                        }}
+                        style={{
+                          flexShrink: 0,
+                          width: 24,
+                          height: 26,
+                          borderRadius: 6,
+                          border: "1px solid rgba(248,113,113,0.45)",
+                          background: "rgba(127,29,29,0.35)",
+                          color: "#fecaca",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          padding: 0,
+                          lineHeight: 1,
+                        }}
+                      >
+                        ×
+                      </button>
+                    ) : null}
                   </div>
                 );
               });
+              return (
+                <>
+                  {bulkBar}
+                  {rows}
+                </>
+              );
             })()}
           </div>
           {/* フッター：全フォーメーションに名前を反映 */}
           {project?.viewMode !== "view" && (() => {
-            const fid = project?.activeFormationId;
+            const fid =
+              (selectedCue as { formationId?: string } | null | undefined)
+                ?.formationId ?? project?.activeFormationId;
             const formation = fid ? formationById.get(fid) : null;
             /** crew メンバーのうち未配置のものがあるか */
             const unplacedCount = (() => {
@@ -660,6 +1193,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                           return {
                             id: crypto.randomUUID(),
                             label: m.label.trim().slice(0, 120) || "?",
+                            ...(m.labelPrefix?.trim()
+                              ? { labelPrefix: m.labelPrefix.trim().slice(0, 8) }
+                              : {}),
                             markerBadge: "",
                             xPct: 50,
                             yPct: 40,
@@ -726,16 +1262,16 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
           stageAreaSettingsOpen={stageAreaSettingsOpen}
           onClose={() => closeStageAreaSettings()}
         >
-          <div style={{ padding: "8px 12px 10px", display: "flex", flexDirection: "column", gap: 0 }}>
+          <div style={{ padding: "6px 10px 8px", display: "flex", flexDirection: "column", gap: 0 }}>
             {/* ── Header ── */}
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: 8, marginBottom: 8, paddingBottom: 8,
+              gap: 6, marginBottom: 4, paddingBottom: 4,
               borderBottom: "1px solid rgba(99,102,241,0.2)",
             }}>
               <h3 id="stage-area-settings-title" style={{
-                margin: 0, fontSize: 14, fontWeight: 700, color: "#e2e8f0",
-                display: "flex", alignItems: "center", gap: 8,
+                margin: 0, fontSize: 13, fontWeight: 700, color: "#e2e8f0",
+                display: "flex", alignItems: "center", gap: 6,
               }}>
                 <span style={{ color: "rgba(129,140,248,0.9)", display: "flex" }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -753,8 +1289,8 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             </div>
 
             {/* ── CARD A: ステージ寸法 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ ...STAGE_AREA_SHEET_SECTION }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 20L20 2M7 20l1.5-1.5M12 20l1.5-1.5M17 20l1.5-1.5M2 7l1.5-1.5M2 12l1.5-1.5M2 17l1.5-1.5"/></svg>
                 ステージ寸法
               </div>
@@ -802,13 +1338,13 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             </div>
 
             {/* ── CARD B: グリッド・表示設定 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ ...STAGE_AREA_SHEET_SECTION }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
                 グリッド・表示
               </div>
 
-              {/* グリッド間隔 */}
+              {/* グリッド間隔（場ミリと同じ m/cm） */}
               {stageAreaDraftHasMainFloor && (
                 <div style={{ marginBottom: 6 }}>
                   <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
@@ -816,14 +1352,8 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   </div>
                   <StageAreaGridSpacingControls
                     disabled={project.viewMode === "view"}
-                    gridWidthCmInput={gridWidthCmInput}
-                    gridDepthCmInput={gridDepthCmInput}
-                    onStageGridCmInput={onStageGridCmInput}
-                    commitStageGridCmInput={commitStageGridCmInput}
-                    startGridNudgeRepeat={startGridNudgeRepeat}
-                    stopGridNudgeRepeat={stopGridNudgeRepeat}
-                    nudgeStageGridCm={nudgeStageGridCm}
-                    gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
+                    draft={stageAreaSettingsDraft}
+                    onChangeDraft={setStageAreaSettingsDraft}
                   />
                 </div>
               )}
@@ -841,18 +1371,18 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               </div>
 
               {/* 名前の位置 — アイコン付きセグメント */}
-              <div>
+              <div style={{ marginBottom: 8 }}>
                 <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>{t("editor.layout.dancerLabelPosition")}</div>
                 <div style={{ display: "flex", gap: 6 }} title={t("editor.layout.labelPickerHint")}>
                   {([
                     { val: "inside", label: "○の中", icon: (
-                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                      <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
                         <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="2"/>
                         <text x="16" y="21" textAnchor="middle" fontSize="13" fill="currentColor" fontWeight="700">A</text>
                       </svg>
                     )},
                     { val: "below", label: "○の外", icon: (
-                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                      <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
                         <circle cx="16" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
                         <text x="16" y="29" textAnchor="middle" fontSize="12" fill="currentColor" fontWeight="700">A</text>
                       </svg>
@@ -862,17 +1392,24 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                     return (
                       <button key={val} type="button"
                         disabled={project.viewMode === "view"}
-                        onClick={() => setStageAreaSettingsDraft((d) => ({ ...d, dancerLabelPosition: val }))}
+                        onClick={() => {
+                          setStageAreaSettingsDraft((d) => ({
+                            ...d,
+                            dancerLabelPosition: val,
+                          }));
+                          if (project.viewMode === "view") return;
+                          setProjectSafe((p) =>
+                            withDancerLabelPosition(p, val)
+                          );
+                        }}
                         style={{
-                          flex: 1, padding: "6px 8px", borderRadius: 8,
+                          flex: 1, padding: "4px 6px", borderRadius: 6,
                           border: active ? "1px solid rgba(99,102,241,0.8)" : "1px solid rgba(51,65,85,0.7)",
                           background: active ? "rgba(99,102,241,0.2)" : "rgba(15,23,42,0.5)",
                           color: active ? "#a5b4fc" : "rgba(148,163,184,0.6)",
-                          fontSize: 11, fontWeight: active ? 700 : 400,
+                          fontSize: 10, fontWeight: active ? 700 : 400,
                           cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
-                          display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                          transition: "all 0.15s",
-                          boxShadow: active ? "0 0 10px rgba(99,102,241,0.25)" : "none",
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
                         }}
                       >
                         {icon}
@@ -882,11 +1419,767 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   })}
                 </div>
               </div>
+
+              {/* ヘソ・センターマーク・そで幕 */}
+              <div style={{ borderTop: "1px solid rgba(51,65,85,0.5)", paddingTop: 4 }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11,
+                    color: "#e2e8f0",
+                    marginBottom: 4,
+                    cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    disabled={project.viewMode === "view"}
+                    checked={stageAreaSettingsDraft.stageHesoVisible}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setStageAreaSettingsDraft((d) => ({
+                        ...d,
+                        stageHesoVisible: checked,
+                        stageCenterMarks: ensureCenterMarksWhenVisible(
+                          checked,
+                          d.stageCenterMarks
+                        ),
+                      }));
+                    }}
+                  />
+                  ヘソ／センターマークを表示
+                </label>
+                <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 4 }}>
+                  マークを選んでドラッグ移動。端の黄色い点でサイズ変更（正円／楕円は下で切替）
+                </div>
+                {stageAreaSettingsDraft.stageHesoVisible ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+                    {stageAreaSettingsDraft.stageCenterMarks.map((mk, idx) => (
+                      <div
+                        key={mk.id}
+                        style={{
+                          padding: "5px 6px",
+                          borderRadius: 6,
+                          border: "1px solid rgba(148,163,184,0.35)",
+                          background: "rgba(148,163,184,0.06)",
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: 4, marginBottom: 3, alignItems: "center" }}>
+                          <input
+                            type="text"
+                            disabled={project.viewMode === "view"}
+                            value={mk.label ?? ""}
+                            placeholder={idx === 0 ? "ヘソ" : `マーク ${idx + 1}`}
+                            onChange={(e) =>
+                              setStageAreaSettingsDraft((d) => ({
+                                ...d,
+                                stageCenterMarks: d.stageCenterMarks.map((x) =>
+                                  x.id === mk.id
+                                    ? {
+                                        ...x,
+                                        label: e.target.value.slice(0, 48),
+                                      }
+                                    : x
+                                ),
+                              }))
+                            }
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              border: "1px solid #334155",
+                              background: "#0f172a",
+                              color: "#e2e8f0",
+                              fontSize: 11,
+                            }}
+                          />
+                          <button
+                            type="button"
+                            disabled={
+                              project.viewMode === "view" ||
+                              stageAreaSettingsDraft.stageCenterMarks.length <= 1
+                            }
+                            onClick={() =>
+                              setStageAreaSettingsDraft((d) => {
+                                const next = d.stageCenterMarks.filter(
+                                  (x) => x.id !== mk.id
+                                );
+                                return {
+                                  ...d,
+                                  stageCenterMarks: next,
+                                  stageHesoVisible: next.length > 0,
+                                };
+                              })
+                            }
+                            style={{
+                              flexShrink: 0,
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              border: "1px solid #475569",
+                              background: "transparent",
+                              color: "#94a3b8",
+                              fontSize: 10,
+                              cursor:
+                                project.viewMode === "view" ||
+                                stageAreaSettingsDraft.stageCenterMarks.length <= 1
+                                  ? "not-allowed"
+                                  : "pointer",
+                              opacity:
+                                stageAreaSettingsDraft.stageCenterMarks.length <= 1
+                                  ? 0.4
+                                  : 1,
+                            }}
+                          >
+                            削除
+                          </button>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 4,
+                            marginBottom: 4,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {(
+                            [
+                              { value: "circle" as const, label: "正円" },
+                              { value: "ellipse" as const, label: "楕円" },
+                            ] as const
+                          ).map(({ value, label }) => {
+                            const active =
+                              (mk.shape === "ellipse" ? "ellipse" : "circle") ===
+                              value;
+                            return (
+                              <button
+                                key={value}
+                                type="button"
+                                disabled={project.viewMode === "view"}
+                                onClick={() =>
+                                  setStageAreaSettingsDraft((d) => ({
+                                    ...d,
+                                    stageCenterMarks: d.stageCenterMarks.map(
+                                      (x) => {
+                                        if (x.id !== mk.id) return x;
+                                        if (value === "circle") {
+                                          return {
+                                            ...x,
+                                            shape: "circle",
+                                            ryPct: undefined,
+                                          };
+                                        }
+                                        const rx =
+                                          typeof x.rxPct === "number"
+                                            ? x.rxPct
+                                            : 2.5;
+                                        return {
+                                          ...x,
+                                          shape: "ellipse",
+                                          ryPct:
+                                            typeof x.ryPct === "number"
+                                              ? x.ryPct
+                                              : Math.round(rx * 0.72 * 10) / 10,
+                                        };
+                                      }
+                                    ),
+                                  }))
+                                }
+                                style={{
+                                  padding: "2px 8px",
+                                  borderRadius: 4,
+                                  border: active
+                                    ? "1px solid rgba(250,204,21,0.7)"
+                                    : "1px solid #334155",
+                                  background: active
+                                    ? "rgba(250,204,21,0.15)"
+                                    : "#0f172a",
+                                  color: active ? "#fde68a" : "#94a3b8",
+                                  fontSize: 10,
+                                  cursor:
+                                    project.viewMode === "view"
+                                      ? "not-allowed"
+                                      : "pointer",
+                                }}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                              mk.shape === "ellipse" ? "1fr 1fr" : "1fr",
+                            gap: 4,
+                            marginBottom: 3,
+                          }}
+                        >
+                          <label
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 2,
+                              fontSize: 9,
+                              color: "#94a3b8",
+                            }}
+                          >
+                            {mk.shape === "ellipse" ? "横半径 %" : "半径 %"}
+                            <input
+                              type="number"
+                              min={0.5}
+                              max={40}
+                              step={0.5}
+                              disabled={project.viewMode === "view"}
+                              value={
+                                typeof mk.rxPct === "number" ? mk.rxPct : 2.5
+                              }
+                              onChange={(e) => {
+                                const n = parseFloat(e.target.value);
+                                if (!Number.isFinite(n)) return;
+                                setStageAreaSettingsDraft((d) => ({
+                                  ...d,
+                                  stageCenterMarks: d.stageCenterMarks.map(
+                                    (x) =>
+                                      x.id === mk.id
+                                        ? {
+                                            ...x,
+                                            rxPct: Math.max(
+                                              0.5,
+                                              Math.min(40, Math.round(n * 10) / 10)
+                                            ),
+                                          }
+                                        : x
+                                  ),
+                                }));
+                              }}
+                              style={{
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                                border: "1px solid #334155",
+                                background: "#0f172a",
+                                color: "#e2e8f0",
+                                fontSize: 11,
+                              }}
+                            />
+                          </label>
+                          {mk.shape === "ellipse" ? (
+                            <label
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 2,
+                                fontSize: 9,
+                                color: "#94a3b8",
+                              }}
+                            >
+                              縦半径 %
+                              <input
+                                type="number"
+                                min={0.5}
+                                max={40}
+                                step={0.5}
+                                disabled={project.viewMode === "view"}
+                                value={
+                                  typeof mk.ryPct === "number"
+                                    ? mk.ryPct
+                                    : Math.round(
+                                        (typeof mk.rxPct === "number"
+                                          ? mk.rxPct
+                                          : 2.5) *
+                                          0.72 *
+                                          10
+                                      ) / 10
+                                }
+                                onChange={(e) => {
+                                  const n = parseFloat(e.target.value);
+                                  if (!Number.isFinite(n)) return;
+                                  setStageAreaSettingsDraft((d) => ({
+                                    ...d,
+                                    stageCenterMarks: d.stageCenterMarks.map(
+                                      (x) =>
+                                        x.id === mk.id
+                                          ? {
+                                              ...x,
+                                              shape: "ellipse",
+                                              ryPct: Math.max(
+                                                0.5,
+                                                Math.min(
+                                                  40,
+                                                  Math.round(n * 10) / 10
+                                                )
+                                              ),
+                                            }
+                                          : x
+                                    ),
+                                  }));
+                                }}
+                                style={{
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
+                                  border: "1px solid #334155",
+                                  background: "#0f172a",
+                                  color: "#e2e8f0",
+                                  fontSize: 11,
+                                }}
+                              />
+                            </label>
+                          ) : null}
+                        </div>
+                        <div style={{ fontSize: 9, color: "#64748b" }}>
+                          位置 {mk.xPct.toFixed(1)}% × {mk.yPct.toFixed(1)}% ·
+                          ステージ上でドラッグ／端の点でサイズ
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={
+                        project.viewMode === "view" ||
+                        stageAreaSettingsDraft.stageCenterMarks.length >= 24
+                      }
+                      onClick={() =>
+                        setStageAreaSettingsDraft((d) => {
+                          const pos = nextCenterMarkOffset(d.stageCenterMarks);
+                          return {
+                            ...d,
+                            stageHesoVisible: true,
+                            stageCenterMarks: [
+                              ...d.stageCenterMarks,
+                              createDefaultCenterMark(
+                                pos.xPct,
+                                pos.yPct,
+                                `マーク ${d.stageCenterMarks.length + 1}`
+                              ),
+                            ],
+                          };
+                        })
+                      }
+                      style={{
+                        alignSelf: "flex-start",
+                        padding: "3px 8px",
+                        borderRadius: 4,
+                        border: "1px solid #475569",
+                        background: "rgba(51,65,85,0.4)",
+                        color: "#e2e8f0",
+                        fontSize: 10,
+                        cursor:
+                          project.viewMode === "view" ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      ＋ マークを追加
+                    </button>
+                  </div>
+                ) : null}
+
+                <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 2 }}>
+                  そで幕 <span style={{ color: "#64748b" }}>（基準＝舞台端。内側の点＝舞台へ／外側の点＝そで奥）</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {stageAreaSettingsDraft.stageSleeves.map((sl, idx) => (
+                    <div
+                      key={sl.id}
+                      style={{
+                        padding: "5px 6px",
+                        borderRadius: 6,
+                        border: "1px solid rgba(251,113,133,0.3)",
+                        background: "rgba(251,113,133,0.05)",
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 4, marginBottom: 3, alignItems: "center" }}>
+                        <input
+                          type="text"
+                          disabled={project.viewMode === "view"}
+                          value={sl.label}
+                          placeholder={`そで幕 ${idx + 1}`}
+                          onChange={(e) =>
+                            setStageAreaSettingsDraft((d) => ({
+                              ...d,
+                              stageSleeves: d.stageSleeves.map((x) =>
+                                x.id === sl.id ? { ...x, label: e.target.value } : x
+                              ),
+                            }))
+                          }
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            padding: "2px 6px",
+                            borderRadius: 4,
+                            border: "1px solid #334155",
+                            background: "#0f172a",
+                            color: "#e2e8f0",
+                            fontSize: 11,
+                          }}
+                        />
+                        <button
+                          type="button"
+                          disabled={project.viewMode === "view"}
+                          onClick={() =>
+                            setStageAreaSettingsDraft((d) => ({
+                              ...d,
+                              stageSleeves: d.stageSleeves.filter((x) => x.id !== sl.id),
+                            }))
+                          }
+                          style={{
+                            ...btnSecondary,
+                            padding: "2px 6px",
+                            fontSize: 10,
+                          }}
+                          title="削除"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 9, color: "#94a3b8", marginBottom: 3 }}>
+                        前からの位置
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 6 }}>
+                        <select
+                          disabled={project.viewMode === "view"}
+                          value={sl.depth.m}
+                          onChange={(e) =>
+                            setStageAreaSettingsDraft((d) => ({
+                              ...d,
+                              stageSleeves: d.stageSleeves.map((x) =>
+                                x.id === sl.id
+                                  ? { ...x, depth: { ...x.depth, m: e.target.value } }
+                                  : x
+                              ),
+                            }))
+                          }
+                          style={{
+                            width: 48,
+                            padding: "4px 2px",
+                            borderRadius: 6,
+                            border: "1px solid #334155",
+                            background: "#0f172a",
+                            color: "#e2e8f0",
+                            fontSize: 11,
+                          }}
+                        >
+                          <option value="">-</option>
+                          {Array.from({ length: 40 }, (_, i) => i).map((v) => (
+                            <option key={v} value={String(v)}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                        <span style={{ fontSize: 10, color: "#64748b" }}>m</span>
+                        <select
+                          disabled={project.viewMode === "view"}
+                          value={sl.depth.cm || "0"}
+                          onChange={(e) =>
+                            setStageAreaSettingsDraft((d) => ({
+                              ...d,
+                              stageSleeves: d.stageSleeves.map((x) =>
+                                x.id === sl.id
+                                  ? { ...x, depth: { ...x.depth, cm: e.target.value } }
+                                  : x
+                              ),
+                            }))
+                          }
+                          style={{
+                            width: 48,
+                            padding: "4px 2px",
+                            borderRadius: 6,
+                            border: "1px solid #334155",
+                            background: "#0f172a",
+                            color: "#e2e8f0",
+                            fontSize: 11,
+                          }}
+                        >
+                          {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95].map(
+                            (v) => (
+                              <option key={v} value={String(v)}>
+                                {v}
+                              </option>
+                            )
+                          )}
+                        </select>
+                        <span style={{ fontSize: 10, color: "#64748b" }}>cm</span>
+                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 6,
+                        }}
+                      >
+                        <label style={{ fontSize: 9, color: "#94a3b8" }}>
+                          左右
+                          <select
+                            disabled={project.viewMode === "view"}
+                            value={sl.side}
+                            onChange={(e) =>
+                              setStageAreaSettingsDraft((d) => ({
+                                ...d,
+                                stageSleeves: d.stageSleeves.map((x) =>
+                                  x.id === sl.id
+                                    ? {
+                                        ...x,
+                                        side: e.target.value as "both" | "left" | "right",
+                                      }
+                                    : x
+                                ),
+                              }))
+                            }
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              marginTop: 3,
+                              padding: "4px 6px",
+                              borderRadius: 6,
+                              border: "1px solid #334155",
+                              background: "#0f172a",
+                              color: "#e2e8f0",
+                              fontSize: 11,
+                            }}
+                          >
+                            <option value="both">左右</option>
+                            <option value="left">下手のみ</option>
+                            <option value="right">上手のみ</option>
+                          </select>
+                        </label>
+                        <label style={{ fontSize: 9, color: "#94a3b8" }}>
+                          舞台端→内側
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 3,
+                              marginTop: 3,
+                            }}
+                          >
+                            <select
+                              disabled={project.viewMode === "view"}
+                              value={sl.inset.m}
+                              onChange={(e) =>
+                                setStageAreaSettingsDraft((d) => ({
+                                  ...d,
+                                  stageSleeves: d.stageSleeves.map((x) =>
+                                    x.id === sl.id
+                                      ? { ...x, inset: { ...x.inset, m: e.target.value } }
+                                      : x
+                                  ),
+                                }))
+                              }
+                              style={{
+                                width: 40,
+                                padding: "4px 2px",
+                                borderRadius: 6,
+                                border: "1px solid #334155",
+                                background: "#0f172a",
+                                color: "#e2e8f0",
+                                fontSize: 11,
+                              }}
+                            >
+                              <option value="">-</option>
+                              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((v) => (
+                                <option key={v} value={String(v)}>
+                                  {v}
+                                </option>
+                              ))}
+                            </select>
+                            <span style={{ fontSize: 9, color: "#64748b" }}>m</span>
+                            <select
+                              disabled={project.viewMode === "view"}
+                              value={sl.inset.cm || "0"}
+                              onChange={(e) =>
+                                setStageAreaSettingsDraft((d) => ({
+                                  ...d,
+                                  stageSleeves: d.stageSleeves.map((x) =>
+                                    x.id === sl.id
+                                      ? { ...x, inset: { ...x.inset, cm: e.target.value } }
+                                      : x
+                                  ),
+                                }))
+                              }
+                              style={{
+                                width: 40,
+                                padding: "4px 2px",
+                                borderRadius: 6,
+                                border: "1px solid #334155",
+                                background: "#0f172a",
+                                color: "#e2e8f0",
+                                fontSize: 11,
+                              }}
+                            >
+                              {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 75, 90].map(
+                                (v) => (
+                                  <option key={v} value={String(v)}>
+                                    {v}
+                                  </option>
+                                )
+                              )}
+                            </select>
+                            <span style={{ fontSize: 9, color: "#64748b" }}>cm</span>
+                          </div>
+                        </label>
+                      </div>
+                      {(() => {
+                        const sideMm =
+                          parseMeterCmDraftToMm(stageAreaSettingsDraft.side) ?? 0;
+                        if (sideMm <= 0) return null;
+                        const wingDraft =
+                          sl.wingExtentMm == null
+                            ? null
+                            : mmToMeterCmDraft(sl.wingExtentMm);
+                        return (
+                          <label
+                            style={{
+                              display: "block",
+                              fontSize: 9,
+                              color: "#94a3b8",
+                              marginTop: 6,
+                            }}
+                          >
+                            舞台端→そで奥（0＝端ぴったり／空＝サイド全幅）
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 3,
+                                marginTop: 3,
+                              }}
+                            >
+                              <select
+                                disabled={project.viewMode === "view"}
+                                value={
+                                  wingDraft == null ? "" : wingDraft.m || "0"
+                                }
+                                onChange={(e) => {
+                                  const m = e.target.value;
+                                  setStageAreaSettingsDraft((d) => ({
+                                    ...d,
+                                    stageSleeves: d.stageSleeves.map((x) => {
+                                      if (x.id !== sl.id) return x;
+                                      if (m === "") {
+                                        return { ...x, wingExtentMm: null };
+                                      }
+                                      const cm = Number(
+                                        wingDraft?.cm || "0"
+                                      );
+                                      const mm = Math.max(
+                                        0,
+                                        Math.min(
+                                          sideMm,
+                                          Math.round(
+                                            Number(m) * 1000 + cm * 10
+                                          )
+                                        )
+                                      );
+                                      return { ...x, wingExtentMm: mm };
+                                    }),
+                                  }));
+                                }}
+                                style={{
+                                  width: 40,
+                                  padding: "4px 2px",
+                                  borderRadius: 6,
+                                  border: "1px solid #334155",
+                                  background: "#0f172a",
+                                  color: "#e2e8f0",
+                                  fontSize: 11,
+                                }}
+                              >
+                                <option value="">全</option>
+                                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((v) => (
+                                  <option key={v} value={String(v)}>
+                                    {v}
+                                  </option>
+                                ))}
+                              </select>
+                              <span style={{ fontSize: 9, color: "#64748b" }}>
+                                m
+                              </span>
+                              <select
+                                disabled={
+                                  project.viewMode === "view" ||
+                                  wingDraft == null
+                                }
+                                value={wingDraft?.cm || "0"}
+                                onChange={(e) => {
+                                  const cm = e.target.value;
+                                  setStageAreaSettingsDraft((d) => ({
+                                    ...d,
+                                    stageSleeves: d.stageSleeves.map((x) => {
+                                      if (x.id !== sl.id) return x;
+                                      const m = Number(wingDraft?.m || "0");
+                                      const mm = Math.max(
+                                        0,
+                                        Math.min(
+                                          sideMm,
+                                          Math.round(m * 1000 + Number(cm) * 10)
+                                        )
+                                      );
+                                      return { ...x, wingExtentMm: mm };
+                                    }),
+                                  }));
+                                }}
+                                style={{
+                                  width: 40,
+                                  padding: "4px 2px",
+                                  borderRadius: 6,
+                                  border: "1px solid #334155",
+                                  background: "#0f172a",
+                                  color: "#e2e8f0",
+                                  fontSize: 11,
+                                }}
+                              >
+                                {[
+                                  0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55,
+                                  60, 75, 90,
+                                ].map((v) => (
+                                  <option key={v} value={String(v)}>
+                                    {v}
+                                  </option>
+                                ))}
+                              </select>
+                              <span style={{ fontSize: 9, color: "#64748b" }}>
+                                cm
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      })()}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  disabled={
+                    project.viewMode === "view" ||
+                    stageAreaSettingsDraft.stageSleeves.length >= 24
+                  }
+                  onClick={() =>
+                    setStageAreaSettingsDraft((d) => ({
+                      ...d,
+                      stageSleeves: [
+                        ...d.stageSleeves,
+                        createEmptySleeveDraft(d.stageSleeves.length + 1),
+                      ],
+                    }))
+                  }
+                  style={{
+                    ...btnSecondary,
+                    marginTop: 4,
+                    width: "100%",
+                    padding: "5px 8px",
+                    fontSize: 10,
+                    fontWeight: 600,
+                  }}
+                >
+                  ＋ そで幕を追加
+                </button>
+              </div>
             </div>
 
             {/* ── CARD C: プリセット・共有 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ ...STAGE_AREA_SHEET_SECTION }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                 プリセット・共有
               </div>
@@ -900,18 +2193,17 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 onSavePreset={() => {
                   if (project.viewMode === "view") return;
                   const d = stageAreaSettingsDraftRef.current;
-                  const dims = {
-                    stageWidthMm: parseMeterCmDraftToMm(d.width),
-                    stageDepthMm: parseMeterCmDraftToMm(d.depth),
-                    sideStageMm: parseMeterCmDraftToMm(d.side),
-                    backStageMm: parseMeterCmDraftToMm(d.back),
-                    centerFieldGuideIntervalMm: parseMeterCmDraftToMm(d.guide),
-                  };
+                  const dims = stagePresetPayloadFromAreaDraft(d);
                   const defaultName = t("editor.layout.savePresetDefaultName", { n: stageAreaPresetList.length + 1 });
                   const name = window.prompt(t("editor.layout.savePresetPrompt"), defaultName);
                   if (name === null) return;
                   const result = saveStagePreset(name.trim() || defaultName, dims);
                   if (!result.ok) { window.alert(result.message); return; }
+                  setStageAreaPresetList(listStagePresets());
+                }}
+                onDeletePreset={(id) => {
+                  if (project.viewMode === "view") return;
+                  deleteStagePreset(id);
                   setStageAreaPresetList(listStagePresets());
                 }}
               />
@@ -1067,6 +2359,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               <li>
                 <strong style={{ color: "#e2e8f0" }}>⌘Z / Ctrl+Z</strong> 元に戻す ·{" "}
                 <strong style={{ color: "#e2e8f0" }}>⌘⇧Z / Ctrl+⇧Z</strong> やり直し
+              </li>
+              <li>
+                <strong style={{ color: "#e2e8f0" }}>⌘S / Ctrl+S</strong>{" "}
+                クラウドに上書き保存（確認ダイアログなし）
               </li>
               <li>
                 <strong style={{ color: "#e2e8f0" }}>Escape</strong>{" "}
@@ -1243,6 +2539,25 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
       ) : null}
 
       {exportDialogEl}
+      {memberDeletePending ? (
+        <MemberDeleteScopeDialog
+          memberLabel={memberDeletePending.label}
+          onCancel={() => setMemberDeletePending(null)}
+          onChoose={(scope) => {
+            const pending = memberDeletePending;
+            setProjectSafe((p) =>
+              removeMembersFromStage(p, {
+                formationId: pending.formationId,
+                cueId: pending.cueId,
+                dancerIds: [pending.dancerId],
+                scope,
+              })
+            );
+            setStagePreviewDancers?.(null);
+            setMemberDeletePending(null);
+          }}
+        />
+      ) : null}
       {!choreoPublicView && project ? (
         <VideoExportSheet
           open={videoExportOpen}
@@ -1294,6 +2609,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             collabUrl={shareLinksUrls.collab}
             viewUrl={shareLinksUrls.view}
             hasServerId={serverId != null}
+            serverId={serverId}
             pieceTitle={
               project?.pieceTitle?.trim() ||
               projectName.trim() ||
@@ -1380,7 +2696,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
         <EditorSideSheet
           open={floorTextSideSheetOpen}
           onClose={() => {
+            setFloorTextPlaceSession(null);
             setFloorTextSideSheetOpen(false);
+            setFloorTextPreferredTab?.(null);
+            setFloorMarkupTool(null);
           }}
           zIndex={75}
           width="min(360px, 94vw)"
@@ -1392,19 +2711,52 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             floorTextPlaceSession={floorTextPlaceSession}
             setFloorTextPlaceSession={setFloorTextPlaceSession}
             commitFloorTextPlace={commitFloorTextPlace}
-            onClose={() => setFloorTextSideSheetOpen(false)}
+            onClose={() => {
+              setFloorTextPlaceSession(null);
+              setFloorTextSideSheetOpen(false);
+              setFloorTextPreferredTab?.(null);
+              setFloorMarkupTool(null);
+            }}
             onCancel={() => {
               setFloorTextPlaceSession(null);
               setFloorTextSideSheetOpen(false);
+              setFloorTextPreferredTab?.(null);
+              setFloorMarkupTool(null);
             }}
-            onCommitted={() => setFloorTextSideSheetOpen(false)}
+            onCommitted={() => {
+              setFloorTextPlaceSession(null);
+              setFloorTextSideSheetOpen(false);
+              setFloorTextPreferredTab?.(null);
+            }}
             t={t}
+            project={project}
+            setProject={setProjectSafe}
+            currentTimeSec={currentTime}
+            viewOnly={project?.viewMode === "view"}
+            selectedCueId={
+              typeof selectedCueId === "string" ? selectedCueId : null
+            }
+            selectedLightId={
+              typeof selectedStageLightId === "string"
+                ? selectedStageLightId
+                : null
+            }
+            onSelectLightId={setSelectedStageLightId}
+            preferredTab={floorTextPreferredTab ?? null}
+            floorMarkupTool={floorMarkupTool}
+            setFloorMarkupTool={setFloorMarkupTool}
+            floorLineScope={floorLineScope ?? "formation"}
+            setFloorLineScope={setFloorLineScope}
           />
         </EditorSideSheet>
       ) : null}
 
       {choreoPublicView && choreoStudentPick ? (
         <>
+          <ChoreoViewerViralCta
+            variant="viewer"
+            landscape={Boolean(publicViewTightHeight)}
+          />
           <ChoreoViewerControlBars
             project={project}
             timelineRef={timelineRef}
@@ -1426,6 +2778,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               if (!playbackEngine.getMediaSourceUrl()) {
                 reloadViewerAudio();
               }
+            }}
+            onPlaybackRateChange={(rate) => {
+              setProjectSafe((p) => ({ ...p, playbackRate: rate }));
             }}
           />
           <ChoreoViewerBottomBar

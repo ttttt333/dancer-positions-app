@@ -1,0 +1,1243 @@
+{
+  "auditId": "4.6-d-dance-phase-origin-v1",
+  "status": "COMPLETE",
+  "computedAt": "2026-09-13T12:03:50.307Z",
+  "datasetVersion": "4.6.1-double-consensus",
+  "policy": {
+    "noNewAnalyzer": true,
+    "noFusion": true,
+    "noMsaf": true,
+    "noAutoAdoptLowestError": true,
+    "noGtRetargetToAnalyzer": true,
+    "dancePhaseProxy": "countGrid.startSec"
+  },
+  "probes": {
+    "A": "Beat as 0 → CountGrid (Dance Phase proxy) offset",
+    "B": "Downbeat as 0 → CountGrid offset",
+    "C": "CountGrid as 0 → Beat/Downbeat offsets",
+    "D": "±1/4 beat from Beat",
+    "E": "±1/2 beat from Beat",
+    "F": "Nearest Section boundary / Musical Change",
+    "G": "Per-song origin hypothesis diversity"
+  },
+  "summary": {
+    "n": 20,
+    "hypothesisCounts": {
+      "COUNTGRID_BEAT_AND_DOWN_ALIGNED": 17,
+      "MIXED_OR_UNCLEAR": 1,
+      "COUNTGRID_EQUALS_BEAT": 2
+    },
+    "nearBeatCount": 20,
+    "nearDownbeatCount": 19,
+    "quarterOnlyFitCount": 0,
+    "halfOnlyFitCount": 0,
+    "formNearCount": 11,
+    "dominantHypothesis": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+    "dominantShare": 0.85,
+    "uniqueHypothesisLabels": 3
+  },
+  "gate": {
+    "gate": "CONDITIONAL-GO",
+    "reasons": [
+      "19/20 CountGrid ≈ Beat phase0 — common encoding: dance count-1 currently = Music Beat origin",
+      "17/20 CountGrid ≈ Beat ≈ Downbeat — bar/beat/count-1 collapsed into one time",
+      "20/20 CountGrid near Beat — Music Beat is the dominant *encoded* origin in current GT",
+      "19/20 also near Downbeat (often same point as Beat[0])",
+      "±1/4 and ±1/2 are NOT required for numeric fit — avoids post-hoc half/quarter gaming",
+      "song-013: CountGrid=0.287 Beat0=0.287 → COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+      "013 analyzer Phase FAIL is vs this shared Music Beat/CountGrid origin — not vs a separate Dance Phase Anchor",
+      "Lowest-error probe was NOT auto-adopted",
+      "GT was not retargeted to analyzers",
+      "CONDITIONAL-GO: Origin structure is explainable (CountGrid≡Beat), but Dance Phase Model needs independent Anchor GT before claiming L3"
+    ],
+    "risks": [
+      "DATA LIMIT: CountGrid proxy cannot validate a Dance Phase Origin distinct from Music Beat — dedicated Phase Anchor annotation required"
+    ]
+  },
+  "song013": {
+    "hypothesis": {
+      "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+      "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+    },
+    "beatAbsBeats": 0,
+    "beatAbsMs": 0,
+    "downAbsBeats": 0,
+    "quarter": {
+      "bestSignedSec": 0.12225000000000108,
+      "bestAbsSec": 0.12225000000000108,
+      "bestAbsBeats": 0.25,
+      "bestOffsetBeats": -0.25,
+      "detail": "Beat-0.25"
+    },
+    "half": {
+      "bestSignedSec": -0.2445000000000021,
+      "bestAbsSec": 0.2445000000000021,
+      "bestAbsBeats": 0.4999999999999999,
+      "bestOffsetBeats": 0.5,
+      "detail": "Beat+0.5"
+    },
+    "form": {
+      "kind": "MUSICAL_CHANGE",
+      "timeSec": 0.001,
+      "absSec": 0.286,
+      "detail": "MUSICAL_CHANGE@0.001 Δ=286ms"
+    },
+    "notes": [
+      "proxy=CountGrid@0.287 (provisional Dance Phase origin — not proven L3 GT)"
+    ]
+  },
+  "songs": [
+    {
+      "songId": "song-001",
+      "title": "アイドル",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 0.544,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 0.544,
+        "intervalSec": 0.359,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 0.523,
+        "intervalSec": 1.4350000000000005,
+        "signedSec": 0.020999999999999908,
+        "absSec": 0.020999999999999908,
+        "absBeats": 0.014634146341463344
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": -0.020999999999999908,
+        "downAbsBeats": 0.014634146341463344
+      },
+      "quarter": {
+        "bestSignedSec": 0.08975,
+        "bestAbsSec": 0.08975,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.1795,
+        "bestAbsSec": 0.1795,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "MUSICAL_CHANGE",
+        "timeSec": 0.579,
+        "absSec": 0.03499999999999992,
+        "detail": "MUSICAL_CHANGE@0.579 Δ=35ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@0.544 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: MUSICAL_CHANGE@0.579 Δ=35ms"
+      ]
+    },
+    {
+      "songId": "song-002",
+      "title": "ダンスホール",
+      "gtSource": "consensus",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 2.528,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 2.554,
+        "intervalSec": 0.5380000000000003,
+        "signedSec": -0.0259999999999998,
+        "absSec": 0.0259999999999998,
+        "absBeats": 0.04832713754646801
+      },
+      "downbeat": {
+        "phase0Sec": 2.497,
+        "intervalSec": 2.174999999999997,
+        "signedSec": 0.03100000000000014,
+        "absSec": 0.03100000000000014,
+        "absBeats": 0.014252873563218473
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0.0259999999999998,
+        "beatAbsBeats": 0.04832713754646801,
+        "downSignedSec": -0.03100000000000014,
+        "downAbsBeats": 0.014252873563218473
+      },
+      "quarter": {
+        "bestSignedSec": 0.10850000000000026,
+        "bestAbsSec": 0.10850000000000026,
+        "bestAbsBeats": 0.201672862453532,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.24300000000000033,
+        "bestAbsSec": 0.24300000000000033,
+        "bestAbsBeats": 0.451672862453532,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "MUSICAL_CHANGE",
+        "timeSec": 2.487,
+        "absSec": 0.040999999999999925,
+        "detail": "MUSICAL_CHANGE@2.487 Δ=41ms"
+      },
+      "hypothesis": {
+        "label": "MIXED_OR_UNCLEAR",
+        "rationale": "Ambiguous between COUNTGRID_NEAR_DOWNBEAT and COUNTGRID_NEAR_BEAT"
+      },
+      "notes": [
+        "proxy=CountGrid@2.528 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: MUSICAL_CHANGE@2.487 Δ=41ms"
+      ]
+    },
+    {
+      "songId": "song-003",
+      "title": "唱",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 0.868,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 0.868,
+        "intervalSec": 0.4580000000000002,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 0.868,
+        "intervalSec": 1.8259999999999996,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.11450000000000005,
+        "bestAbsSec": 0.11450000000000005,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": -0.22899999999999998,
+        "bestAbsSec": 0.22899999999999998,
+        "bestAbsBeats": 0.4999999999999998,
+        "bestOffsetBeats": 0.5,
+        "detail": "Beat+0.5"
+      },
+      "form": {
+        "kind": "MUSICAL_CHANGE",
+        "timeSec": 1.06,
+        "absSec": 0.19200000000000006,
+        "detail": "MUSICAL_CHANGE@1.060 Δ=192ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@0.868 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: MUSICAL_CHANGE@1.060 Δ=192ms"
+      ]
+    },
+    {
+      "songId": "song-004",
+      "title": "ポリリズム",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 2.088,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 2.088,
+        "intervalSec": 0.4660000000000011,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 2.088,
+        "intervalSec": 1.8719999999999999,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.11650000000000027,
+        "bestAbsSec": 0.11650000000000027,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.23300000000000054,
+        "bestAbsSec": 0.23300000000000054,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 1.508,
+        "absSec": 0.5800000000000001,
+        "detail": "SECTION_BOUNDARY@1.508 Δ=580ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@2.088 (provisional Dance Phase origin — not proven L3 GT)"
+      ]
+    },
+    {
+      "songId": "song-005",
+      "title": "Super Shy",
+      "gtSource": "consensus",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 0.506,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 0.506,
+        "intervalSec": 0.39700000000000024,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 0.506,
+        "intervalSec": 1.6080000000000005,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.09925000000000006,
+        "bestAbsSec": 0.09925000000000006,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.19850000000000012,
+        "bestAbsSec": 0.19850000000000012,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "MUSICAL_CHANGE",
+        "timeSec": 0.506,
+        "absSec": 0,
+        "detail": "MUSICAL_CHANGE@0.506 Δ=0ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@0.506 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: MUSICAL_CHANGE@0.506 Δ=0ms"
+      ]
+    },
+    {
+      "songId": "song-006",
+      "title": "MIC Drop",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 5.842,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 5.842,
+        "intervalSec": 0.7079999999999984,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 5.842,
+        "intervalSec": 2.8260000000000005,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.1769999999999996,
+        "bestAbsSec": 0.1769999999999996,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.3539999999999992,
+        "bestAbsSec": 0.3539999999999992,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 0,
+        "absSec": 5.842,
+        "detail": "SECTION_BOUNDARY@0.000 Δ=5842ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@5.842 (provisional Dance Phase origin — not proven L3 GT)"
+      ]
+    },
+    {
+      "songId": "song-007",
+      "title": "How You Like That",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 2.67,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 2.67,
+        "intervalSec": 0.4610000000000003,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 2.91,
+        "intervalSec": 1.844500000000001,
+        "signedSec": -0.2400000000000002,
+        "absSec": 0.2400000000000002,
+        "absBeats": 0.13011656275413397
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0.2400000000000002,
+        "downAbsBeats": 0.13011656275413397
+      },
+      "quarter": {
+        "bestSignedSec": 0.11525000000000007,
+        "bestAbsSec": 0.11525000000000007,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.23050000000000015,
+        "bestAbsSec": 0.23050000000000015,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 2.15,
+        "absSec": 0.52,
+        "detail": "SECTION_BOUNDARY@2.150 Δ=520ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_EQUALS_BEAT",
+        "rationale": "CountGrid ≈ Beat phase0 (≤0.02 beat) — provisional Dance Phase origin collapses into Music Beat Reference"
+      },
+      "notes": [
+        "proxy=CountGrid@2.670 (provisional Dance Phase origin — not proven L3 GT)"
+      ]
+    },
+    {
+      "songId": "song-008",
+      "title": "God's Menu",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 0.457,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 0.457,
+        "intervalSec": 0.38349999999999995,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 0.457,
+        "intervalSec": 1.520999999999999,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.09587499999999999,
+        "bestAbsSec": 0.09587499999999999,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": -0.19174999999999992,
+        "bestAbsSec": 0.19174999999999992,
+        "bestAbsBeats": 0.49999999999999983,
+        "bestOffsetBeats": 0.5,
+        "detail": "Beat+0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 0.55,
+        "absSec": 0.09300000000000003,
+        "detail": "SECTION_BOUNDARY@0.550 Δ=93ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@0.457 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: SECTION_BOUNDARY@0.550 Δ=93ms"
+      ]
+    },
+    {
+      "songId": "song-009",
+      "title": "Get Ur Freak On",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 13.218,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 13.221,
+        "intervalSec": 0.6739999999999995,
+        "signedSec": -0.0030000000000001137,
+        "absSec": 0.0030000000000001137,
+        "absBeats": 0.004451038575667828
+      },
+      "downbeat": {
+        "phase0Sec": 13.129,
+        "intervalSec": 2.7080000000000055,
+        "signedSec": 0.08900000000000041,
+        "absSec": 0.08900000000000041,
+        "absBeats": 0.03286558345642549
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0.0030000000000001137,
+        "beatAbsBeats": 0.004451038575667828,
+        "downSignedSec": -0.08900000000000041,
+        "downAbsBeats": 0.03286558345642549
+      },
+      "quarter": {
+        "bestSignedSec": 0.16549999999999976,
+        "bestAbsSec": 0.16549999999999976,
+        "bestAbsBeats": 0.24554896142433216,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.33399999999999963,
+        "bestAbsSec": 0.33399999999999963,
+        "bestAbsBeats": 0.4955489614243322,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 13.1,
+        "absSec": 0.11800000000000033,
+        "detail": "SECTION_BOUNDARY@13.100 Δ=118ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_EQUALS_BEAT",
+        "rationale": "CountGrid ≈ Beat phase0 (≤0.02 beat) — provisional Dance Phase origin collapses into Music Beat Reference"
+      },
+      "notes": [
+        "proxy=CountGrid@13.218 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: SECTION_BOUNDARY@13.100 Δ=118ms"
+      ]
+    },
+    {
+      "songId": "song-010",
+      "title": "Still D.R.E.",
+      "gtSource": "consensus",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 0.905,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 0.905,
+        "intervalSec": 0.6440000000000001,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 0.932,
+        "intervalSec": 2.5705,
+        "signedSec": -0.027000000000000135,
+        "absSec": 0.027000000000000135,
+        "absBeats": 0.010503793036374299
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0.027000000000000135,
+        "downAbsBeats": 0.010503793036374299
+      },
+      "quarter": {
+        "bestSignedSec": 0.16100000000000003,
+        "bestAbsSec": 0.16100000000000003,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.32200000000000006,
+        "bestAbsSec": 0.32200000000000006,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "MUSICAL_CHANGE",
+        "timeSec": 0.905,
+        "absSec": 0,
+        "detail": "MUSICAL_CHANGE@0.905 Δ=0ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@0.905 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: MUSICAL_CHANGE@0.905 Δ=0ms"
+      ]
+    },
+    {
+      "songId": "song-011",
+      "title": "HUMBLE.",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 1.419,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 1.419,
+        "intervalSec": 0.40500000000000025,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 1.419,
+        "intervalSec": 1.5969999999999995,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.10125000000000006,
+        "bestAbsSec": 0.10125000000000006,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.20250000000000012,
+        "bestAbsSec": 0.20250000000000012,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 0,
+        "absSec": 1.419,
+        "detail": "SECTION_BOUNDARY@0.000 Δ=1419ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@1.419 (provisional Dance Phase origin — not proven L3 GT)"
+      ]
+    },
+    {
+      "songId": "song-012",
+      "title": "SICKO MODE",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 0.765,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 0.765,
+        "intervalSec": 0.4249999999999998,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 0.765,
+        "intervalSec": 1.7379999999999995,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.10624999999999996,
+        "bestAbsSec": 0.10624999999999996,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.2124999999999999,
+        "bestAbsSec": 0.2124999999999999,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 0.765,
+        "absSec": 0,
+        "detail": "SECTION_BOUNDARY@0.765 Δ=0ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@0.765 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: SECTION_BOUNDARY@0.765 Δ=0ms"
+      ]
+    },
+    {
+      "songId": "song-013",
+      "title": "One More Time",
+      "gtSource": "consensus",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 0.287,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 0.287,
+        "intervalSec": 0.4890000000000043,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 0.287,
+        "intervalSec": 1.9539999999999935,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.12225000000000108,
+        "bestAbsSec": 0.12225000000000108,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": -0.2445000000000021,
+        "bestAbsSec": 0.2445000000000021,
+        "bestAbsBeats": 0.4999999999999999,
+        "bestOffsetBeats": 0.5,
+        "detail": "Beat+0.5"
+      },
+      "form": {
+        "kind": "MUSICAL_CHANGE",
+        "timeSec": 0.001,
+        "absSec": 0.286,
+        "detail": "MUSICAL_CHANGE@0.001 Δ=286ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@0.287 (provisional Dance Phase origin — not proven L3 GT)"
+      ]
+    },
+    {
+      "songId": "song-014",
+      "title": "Omen",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 4.128,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 4.128,
+        "intervalSec": 0.4299999999999997,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 4.128,
+        "intervalSec": 1.721,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.10749999999999993,
+        "bestAbsSec": 0.10749999999999993,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.21499999999999986,
+        "bestAbsSec": 0.21499999999999986,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 4.137,
+        "absSec": 0.008999999999999453,
+        "detail": "SECTION_BOUNDARY@4.137 Δ=9ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@4.128 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: SECTION_BOUNDARY@4.137 Δ=9ms"
+      ]
+    },
+    {
+      "songId": "song-015",
+      "title": "Bangarang",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 0.541,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 0.541,
+        "intervalSec": 0.5439999999999987,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 0.541,
+        "intervalSec": 2.1820000000000004,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.13599999999999968,
+        "bestAbsSec": 0.13599999999999968,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.27199999999999935,
+        "bestAbsSec": 0.27199999999999935,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 0,
+        "absSec": 0.541,
+        "detail": "SECTION_BOUNDARY@0.000 Δ=541ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@0.541 (provisional Dance Phase origin — not proven L3 GT)"
+      ]
+    },
+    {
+      "songId": "song-016",
+      "title": "24K Magic",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 23.618,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 23.618,
+        "intervalSec": 0.5649999999999977,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 23.618,
+        "intervalSec": 2.2509999999999977,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.14124999999999943,
+        "bestAbsSec": 0.14124999999999943,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.28249999999999886,
+        "bestAbsSec": 0.28249999999999886,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 25.956,
+        "absSec": 2.338000000000001,
+        "detail": "SECTION_BOUNDARY@25.956 Δ=2338ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@23.618 (provisional Dance Phase origin — not proven L3 GT)"
+      ]
+    },
+    {
+      "songId": "song-017",
+      "title": "Billie Jean",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 0.977,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 0.977,
+        "intervalSec": 0.5105,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 0.977,
+        "intervalSec": 2.0705000000000005,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.127625,
+        "bestAbsSec": 0.127625,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.25524999999999987,
+        "bestAbsSec": 0.25524999999999987,
+        "bestAbsBeats": 0.4999999999999998,
+        "bestOffsetBeats": 0.5,
+        "detail": "Beat+0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 0.97,
+        "absSec": 0.007000000000000006,
+        "detail": "SECTION_BOUNDARY@0.970 Δ=7ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@0.977 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: SECTION_BOUNDARY@0.970 Δ=7ms"
+      ]
+    },
+    {
+      "songId": "song-018",
+      "title": "Thinkin Bout You",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 7.529,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 7.529,
+        "intervalSec": 0.46399999999999864,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 7.529,
+        "intervalSec": 1.8470000000000013,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.11599999999999966,
+        "bestAbsSec": 0.11599999999999966,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.23199999999999932,
+        "bestAbsSec": 0.23199999999999932,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 7.529,
+        "absSec": 0,
+        "detail": "SECTION_BOUNDARY@7.529 Δ=0ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@7.529 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: SECTION_BOUNDARY@7.529 Δ=0ms"
+      ]
+    },
+    {
+      "songId": "song-019",
+      "title": "カタオモイ",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 4.281,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 4.281,
+        "intervalSec": 0.6280000000000001,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 4.281,
+        "intervalSec": 2.4609999999999985,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.15700000000000003,
+        "bestAbsSec": 0.15700000000000003,
+        "bestAbsBeats": 0.25,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": 0.31400000000000006,
+        "bestAbsSec": 0.31400000000000006,
+        "bestAbsBeats": 0.5,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 3.4,
+        "absSec": 0.8809999999999998,
+        "detail": "SECTION_BOUNDARY@3.400 Δ=881ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@4.281 (provisional Dance Phase origin — not proven L3 GT)"
+      ]
+    },
+    {
+      "songId": "song-020",
+      "title": "Cornfield Chase",
+      "gtSource": "annotator-a",
+      "proxy": {
+        "kind": "COUNT_GRID",
+        "timeSec": 5.499,
+        "note": "Interim Dance Phase origin proxy per 4.6-D spec"
+      },
+      "beat": {
+        "phase0Sec": 5.499,
+        "intervalSec": 0.6269999999999998,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "downbeat": {
+        "phase0Sec": 5.499,
+        "intervalSec": 1.888,
+        "signedSec": 0,
+        "absSec": 0,
+        "absBeats": 0
+      },
+      "fromCountGrid": {
+        "beatSignedSec": 0,
+        "beatAbsBeats": 0,
+        "downSignedSec": 0,
+        "downAbsBeats": 0
+      },
+      "quarter": {
+        "bestSignedSec": 0.15674999999999972,
+        "bestAbsSec": 0.15674999999999972,
+        "bestAbsBeats": 0.24999999999999964,
+        "bestOffsetBeats": -0.25,
+        "detail": "Beat-0.25"
+      },
+      "half": {
+        "bestSignedSec": -0.31349999999999945,
+        "bestAbsSec": 0.31349999999999945,
+        "bestAbsBeats": 0.4999999999999993,
+        "bestOffsetBeats": -0.5,
+        "detail": "Beat-0.5"
+      },
+      "form": {
+        "kind": "SECTION_BOUNDARY",
+        "timeSec": 5.499,
+        "absSec": 0,
+        "detail": "SECTION_BOUNDARY@5.499 Δ=0ms"
+      },
+      "hypothesis": {
+        "label": "COUNTGRID_BEAT_AND_DOWN_ALIGNED",
+        "rationale": "CountGrid ≈ Beat phase0 ≈ Downbeat phase0 — dance count-1 is currently identical to musical bar/beat origin; L2/L3 not separable from this proxy alone"
+      },
+      "notes": [
+        "proxy=CountGrid@5.499 (provisional Dance Phase origin — not proven L3 GT)",
+        "Form cue nearby: SECTION_BOUNDARY@5.499 Δ=0ms"
+      ]
+    }
+  ]
+}

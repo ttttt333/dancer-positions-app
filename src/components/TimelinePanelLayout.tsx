@@ -9,6 +9,7 @@ import { TimelineWaveMenus } from "./TimelineWaveMenus";
 import type { TimelineWaveMenusProps } from "./TimelineWaveMenus";
 import { WaveformStrip } from "./WaveformStrip";
 import type { WaveformStripProps } from "./WaveformStrip";
+import { glassPanelStyle } from "../theme/editorGlass";
 
 export type TimelinePanelLayoutProps = Omit<
   TimelineAudioChromeProps,
@@ -20,14 +21,27 @@ export type TimelinePanelLayoutProps = Omit<
   TimelineWaveMenusProps & {
     /** true のとき EditorPage 側で `<TimelineAudioChrome>` を描画済み */
     audioChromeRenderedExternally?: boolean;
+    /** ワイド: 波形直下の一列統合バー */
+    floatingChrome?: boolean;
   };
 
 /**
- * `TimelinePanel` の見た目レイヤー：音源 chrome・ツールバー・波形・キュー一覧・波形オーバーレイメニュー。
+ * `TimelinePanel` の見た目レイヤー：音源 chrome・統合ツールバー・波形・キュー一覧。
+ * ワイド PC: 再生バーを上、波形をその下。
  */
 export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
+  const floatingChrome = Boolean(p.floatingChrome && p.wideWorkbench);
   return (
-    <>
+    <div
+      style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        flex: "1 1 auto",
+        height: p.compactTopDock ? "100%" : undefined,
+      }}
+    >
       <div
         style={{
           display: "flex",
@@ -43,6 +57,12 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
               : p.compactTopDock
                 ? tlPx(11)
                 : tlPx(12),
+          ...(floatingChrome
+            ? {
+                ...glassPanelStyle,
+                height: "100%",
+              }
+            : {}),
         }}
       >
         {!p.audioChromeRenderedExternally ? (
@@ -73,6 +93,14 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           onWaveZoomOut={p.onWaveZoomOut}
           onSave={p.onSave}
           onOpenAudioImport={p.onOpenAudioImport}
+          onApplyAiSectionKeyframes={p.onApplyAiSectionKeyframes}
+          aiSectionKeyframesAvailable={p.aiSectionKeyframesAvailable}
+          onApplySectionFormationPatterns={p.onApplySectionFormationPatterns}
+          sectionFormationPatternsAvailable={
+            p.sectionFormationPatternsAvailable
+          }
+          playbackRate={p.playbackRate}
+          onPlaybackRateChange={p.onPlaybackRateChange}
           onUndo={p.onUndo}
           onRedo={p.onRedo}
           undoDisabled={p.undoDisabled}
@@ -81,6 +109,9 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           compactDockLeading={p.compactDockLeading}
           showFormationChange={p.showFormationChange}
           onOpenFormationChange={p.onOpenFormationChange}
+          floatingChrome={floatingChrome}
+          onToggleRightPane={p.onToggleRightPane}
+          rightPaneOpen={p.rightPaneOpen}
         />
         <div
           style={{
@@ -92,30 +123,30 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           }}
         >
           <WaveformStrip
-          waveContainerRef={p.waveContainerRef}
-          canvasRef={p.canvasRef}
-          playheadLineOverlayRef={p.playheadLineOverlayRef}
-          compactTopDock={p.compactTopDock}
-          wideWorkbench={p.wideWorkbench}
-          duration={p.duration}
-          viewMode={p.viewMode}
-          hasPeaks={p.hasPeaks}
-          waveView={p.waveView}
-          waveCanvasCssH={p.waveCanvasCssH}
-          showWaveHeightResizeHandle={!(p.compactTopDock && p.wideWorkbench)}
-          onWaveRulerPointerDown={p.onWaveRulerPointerDown}
-          onWaveClick={p.onWaveClick}
-          onWaveDoubleClick={p.onWaveDoubleClick}
-          onWaveContextMenu={p.onWaveContextMenu}
-          onWaveCanvasPointerDown={p.onWaveCanvasPointerDown}
-          onWaveCanvasPointerMove={p.onWaveCanvasPointerMove}
-          onWaveCanvasPointerLeave={p.onWaveCanvasPointerLeave}
-          onWaveBorderResizePointerDown={p.onWaveBorderResizePointerDown}
-          onPlayheadLinePointerDown={p.onPlayheadLinePointerDown}
-          onPlayheadLinePointerMove={p.onPlayheadLinePointerMove}
-          onPlayheadLinePointerUp={p.onPlayheadLinePointerUp}
-          onPlayheadLinePointerCancel={p.onPlayheadLinePointerCancel}
-        />
+            waveContainerRef={p.waveContainerRef}
+            canvasRef={p.canvasRef}
+            playheadLineOverlayRef={p.playheadLineOverlayRef}
+            compactTopDock={p.compactTopDock}
+            wideWorkbench={p.wideWorkbench}
+            duration={p.duration}
+            viewMode={p.viewMode}
+            hasPeaks={p.hasPeaks}
+            waveView={p.waveView}
+            waveCanvasCssH={p.waveCanvasCssH}
+            showWaveHeightResizeHandle={!(p.compactTopDock && p.wideWorkbench)}
+            onWaveRulerPointerDown={p.onWaveRulerPointerDown}
+            onWaveClick={p.onWaveClick}
+            onWaveDoubleClick={p.onWaveDoubleClick}
+            onWaveContextMenu={p.onWaveContextMenu}
+            onWaveCanvasPointerDown={p.onWaveCanvasPointerDown}
+            onWaveCanvasPointerMove={p.onWaveCanvasPointerMove}
+            onWaveCanvasPointerLeave={p.onWaveCanvasPointerLeave}
+            onWaveBorderResizePointerDown={p.onWaveBorderResizePointerDown}
+            onPlayheadLinePointerDown={p.onPlayheadLinePointerDown}
+            onPlayheadLinePointerMove={p.onPlayheadLinePointerMove}
+            onPlayheadLinePointerUp={p.onPlayheadLinePointerUp}
+            onPlayheadLinePointerCancel={p.onPlayheadLinePointerCancel}
+          />
         </div>
         <TimelineCueList
           cuesSorted={p.cuesSorted}
@@ -148,7 +179,11 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
         duplicateCueAtTimelineEnd={p.duplicateCueAtTimelineEnd}
         saveCueFormationToBoxList={p.saveCueFormationToBoxList}
         onOpenPathEditor={p.onOpenPathEditor}
+        onOpenLightingSettings={p.onOpenLightingSettings}
+        onOpenGapLightingSettings={p.onOpenGapLightingSettings}
+        onOpenFormationChange={p.onOpenFormationChange}
+        onFocusCueForLighting={p.onFocusCueForLighting}
       />
-    </>
+    </div>
   );
 }

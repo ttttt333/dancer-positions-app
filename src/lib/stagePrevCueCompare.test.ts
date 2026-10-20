@@ -4,6 +4,7 @@ import {
   buildPrevCueCompareMarks,
   resolvePreviousCueDancers,
   resolvePreviousCueOrdinal,
+  resolveNextCueDancers,
   summarizePrevCueCompare,
 } from "./stagePrevCueCompare";
 import { classifyMovementCostPct, describePrevCueChangeFact } from "./stageMovementGrade";
@@ -59,6 +60,29 @@ describe("resolvePreviousCueOrdinal", () => {
     ];
     expect(resolvePreviousCueOrdinal(p.cues, "a")).toBeNull();
     expect(resolvePreviousCueOrdinal(p.cues, "b")).toBe(1);
+  });
+});
+
+describe("resolveNextCueDancers", () => {
+  it("returns the next cue formation dancers", () => {
+    const p = createEmptyProject();
+    const fA = {
+      ...p.formations[0]!,
+      id: "fa",
+      dancers: [spot("d1", 30, 40)],
+    };
+    const fB = {
+      ...p.formations[0]!,
+      id: "fb",
+      dancers: [spot("d1", 70, 40)],
+    };
+    p.formations = [fA, fB];
+    p.cues = [
+      { id: "a", tStartSec: 0, tEndSec: 8, formationId: "fa" },
+      { id: "b", tStartSec: 8, tEndSec: 16, formationId: "fb" },
+    ];
+    expect(resolveNextCueDancers(p.cues, p.formations, "a")).toBe(fB.dancers);
+    expect(resolveNextCueDancers(p.cues, p.formations, "b")).toBeNull();
   });
 });
 

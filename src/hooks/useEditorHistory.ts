@@ -1,6 +1,7 @@
 import {
   useCallback,
   useRef,
+  useState,
   type MutableRefObject,
   type Dispatch,
   type SetStateAction,
@@ -54,6 +55,17 @@ export function useEditorHistory({
   const gestureHistoryBaselineRef = useRef<string | null>(null);
   const skipNextHistoryPushRef = useRef(false);
   const applyingHistoryRef = useRef(false);
+  /**
+   * ジェスチャ終了は setState を伴わず ref にだけ積むことがある。
+   * 戻る／進むボタンの disabled を更新するため、スタック変化で再描画する。
+   */
+  const [historyStackTick, setHistoryStackTick] = useState(0);
+  /** ステージ上の仮配置プレビューを Undo/Redo で捨てるための世代 */
+  const [historyOverlayEpoch, setHistoryOverlayEpoch] = useState(0);
+
+  const bumpHistoryStackUi = useCallback(() => {
+    setHistoryStackTick((n) => n + 1);
+  }, []);
 
   const clearHistory = useCallback(() => {
     clearEditorHistoryStacks(historyRef.current);
@@ -61,7 +73,8 @@ export function useEditorHistory({
     gestureHistoryBaselineRef.current = null;
     skipNextHistoryPushRef.current = false;
     applyingHistoryRef.current = false;
-  }, []);
+    bumpHistoryStackUi();
+  }, [bumpHistoryStackUi]);
 
   const cancelGestureHistory = useCallback(() => {
     gestureHistoryDepthRef.current = 0;
@@ -104,7 +117,9 @@ export function useEditorHistory({
     if (curStr === baseline) return;
     pushEditorHistorySnapshot(historyRef.current, baseline, HISTORY_CAP);
     observeEditorProjectChange(cur);
-  }, [collabActive, projectForHistoryRef]);
+    // setProject なしで積むので、戻るボタンをここで有効化する
+    bumpHistoryStackUi();
+  }, [collabActive, projectForHistoryRef, bumpHistoryStackUi]);
 
   const markHistorySkipNextPush = useCallback(() => {
     skipNextHistoryPushRef.current = true;
@@ -122,28 +137,23 @@ export function useEditorHistory({
                 )
               : action;
           if (next === prev) return prev;
-          let unchanged = false;
-          try {
-            unchanged = JSON.stringify(next) === JSON.stringify(prev);
-          } catch {
-            unchanged = false;
-          }
-          if (unchanged) return prev;
-          if (applyingHistoryRef.current) {
+          // ドラッグ中は毎フレーム呼ばれるため、作品全体の文字列比較を省く（履歴はジェスチャ終了時に1回だけ積む）
+          if (gestureHistoryDepthRef.current > 0 || applyingHistoryRef.current) {
             return next;
+          }
+          let prevStr: string | null = null;
+          try {
+            prevStr = JSON.stringify(prev);
+            if (JSON.stringify(next) === prevStr) return prev;
+          } catch {
+            prevStr = null;
           }
           if (skipNextHistoryPushRef.current) {
             skipNextHistoryPushRef.current = false;
             return next;
           }
-          if (gestureHistoryDepthRef.current > 0) {
-            return next;
-          }
-          pushEditorHistorySnapshot(
-            historyRef.current,
-            JSON.stringify(prev),
-            HISTORY_CAP
-          );
+          if (prevStr == null) return next;
+          pushEditorHistorySnapshot(historyRef.current, prevStr, HISTORY_CAP);
           observeEditorProjectChange(next);
           return next;
         });
@@ -154,37 +164,54 @@ export function useEditorHistory({
   const setProjectSafe: Dispatch<SetStateAction<ChoreographyProjectJson>> =
     collabActive ? yjsCollab.setProjectSafe : setProjectSafePlain;
 
+  const resetOpenGesture = useCallback(() => {
+    gestureHistoryDepthRef.current = 0;
+    gestureHistoryBaselineRef.current = null;
+  }, []);
+
   const undoPlain = useCallback(() => {
     if (historyRef.current.undo.length === 0) return;
+    resetOpenGesture();
     applyingHistoryRef.current = true;
     setPlainProject((cur) => {
       if (!cur) return cur;
       const next = applyUndoPlain(historyRef.current, cur);
       return next ?? cur;
     });
+    setHistoryOverlayEpoch((n) => n + 1);
+    bumpHistoryStackUi();
     scheduleEndApplyingHistory(applyingHistoryRef);
-  }, [setPlainProject]);
+  }, [setPlainProject, resetOpenGesture, bumpHistoryStackUi]);
 
   const redoPlain = useCallback(() => {
     if (historyRef.current.redo.length === 0) return;
+    resetOpenGesture();
     applyingHistoryRef.current = true;
     setPlainProject((cur) => {
       if (!cur) return cur;
       const next = applyRedoPlain(historyRef.current, cur);
       return next ?? cur;
     });
+    setHistoryOverlayEpoch((n) => n + 1);
+    bumpHistoryStackUi();
     scheduleEndApplyingHistory(applyingHistoryRef);
-  }, [setPlainProject]);
+  }, [setPlainProject, resetOpenGesture, bumpHistoryStackUi]);
 
   const undo = useCallback(() => {
-    if (collabActive) yjsCollab.undo();
-    else undoPlain();
+    if (collabActive) {
+      yjsCollab.undo();
+      setHistoryOverlayEpoch((n) => n + 1);
+    } else undoPlain();
   }, [collabActive, yjsCollab, undoPlain]);
 
   const redo = useCallback(() => {
-    if (collabActive) yjsCollab.redo();
-    else redoPlain();
+    if (collabActive) {
+      yjsCollab.redo();
+      setHistoryOverlayEpoch((n) => n + 1);
+    } else redoPlain();
   }, [collabActive, yjsCollab, redoPlain]);
+
+  void historyStackTick;
 
   const isUndoDisabled =
     plainProject?.viewMode === "view" ||
@@ -211,5 +238,6 @@ export function useEditorHistory({
     redo,
     isUndoDisabled,
     isRedoDisabled,
+    historyOverlayEpoch,
   };
 }

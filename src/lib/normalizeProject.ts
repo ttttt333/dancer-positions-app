@@ -28,11 +28,24 @@ import {
   migrateAudienceEdge,
 } from "./projectDefaults";
 import {
+  normalizeStageLights,
+} from "./stageLighting";
+import {
+  normalizeStageSleeveCurtains,
+  sleeveCurtainsToDepthsMm,
+} from "./stageSleeveCurtains";
+import { inferFrontGridIntervalMm } from "./stageArchitectureGuides";
+import { normalizeStageCenterMarks } from "./stageCenterMarks";
+import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
 } from "./dancerSpacing";
 import { modDancerColorIndex, normalizeDancerFacingDeg } from "./dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "./markerBadge";
+import { normalizeDancerFaceStamp } from "./dancerFaceStamp";
+import { normalizeDancerMarkerShape } from "./dancerMarkerShape";
+import { normalizeDancerFigure3d } from "./dancerFigure3d";
+import { MAX_DANCERS_PER_FORMATION } from "./dancerCountLimits";
 
 function randomId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
@@ -181,6 +194,9 @@ function normalizeFloorMarkupArray(raw: unknown): StageFloorMarkup[] {
       if (Number.isFinite(sc) && sc > 0) {
         item.scale = Math.min(8, Math.max(0.2, Math.round(sc * 1000) / 1000));
       }
+      if (r.textAlign === "center" || r.textAlign === "right") {
+        item.textAlign = r.textAlign;
+      }
       out.push(item);
       continue;
     }
@@ -311,9 +327,15 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     const m = normalizeDancerFacingDeg(fdRaw);
     if (m !== 0) facingDeg = m;
   }
+  const faceStamp = normalizeDancerFaceStamp(d.faceStamp);
+  const figure3d = normalizeDancerFigure3d(d.figure3d);
+  const markerShape = normalizeDancerMarkerShape(d.markerShape);
   return {
     id: typeof d.id === "string" && d.id ? d.id : randomId("d"),
     label: typeof d.label === "string" ? d.label : String(index + 1),
+    ...(typeof d.labelPrefix === "string" && d.labelPrefix.trim()
+      ? { labelPrefix: d.labelPrefix.trim().slice(0, 8) }
+      : {}),
     xPct:
       typeof d.xPct === "number" && Number.isFinite(d.xPct)
         ? clampPct(d.xPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI)
@@ -342,9 +364,13 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     ...(typeof d.genderLabel === "string" && d.genderLabel.trim()
       ? { genderLabel: d.genderLabel.trim().slice(0, 32) }
       : {}),
+    ...(d.colorOverridesGender === true ? { colorOverridesGender: true } : {}),
     ...(markerBadge !== undefined ? { markerBadge } : {}),
     ...(markerBadgeSource ? { markerBadgeSource } : {}),
     ...(facingDeg != null ? { facingDeg } : {}),
+    ...(markerShape ? { markerShape } : {}),
+    ...(faceStamp ? { faceStamp } : {}),
+    ...(figure3d ? { figure3d } : {}),
   };
 }
 
@@ -518,6 +544,9 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
                   typeof m.colorIndex === "number"
                     ? modDancerColorIndex(m.colorIndex)
                     : 0,
+                ...(typeof mm.labelPrefix === "string" && mm.labelPrefix.trim()
+                  ? { labelPrefix: mm.labelPrefix.trim().slice(0, 8) }
+                  : {}),
               };
               const hc = mm.heightCm;
               if (
@@ -540,6 +569,9 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
               if (typeof mm.genderLabel === "string" && mm.genderLabel.trim()) {
                 base.genderLabel = mm.genderLabel.trim().slice(0, 32);
               }
+              if (mm.colorOverridesGender === true) {
+                base.colorOverridesGender = true;
+              }
               if (typeof mm.note === "string" && mm.note.trim()) {
                 base.note = mm.note.trim().slice(0, 2000);
               }
@@ -559,12 +591,12 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       const dancersRaw = Array.isArray(slObj.dancers) ? slObj.dancers : [];
       const dancers: DancerSpot[] = dancersRaw
         .filter((d) => d != null && typeof d === "object")
-        .slice(0, 100)
+        .slice(0, MAX_DANCERS_PER_FORMATION)
         .map((d, i) => normalizeDancerSpot(d, i));
       const savedAtCount =
         typeof slObj.savedAtCount === "number" && Number.isFinite(slObj.savedAtCount)
-          ? Math.max(1, Math.min(80, Math.floor(slObj.savedAtCount)))
-          : Math.max(1, Math.min(80, dancers.length || 1));
+          ? Math.max(1, Math.min(MAX_DANCERS_PER_FORMATION, Math.floor(slObj.savedAtCount)))
+          : Math.max(1, Math.min(MAX_DANCERS_PER_FORMATION, dancers.length || 1));
       const stageSnapshot = normalizeSavedSpotStageSnapshot(slObj.stageSnapshot, defaults);
       return {
         id: typeof slObj.id === "string" && slObj.id ? slObj.id : randomId("saved-layout"),
@@ -688,7 +720,11 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       const fb = defaults.stageGridLineSpacingMm ?? 10;
       const legacy = clampStageGridAxisMm(po.stageGridLineSpacingMm, fb);
       const w = clampStageGridAxisMm(po.stageGridSpacingWidthMm, legacy);
-      const d = clampStageGridAxisMm(po.stageGridSpacingDepthMm, legacy);
+      let d = clampStageGridAxisMm(po.stageGridSpacingDepthMm, legacy);
+      const inferred = inferFrontGridIntervalMm(po.stageFrontGridLinesMm);
+      if (inferred != null && d <= 10) {
+        d = clampStageGridAxisMm(inferred, d);
+      }
       return {
         stageGridSpacingWidthMm: w,
         stageGridSpacingDepthMm: d,
@@ -740,6 +776,40 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       const po = o as Partial<ChoreographyProjectJson>;
       return po.dancerLabelPosition === "below" ? "below" : "inside";
     })(),
+    stageHesoVisible:
+      typeof (o as Partial<ChoreographyProjectJson>).stageHesoVisible ===
+      "boolean"
+        ? Boolean((o as Partial<ChoreographyProjectJson>).stageHesoVisible)
+        : false,
+    stageCenterMarks: (() => {
+      const po = o as Partial<ChoreographyProjectJson>;
+      const visible =
+        typeof po.stageHesoVisible === "boolean"
+          ? Boolean(po.stageHesoVisible)
+          : false;
+      return normalizeStageCenterMarks(po.stageCenterMarks, {
+        seedCenterIfEmpty: visible,
+      });
+    })(),
+    stageFrontGridLinesMm: [],
+    stageSleeveCurtains: (() => {
+      const po = o as Partial<ChoreographyProjectJson>;
+      return normalizeStageSleeveCurtains(
+        po.stageSleeveCurtains,
+        po.stageSleeveCurtainDepthsMm
+      );
+    })(),
+    stageSleeveCurtainDepthsMm: (() => {
+      const po = o as Partial<ChoreographyProjectJson>;
+      const curtains = normalizeStageSleeveCurtains(
+        po.stageSleeveCurtains,
+        po.stageSleeveCurtainDepthsMm
+      );
+      return sleeveCurtainsToDepthsMm(curtains);
+    })(),
+    stageLights: normalizeStageLights(
+      (o as Partial<ChoreographyProjectJson>).stageLights
+    ),
     waveformAmplitudeScale: (() => {
       const po = o as Partial<ChoreographyProjectJson>;
       const raw = po.waveformAmplitudeScale;

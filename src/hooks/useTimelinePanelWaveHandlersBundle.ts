@@ -58,6 +58,7 @@ type WaveHandlersBundleParams = {
     | "emptyWaveDragRef"
     | "newCueRangePreviewRef"
     | "waveHoverCueRef"
+    | "selectedCueIdsRef"
     | "currentTimePropRef"
     | "isPlayingForWaveRef"
     | "durationRef"
@@ -162,6 +163,7 @@ export function useTimelinePanelWaveHandlersBundle({
     emptyWaveDragRef: canvas.emptyWaveDragRef,
     newCueRangePreviewRef: canvas.newCueRangePreviewRef,
     waveHoverCueRef: canvas.waveHoverCueRef,
+    selectedCueIdsRef: canvas.selectedCueIdsRef,
     setCurrentTime: playback.setCurrentTime,
     onSelectedCueIdsChange,
     suppressNextWaveSeekRef: canvas.suppressNextWaveSeekRef,

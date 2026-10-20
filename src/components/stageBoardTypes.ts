@@ -9,11 +9,15 @@ import type {
   FloorTextPlaceSession,
   Formation,
   SetPiece,
+  StageCenterMark,
   StageFloorMarkup,
+  StageLightFixture,
+  StageSleeveCurtain,
 } from "../types/choreography";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
 import type { FloorTextDraftPayload } from "./FloorTextMarkupBlock";
 import type { TrashDropEdge } from "../lib/stageBoardRosterAndTrash";
+import type { FloorLineMarkupScope } from "../lib/floorLineMarkup";
 
 /** `StageBoardLayout` に渡す3スロット（screen オーバーレイ・メイン列・ステージ上コンテキストメニュー） */
 export type StageBoardLayoutSlots = {
@@ -54,6 +58,8 @@ export type StageBoardBodyOverlaysProps = {
   viewMode: "edit" | "view";
   onCloseQuickEdit: () => void;
   onApplyQuickEdit: (patch: DancerQuickEditApply) => void;
+  /** クイック編集のスキル選択肢上限（名簿人数） */
+  skillOptionCount?: number;
 };
 
 /** 床にコメント／線を描く／消すツール。未選択は `null`。 */
@@ -104,6 +110,9 @@ export type StageBoardBodyProps = {
   /** 親と共有する床マークアップツール（未指定なら内部 state） */
   floorMarkupTool?: StageFloorMarkupTool;
   onFloorMarkupToolChange?: Dispatch<SetStateAction<StageFloorMarkupTool>>;
+  /** 落書き線の表示範囲（サイドシートと共有。未指定なら内部 state） */
+  floorLineScope?: FloorLineMarkupScope;
+  onFloorLineScopeChange?: Dispatch<SetStateAction<FloorLineMarkupScope>>;
   /** true のときステージ左上のテキスト／線トグル帯を出さず、編集 UI のみ出す */
   hideFloorMarkupFloatingToolbars?: boolean;
   /** テキストパネルをこの要素にポータル表示する（右サイドシート内 div）。指定時はステージ上に表示しない */
@@ -113,6 +122,10 @@ export type StageBoardBodyProps = {
   onGestureHistoryEnd?: () => void;
   /** フォーメーション切替などドラッグ中断時に深度だけリセット */
   onGestureHistoryCancel?: () => void;
+  /**
+   * Undo/Redo のたびに親が増やす世代。形／列プレビューなど仮配置を破棄する。
+   */
+  historyOverlayEpoch?: number;
   /** ゴミ箱ドロップ直後の 1 回だけ、次の setProject で undo に積まない */
   markHistorySkipNextPush?: () => void;
   /**
@@ -124,6 +137,15 @@ export type StageBoardBodyProps = {
     | { kind: "one"; crewMemberId: string; label: string };
   /** 閲覧共有など: ダンサー印の表示倍率（1 = 既定） */
   markerDisplayScale?: number;
+  /**
+   * 閲覧: 名下ラベルの追加表示倍率（1 = 既定）。
+   * 印の `markerDisplayScale` とは独立に掛け合わせる。
+   */
+  nameLabelDisplayScale?: number;
+  /**
+   * 閲覧: 名下ラベル同士の重なりを検知してフォントを自動で小さくする。
+   */
+  nameLabelAutoFit?: boolean;
   /** 閲覧: 客席帯が aspect 外に出る分のビューポート余白を確保 */
   compactViewportChrome?: boolean;
   /** 閲覧横画面: `compactViewportChrome` 時の帯余白をさらに詰める */
@@ -158,6 +180,19 @@ export type StageBoardBodyProps = {
   editCueId?: string | null;
   /** スマホ編集／閲覧: ステージをピンチで拡大縮小する */
   enablePinchViewport?: boolean;
+  /** そで幕の奥行をステージ上ドラッグで変えたとき */
+  onSleeveCurtainsChange?: (curtains: StageSleeveCurtain[]) => void;
+  /**
+   * ヘソ／センターマークをステージ上ドラッグで動かしたとき。
+   * 舞台設定パネル表示中のみ interactive（`stageArchitectureEditActive`）。
+   */
+  onCenterMarksChange?: (marks: StageCenterMark[]) => void;
+  /** 舞台設定パネルが開いているとき true → センターマークをドラッグ可能 */
+  stageArchitectureEditActive?: boolean;
+  /** 照明をステージ上で動かした／大きさを変えたとき */
+  onStageLightsChange?: (lights: StageLightFixture[]) => void;
+  selectedStageLightId?: string | null;
+  onSelectStageLightId?: (id: string | null) => void;
 };
 
 export type { BuildStageBoardExportColumnInput } from "../lib/buildStageBoardExportColumnProps";

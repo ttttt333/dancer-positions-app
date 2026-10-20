@@ -77,6 +77,7 @@ export function useTimelineWaveSurfaceHandlers(
     emptyWaveDragRef,
     newCueRangePreviewRef,
     waveHoverCueRef,
+    selectedCueIdsRef,
     setCurrentTime,
     onSelectedCueIdsChange,
     suppressNextWaveSeekRef,
@@ -248,6 +249,7 @@ export function useTimelineWaveSurfaceHandlers(
     emptyWaveDragRef,
     newCueRangePreviewRef,
     waveHoverCueRef,
+    selectedCueIdsRef,
     setCurrentTime,
     onSelectedCueIdsChange,
     suppressNextWaveSeekRef,
@@ -502,7 +504,10 @@ export function useTimelineWaveSurfaceHandlers(
         cuesSorted,
         viewStart,
         viewSpan,
-        cueDragPreviewRangeRef.current
+        cueDragPreviewRangeRef.current,
+        undefined,
+        selectedCueIdsRef.current,
+        useTimelineWaveBridgeStore.getState().portraitActive
       );
       const prev = waveHoverCueRef.current;
       if (prev?.cueId === hit?.cueId && prev?.mode === hit?.mode) return;
@@ -538,6 +543,7 @@ export function useTimelineWaveSurfaceHandlers(
       playheadScrubDragRef,
       emptyWaveDragRef,
       waveHoverCueRef,
+      selectedCueIdsRef,
       drawWaveformAt,
       resolveViewRange,
       resolvePlayheadSecForHit,

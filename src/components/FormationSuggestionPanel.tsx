@@ -7,13 +7,20 @@ import {
   type LayoutPresetId,
 } from "../lib/formationLayouts";
 import {
-  dancersFromFormationBoxItem,
+  resolveNearestMatchSpots,
+  translateSpotsToMatchFrontRow,
+} from "../lib/applyLayoutPresetToSelection";
+import { resolvePreviousCueDancers } from "../lib/stagePrevCueCompare";
+import { sortCuesByStart } from "../lib/cueInterval";
+import {
+  applyFormationBoxItemToStage,
   deleteFormationBoxItem,
+  FORMATION_BOX_APPLY_MODE_OPTIONS,
   listFormationBoxItems,
-  mergeFormationBoxSnapshotWithStageIdentities,
   renameFormationBoxItem,
   saveFormationToBox,
   updateFormationBoxItem,
+  type FormationBoxApplyMode,
   type FormationBoxItem,
 } from "../lib/formationBox";
 import { btnPrimary, btnSecondary } from "./stageButtonStyles";
@@ -67,7 +74,9 @@ export function FormationSuggestionPanel({
   const { me } = useAuth();
   const { requestProUpgrade } = useProUpgrade();
   const [count, setCount] = useState(6);
-  const [pendingPreset, setPendingPreset] = useState<LayoutPresetId | null>(null);
+  /** 直近で配置した雛形（ハイライト用） */
+  const [lastAppliedPreset, setLastAppliedPreset] =
+    useState<LayoutPresetId | null>(null);
   /** §6 人数が増えたとき、既存メイン人数ぶんだけプリセットを敷き、超過を袖へ */
   const [surplusToWings, setSurplusToWings] = useState(true);
 
@@ -75,8 +84,12 @@ export function FormationSuggestionPanel({
   const [boxItems, setBoxItems] = useState<FormationBoxItem[]>(() =>
     listFormationBoxItems()
   );
-  /** 箱からプレビュー中のアイテム id（現在ステージへの一時表示用） */
-  const [pendingBoxItemId, setPendingBoxItemId] = useState<string | null>(null);
+  /** 直近で配置した形の箱 id（ハイライト用） */
+  const [lastAppliedBoxItemId, setLastAppliedBoxItemId] = useState<string | null>(
+    null
+  );
+  const [boxApplyMode, setBoxApplyMode] =
+    useState<FormationBoxApplyMode>("positions");
   /** 現在人数のみ表示するか、全件表示するか */
   const [boxShowAllCounts, setBoxShowAllCounts] = useState(false);
 
@@ -96,8 +109,8 @@ export function FormationSuggestionPanel({
     const raw = f.confirmedDancerCount ?? f.dancers.length;
     const n = clampDancerCount(Math.max(1, raw));
     setCount(n);
-    setPendingPreset(null);
-    setPendingBoxItemId(null);
+    setLastAppliedPreset(null);
+    setLastAppliedBoxItemId(null);
     onStagePreviewChange?.(null);
   }, [targetFormationId, project.formations, onStagePreviewChange]);
 
@@ -112,34 +125,7 @@ export function FormationSuggestionPanel({
     return f.confirmedDancerCount ?? nClamped;
   })();
 
-  useEffect(() => {
-    if (pendingPreset == null) return;
-    const f0 = project.formations.find((x) => x.id === targetFormationId);
-    const raw = dancersWithPresetAndWingSurplus(
-      nClamped,
-      pendingPreset,
-      previousBodyCount,
-      surplusToWings,
-      {
-        dancerSpacingMm: project.dancerSpacingMm,
-        stageWidthMm: project.stageWidthMm,
-      }
-    );
-    onStagePreviewChange?.(
-      transferDancerIdentitiesByNearestPosition(raw, f0?.dancers ?? [])
-    );
-  }, [
-    nClamped,
-    pendingPreset,
-    previousBodyCount,
-    surplusToWings,
-    onStagePreviewChange,
-    project.dancerSpacingMm,
-    project.stageWidthMm,
-    project.formations,
-    targetFormationId,
-  ]);
-
+  /** 雛形タップで即配置 */
   const applyPreset = useCallback(
     (preset: LayoutPresetId) => {
       if (viewMode === "view") return;
@@ -153,12 +139,36 @@ export function FormationSuggestionPanel({
         f0 && f0.dancers.length > 0
           ? f0.confirmedDancerCount ?? f0.dancers.length
           : f0?.confirmedDancerCount ?? n;
-      const dancers = transferDancerIdentitiesByNearestPosition(
-        dancersWithPresetAndWingSurplus(n, preset, prev, surplusToWings, {
+      const rawSlots = dancersWithPresetAndWingSurplus(
+        n,
+        preset,
+        prev,
+        surplusToWings,
+        {
           dancerSpacingMm: project.dancerSpacingMm,
           stageWidthMm: project.stageWidthMm,
-        }),
-        f0?.dancers ?? []
+        }
+      );
+      const cueUsingFormation = sortCuesByStart(project.cues).find(
+        (c) => c.formationId === targetFormationId
+      );
+      const matchSource = resolvePreviousCueDancers(
+        project.cues,
+        project.formations,
+        cueUsingFormation?.id ?? null
+      );
+      /** 一列目へ寄せた最終スロットで、前キューからの最短距離割当 */
+      const slots =
+        matchSource && matchSource.length > 0
+          ? translateSpotsToMatchFrontRow(rawSlots, matchSource)
+          : rawSlots;
+      const identitySource = resolveNearestMatchSpots(
+        f0?.dancers ?? [],
+        matchSource
+      );
+      const dancers = transferDancerIdentitiesByNearestPosition(
+        slots,
+        identitySource
       );
       setProject((p) => ({
         ...p,
@@ -166,7 +176,8 @@ export function FormationSuggestionPanel({
           f.id === targetFormationId ? { ...f, dancers, confirmedDancerCount: n } : f
         ),
       }));
-      setPendingPreset(null);
+      setLastAppliedPreset(preset);
+      setLastAppliedBoxItemId(null);
       onStagePreviewChange?.(null);
       onAfterApply?.();
     },
@@ -179,27 +190,13 @@ export function FormationSuggestionPanel({
       targetFormationId,
       surplusToWings,
       project.formations,
+      project.cues,
       project.dancerSpacingMm,
       project.stageWidthMm,
       me,
       requestProUpgrade,
     ]
   );
-
-  const pickPending = useCallback(
-    (preset: LayoutPresetId) => {
-      if (viewMode === "view") return;
-      setPendingBoxItemId(null);
-      setPendingPreset(preset);
-    },
-    [viewMode]
-  );
-
-  const cancelPreview = useCallback(() => {
-    setPendingPreset(null);
-    setPendingBoxItemId(null);
-    onStagePreviewChange?.(null);
-  }, [onStagePreviewChange]);
 
   /** 形の箱: 現在のステージを保存 */
   const saveCurrentToBox = useCallback(() => {
@@ -231,27 +228,16 @@ export function FormationSuggestionPanel({
     reloadBox,
   ]);
 
-  /** 形の箱: 指定アイテムのプレビュー開始 */
-  const pickBoxItemPreview = useCallback(
-    (item: FormationBoxItem) => {
-      if (viewMode === "view") return;
-      setPendingPreset(null);
-      setPendingBoxItemId(item.id);
-      setCount(item.dancerCount);
-      onStagePreviewChange?.(dancersFromFormationBoxItem(item));
-    },
-    [viewMode, onStagePreviewChange]
-  );
-
-  /** 形の箱: プレビュー中のアイテムを現在のフォーメーションに反映 */
+  /** 形の箱: タップで即配置 */
   const applyBoxItem = useCallback(
     (item: FormationBoxItem) => {
       if (viewMode === "view") return;
+      setCount(item.dancerCount);
       const f0 = project.formations.find((x) => x.id === targetFormationId);
-      const dancers = mergeFormationBoxSnapshotWithStageIdentities(
-        dancersFromFormationBoxItem(item),
+      const dancers = applyFormationBoxItemToStage(
+        item,
         f0?.dancers ?? [],
-        item
+        boxApplyMode
       );
       setProject((p) => ({
         ...p,
@@ -261,8 +247,8 @@ export function FormationSuggestionPanel({
             : f
         ),
       }));
-      setPendingBoxItemId(null);
-      setPendingPreset(null);
+      setLastAppliedBoxItemId(item.id);
+      setLastAppliedPreset(null);
       onStagePreviewChange?.(null);
       onAfterApply?.();
     },
@@ -273,6 +259,7 @@ export function FormationSuggestionPanel({
       onStagePreviewChange,
       onAfterApply,
       project.formations,
+      boxApplyMode,
     ]
   );
 
@@ -295,13 +282,10 @@ export function FormationSuggestionPanel({
       );
       if (!ok) return;
       deleteFormationBoxItem(item.id);
-      if (pendingBoxItemId === item.id) {
-        setPendingBoxItemId(null);
-        onStagePreviewChange?.(null);
-      }
+      setLastAppliedBoxItemId((id) => (id === item.id ? null : id));
       reloadBox();
     },
-    [pendingBoxItemId, onStagePreviewChange, reloadBox]
+    [reloadBox]
   );
 
   /** 現在ステージで箱のアイテムを上書き */
@@ -391,11 +375,9 @@ export function FormationSuggestionPanel({
             フォーメーション案
           </h3>
           <p style={{ margin: 0, fontSize: "11px", color: "#64748b", lineHeight: 1.45 }}>
-            上で人数を決め、下のカードから形を選ぶと
+            上で人数を決め、下のカードをタップすると
             {variant === "embedded" ? "上のステージ" : "左のステージ"}
-            にプレビュー。
-            <strong style={{ color: "#94a3b8" }}> この形で反映</strong>
-            で選択中のフォーメーションに確定します。
+            にすぐ配置されます。
           </p>
         </div>
         <button
@@ -548,6 +530,40 @@ export function FormationSuggestionPanel({
               </button>
             </div>
           </div>
+          <div
+            role="radiogroup"
+            aria-label="保存データの引き継ぎ方"
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 6,
+              marginBottom: 8,
+            }}
+          >
+            {FORMATION_BOX_APPLY_MODE_OPTIONS.map((opt) => {
+              const active = boxApplyMode === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  title={opt.hint}
+                  onClick={() => setBoxApplyMode(opt.value)}
+                  style={{
+                    ...btnSecondary,
+                    padding: "3px 8px",
+                    fontSize: "11px",
+                    borderColor: active ? "#d4af37" : undefined,
+                    background: active ? "rgba(212,175,55,0.2)" : undefined,
+                    color: active ? "#fef3c7" : undefined,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
           {visibleBoxItems.length === 0 ? (
             <p
               style={{
@@ -570,7 +586,7 @@ export function FormationSuggestionPanel({
               }}
             >
               {visibleBoxItems.map((item) => {
-                const selected = pendingBoxItemId === item.id;
+                const selected = lastAppliedBoxItemId === item.id;
                 return (
                   <div
                     key={item.id}
@@ -588,10 +604,10 @@ export function FormationSuggestionPanel({
                   >
                     <button
                       type="button"
-                      onClick={() => pickBoxItemPreview(item)}
+                      onClick={() => applyBoxItem(item)}
                       disabled={viewMode === "view"}
                       aria-pressed={selected}
-                      title={`${item.name}（${item.dancerCount}人）をプレビュー`}
+                      title={`${item.name}（${item.dancerCount}人）・タップで配置`}
                       style={{
                         appearance: "none",
                         border: "none",
@@ -705,7 +721,7 @@ export function FormationSuggestionPanel({
           }}
         >
           {LAYOUT_PRESET_OPTIONS.map((opt, i) => {
-            const selected = pendingPreset === opt.id;
+            const selected = lastAppliedPreset === opt.id;
             return (
               <Fragment key={opt.id}>
                 {i === 0 ? (
@@ -758,7 +774,8 @@ export function FormationSuggestionPanel({
                   type="button"
                   aria-pressed={selected}
                   disabled={viewMode === "view"}
-                  onClick={() => pickPending(opt.id)}
+                  onClick={() => applyPreset(opt.id)}
+                  title={`${opt.label}・タップで配置`}
                   style={{
                     ...(selected ? btnPrimary : btnSecondary),
                     display: "flex",
@@ -794,47 +811,6 @@ export function FormationSuggestionPanel({
         </div>
       </div>
 
-      <div
-        style={{
-          flexShrink: 0,
-          padding: "10px 12px",
-          borderTop: "1px solid #1e293b",
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "8px",
-          justifyContent: "flex-end",
-        }}
-      >
-        <button
-          type="button"
-          style={btnSecondary}
-          disabled={
-            viewMode === "view" ||
-            (pendingPreset == null && pendingBoxItemId == null)
-          }
-          onClick={cancelPreview}
-        >
-          プレビューをやめる
-        </button>
-        <button
-          type="button"
-          style={btnPrimary}
-          disabled={
-            viewMode === "view" ||
-            (pendingPreset == null && pendingBoxItemId == null)
-          }
-          onClick={() => {
-            if (pendingBoxItemId) {
-              const item = boxItems.find((x) => x.id === pendingBoxItemId);
-              if (item) applyBoxItem(item);
-            } else if (pendingPreset) {
-              applyPreset(pendingPreset);
-            }
-          }}
-        >
-          この形で反映
-        </button>
-      </div>
     </aside>
   );
 }

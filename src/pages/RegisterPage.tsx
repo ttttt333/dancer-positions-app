@@ -1,10 +1,11 @@
 import type { CSSProperties } from "react";
 import { Fragment, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authApi, setToken, CLOUD_AUTH_CONFIG_MISSING_MESSAGE, isProdBuildMissingCloudAuth } from "../api/client";
 import { getSupabase, isSupabaseBackend } from "../lib/supabaseClient";
 import { useAuth, mapApiMeToContextMe } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
+import { resolvePostLoginTarget } from "../lib/postLoginRedirect";
 import { AuthAlternativeMethods, AuthMethodDivider } from "../components/auth/AuthAlternativeMethods";
 import { AuthScreenLayout } from "../components/AuthScreenLayout";
 import { btnAccent, inputField } from "../components/stageButtonStyles";
@@ -35,10 +36,17 @@ export function RegisterPage() {
   const [error, setError] = useState("");
   const { me, ready, setAuth, logout, refresh } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const stateFrom = (location.state as { from?: unknown } | null)?.from;
+
+  const goAfterAuth = () => {
+    navigate(resolvePostLoginTarget(stateFrom, "/"), { replace: true });
+  };
 
   useEffect(() => {
-    if (ready && me) navigate("/", { replace: true });
-  }, [ready, me, navigate]);
+    if (ready && me) goAfterAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, me]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +67,7 @@ export function RegisterPage() {
         }
         if (data.session) {
           await refresh();
-          navigate("/", { replace: true });
+          goAfterAuth();
         } else {
           setError("確認用メールを送りました。メール内のリンクを開き、その後「ログイン」からサインインしてください。");
         }
@@ -70,7 +78,7 @@ export function RegisterPage() {
       try {
         const m = await authApi.me();
         setAuth(token, mapApiMeToContextMe(m));
-        navigate("/", { replace: true });
+        goAfterAuth();
       } catch {
         logout();
         setError(t("auth.postLoginMeFailed"));

@@ -2,18 +2,21 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import type { DancerSpot } from "../types/choreography";
 import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "../lib/projectDefaults";
 import {
-  dancerCircleInnerBelowLabel,
-  layoutMarkerCircleInnerLabel,
   type GroupBoxHandle,
 } from "../lib/stageBoardModelHelpers";
 import {
   dancerNameBelowLabelOffsetPx,
 } from "../lib/stageNameBelowFontSizing";
+import { resolveMarkerCircleContent } from "../lib/resolveMarkerCircleContent";
 import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
   normalizeDancerFacingDeg,
 } from "../lib/dancerColorPalette";
+import {
+  genderLabelForColor,
+  resolveDancerDisplayHex,
+} from "../lib/dancerGender";
 import { shell } from "../theme/choreoShell";
 import { StageDancerDragGhostItem } from "./StageDancerDragGhostItem";
 import { StageGroupRotateGuideBadge } from "./StageGroupRotateGuideBadge";
@@ -56,6 +59,7 @@ export type StageMainFloorInteractionLayerProps = {
     h: GroupBoxHandle,
     box: StageSelectionBoxPct
   ) => void;
+  /** 選択枠右上（緑）: 複数選択の操作パネル */
   onOpenSelectionMenuClick?: () => void;
   selectedDancerIds: readonly string[];
   onGroupRotatePointerDown: (
@@ -129,6 +133,11 @@ export function StageMainFloorInteractionLayer({
     !playbackOrPreview &&
     viewMode !== "view" &&
     stageInteractionsEnabled;
+  const showGroupCornerHandles =
+    selectedDancerIds.length >= 2 &&
+    !playbackOrPreview &&
+    viewMode !== "view" &&
+    stageInteractionsEnabled;
   return (
     <>
       {selectionBox &&
@@ -160,30 +169,16 @@ export function StageMainFloorInteractionLayer({
           onHandlePointerDown={(e, h) =>
             onGroupBoxHandlePointerDown(e, h, selectionBox)
           }
-          onOpenMenuClick={
-            !playbackOrPreview &&
-            viewMode !== "view" &&
-            stageInteractionsEnabled &&
-            onOpenSelectionMenuClick
-              ? onOpenSelectionMenuClick
-              : undefined
-          }
           onNameBelowFontPointerDown={
-            dancerLabelBelow &&
-            selectedDancerIds.length >= 2 &&
-            !playbackOrPreview &&
-            viewMode !== "view" &&
-            stageInteractionsEnabled
+            showGroupCornerHandles && dancerLabelBelow
               ? onNameBelowFontResizePointerDown
               : undefined
           }
+          onOpenMenuClick={
+            showGroupCornerHandles ? onOpenSelectionMenuClick : undefined
+          }
           onMarkerResizePointerDown={
-            selectedDancerIds.length >= 2 &&
-            !playbackOrPreview &&
-            viewMode !== "view" &&
-            stageInteractionsEnabled
-              ? onMarkerResizePointerDown
-              : undefined
+            showGroupCornerHandles ? onMarkerResizePointerDown : undefined
           }
           onDeleteClick={showDeleteHandles ? onDeleteSelectedDancers : undefined}
         />
@@ -223,17 +218,17 @@ export function StageMainFloorInteractionLayer({
             ghostLabelWmm > 0
               ? { effXPct: labelXPct, stageWidthMm: ghostLabelWmm }
               : undefined;
-          const circleLabel = dancerLabelBelow
-            ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsGhost)
-            : d.label || "?";
           const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
           const screenUnrotateDeg = -(rot + facing);
-          const circleInnerLabelLayout = layoutMarkerCircleInnerLabel(
-            dMarkerPx,
-            circleLabel,
-            screenUnrotateDeg
-          );
-          const dLabelFontPx = circleInnerLabelLayout.fontSizePx;
+          const circleContent = resolveMarkerCircleContent(d, di, {
+            markerPx: dMarkerPx,
+            dancerLabelBelow,
+            screenUnrotateDeg,
+            circleInnerOpts: circleInnerOptsGhost,
+          });
+          const circleLabel = circleContent.circleLabel;
+          const dLabelFontPx = circleContent.fontSizePx;
+          const circleInnerLabelLayout = { spanStyle: circleContent.spanStyle };
           const labelOffsetPx = dancerNameBelowLabelOffsetPx(
             dMarkerPx,
             nameBelowClearanceExtraPx
@@ -251,17 +246,21 @@ export function StageMainFloorInteractionLayer({
               pivotTransform={pivotTransform}
               halfMarker={halfMarker}
               markerPx={dMarkerPx}
-              fillHex={DANCER_PALETTE[modDancerColorIndex(d.colorIndex)]}
+              fillHex={resolveDancerDisplayHex(
+                genderLabelForColor(d),
+                DANCER_PALETTE[modDancerColorIndex(d.colorIndex)]!
+              )}
               labelFontPx={dLabelFontPx}
               hideGlyph={hideGlyph}
               circleLabel={circleLabel}
               circleInnerLabelSpanStyle={circleInnerLabelLayout.spanStyle}
               screenUnrotateDeg={screenUnrotateDeg}
-              showNameBelow={dancerLabelBelow && !hideGlyph}
+              showNameBelow={circleContent.showNameBelow && !hideGlyph}
               labelOffsetPx={labelOffsetPx}
               belowLabelOriginYpx={belowLabelOriginYpx}
               belowNameFontPx={belowNameFontPx}
               nameBelowLabel={d.label || "?"}
+              nameBelowPrefix={d.labelPrefix}
             />
           );
         })}

@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import { create } from "zustand";
+import { PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC } from "../lib/timelineWaveGeometry";
 
 export type TimelineWaveBridgeHandlers = {
   onWaveCanvasPointerDown: (e: React.PointerEvent<HTMLCanvasElement>) => void;
@@ -19,6 +20,11 @@ type TimelineWaveBridgeApi = {
   openGapRouteMenuAtPointer: (clientX: number, clientY: number) => void;
   /** スマホ長押し: キュー内→操作メニュー、間→動線メニュー */
   openWaveCueMenuAtPointer: (clientX: number, clientY: number) => void;
+  /**
+   * スマホ: 指下がキュー開始/終了端なら true（即リサイズ武装用）。
+   * 未登録時は null。
+   */
+  isCueEdgeAtPointer: ((clientX: number, clientY: number) => boolean) | null;
   duration: number;
   isPlaying: boolean;
   hasPeaks: boolean;
@@ -106,18 +112,32 @@ export const useTimelineWaveBridgeStore = create<TimelineWaveBridgeStore>((set, 
   },
   syncPortraitView: (viewStart, zoom) => {
     get().setPortraitViewport(viewStart, zoom);
-    const { api, isPlaying } = {
-      api: get().api,
-      isPlaying: get().api?.isPlaying ?? false,
-    };
+    const api = get().api;
     if (!api || api.duration <= 0) return;
     const z = Math.max(1, zoom);
-    const portion = Math.min(1, Math.max(0.02, 1 / z));
+    const portion = Math.min(1, Math.max(0.01, 1 / z));
     api.setViewPortion(portion);
-    if (!isPlaying && z > 1.001) {
+    /**
+     * 縦画面: 再生中も viewStart を渡す。
+     * 曲頭は負の viewStart（lead-in）を許可し、再生バーを左寄り固定する。
+     */
+    if (z > 1.001) {
       const span = api.duration * portion;
-      const maxStart = Math.max(0, api.duration - span);
-      api.setWaveViewStartOverride(Math.max(0, Math.min(maxStart, viewStart)));
+      const lead = PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC;
+      const minStart = -lead * span;
+      const maxStart = Math.max(minStart, api.duration - lead * span);
+      api.setWaveViewStartOverride(
+        Math.max(minStart, Math.min(maxStart, viewStart))
+      );
+    } else if (get().portraitActive) {
+      /** 全体表示でも lead-in で再生バー固定 */
+      const span = api.duration;
+      const lead = PORTRAIT_WAVE_PLAYHEAD_FOLLOW_FRAC;
+      const minStart = -lead * span;
+      const maxStart = Math.max(minStart, api.duration - lead * span);
+      api.setWaveViewStartOverride(
+        Math.max(minStart, Math.min(maxStart, viewStart))
+      );
     } else {
       api.setWaveViewStartOverride(null);
     }

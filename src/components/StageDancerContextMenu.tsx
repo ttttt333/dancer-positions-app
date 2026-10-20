@@ -1,6 +1,10 @@
 import { useMemo, type Dispatch, type SetStateAction } from "react";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
-import { DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE } from "../lib/dancerColorPalette";
+import {
+  DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
+  DANCER_COLOR_RANDOM,
+} from "../lib/dancerColorPalette";
+import { DancerColorRandomSwatch } from "./DancerColorRandomSwatch";
 import {
   lineUpByGradeAsc,
   lineUpByGradeDesc,
@@ -14,8 +18,10 @@ import {
   permuteSlotsByHeightDesc,
   permuteSlotsBySkillAsc,
   permuteSlotsBySkillDesc,
+  permuteSlotsMinimizeTravelFromPrev,
   resolveArrangeTargetIds,
   rotateDancerRingOneStep,
+  swapTwoDancerPositions,
 } from "../lib/stageSelectionArrange";
 import {
   clusterSelectionColumns,
@@ -23,7 +29,10 @@ import {
   swapSelectionColumnsDepth,
   swapSelectionKamiteShimote,
 } from "../lib/stageColumnSwap";
+import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
 import { btnSecondary } from "./stageButtonStyles";
+import { withDancerLabelPosition } from "../lib/withDancerLabelPosition";
+import { StageGatherToEdgeButtons } from "./StageGatherToEdgeButtons";
 
 export type StageDancerContextMenuProps = {
   anchorDancerId: string;
@@ -33,19 +42,33 @@ export type StageDancerContextMenuProps = {
   rawDancerLabelPosition: "inside" | "below" | undefined;
   dancerLabelBelow: boolean;
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
-  duplicateDancerIds: (ids: string[]) => void;
+  duplicateDancerIds: (
+    ids: string[],
+    placement?: "end" | "after"
+  ) => void;
   removeDancersByIds: (ids: string[]) => void;
   applyBulkColorToDancerIds: (ids: string[], colorIndex: number) => void;
   applyBulkMarkerClear: (ids: string[]) => void;
   applyBulkMarkerSequence: (ids: string[], start: number) => void;
   applyBulkMarkerSame: (ids: string[], badgeRaw: string) => void;
   applyBulkMarkerCenterDistance: (ids: string[]) => void;
+  applyBulkGenderToDancerIds?: (
+    ids: string[],
+    genderLabel: string | null
+  ) => void;
+  applyBulkFigure3dToDancerIds?: (
+    ids: string[],
+    figure3d: import("../lib/dancerFigure3d").DancerFigure3dId,
+    scope?: import("../lib/applyDancerFigure3d").DancerFigure3dApplyScope
+  ) => void;
   applyPermuteArrange: (
     fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
   ) => void;
   applyDancerArrange: (
     fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
   ) => void;
+  /** 直前 Cue の立ち位置（最短距離並び替え） */
+  prevCueDancers?: readonly DancerSpot[] | null;
   onCloseMenu: () => void;
   onOpenPathEditor?: () => void;
   /** contextMenu=右クリック小窓 / sheet=範囲選択の緑ボタンからの大パネル */
@@ -69,6 +92,7 @@ export function StageDancerContextMenu({
   applyBulkMarkerCenterDistance,
   applyPermuteArrange,
   applyDancerArrange,
+  prevCueDancers = null,
   onCloseMenu,
   onOpenPathEditor,
   presentation = "menu",
@@ -203,11 +227,6 @@ menuInteractionDisabled
           selectedDancerIds
         );
         if (ids.length === 0) return;
-        const msg =
-          ids.length === 1
-            ? "この立ち位置を削除しますか？"
-            : `選択中の ${ids.length} 人の立ち位置を削除しますか？`;
-        if (!window.confirm(msg)) return;
         removeDancersByIds(ids);
       }}
       style={{
@@ -249,7 +268,7 @@ menuInteractionDisabled
 menuInteractionDisabled
       }
       onClick={() => {
-        setProject((p) => ({ ...p, dancerLabelPosition: "inside" }));
+        setProject((p) => withDancerLabelPosition(p, "inside"));
       }}
       style={{
         flex: 1,
@@ -283,7 +302,7 @@ menuInteractionDisabled
 menuInteractionDisabled
       }
       onClick={() => {
-        setProject((p) => ({ ...p, dancerLabelPosition: "below" }));
+        setProject((p) => withDancerLabelPosition(p, "below"));
       }}
       style={{
         flex: 1,
@@ -367,6 +386,15 @@ menuInteractionDisabled
         }}
       />
     ))}
+    <DancerColorRandomSwatch
+      size={sheet ? 34 : 22}
+      radius={sheet ? 8 : 5}
+      onClick={() => {
+        const ids = resolveArrangeTargetIds(anchorDancerId, selectedDancerIds);
+        applyBulkColorToDancerIds(ids, DANCER_COLOR_RANDOM);
+        onCloseMenu();
+      }}
+    />
   </div>
   <div
     style={{
@@ -539,6 +567,46 @@ menuInteractionDisabled
   >
     印の形は変えず、身長・学年・スキル順に人だけ割当。
   </div>
+  <button
+    type="button"
+    style={{
+      ...btnSecondary,
+      width: "100%",
+      fontSize: "9px",
+      padding: "5px 6px",
+      textAlign: "center",
+      marginBottom: "5px",
+      opacity:
+        arrangeTargetIds.length >= 2 &&
+        prevCueDancers &&
+        prevCueDancers.length > 0
+          ? 1
+          : 0.55,
+    }}
+    title="直前キューからの移動距離が全体で最短になるよう入れ替え"
+    disabled={
+      arrangeTargetIds.length < 2 ||
+      !prevCueDancers ||
+      prevCueDancers.length === 0
+    }
+    onClick={() => {
+      if (arrangeTargetIds.length < 2) {
+        window.alert("最短距離の並び替えは、対象を 2 人以上選んでください。");
+        onCloseMenu();
+        return;
+      }
+      if (!prevCueDancers || prevCueDancers.length === 0) {
+        window.alert("直前のキューがありません。");
+        onCloseMenu();
+        return;
+      }
+      applyPermuteArrange((dancers, t) =>
+        permuteSlotsMinimizeTravelFromPrev(dancers, t, prevCueDancers)
+      );
+    }}
+  >
+    前の立ち位置から最短距離に並び替え
+  </button>
   <div
     style={{
       display: "grid",
@@ -727,6 +795,27 @@ menuInteractionDisabled
       margin: "2px 0 1px",
     }}
   >
+    辺に寄せる
+  </div>
+  <div style={{ marginBottom: "5px" }}>
+    <StageGatherToEdgeButtons
+      disabled={menuInteractionDisabled || arrangeTargetIds.length < 1}
+      onGather={(toward) => {
+        applyDancerArrange((dancers, t) =>
+          gatherSelectedDancersToEdge(dancers, t, toward)
+        );
+        onCloseMenu();
+      }}
+    />
+  </div>
+  <div
+    style={{
+      fontSize: "9px",
+      fontWeight: 600,
+      color: "#94a3b8",
+      margin: "2px 0 1px",
+    }}
+  >
     上手・下手の交代（前後はそのまま）
   </div>
   <div style={{ marginBottom: "5px" }}>
@@ -746,6 +835,55 @@ menuInteractionDisabled
       上手 ⇄ 下手
     </button>
   </div>
+  <div
+    style={{
+      fontSize: "9px",
+      fontWeight: 600,
+      color: "#94a3b8",
+      margin: "2px 0 1px",
+    }}
+  >
+    二人を入れ替え
+  </div>
+  {selectedDancerIds.length === 2 ? (
+  <button
+    type="button"
+    style={{
+      ...btnSecondary,
+      width: "100%",
+      fontSize: "9px",
+      padding: "5px 6px",
+      textAlign: "center",
+      marginBottom: "5px",
+    }}
+    title="選んだ2人の立ち位置を入れ替え"
+    onClick={() => {
+      const ids = resolveArrangeTargetIds(
+        anchorDancerId,
+        selectedDancerIds
+      );
+      if (ids.length !== 2) {
+        window.alert("二人の入れ替えは、ちょうど 2 人を選んでください。");
+        onCloseMenu();
+        return;
+      }
+      applyDancerArrange((dancers, t) => swapTwoDancerPositions(dancers, t));
+    }}
+  >
+    二人を入れ替え
+  </button>
+  ) : (
+  <p
+    style={{
+      margin: "0 0 5px",
+      fontSize: "8px",
+      color: "#64748b",
+      lineHeight: 1.3,
+    }}
+  >
+    ちょうど2人を選ぶと表示されます
+  </p>
+  )}
   <div
     style={{
       fontSize: "9px",

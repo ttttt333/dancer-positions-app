@@ -75,9 +75,9 @@ export function entriesFromFullNames(names: string[]): RosterHintEntry[] {
 export function entriesFromRosterRows(rows: string[][]): RosterHintEntry[] {
   if (!rows.length) return [];
 
-  const fullMembers = rowsToCrewMembers(rows, { nameMode: "full" });
-  const familyMembers = rowsToCrewMembers(rows, { nameMode: "family_only" });
-  const givenMembers = rowsToCrewMembers(rows, { nameMode: "given_only" });
+  const fullMembers = rowsToCrewMembers(rows, { nameMode: "kanji_full" });
+  const familyMembers = rowsToCrewMembers(rows, { nameMode: "kanji_family" });
+  const givenMembers = rowsToCrewMembers(rows, { nameMode: "kanji_given" });
 
   const out: RosterHintEntry[] = [];
   for (let i = 0; i < fullMembers.length; i += 1) {
@@ -105,8 +105,12 @@ export function hintLabelForEntry(
 ): string {
   switch (mode) {
     case "family_only":
+    case "kanji_family":
+    case "hiragana_family":
       return entry.familyName.trim() || entry.fullName;
     case "given_only":
+    case "kanji_given":
+    case "hiragana_given":
       return entry.givenName.trim() || entry.fullName;
     default:
       return entry.fullName;

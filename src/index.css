@@ -487,7 +487,7 @@ body {
   gap: 10px;
 }
 
-  .choreo-member-picker-scroll {
+.choreo-member-picker-scroll {
   max-height: min(50vh, 22rem);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -608,6 +608,176 @@ body {
   margin: 0 auto;
 }
 
+.choreo-student-view-gate__viral {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 480px;
+  margin: 10px auto 0;
+}
+
+/* 生徒閲覧バイラル CTA（/view） */
+.choreo-viewer-viral-cta--bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: linear-gradient(
+    135deg,
+    rgba(20, 16, 8, 0.96),
+    rgba(12, 18, 28, 0.96)
+  );
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}
+
+.choreo-viewer-viral-cta--viewer {
+  position: fixed;
+  z-index: 96;
+  left: max(8px, env(safe-area-inset-left, 0px));
+  right: max(8px, env(safe-area-inset-right, 0px));
+  top: max(8px, env(safe-area-inset-top, 0px));
+  pointer-events: auto;
+  padding: 6px 8px;
+  gap: 6px;
+}
+
+.choreo-viewer-viral-cta--viewer:not(.choreo-viewer-viral-cta--landscape)
+  .choreo-viewer-viral-cta__sub {
+  display: none;
+}
+
+.choreo-viewer-viral-cta--viewer:not(.choreo-viewer-viral-cta--landscape)
+  .choreo-viewer-viral-cta__line {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.choreo-viewer-viral-cta--viewer:not(.choreo-viewer-viral-cta--landscape)
+  .choreo-viewer-viral-cta__btn {
+  padding: 6px 10px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.choreo-viewer-viral-cta--landscape {
+  left: calc(var(--choreo-viewer-left-rail-w, 176px) + max(8px, env(safe-area-inset-left, 0px)));
+}
+
+.choreo-viewer-viral-cta--gate {
+  width: 100%;
+}
+
+.choreo-viewer-viral-cta__brand {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.choreo-viewer-viral-cta__copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.choreo-viewer-viral-cta__line {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #e8e4d9;
+  font-weight: 600;
+}
+
+.choreo-viewer-viral-cta__sub {
+  font-size: 10px;
+  line-height: 1.3;
+  color: rgba(232, 197, 71, 0.9);
+}
+
+.choreo-viewer-viral-cta__btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #d4af37, #b8942d);
+  color: #1a1408;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.28);
+}
+
+.choreo-viewer-viral-cta__btn:active {
+  transform: translateY(1px);
+}
+
+.choreo-viewer-viral-cta__dismiss {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #e2e8f0;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.choreo-viewer-viral-cta__dismiss:active {
+  background: rgba(51, 65, 85, 0.9);
+}
+
+.choreo-viewer-viral-cta--chip {
+  position: fixed;
+  z-index: 91;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #d4af37, #b8942d);
+  color: #1a1408;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  right: max(10px, env(safe-area-inset-right, 0px));
+  top: max(10px, env(safe-area-inset-top, 0px));
+}
+
+.choreo-viewer-viral-cta--gate-chip {
+  position: static;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.choreo-viewer-viral-cta--landscape-chip {
+  left: auto;
+}
+
+@media (min-width: 720px) {
+  .choreo-viewer-viral-cta__line {
+    font-size: 12px;
+  }
+  .choreo-viewer-viral-cta__sub {
+    font-size: 11px;
+  }
+}
+
 html.choreo-public-view-html,
 html.choreo-public-view-html body {
   background: #0f172a;
@@ -660,6 +830,61 @@ html.choreo-public-view-html::backdrop {
 .choreo-public-view-stage-shell {
   min-height: 0;
   min-width: 0;
+  position: relative;
+  /* 長押し 2x 時に iOS/Android のテキスト選択・コールアウトが出ないようにする */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.choreo-public-view-stage-shell *,
+.choreo-public-view-stage-shell *::before,
+.choreo-public-view-stage-shell *::after {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+.choreo-public-view-stage-shell input,
+.choreo-public-view-stage-shell textarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default;
+}
+
+.choreo-viewer-hold-2x-badge {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  pointer-events: none;
+  min-width: 52px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.82);
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: choreo-viewer-hold-2x-in 140ms ease-out;
+}
+
+@keyframes choreo-viewer-hold-2x-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
 }
 
 .choreo-viewer-member-mode--compact-bar {
@@ -705,6 +930,11 @@ html.choreo-public-view-html::backdrop {
     padding-bottom: calc(
       var(--choreo-viewer-transport-bar-h, 0px) + var(--choreo-viewer-bar-h, 0px)
     ) !important;
+  }
+  .choreo-public-view-root:not(.choreo-public-view-root--landscape)
+    .stage-board-fit-viewport-inner {
+    align-items: center !important;
+    justify-content: center !important;
   }
   .choreo-public-view-root .editor-stage-section--public-view,
   .choreo-public-view-root .editor-stage-section--public-view-max {
@@ -1004,22 +1234,42 @@ html.choreo-public-view-html::backdrop {
     width: 100%;
     min-width: 0;
   }
+  .choreo-viewer-bars__bottom-meta--primary {
+    gap: 6px;
+  }
+  .choreo-viewer-bars__bottom-meta--tools {
+    gap: 4px;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+  }
   .choreo-viewer-bars__bottom-meta .choreo-viewer-member-mode {
     flex: 1 1 auto;
     min-width: 0;
   }
+  .choreo-viewer-bars__bottom-meta--primary .choreo-viewer-perspective {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .choreo-viewer-bars__bottom-meta--tools .choreo-viewer-marker-size {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .choreo-viewer-bars__bottom-meta--tools .choreo-viewer-bars__video-btn {
+    flex: 0 0 auto;
+  }
   .choreo-viewer-bars__video-btn {
     flex: 0 0 auto;
-    min-width: 52px;
+    min-width: 44px;
     min-height: 36px;
-    padding: 0 10px;
+    padding: 0 8px;
     border-radius: 10px;
     border: 1px solid rgba(71, 85, 105, 0.9);
     background: rgba(30, 41, 59, 0.92);
     color: #e2e8f0;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     touch-action: manipulation;
+    white-space: nowrap;
   }
   .choreo-viewer-bars__video-btn:disabled {
     opacity: 0.45;
@@ -1083,6 +1333,24 @@ html.choreo-public-view-html::backdrop {
     border-color: rgba(99, 102, 241, 0.95);
     background: rgba(67, 56, 202, 0.85);
     color: #f8fafc;
+    box-sizing: border-box;
+  }
+  .choreo-viewer-bars__rate-select {
+    flex-shrink: 0;
+    min-width: 52px;
+    min-height: 40px;
+    padding: 4px 6px;
+    border-radius: 10px;
+    border: 1px solid rgba(71, 85, 105, 0.9);
+    background: rgba(30, 41, 59, 0.92);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 700;
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+  .choreo-viewer-bars--portrait .choreo-viewer-bars__rate-select {
+    min-height: 40px;
   }
   .choreo-public-view-root--landscape .stage-board-fit-viewport-inner {
     /* 帯余白を潰してステージを画面いっぱいに近づける */
@@ -1110,7 +1378,7 @@ html.choreo-public-view-html::backdrop {
     .stage-board-fit-viewport--public-landscape
     .stage-board-fit-viewport-inner {
     /* 左レール分を除いた領域でステージを最大化（実測フィット） */
-    padding-left: var(--choreo-viewer-left-rail-w, 132px) !important;
+    padding-left: var(--choreo-viewer-left-rail-w, 176px) !important;
     box-sizing: border-box !important;
   }
   .choreo-public-view-root--landscape .choreo-viewer-bars--landscape {
@@ -1118,8 +1386,8 @@ html.choreo-public-view-html::backdrop {
     padding-top: max(2px, env(safe-area-inset-top, 0px));
     padding-bottom: max(2px, env(safe-area-inset-bottom, 0px));
     padding-left: max(2px, env(safe-area-inset-left, 0px));
-    width: min(var(--choreo-viewer-left-rail-w, 132px), 30vw);
-    max-width: min(var(--choreo-viewer-left-rail-w, 132px), 30vw);
+    width: min(var(--choreo-viewer-left-rail-w, 176px), 34vw);
+    max-width: min(var(--choreo-viewer-left-rail-w, 176px), 34vw);
   }
   /* 客席帯をコンパクトに（横画面共有） */
   .choreo-public-view-root--landscape .stage-audience-footer-band {
@@ -1185,16 +1453,16 @@ html.choreo-public-view-html::backdrop {
     top: 0;
     bottom: 0;
     z-index: 88;
-    width: var(--choreo-viewer-left-rail-w, 152px);
-    max-width: min(var(--choreo-viewer-left-rail-w, 152px), 32vw);
+    width: var(--choreo-viewer-left-rail-w, 176px);
+    max-width: min(var(--choreo-viewer-left-rail-w, 176px), 34vw);
     display: flex;
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
-    gap: 6px;
-    padding: max(6px, env(safe-area-inset-top, 0px)) 4px
-      max(6px, env(safe-area-inset-bottom, 0px))
-      max(6px, env(safe-area-inset-left, 0px));
+    gap: 4px;
+    padding: max(4px, env(safe-area-inset-top, 0px)) 4px
+      max(4px, env(safe-area-inset-bottom, 0px))
+      max(4px, env(safe-area-inset-left, 0px));
     background: linear-gradient(
       90deg,
       rgba(15, 23, 42, 0.92) 0%,
@@ -1215,27 +1483,82 @@ html.choreo-public-view-html::backdrop {
   .choreo-viewer-bars__left-stack {
     /* 横画面: 2列（左=表示切替、右=再生操作）でボタンの重なりを防ぐ */
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: stretch;
     gap: 6px;
     width: 100%;
     min-width: 0;
-    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .choreo-viewer-bars__rail-collapse {
+    flex: 0 0 auto;
+    align-self: stretch;
+    min-height: 28px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(71, 85, 105, 0.9);
+    background: rgba(30, 41, 59, 0.92);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 700;
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+  .choreo-viewer-bars--landscape-collapsed {
+    position: fixed;
+    left: max(4px, env(safe-area-inset-left, 0px));
+    bottom: max(4px, env(safe-area-inset-bottom, 0px));
+    z-index: 88;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+  }
+  .choreo-viewer-bars--landscape-collapsed > * {
+    pointer-events: auto;
+  }
+  .choreo-viewer-bars__rail-open,
+  .choreo-viewer-bars__mini-play {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(71, 85, 105, 0.9);
+    background: rgba(15, 23, 42, 0.72);
+    color: #f8fafc;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    touch-action: manipulation;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+  .choreo-viewer-bars__mini-play {
+    border-color: rgba(99, 102, 241, 0.95);
+    background: rgba(67, 56, 202, 0.78);
   }
   .choreo-viewer-bars__left-col {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 6px;
+    gap: 4px;
     min-width: 0;
     min-height: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .choreo-viewer-bars__left-col--meta {
     justify-content: flex-start;
   }
   .choreo-viewer-bars__left-col--transport {
     justify-content: center;
+    overflow-y: hidden;
   }
   .choreo-viewer-bars--landscape .choreo-viewer-bars__video-btn {
     width: 100%;
@@ -1263,7 +1586,8 @@ html.choreo-public-view-html::backdrop {
   }
   .choreo-viewer-bars--landscape .choreo-viewer-bars__seek-btn,
   .choreo-viewer-bars--landscape .choreo-viewer-bars__cue-btn,
-  .choreo-viewer-bars--landscape .choreo-viewer-bars__play-btn {
+  .choreo-viewer-bars--landscape .choreo-viewer-bars__play-btn,
+  .choreo-viewer-bars--landscape .choreo-viewer-bars__rate-select {
     width: 100%;
     min-width: 0;
   }
@@ -1283,6 +1607,10 @@ html.choreo-public-view-html::backdrop {
     border-color: rgba(99, 102, 241, 0.95);
     background: rgba(67, 56, 202, 0.85);
     color: #f8fafc;
+  }
+  .choreo-viewer-bars--landscape .choreo-viewer-bars__rate-select {
+    min-height: 34px;
+    font-size: 11px;
   }
   .choreo-viewer-bars--landscape .choreo-viewer-bars__time {
     font-size: 11px;
@@ -1363,6 +1691,104 @@ html.choreo-public-view-html::backdrop {
     flex: 0 0 auto;
     width: auto;
     min-width: 88px;
+  }
+  .choreo-viewer-marker-size {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .choreo-viewer-marker-size--stack {
+    flex-direction: column;
+    width: 100%;
+    gap: 4px;
+  }
+  .choreo-viewer-marker-size--compact {
+    gap: 3px;
+  }
+  .choreo-viewer-marker-size--compact .choreo-viewer-marker-size__label {
+    min-width: 14px;
+    font-size: 10px;
+    padding: 0 1px;
+  }
+  .choreo-viewer-marker-size--compact .choreo-viewer-marker-size__btn {
+    min-width: 28px;
+    min-height: 32px;
+    padding: 0 4px;
+    font-size: 14px;
+  }
+  .choreo-viewer-marker-size--compact .choreo-viewer-marker-size__auto {
+    min-width: 34px;
+    min-height: 32px;
+    padding: 0 5px;
+    font-size: 10px;
+  }
+  .choreo-viewer-marker-size__row {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    min-width: 0;
+  }
+  .choreo-viewer-marker-size__label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    padding: 0 2px;
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .choreo-viewer-marker-size__btn {
+    flex: 0 0 auto;
+    min-width: 32px;
+    min-height: 36px;
+    padding: 0 6px;
+    border-radius: 8px;
+    border: 1px solid rgba(71, 85, 105, 0.85);
+    background: rgba(30, 41, 59, 0.82);
+    color: #e2e8f0;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    touch-action: manipulation;
+  }
+  .choreo-viewer-marker-size__auto {
+    flex: 0 0 auto;
+    min-width: 40px;
+    min-height: 36px;
+    padding: 0 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(71, 85, 105, 0.85);
+    background: rgba(30, 41, 59, 0.82);
+    color: #cbd5e1;
+    font-size: 11px;
+    font-weight: 700;
+    touch-action: manipulation;
+    white-space: nowrap;
+  }
+  .choreo-viewer-marker-size__auto--on {
+    border-color: rgba(52, 211, 153, 0.75);
+    background: rgba(6, 78, 59, 0.45);
+    color: #a7f3d0;
+  }
+  .choreo-viewer-bars__bottom-meta .choreo-viewer-marker-size {
+    flex: 0 1 auto;
+  }
+  .choreo-viewer-bars--landscape .choreo-viewer-marker-size {
+    width: 100%;
+  }
+  .choreo-viewer-bars--landscape .choreo-viewer-marker-size__row {
+    width: 100%;
+  }
+  .choreo-viewer-bars--landscape .choreo-viewer-marker-size__btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .choreo-viewer-bars--landscape .choreo-viewer-marker-size__auto {
+    width: 100%;
+    min-height: 30px;
   }
   .choreo-viewer-bars--landscape .choreo-viewer-perspective {
     width: 100%;
@@ -1549,6 +1975,7 @@ html.choreo-public-view-html::backdrop {
     border-bottom: 1px solid rgba(51, 65, 85, 0.45);
   }
   .choreo-viewer-play--ready {
+    box-sizing: border-box;
     box-shadow:
       0 0 0 2px rgba(250, 204, 21, 0.85),
       0 0 18px rgba(250, 204, 21, 0.55);
@@ -1623,6 +2050,7 @@ html.choreo-public-view-html::backdrop {
 html.choreo-stage-video-export .choreo-viewer-bottom-bar,
 html.choreo-stage-video-export .choreo-viewer-stage-transport,
 html.choreo-stage-video-export .editor-stage-cuepager,
+html.choreo-stage-video-export .choreo-viewer-viral-cta,
 html.choreo-stage-video-export .choreo-public-view-root .editor-stage-section--public-view ~ * {
   visibility: hidden !important;
   pointer-events: none !important;
@@ -2537,10 +2965,11 @@ html[data-landscape-wave-collapsed] {
   top: env(safe-area-inset-top, 0px) !important;
 }
 
-/* EditorSideSheet 親ラッパーの z-index をメニューシート(z:301)より高く */
+/* EditorSideSheet は body portal。メニューシート(z:520–521)より上に出す */
 [data-shell-portrait] [style*="--ed-sheet-w"],
-[data-shell-landscape] [style*="--ed-sheet-w"] {
-  z-index: 400 !important;
+[data-shell-landscape] [style*="--ed-sheet-w"],
+body > [data-editor-sheet-root] {
+  z-index: 540 !important;
 }
 
 /*
@@ -2564,7 +2993,7 @@ html[data-landscape-wave-collapsed] {
   border-radius: 0 !important;
 }
 
-/* 縦向き: キュー設定ダイアログを画面いっぱいに */
+/* 縦向き: キュー設定ダイアログを画面いっぱいに（top+bottom で高さ決定。100dvh 併用で下端が切れるのを防ぐ） */
 [data-shell-portrait] .add-cue-with-formation-dialog {
   top: env(safe-area-inset-top, 0px) !important;
   right: 0 !important;
@@ -2573,7 +3002,7 @@ html[data-landscape-wave-collapsed] {
   width: 100% !important;
   max-width: 100vw !important;
   max-height: none !important;
-  height: 100dvh !important;
+  height: auto !important;
   margin: 0 !important;
   border-radius: 0 !important;
   overflow: hidden !important;
@@ -2599,9 +3028,39 @@ html[data-landscape-wave-collapsed] {
   padding: 12px 12px 8px !important;
 }
 
+/* 縦画面フッター: ボタンを左下に寄せ、ホームインジケータ分の余白を確保 */
 [data-shell-portrait] .add-cue-with-formation-dialog-footer {
   flex-shrink: 0 !important;
-  padding: 10px 12px max(10px, env(safe-area-inset-bottom, 0px)) !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  padding: 12px 12px calc(env(safe-area-inset-bottom, 0px) + 18px) !important;
+  padding-left: max(12px, env(safe-area-inset-left, 12px)) !important;
+  padding-right: max(12px, env(safe-area-inset-right, 12px)) !important;
+}
+
+[data-shell-portrait] .add-cue-with-formation-dialog-footer-actions {
+  order: 1 !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+  gap: 10px !important;
+}
+
+[data-shell-portrait] .add-cue-with-formation-dialog-footer-preview {
+  order: 2 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+
+[data-shell-portrait] .add-cue-with-formation-dialog-footer-actions button {
+  min-height: 48px !important;
+  min-width: 96px !important;
+  padding: 10px 18px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
 }
 
 [data-shell-portrait] .add-cue-with-formation-dialog .add-cue-preset-grid {
@@ -2942,7 +3401,7 @@ html[data-landscape-wave-collapsed] {
   padding: 0 !important;
 }
 
-/* Change → 立ち位置雛形：適用・閉じる（PC / 横画面はシート内フッター） */
+/* Change → 立ち位置雛形：閉じる（PC / 横画面はシート内フッター。タップで即配置） */
 .formation-preset-picker-actions {
   flex-shrink: 0;
   display: flex;
@@ -2975,12 +3434,12 @@ html[data-landscape-wave-collapsed] {
 }
 
 /*
-  縦画面 Change 雛形: 画面いっぱいのグリッド +
-  閉じる・適用は画面左下固定（浮遊 ✕ 閉じるは MobileShell 側で非表示）
+  縦画面 Change 雛形: 画面いっぱい + 下部固定フッター（閉じる）
+  一覧だけ縦スクロールできるようにする（雛形タップで即配置）
 */
 [data-shell-portrait] {
-  --portrait-bottom-bar-h: 160px;
-  --formation-picker-actions-h: 52px;
+  --portrait-bottom-bar-h: 152px;
+  --formation-picker-actions-h: 64px;
 }
 
 .formation-preset-picker-fullscreen {
@@ -2995,11 +3454,15 @@ html[data-landscape-wave-collapsed] {
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: 0;
   overflow: hidden;
+  /* 下のステージへタッチが抜けないようにする（子の pan-y は維持） */
+  touch-action: manipulation;
+  height: 100dvh;
+  max-height: 100dvh;
 }
 
 .formation-preset-picker-fullscreen .formation-preset-picker-sheet-header {
   flex-shrink: 0;
-  padding: 10px 12px 8px;
+  padding: 10px 12px 6px;
   border-bottom: 1px solid rgba(212, 175, 55, 0.22);
   background: #07090f;
 }
@@ -3017,18 +3480,117 @@ html[data-landscape-wave-collapsed] {
   line-height: 1.4;
 }
 
+.formation-preset-picker-mobile-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
+  background: #07090f;
+}
+
 .formation-preset-picker-sheet-body--portrait-full {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
-  overflow-y: auto;
+  height: 0; /* flex 子の縦スクロールを確実にする */
+  overflow-y: auto !important;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 8px 8px calc(
-    var(--formation-picker-actions-h, 52px) + env(safe-area-inset-bottom, 0px) + 10px
-  );
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 10px 10px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+}
+
+/* ボタン上でも縦スクロールできるようにする */
+.formation-preset-picker-sheet-body--portrait-full .formation-preset-picker-preset-btn,
+.formation-preset-picker-sheet-body--portrait-full .formation-preset-picker-grid {
+  touch-action: pan-y;
+}
+
+/* スマホ縦: 2列でタップしやすく */
+.formation-preset-picker-fullscreen .formation-preset-picker-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.formation-preset-picker-fullscreen .formation-preset-picker-grid .formation-preset-picker-preset-btn {
+  min-height: 118px;
+  padding: 10px 8px 12px !important;
+  gap: 6px !important;
+}
+
+.formation-preset-picker-fullscreen .formation-preset-picker-grid .formation-preset-picker-thumb--large {
+  max-width: 88px;
+  max-height: 56px;
+}
+
+.formation-preset-picker-fullscreen .formation-preset-picker-grid .formation-preset-picker-preset-label {
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  white-space: normal !important;
+  overflow: hidden !important;
+  text-overflow: unset !important;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-height: 2.6em;
+}
+
+/*
+  操作バー: 雛形 / BASIC / ☆ / 保存 / 適用 / 閉じる
+  ヘッダー直下に固定し、一覧スクロールでも隠れない
+*/
+.formation-preset-picker-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  border-bottom: 1px solid rgba(212, 175, 55, 0.22);
+  background: #07090f;
+  z-index: 8;
+}
+
+.formation-preset-picker-footer-cancel {
+  flex: 0 0 auto;
+  min-width: 72px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: rgba(15, 23, 42, 0.96);
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.formation-preset-picker-footer-apply {
+  flex: 1 1 auto;
+  min-width: 88px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #d4af37;
+  background: rgba(212, 175, 55, 0.32);
+  color: #fef3c7;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+
+.formation-preset-picker-footer-apply:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .formation-preset-picker-category-label {
@@ -3036,8 +3598,48 @@ html[data-landscape-wave-collapsed] {
   font-weight: 700 !important;
   color: #cbd5e1 !important;
   letter-spacing: 0.02em;
-  margin-bottom: 8px !important;
+  margin-bottom: 0 !important;
   padding-left: 2px;
+}
+
+.formation-preset-picker-category-heading .formation-preset-picker-category-label {
+  margin-bottom: 0 !important;
+}
+
+.formation-preset-picker-actions-inline {
+  margin-left: auto;
+}
+
+/* PC 雛形シート: 外側スクロールを止め、ヘッダー＋操作バー固定・一覧だけスクロール
+   ※ スマホ全画面／横画面ドックには当てない（一覧の overflow-y:auto を潰すため） */
+[data-editor-sheet="formation-preset-picker"]:not(
+    .formation-preset-picker-fullscreen
+  ):not(.formation-preset-picker-landscape-fullscreen):not(
+    .formation-preset-picker-landscape-dock
+  )
+  > div {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/** PC: 雛形 / BASIC / ☆ / 保存 / 適用 / 閉じるをヘッダー直下に常時表示 */
+.formation-preset-picker-actions-sticky {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 14px 10px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
+  background: #07090f;
+  z-index: 8;
+}
+
+.formation-preset-picker-actions-sticky button {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
 .add-cue-preset-grid,
@@ -3149,6 +3751,11 @@ html[data-landscape-wave-collapsed] {
 .formation-preset-picker-landscape-dock .formation-preset-picker-sheet-body--portrait-full {
   padding-left: 12px;
   padding-right: 12px;
+}
+
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-footer,
+.formation-preset-picker-landscape-dock .formation-preset-picker-footer {
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
 }
 
 /* 波形表示中のドックも、たたみ時と同じ大きな 4 列グリッドで見やすく表示する */
@@ -3266,31 +3873,9 @@ html[data-landscape-wave-collapsed] {
   gap: 8px !important;
 }
 
-/* 縦画面: portal した閉じる・適用を画面最下部左に固定 */
+/* 旧: 左下浮遊ボタン（フッター固定に置き換え済み・互換のため無効化） */
 .formation-preset-picker-actions--portrait-docked {
-  position: fixed !important;
-  left: max(8px, env(safe-area-inset-left, 0px)) !important;
-  right: auto !important;
-  bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
-  z-index: 520 !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  gap: 10px !important;
-  pointer-events: auto !important;
-}
-
-.formation-preset-picker-actions--portrait-docked button {
-  min-height: 44px !important;
-  padding: 9px 16px !important;
-  font-size: 14px !important;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+  display: none !important;
 }
 
 /* スマホ: キュー間長押し → 動線設定（全画面シート） */
@@ -3521,17 +4106,42 @@ html[data-landscape-wave-collapsed] {
 
 [data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line,
 [data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line {
-  font-size: 18px !important;
-  line-height: 1.45 !important;
+  font-size: 11px !important;
+  line-height: 1.35 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
 
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line--updated,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line--updated {
+  font-size: 10px !important;
+  flex-shrink: 0 !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-actions,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-actions {
+  display: flex !important;
+  gap: 4px !important;
+  width: 100% !important;
+  flex-wrap: nowrap !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-actions > button,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-actions > button {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  width: auto !important;
+  padding: 6px 4px !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
 [data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-load-btn,
 [data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-load-btn {
-  width: 100% !important;
-  display: flex !important;
+  width: auto !important;
+  display: inline-flex !important;
   justify-content: center !important;
   align-items: center !important;
   white-space: nowrap !important;
@@ -3550,7 +4160,9 @@ html[data-landscape-wave-collapsed] {
 }
 
 [data-shell-portrait]:has([aria-labelledby="flow-lib-title"]) button[aria-label="ダイアログを閉じる"],
-[data-shell-landscape]:has([aria-labelledby="flow-lib-title"]) button[aria-label="ダイアログを閉じる"] {
+[data-shell-landscape]:has([aria-labelledby="flow-lib-title"]) button[aria-label="ダイアログを閉じる"],
+body:has([data-editor-sheet-root] [aria-labelledby="flow-lib-title"]) [data-shell-portrait] button[aria-label="ダイアログを閉じる"],
+body:has([data-editor-sheet-root] [aria-labelledby="flow-lib-title"]) [data-shell-landscape] button[aria-label="ダイアログを閉じる"] {
   display: none !important;
 }
 
@@ -3563,11 +4175,11 @@ html[data-landscape-wave-collapsed] {
   font-size: 16px !important;
   min-height: 44px !important;
   height: 44px !important;
-  padding: 4px 6px !important;
-  width: 72px !important;
-  min-width: 72px !important;
+  padding: 4px 2px !important;
+  width: auto !important;
+  min-width: 0 !important;
   max-width: 88px !important;
-  flex: 0 0 72px !important;
+  flex: 1 1 0 !important;
   box-sizing: border-box !important;
   -webkit-appearance: menulist !important;
   appearance: menulist !important;
@@ -3593,6 +4205,12 @@ html[data-landscape-wave-collapsed] {
 [data-shell-landscape] #stage-area-settings-title ~ * button,
 [data-shell-landscape] [aria-labelledby="stage-area-settings-title"] button {
   min-height: 44px !important;
+}
+
+/* 携帯版: 舞台上の照明の丸ボタン・ハンドルは出さない（照明は設定パネルで編集） */
+[data-shell-portrait] .stage-light-handles,
+[data-shell-landscape] .stage-light-handles {
+  display: none !important;
 }
 
 /* ── ログイン／登録：iOS のフォーカス時拡大を抑え、タップ領域を確保 ── */
@@ -3691,6 +4309,181 @@ html[data-landscape-wave-collapsed] {
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
   width: min(900px, calc(100vw - 32px));
   aspect-ratio: 900 / 580;
+}
+
+.dancer-path-editor--with-route-panel {
+  padding-right: min(320px, 38vw);
+  box-sizing: border-box;
+}
+
+.dancer-path-editor-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+  width: 100%;
+}
+
+.dancer-path-editor-stage--with-panel {
+  width: min(900px, calc(100vw - 32px - min(320px, 38vw))) !important;
+}
+
+.dancer-path-editor-route-panel {
+  position: fixed;
+  right: max(8px, env(safe-area-inset-right, 0px));
+  top: max(8px, env(safe-area-inset-top, 0px));
+  bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  z-index: 10050;
+  width: min(300px, calc(38vw - 8px));
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  background: rgba(15, 23, 42, 0.97);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.dancer-path-editor-route-panel__head {
+  flex-shrink: 0;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.75);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dancer-path-editor-route-panel__title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #e2e8f0;
+  letter-spacing: 0.03em;
+}
+
+.dancer-path-editor-route-panel__sub {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.dancer-path-editor-route-panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dancer-path-editor-route-panel__divider {
+  height: 1px;
+  background: rgba(51, 65, 85, 0.75);
+  margin: 4px 0 6px;
+}
+
+.dancer-path-editor-route-panel__btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  white-space: normal;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(71, 85, 105, 0.85);
+  background: rgba(30, 41, 59, 0.75);
+  color: #e2e8f0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dancer-path-editor-route-panel__btn:hover {
+  background: rgba(51, 65, 85, 0.9);
+}
+
+.dancer-path-editor-route-panel__btn--selected {
+  border-color: rgba(129, 140, 248, 0.95);
+  background: rgba(67, 56, 202, 0.35);
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.35),
+    0 0 12px rgba(99, 102, 241, 0.35);
+}
+
+.dancer-path-editor-route-panel__btn--bulk-on {
+  font-weight: 800;
+  color: #ecfdf5;
+  background: rgba(16, 185, 129, 0.28);
+  border: 1.5px solid rgba(52, 211, 153, 0.95);
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.35),
+    0 0 14px rgba(16, 185, 129, 0.55);
+}
+
+.dancer-path-editor-route-panel__btn--bulk-off {
+  font-weight: 800;
+  color: #e2e8f0;
+  background: rgba(51, 65, 85, 0.55);
+  border: 1.5px solid rgba(148, 163, 184, 0.55);
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15);
+}
+
+.dancer-path-editor-route-panel__foot {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px
+    max(10px, env(safe-area-inset-bottom, 10px));
+  border-top: 1px solid rgba(51, 65, 85, 0.75);
+  background: rgba(2, 6, 23, 0.55);
+}
+
+.dancer-path-editor-route-panel__cancel,
+.dancer-path-editor-route-panel__apply {
+  flex: 1;
+  min-height: 42px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dancer-path-editor-route-panel__cancel {
+  border: 1px solid rgba(71, 85, 105, 0.9);
+  background: rgba(30, 41, 59, 0.9);
+  color: #cbd5e1;
+}
+
+.dancer-path-editor-route-panel__apply {
+  border: 1px solid rgba(99, 102, 241, 0.95);
+  background: rgba(67, 56, 202, 0.9);
+  color: #f8fafc;
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.35);
+}
+
+@media (max-width: 720px) {
+  .dancer-path-editor--with-route-panel {
+    padding-right: 0;
+    padding-bottom: min(48vh, 360px);
+  }
+  .dancer-path-editor-route-panel {
+    left: max(8px, env(safe-area-inset-left, 0px));
+    right: max(8px, env(safe-area-inset-right, 0px));
+    top: auto;
+    bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: min(46vh, 360px);
+  }
+  .dancer-path-editor-stage--with-panel {
+    width: min(900px, calc(100vw - 32px)) !important;
+  }
 }
 
 .dancer-path-editor-stage--portrait {

@@ -9,6 +9,11 @@ import { playbackEngine } from "../core/playbackEngine";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 import { useI18n } from "../i18n/I18nContext";
+import {
+  PRACTICE_PLAYBACK_RATES,
+  normalizePracticePlaybackRate,
+  usePracticePlaybackStore,
+} from "../store/practicePlaybackStore";
 
 /* ─── Neon glow helper ─── */
 const neonGlow = (c: string) =>
@@ -16,7 +21,7 @@ const neonGlow = (c: string) =>
 
 /* ─── Playback icon SVGs — neon colors matching NeonIconPanel ─── */
 function IconPlay() {
-  const c = "#c084fc"; // purple neon
+  const c = "#60a5fa"; // blue neon — seek/stop と揃える
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       <polygon points="5,3 20,12 5,21" fill={c} />
@@ -24,7 +29,7 @@ function IconPlay() {
   );
 }
 function IconPause() {
-  const c = "#c084fc";
+  const c = "#60a5fa";
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       <rect x="4" y="3" width="5" height="18" rx="1.5" fill={c} />
@@ -44,10 +49,10 @@ function IconZoomIn() {
   const c = "#34d399";
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
-      <circle cx="10" cy="10" r="6.5" fill="none" stroke={c} strokeWidth="2" />
-      <line x1="15.5" y1="15.5" x2="21" y2="21" stroke={c} strokeWidth="2" strokeLinecap="round" />
-      <line x1="8" y1="10" x2="12" y2="10" stroke={c} strokeWidth="2" strokeLinecap="round" />
-      <line x1="10" y1="8" x2="10" y2="12" stroke={c} strokeWidth="2" strokeLinecap="round" />
+      {/* 拡大: 小さい枠 → 大きい枠 */}
+      <rect x="3" y="3" width="8" height="8" rx="1.2" fill="none" stroke={c} strokeWidth="1.8" opacity="0.55" />
+      <rect x="9" y="9" width="12" height="12" rx="1.5" fill="none" stroke={c} strokeWidth="2" />
+      <path d="M14 15h4M16 13v4" stroke={c} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -55,9 +60,10 @@ function IconZoomOut() {
   const c = "#34d399";
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
-      <circle cx="10" cy="10" r="6.5" fill="none" stroke={c} strokeWidth="2" />
-      <line x1="15.5" y1="15.5" x2="21" y2="21" stroke={c} strokeWidth="2" strokeLinecap="round" />
-      <line x1="8" y1="10" x2="12" y2="10" stroke={c} strokeWidth="2" strokeLinecap="round" />
+      {/* 縮小: 大きい枠 → 小さい枠 */}
+      <rect x="3" y="3" width="12" height="12" rx="1.5" fill="none" stroke={c} strokeWidth="2" opacity="0.55" />
+      <rect x="11" y="11" width="10" height="10" rx="1.2" fill="none" stroke={c} strokeWidth="2" />
+      <path d="M13.5 16h5" stroke={c} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -183,6 +189,31 @@ function IconAudioImport() {
   );
 }
 
+function IconSectionKeyframes() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <rect x="3" y="5" width="18" height="4" rx="1" fill="#38bdf8" opacity="0.85" />
+      <rect x="3" y="11" width="18" height="4" rx="1" fill="#a78bfa" opacity="0.85" />
+      <rect x="3" y="17" width="18" height="4" rx="1" fill="#f87171" opacity="0.9" />
+      <line x1="8" y1="4" x2="8" y2="22" stroke="#f8fafc" strokeWidth="1.5" />
+      <line x1="14" y1="4" x2="14" y2="22" stroke="#f8fafc" strokeWidth="1.5" opacity="0.7" />
+    </svg>
+  );
+}
+
+function IconSectionFormations() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <circle cx="12" cy="7" r="2.2" fill="#f472b6" />
+      <circle cx="6.5" cy="14" r="2.2" fill="#a78bfa" />
+      <circle cx="17.5" cy="14" r="2.2" fill="#a78bfa" />
+      <circle cx="4.5" cy="19.5" r="1.8" fill="#38bdf8" />
+      <circle cx="12" cy="19.5" r="1.8" fill="#38bdf8" />
+      <circle cx="19.5" cy="19.5" r="1.8" fill="#38bdf8" />
+    </svg>
+  );
+}
+
 /** タイムライン上部ツールバー用（再生・波形周りの縦スペース節約） */
 export const TIMELINE_UI_SCALE = 1.2;
 export function tlPx(n: number): string {
@@ -298,7 +329,69 @@ const timelineToolbarBtn: CSSProperties = {
   fontSize: tlPx(11),
   borderRadius: tlPx(5),
   lineHeight: 1.2,
+  background: "rgba(15,23,42,0.92)",
+  backgroundColor: "rgba(15,23,42,0.92)",
+  color: "#e2e8f0",
+  border: `1px solid ${shell.border}`,
 };
+
+function PracticePlaybackControls({
+  viewMode,
+  playbackRate,
+  onPlaybackRateChange,
+  compact,
+}: {
+  viewMode: ChoreographyProjectJson["viewMode"];
+  playbackRate: number;
+  onPlaybackRateChange?: (rate: number) => void;
+  compact?: boolean;
+}) {
+  const rate = normalizePracticePlaybackRate(playbackRate);
+  const disabled = viewMode === "view";
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: compact ? 3 : 4,
+        flexShrink: 0,
+        maxWidth: "100%",
+      }}
+    >
+      {onPlaybackRateChange ? (
+        <select
+          value={String(rate)}
+          disabled={disabled}
+          aria-label="再生速度（ピッチ固定）"
+          title="ピッチ固定の再生速度"
+          onChange={(e) => {
+            const next = Number(e.target.value);
+            if (Number.isFinite(next)) onPlaybackRateChange(next);
+          }}
+          style={{
+            borderRadius: 6,
+            border: `1px solid ${shell.border}`,
+            background: "rgba(15,23,42,0.95)",
+            color: "#e2e8f0",
+            fontSize: compact ? 10 : 11,
+            fontWeight: 700,
+            padding: compact ? "2px 2px" : "3px 4px",
+            cursor: disabled ? "not-allowed" : "pointer",
+            maxWidth: compact ? 58 : 64,
+            flexShrink: 0,
+          }}
+        >
+          {PRACTICE_PLAYBACK_RATES.map((r) => (
+            <option key={r} value={String(r)}>
+              {r === 1 ? "1x" : `${r}x`}
+            </option>
+          ))}
+        </select>
+      ) : null}
+    </span>
+  );
+}
 
 /** 上部ドック用：細い円枠＋白の巻き戻し系矢印（Redo は左右反転） */
 const WAVE_HISTORY_ARROW = "rgba(255, 255, 255, 0.96)";
@@ -590,6 +683,15 @@ export type TimelineToolbarProps = {
   onWaveZoomOut?: () => void;
   onSave?: () => void;
   onOpenAudioImport?: () => void;
+  /** AI解析セクション頭へキーフレームを配置 */
+  onApplyAiSectionKeyframes?: () => void;
+  aiSectionKeyframesAvailable?: boolean;
+  /** セクション種別ごとの隊形一括適用 */
+  onApplySectionFormationPatterns?: () => void;
+  sectionFormationPatternsAvailable?: boolean;
+  /** 練習用再生速度（ピッチ固定） */
+  playbackRate?: number;
+  onPlaybackRateChange?: (rate: number) => void;
   onUndo?: () => void;
   onRedo?: () => void;
   undoDisabled: boolean;
@@ -601,6 +703,16 @@ export type TimelineToolbarProps = {
   /** PC: 立ち位置雛形（Change）。5秒戻すの左に出す */
   showFormationChange?: boolean;
   onOpenFormationChange?: () => void;
+  /**
+   * true: ワイド統合バー（波形直下の一列に再生＋ユーティリティをまとめる）。
+   * 旧: 再生を PlaybackFloatingBar に分離していた。
+   */
+  floatingChrome?: boolean;
+  /** ワイド統合バー: ダンサー追加 */
+  onAddDancer?: () => void;
+  /** ワイド統合バー: 右パネル開閉 */
+  onToggleRightPane?: () => void;
+  rightPaneOpen?: boolean;
 };
 
 export function TimelineToolbar({
@@ -621,6 +733,12 @@ export function TimelineToolbar({
   onWaveZoomOut,
   onSave,
   onOpenAudioImport,
+  onApplyAiSectionKeyframes,
+  aiSectionKeyframesAvailable = false,
+  onApplySectionFormationPatterns,
+  sectionFormationPatternsAvailable = false,
+  playbackRate = 1,
+  onPlaybackRateChange,
   onUndo,
   onRedo,
   undoDisabled,
@@ -629,8 +747,14 @@ export function TimelineToolbar({
   compactDockLeading,
   showFormationChange = false,
   onOpenFormationChange,
+  floatingChrome = false,
+  onToggleRightPane,
+  rightPaneOpen = false,
 }: TimelineToolbarProps) {
   const { t } = useI18n();
+  const isCountingIn = usePracticePlaybackStore((s) => s.isCountingIn);
+  // ワイドは一列統合（再生を分離しない）
+  const unifiedWideChrome = floatingChrome && !editorMobileStack;
   const waveZoomDisabled = duration <= 0;
   const waveZoomLabels = {
     zoomInTitle: t("editor.layout.waveZoomIn"),
@@ -849,10 +973,22 @@ export function TimelineToolbar({
                   justifyContent: "center",
                 }}
                 onClick={togglePlay}
-                aria-label={isPlaying ? "一時停止" : "再生"}
-                title={isPlaying ? "一時停止" : "再生"}
+                aria-label={
+                  isCountingIn
+                    ? "カウントインを中止"
+                    : isPlaying
+                      ? "一時停止"
+                      : "再生"
+                }
+                title={
+                  isCountingIn
+                    ? "カウントイン中（再押下で中止）"
+                    : isPlaying
+                      ? "一時停止"
+                      : "再生"
+                }
               >
-                {isPlaying ? <IconPause /> : <IconPlay />}
+                {isPlaying || isCountingIn ? <IconPause /> : <IconPlay />}
               </button>
               <button
                 type="button"
@@ -891,8 +1027,8 @@ export function TimelineToolbar({
                     justifyContent: "center",
                   }}
                   disabled={viewMode === "view"}
-                  title={t("editor.comp.k095")}
-                  aria-label={t("editor.comp.k052")}
+                  title={t("editor.comp.k049")}
+                  aria-label={t("editor.comp.k049")}
                   onClick={onSave}
                 >
                   <IconSave />
@@ -916,8 +1052,50 @@ export function TimelineToolbar({
                   <IconAudioImport />
                 </button>
               )}
+              {onApplyAiSectionKeyframes && aiSectionKeyframesAvailable ? (
+                <button
+                  type="button"
+                  style={{
+                    ...timelineToolbarBtn,
+                    padding: `${tlPx(4)} ${tlPx(8)}`,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  disabled={viewMode === "view"}
+                  title="AIセクションからキーフレームを自動配置"
+                  aria-label="AIセクションからキーフレームを自動配置"
+                  onClick={onApplyAiSectionKeyframes}
+                >
+                  <IconSectionKeyframes />
+                </button>
+              ) : null}
+              {onApplySectionFormationPatterns &&
+              sectionFormationPatternsAvailable ? (
+                <button
+                  type="button"
+                  style={{
+                    ...timelineToolbarBtn,
+                    padding: `${tlPx(4)} ${tlPx(8)}`,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  disabled={viewMode === "view"}
+                  title="セクション隊形を一括適用"
+                  aria-label="セクション隊形を一括適用"
+                  onClick={onApplySectionFormationPatterns}
+                >
+                  <IconSectionFormations />
+                </button>
+              ) : null}
+              <PracticePlaybackControls
+                viewMode={viewMode}
+                playbackRate={playbackRate}
+                onPlaybackRateChange={onPlaybackRateChange}
+              />
               <PlaybackClockReadout
-                isPlaying={isPlaying}
+                isPlaying={isPlaying || isCountingIn}
                 idleTimeSec={currentTime}
                 durationSec={duration}
                 monoFontSizePx={13 * TIMELINE_UI_SCALE}
@@ -1021,10 +1199,22 @@ export function TimelineToolbar({
             }}
             disabled={viewMode === "view"}
             onClick={togglePlay}
-            aria-label={isPlaying ? "一時停止" : "再生"}
-            title={isPlaying ? "一時停止" : "再生"}
+            aria-label={
+              isCountingIn
+                ? "カウントインを中止"
+                : isPlaying
+                  ? "一時停止"
+                  : "再生"
+            }
+            title={
+              isCountingIn
+                ? "カウントイン中（再押下で中止）"
+                : isPlaying
+                  ? "一時停止"
+                  : "再生"
+            }
           >
-            {isPlaying ? <IconPause /> : <IconPlay />}
+            {isPlaying || isCountingIn ? <IconPause /> : <IconPlay />}
           </button>
           <button
             type="button"
@@ -1053,8 +1243,8 @@ export function TimelineToolbar({
               type="button"
               style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
               disabled={viewMode === "view"}
-              title={t("editor.comp.k095")}
-              aria-label={t("editor.comp.k052")}
+              title={t("editor.comp.k049")}
+              aria-label={t("editor.comp.k049")}
               onClick={onSave}
             >
               <IconSave />
@@ -1070,6 +1260,31 @@ export function TimelineToolbar({
               onPointerEnter={() => { void preloadFFmpeg(); }}
             >
               <IconAudioImport />
+            </button>
+          ) : null}
+          {onApplyAiSectionKeyframes && aiSectionKeyframesAvailable ? (
+            <button
+              type="button"
+              style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              disabled={viewMode === "view"}
+              title="AIセクションからキーフレームを自動配置"
+              aria-label="AIセクションからキーフレームを自動配置"
+              onClick={onApplyAiSectionKeyframes}
+            >
+              <IconSectionKeyframes />
+            </button>
+          ) : null}
+          {onApplySectionFormationPatterns &&
+          sectionFormationPatternsAvailable ? (
+            <button
+              type="button"
+              style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              disabled={viewMode === "view"}
+              title="セクション隊形を一括適用"
+              aria-label="セクション隊形を一括適用"
+              onClick={onApplySectionFormationPatterns}
+            >
+              <IconSectionFormations />
             </button>
           ) : null}
           {onUndo ? (
@@ -1125,9 +1340,15 @@ export function TimelineToolbar({
             </button>
           ) : null}
         </div>
-        <div style={{ flexShrink: 0, marginLeft: tlPx(2) }}>
+        <div style={{ flexShrink: 0, marginLeft: tlPx(2), display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <PracticePlaybackControls
+            viewMode={viewMode}
+            playbackRate={playbackRate}
+            onPlaybackRateChange={onPlaybackRateChange}
+            compact
+          />
           <PlaybackClockReadout
-            isPlaying={isPlaying}
+            isPlaying={isPlaying || isCountingIn}
             idleTimeSec={currentTime}
             durationSec={duration}
             monoFontSizePx={10.5 * TIMELINE_UI_SCALE}
@@ -1142,33 +1363,44 @@ export function TimelineToolbar({
       className="wave-compact-time-above-wave"
       style={{
         display: "grid",
-        gridTemplateColumns: `${brandRailCss} minmax(0, 1fr) ${brandRailCss}`,
+        gridTemplateColumns: unifiedWideChrome
+          ? "minmax(0, 1fr)"
+          : `${brandRailCss} minmax(0, 1fr) ${brandRailCss}`,
         alignItems: "stretch",
         columnGap: tlPx(6),
         width: "100%",
         minWidth: 0,
         marginTop: 0,
         padding: `${tlPx(0)} ${tlPx(6)} ${tlPx(2)}`,
-        borderBottom: `1px solid ${shell.border}`,
+        borderBottom: unifiedWideChrome
+          ? "1px solid rgba(255,255,255,0.06)"
+          : `1px solid ${shell.border}`,
         flexShrink: 0,
-        background: shell.bgChrome,
+        background: unifiedWideChrome ? "transparent" : shell.bgChrome,
       }}
     >
-      <BrandRailWithHome
-        compact
-        showHome={wideWorkbench && !editorMobileStack}
-      />
+      {!unifiedWideChrome ? (
+        <BrandRailWithHome
+          compact
+          showHome={wideWorkbench && !editorMobileStack}
+        />
+      ) : null}
       <div
         style={{
           display: "flex",
           flexWrap: "nowrap",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: unifiedWideChrome ? "flex-start" : "center",
           gap: tlPx(6),
           flexShrink: 0,
           minWidth: 0,
+          overflowX: "auto",
+          paddingLeft: unifiedWideChrome ? tlPx(2) : 0,
         }}
       >
+        {unifiedWideChrome && wideWorkbench && !editorMobileStack ? (
+          <TimelineHomeButton compact />
+        ) : null}
         {wideWorkbench && !editorMobileStack ? (
           <UpdateLogToolbarButton
             style={{
@@ -1198,6 +1430,7 @@ export function TimelineToolbar({
             }}
           />
         ) : null}
+        <>
         <button
           type="button"
           style={{
@@ -1220,36 +1453,36 @@ export function TimelineToolbar({
           type="button"
           style={{
             ...timelineToolbarBtn,
-            padding: `${tlPx(4)} ${tlPx(9)}`,
-            minHeight: tlPx(28),
-            flexShrink: 0,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          disabled={viewMode === "view" || duration <= 0}
-          title={t("editor.comp.k003")}
-          aria-label={t("editor.comp.k005")}
-          onClick={seekForward5Sec}
-        >
-          <IconSeekFwd />
-        </button>
-        <button
-          type="button"
-          style={{
-            ...timelineToolbarBtn,
             padding: `${tlPx(4)} ${tlPx(12)}`,
             minHeight: tlPx(28),
             flexShrink: 0,
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
+            background: "rgba(15,23,42,0.92)",
+            backgroundColor: "rgba(15,23,42,0.92)",
+            border: isPlaying || isCountingIn
+              ? "1px solid rgba(212,175,55,0.7)"
+              : timelineToolbarBtn.border,
+            color: "#e2e8f0",
           }}
           onClick={togglePlay}
-          aria-label={isPlaying ? "一時停止" : "再生"}
-          title={isPlaying ? "一時停止" : "再生"}
+          aria-label={
+            isCountingIn
+              ? "カウントインを中止"
+              : isPlaying
+                ? "一時停止"
+                : "再生"
+          }
+          title={
+            isCountingIn
+              ? "カウントイン中（再押下で中止）"
+              : isPlaying
+                ? "一時停止"
+                : "再生"
+          }
         >
-          {isPlaying ? <IconPause /> : <IconPlay />}
+          {isPlaying || isCountingIn ? <IconPause /> : <IconPlay />}
         </button>
         <button
           type="button"
@@ -1269,6 +1502,37 @@ export function TimelineToolbar({
         >
           <IconStop />
         </button>
+        <button
+          type="button"
+          style={{
+            ...timelineToolbarBtn,
+            padding: `${tlPx(4)} ${tlPx(9)}`,
+            minHeight: tlPx(28),
+            flexShrink: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          disabled={viewMode === "view" || duration <= 0}
+          title={t("editor.comp.k003")}
+          aria-label={t("editor.comp.k005")}
+          onClick={seekForward5Sec}
+        >
+          <IconSeekFwd />
+        </button>
+        </>
+        <PlaybackClockReadout
+          isPlaying={isPlaying || isCountingIn}
+          idleTimeSec={currentTime}
+          durationSec={duration}
+          monoFontSizePx={12 * TIMELINE_UI_SCALE}
+        />
+        <PracticePlaybackControls
+          viewMode={viewMode}
+          playbackRate={playbackRate}
+          onPlaybackRateChange={onPlaybackRateChange}
+          compact
+        />
         <WaveZoomToolbarButtons
           disabled={waveZoomDisabled}
           onZoomIn={onWaveZoomIn}
@@ -1294,8 +1558,8 @@ export function TimelineToolbar({
               justifyContent: "center",
             }}
             disabled={viewMode === "view"}
-            title={t("editor.comp.k095")}
-            aria-label={t("editor.comp.k052")}
+            title={t("editor.comp.k049")}
+            aria-label={t("editor.comp.k049")}
             onClick={onSave}
           >
             <IconSave />
@@ -1321,19 +1585,54 @@ export function TimelineToolbar({
             <IconAudioImport />
           </button>
         ) : null}
-        <PlaybackClockReadout
-          isPlaying={isPlaying}
-          idleTimeSec={currentTime}
-          durationSec={duration}
-          monoFontSizePx={12 * TIMELINE_UI_SCALE}
-        />
+        {onApplyAiSectionKeyframes && aiSectionKeyframesAvailable ? (
+          <button
+            type="button"
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(4)} ${tlPx(9)}`,
+              minHeight: tlPx(28),
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            disabled={viewMode === "view"}
+            title="AIセクションからキーフレームを自動配置"
+            aria-label="AIセクションからキーフレームを自動配置"
+            onClick={onApplyAiSectionKeyframes}
+          >
+            <IconSectionKeyframes />
+          </button>
+        ) : null}
+        {onApplySectionFormationPatterns &&
+        sectionFormationPatternsAvailable ? (
+          <button
+            type="button"
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(4)} ${tlPx(9)}`,
+              minHeight: tlPx(28),
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            disabled={viewMode === "view"}
+            title="セクション隊形を一括適用"
+            aria-label="セクション隊形を一括適用"
+            onClick={onApplySectionFormationPatterns}
+          >
+            <IconSectionFormations />
+          </button>
+        ) : null}
         {onUndo ? (
           <button
             type="button"
             style={{
-              width: tlPx(40),
-              height: tlPx(40),
-              minWidth: tlPx(40),
+              width: tlPx(36),
+              height: tlPx(36),
+              minWidth: tlPx(36),
               padding: 0,
               borderRadius: "50%",
               border: "none",
@@ -1357,9 +1656,9 @@ export function TimelineToolbar({
           <button
             type="button"
             style={{
-              width: tlPx(40),
-              height: tlPx(40),
-              minWidth: tlPx(40),
+              width: tlPx(36),
+              height: tlPx(36),
+              minWidth: tlPx(36),
               padding: 0,
               borderRadius: "50%",
               border: "none",
@@ -1379,8 +1678,68 @@ export function TimelineToolbar({
             <WaveHistoryRoundIcon kind="redo" />
           </button>
         ) : null}
+        {unifiedWideChrome && onToggleRightPane ? (
+          <button
+            type="button"
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(4)} ${tlPx(9)}`,
+              minHeight: tlPx(28),
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 5,
+              fontSize: tlPx(11),
+              fontWeight: 700,
+              color: rightPaneOpen ? "#fef3c7" : "#e2e8f0",
+              border: rightPaneOpen
+                ? "1px solid rgba(212,175,55,0.65)"
+                : `1px solid ${shell.border}`,
+              background: rightPaneOpen
+                ? "rgba(212,175,55,0.2)"
+                : "rgba(15,23,42,0.92)",
+              backgroundColor: rightPaneOpen
+                ? "rgba(212,175,55,0.2)"
+                : "rgba(15,23,42,0.92)",
+            }}
+            title={
+              rightPaneOpen
+                ? "パネルを閉じる（作業スペースを広げる）"
+                : "パネルを開く"
+            }
+            aria-label={rightPaneOpen ? "パネルを閉じる" : "パネルを開く"}
+            aria-pressed={rightPaneOpen}
+            onClick={onToggleRightPane}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+              <rect
+                x="3"
+                y="4"
+                width="18"
+                height="16"
+                rx="2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <path d="M15 4v16" stroke="currentColor" strokeWidth="1.8" />
+              <path
+                d="M10 12h7M14.5 9.5 17 12l-2.5 2.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            パネル
+          </button>
+        ) : null}
       </div>
-      <div aria-hidden style={{ minWidth: 0 }} />
+      {!unifiedWideChrome ? (
+        <div aria-hidden style={{ minWidth: 0 }} />
+      ) : null}
     </div>
   );
 }

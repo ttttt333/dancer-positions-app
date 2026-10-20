@@ -6,6 +6,7 @@ import {
   DANCER_COLOR_PALETTE_HEX,
   modDancerColorIndex,
 } from "./dancerColorPalette";
+import { genderLabelForColor, resolveDancerDisplayHex } from "./dancerGender";
 import { resolveStageExportRange } from "./stageExportRange";
 import { buildStageExportAppearance } from "./stageExportAppearance";
 import { resolvePlaybackAudioUrlForExport } from "./resolvePlaybackAudioUrlForExport";
@@ -19,7 +20,10 @@ import {
 } from "./videoExportQualityPresets";
 
 function dancerColorHex(d: DancerSpot): string {
-  return DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)];
+  return resolveDancerDisplayHex(
+    genderLabelForColor(d),
+    DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)]!
+  );
 }
 
 function mapDancers(dancers: DancerSpot[]) {
@@ -31,6 +35,9 @@ function mapDancers(dancers: DancerSpot[]) {
     centerDistanceLabelXPct: d.centerDistanceLabelXPct,
     nameBelowFontPx: d.nameBelowFontPx,
     sizePx: d.sizePx,
+    faceStamp: d.faceStamp,
+    markerShape: d.markerShape,
+    facingDeg: d.facingDeg,
     color: dancerColorHex(d),
     x: d.xPct / 100,
     y: d.yPct / 100,
