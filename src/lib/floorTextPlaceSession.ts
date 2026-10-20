@@ -12,7 +12,8 @@ export function createDefaultFloorTextPlaceSession(
     yPct: 50,
     color: "#fef08a",
     scope: "formation",
-    showDuringGaps: false,
+    /** キュー間の移動でも注記が消えないよう、新規は既定で ON */
+    showDuringGaps: true,
     ...overrides,
   };
 }
