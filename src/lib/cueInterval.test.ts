@@ -9,6 +9,7 @@ import {
   migrateCuesFromRaw,
   duplicateCueAfterSourceInProject,
   cueNumberById,
+  MIN_CUE_DURATION_SEC,
 } from "./cueInterval";
 import { normalizeProject } from "./normalizeProject";
 import type { Cue } from "../types/choreography";
@@ -290,6 +291,29 @@ describe("normalizeProject gap movement", () => {
     expect(normalized.cues[1]?.dancerCustomPaths).toEqual({
       d1: { cpX: 30, cpY: 70 },
     });
+  });
+});
+
+describe("MIN_CUE_DURATION_SEC", () => {
+  it("allows shrinking a cue end to 0.2s on the wave", () => {
+    expect(MIN_CUE_DURATION_SEC).toBe(0.2);
+    const cues: Cue[] = [
+      { id: "a", tStartSec: 0, tEndSec: 5, formationId: "f1" },
+      { id: "b", tStartSec: 8, tEndSec: 12, formationId: "f2" },
+    ];
+    const next = applyCueWaveDragCommit(cues, "a", "end", 0, 0.2, 0, 120);
+    const a = next.find((c) => c.id === "a")!;
+    expect(a.tStartSec).toBe(0);
+    expect(a.tEndSec).toBeCloseTo(0.2, 5);
+  });
+
+  it("does not shrink below the minimum duration", () => {
+    const cues: Cue[] = [
+      { id: "a", tStartSec: 0, tEndSec: 5, formationId: "f1" },
+    ];
+    const next = applyCueWaveDragCommit(cues, "a", "end", 0, 0.05, 0, 120);
+    const a = next.find((c) => c.id === "a")!;
+    expect(a.tEndSec - a.tStartSec).toBeCloseTo(MIN_CUE_DURATION_SEC, 5);
   });
 });
 

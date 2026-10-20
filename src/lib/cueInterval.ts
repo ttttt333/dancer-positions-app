@@ -298,8 +298,8 @@ export function splitSharedCueFormations(
   return { ...project, formations: newFormations, cues };
 }
 
-/** タイムライン上の区間の最短長（秒）。ドラッグ・入力と揃える */
-export const MIN_CUE_DURATION_SEC = 1;
+/** タイムライン上の区間の最短長（秒）。波形の端リサイズ・入力と揃える */
+export const MIN_CUE_DURATION_SEC = 0.2;
 
 /** 音源未確定時に区間解決へ渡す仮の曲長（秒）— 極端に短い trim に潰れないようにする */
 export const PLACEHOLDER_TIMELINE_CAP_SEC = 600;
