@@ -6,7 +6,10 @@ import {
   transferDancerIdentitiesByNearestPosition,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
-import { translateSpotsToMatchFrontRow } from "../lib/applyLayoutPresetToSelection";
+import {
+  resolveNearestMatchSpots,
+  translateSpotsToMatchFrontRow,
+} from "../lib/applyLayoutPresetToSelection";
 import { resolvePreviousCueDancers } from "../lib/stagePrevCueCompare";
 import { sortCuesByStart } from "../lib/cueInterval";
 import {
@@ -136,12 +139,15 @@ export function FormationSuggestionPanel({
         f0 && f0.dancers.length > 0
           ? f0.confirmedDancerCount ?? f0.dancers.length
           : f0?.confirmedDancerCount ?? n;
-      const assigned = transferDancerIdentitiesByNearestPosition(
-        dancersWithPresetAndWingSurplus(n, preset, prev, surplusToWings, {
+      const rawSlots = dancersWithPresetAndWingSurplus(
+        n,
+        preset,
+        prev,
+        surplusToWings,
+        {
           dancerSpacingMm: project.dancerSpacingMm,
           stageWidthMm: project.stageWidthMm,
-        }),
-        f0?.dancers ?? []
+        }
       );
       const cueUsingFormation = sortCuesByStart(project.cues).find(
         (c) => c.formationId === targetFormationId
@@ -151,10 +157,19 @@ export function FormationSuggestionPanel({
         project.formations,
         cueUsingFormation?.id ?? null
       );
-      const dancers =
+      /** 一列目へ寄せた最終スロットで、前キューからの最短距離割当 */
+      const slots =
         matchSource && matchSource.length > 0
-          ? translateSpotsToMatchFrontRow(assigned, matchSource)
-          : assigned;
+          ? translateSpotsToMatchFrontRow(rawSlots, matchSource)
+          : rawSlots;
+      const identitySource = resolveNearestMatchSpots(
+        f0?.dancers ?? [],
+        matchSource
+      );
+      const dancers = transferDancerIdentitiesByNearestPosition(
+        slots,
+        identitySource
+      );
       setProject((p) => ({
         ...p,
         formations: p.formations.map((f) =>

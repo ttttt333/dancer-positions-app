@@ -159,10 +159,42 @@ export function resolveNearestMatchSpots(
 }
 
 /**
+ * 雛形スロットを最終位置へ寄せてから、前キュー座標に対して最短距離で人を割り当てる。
+ * （先に割当してから平行移動すると、最終軌道が最短にならない）
+ */
+function placePresetWithShortestTravel(
+  dancers: readonly DancerSpot[],
+  targetIds: readonly string[],
+  presetId: LayoutPresetId,
+  opts?: LayoutPresetOptions,
+  matchSource?: readonly DancerSpot[] | null
+): DancerSpot[] | null {
+  const idSet = new Set(targetIds);
+  const targets = dancers.filter((d) => idSet.has(d.id));
+  if (targets.length === 0) return null;
+
+  const positioned = dancersForLayoutPreset(targets.length, presetId, opts);
+  if (positioned.length === 0) return null;
+
+  const full = isFullFormationTarget(dancers, targetIds);
+  /** 全員適用かつ直前キューあり → 一列目位置へ寄せたスロットで最短割当 */
+  const slots =
+    full && matchSource && matchSource.length > 0
+      ? translateSpotsToMatchFrontRow(positioned, matchSource)
+      : positioned;
+
+  const matchSpots = resolveNearestMatchSpots(targets, matchSource);
+  const assigned = transferDancerIdentitiesByNearestPosition(slots, matchSpots);
+
+  if (full) return assigned;
+  /** 部分適用は選択メンバーの今の重心へ寄せる（割当後） */
+  return translateSpotsToMatchCentroid(assigned, targets);
+}
+
+/**
  * 雛形を targetIds にだけ当てる。配列順と未選択の座標は変えない。
- * 全員対象でも前の立ち位置から最短（Hungarian）で割り当てる。
- * matchSource を渡すと直前キューなど別フォーメーションの座標を距離基準にし、
- * 全員適用時は直前キューの一列目位置へ形全体を寄せる。
+ * matchSource（直前キュー）があるとき、最終スロット位置へ寄せたうえで
+ * 前の立ち位置から最短距離（Hungarian）で人を割り当てる。
  */
 export function applyLayoutPresetToTargetDancers(
   dancers: DancerSpot[],
@@ -172,33 +204,14 @@ export function applyLayoutPresetToTargetDancers(
   matchSource?: readonly DancerSpot[] | null
 ): DancerSpot[] {
   if (dancers.length === 0) return dancers;
-  const idSet = new Set(targetIds);
-  const targets = dancers.filter((d) => idSet.has(d.id));
-  if (targets.length === 0) return dancers;
-
-  const positioned = dancersForLayoutPreset(targets.length, presetId, opts);
-  if (positioned.length === 0) return dancers;
-
-  const matchSpots = resolveNearestMatchSpots(targets, matchSource);
-  const assigned = transferDancerIdentitiesByNearestPosition(
-    positioned,
-    matchSpots
+  const placed = placePresetWithShortestTravel(
+    dancers,
+    targetIds,
+    presetId,
+    opts,
+    matchSource
   );
-
-  if (isFullFormationTarget(dancers, targetIds)) {
-    const placed =
-      matchSource && matchSource.length > 0
-        ? translateSpotsToMatchFrontRow(assigned, matchSource)
-        : assigned;
-    const byId = new Map(placed.map((d) => [d.id, d]));
-    return dancers.map((d) => {
-      const next = byId.get(d.id);
-      if (!next) return d;
-      return { ...d, xPct: next.xPct, yPct: next.yPct };
-    });
-  }
-
-  const placed = translateSpotsToMatchCentroid(assigned, targets);
+  if (!placed) return dancers;
   const byId = new Map(placed.map((d) => [d.id, d]));
   return dancers.map((d) => {
     const next = byId.get(d.id);
@@ -218,23 +231,14 @@ export function layoutPresetPositionsById(
   matchSource?: readonly DancerSpot[] | null
 ): Map<string, StagePosPct> {
   const positions = new Map<string, StagePosPct>();
-  const idSet = new Set(targetIds);
-  const targets = dancers.filter((d) => idSet.has(d.id));
-  if (targets.length === 0) return positions;
-
-  const positioned = dancersForLayoutPreset(targets.length, presetId, opts);
-  if (positioned.length === 0) return positions;
-
-  const matchSpots = resolveNearestMatchSpots(targets, matchSource);
-  const assigned = transferDancerIdentitiesByNearestPosition(
-    positioned,
-    matchSpots
+  const placed = placePresetWithShortestTravel(
+    dancers,
+    targetIds,
+    presetId,
+    opts,
+    matchSource
   );
-  const placed = isFullFormationTarget(dancers, targetIds)
-    ? matchSource && matchSource.length > 0
-      ? translateSpotsToMatchFrontRow(assigned, matchSource)
-      : assigned
-    : translateSpotsToMatchCentroid(assigned, targets);
+  if (!placed) return positions;
   for (const d of placed) {
     positions.set(d.id, { xPct: d.xPct, yPct: d.yPct });
   }
