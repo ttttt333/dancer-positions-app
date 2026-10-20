@@ -523,7 +523,39 @@ export function DancerPathEditor({
     viewState.zoom > 1.001 ? ` · ${viewState.zoom.toFixed(viewState.zoom >= 10 ? 0 : 1)}×` : "";
 
   const pathHint =
-    "ダンサーをクリックで動線表示 · 右クリックで経路パネル（舞台の右）";
+    "下のプルダウンで経路を選ぶ · ダンサーをクリックで動線表示 · 制御点をドラッグで微調整";
+
+  const selectApproachValue: GapApproachRoute | "clear" =
+    appliedApproach ?? "linear";
+
+  const onApproachSelectChange = useCallback(
+    (value: string) => {
+      if (value === "clear") {
+        previewClearApproach();
+        return;
+      }
+      previewApproachPreset(value as GapApproachRoute);
+    },
+    [previewApproachPreset, previewClearApproach]
+  );
+
+  const routeSelect = (
+    <label className="dancer-path-editor-route-select">
+      <span className="dancer-path-editor-route-select__label">移動経路</span>
+      <select
+        aria-label="移動経路のプリセット"
+        value={selectApproachValue}
+        onChange={(e) => onApproachSelectChange(e.target.value)}
+        className="dancer-path-editor-route-select__control"
+      >
+        {GAP_APPROACH_OPTIONS.map((opt) => (
+          <option key={opt.id} value={opt.id}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 
   const routePanel = routePanelOpen ? (
     <aside
@@ -903,6 +935,7 @@ export function DancerPathEditor({
             {pathHint}
             {zoomHint}
           </p>
+          {routeSelect}
         </header>
 
         <div
@@ -961,6 +994,7 @@ export function DancerPathEditor({
             {zoomHint}
           </span>
         </div>
+        {routeSelect}
       </div>
 
       <div

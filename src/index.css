@@ -4297,6 +4297,48 @@ body:has([data-editor-sheet-root] [aria-labelledby="flow-lib-title"]) [data-shel
   margin-top: 4px;
 }
 
+.dancer-path-editor-route-select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  text-align: left;
+}
+
+.dancer-path-editor-header--portrait .dancer-path-editor-route-select {
+  justify-content: flex-start;
+  margin-top: 8px;
+}
+
+.dancer-path-editor-route-select__label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+  white-space: nowrap;
+}
+
+.dancer-path-editor-route-select__control {
+  flex: 1 1 220px;
+  min-width: 180px;
+  max-width: 420px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(52, 211, 153, 0.55);
+  background: #020617;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dancer-path-editor-route-select__control:focus {
+  outline: 2px solid rgba(52, 211, 153, 0.45);
+  outline-offset: 1px;
+}
+
 .dancer-path-editor-stage {
   touch-action: none;
   overflow: hidden;
