@@ -1,7 +1,11 @@
 import type { CSSProperties, Dispatch, SetStateAction } from "react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ChoreographyProjectJson, Cue } from "../types/choreography";
+import type {
+  ChoreographyProjectJson,
+  Cue,
+  Formation,
+} from "../types/choreography";
 import { sortCuesByStart } from "../core/timelineController";
 import { readLayoutViewportSize } from "../lib/viewportLayoutMetrics";
 import { requestStageDockSection } from "../lib/stageEditDockHost";
@@ -15,7 +19,11 @@ import {
   replaceLightsFromPresetDetailed,
   type LightingPresetItem,
 } from "../lib/lightingPresets";
-import { resolvePreviousCueDancers } from "../lib/stagePrevCueCompare";
+import {
+  defaultTravelMatchCueId,
+  listTravelMatchCueOptions,
+  resolveCueDancersById,
+} from "../lib/stagePrevCueCompare";
 import { permuteSlotsMinimizeTravelFromPrev } from "../lib/stageSelectionArrange";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
@@ -46,6 +54,7 @@ export type TimelineWaveMenusProps = {
   viewMode: ChoreographyProjectJson["viewMode"];
   currentTime: number;
   cuesSorted: Cue[];
+  formations: Formation[];
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
   waveCueMenu: WaveCueMenuState;
   setWaveCueMenu: Dispatch<SetStateAction<WaveCueMenuState>>;
@@ -83,6 +92,7 @@ export function TimelineWaveMenus({
   viewMode,
   currentTime,
   cuesSorted,
+  formations,
   setProject,
   waveCueMenu,
   setWaveCueMenu,
@@ -105,6 +115,7 @@ export function TimelineWaveMenus({
   const [presetPickList, setPresetPickList] = useState<LightingPresetItem[]>(
     []
   );
+  const [travelMatchCueId, setTravelMatchCueId] = useState<string | null>(null);
   const waveCueMenuTargetCue = waveCueMenu
     ? cuesSorted.find((c) => c.id === waveCueMenu.cueId)
     : undefined;
@@ -112,6 +123,24 @@ export function TimelineWaveMenus({
     !!waveCueMenuTargetCue &&
     currentTime > waveCueMenuTargetCue.tStartSec + 0.02 &&
     currentTime < waveCueMenuTargetCue.tEndSec - 0.02;
+  const waveTravelMatchOptions = useMemo(
+    () =>
+      waveCueMenu
+        ? listTravelMatchCueOptions(
+            cuesSorted,
+            formations,
+            waveCueMenu.cueId
+          )
+        : [],
+    [waveCueMenu, cuesSorted, formations]
+  );
+  useEffect(() => {
+    if (!waveCueMenu) {
+      setTravelMatchCueId(null);
+      return;
+    }
+    setTravelMatchCueId(defaultTravelMatchCueId(waveTravelMatchOptions));
+  }, [waveCueMenu, waveTravelMatchOptions]);
 
   const menuBtnBase = (
     fullscreen: boolean,
@@ -130,19 +159,23 @@ export function TimelineWaveMenus({
 
   const closeCueMenu = () => setWaveCueMenu(null);
 
-  const moveToShortestFromPrev = (cueId: string) => {
+  const moveToShortestFromMatchCue = (cueId: string, matchCueId: string) => {
     setProject((p) => {
       const cue = p.cues.find((c) => c.id === cueId);
       if (!cue) return p;
-      const prevDancers = resolvePreviousCueDancers(p.cues, p.formations, cueId);
-      if (!prevDancers?.length) return p;
+      const matchDancers = resolveCueDancersById(
+        p.cues,
+        p.formations,
+        matchCueId
+      );
+      if (!matchDancers?.length) return p;
       const form = p.formations.find((f) => f.id === cue.formationId);
       if (!form?.dancers?.length) return p;
       const ids = form.dancers.map((d) => d.id);
       const nextDancers = permuteSlotsMinimizeTravelFromPrev(
         form.dancers,
         ids,
-        prevDancers
+        matchDancers
       );
       return {
         ...p,
@@ -356,18 +389,63 @@ export function TimelineWaveMenus({
           >
             雛形
           </button>
+          {waveTravelMatchOptions.length > 0 ? (
+            <label
+              style={{
+                display: "block",
+                fontSize: waveCueMenu.fullscreen ? 13 : 11,
+                color: "#94a3b8",
+                marginBottom: 6,
+              }}
+            >
+              最短距離の参照キュー
+              <select
+                value={travelMatchCueId ?? ""}
+                disabled={viewMode === "view"}
+                onChange={(e) => setTravelMatchCueId(e.target.value || null)}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  marginTop: 4,
+                  padding: waveCueMenu.fullscreen ? "10px 12px" : "6px 8px",
+                  borderRadius: 6,
+                  border: "1px solid #334155",
+                  background: "#020617",
+                  color: "#e2e8f0",
+                  fontSize: waveCueMenu.fullscreen ? 14 : 12,
+                }}
+              >
+                {waveTravelMatchOptions.map((o) => (
+                  <option key={o.cueId} value={o.cueId}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <button
             type="button"
             role="menuitem"
-            disabled={viewMode === "view"}
-            style={menuBtnBase(!!waveCueMenu.fullscreen)}
+            disabled={
+              viewMode === "view" ||
+              !travelMatchCueId ||
+              waveTravelMatchOptions.length === 0
+            }
+            style={menuBtnBase(!!waveCueMenu.fullscreen, {
+              opacity:
+                viewMode === "view" ||
+                !travelMatchCueId ||
+                waveTravelMatchOptions.length === 0
+                  ? 0.55
+                  : 1,
+            })}
             onClick={() => {
-              if (viewMode === "view") return;
-              moveToShortestFromPrev(waveCueMenu.cueId);
+              if (viewMode === "view" || !travelMatchCueId) return;
+              moveToShortestFromMatchCue(waveCueMenu.cueId, travelMatchCueId);
               closeCueMenu();
             }}
           >
-            前の立ち位置から最短距離の位置に移動
+            参照キューから最短距離の位置に移動
           </button>
           <button
             type="button"

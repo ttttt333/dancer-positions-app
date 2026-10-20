@@ -166,6 +166,7 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
         viewMode={p.viewMode}
         currentTime={p.currentTime}
         cuesSorted={p.cuesSorted}
+        formations={p.formations}
         setProject={p.setProject}
         waveCueMenu={p.waveCueMenu}
         setWaveCueMenu={p.setWaveCueMenu}

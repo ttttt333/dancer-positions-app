@@ -67,6 +67,126 @@ export function resolveNextCueOrdinal(
   return n + 1;
 }
 
+/** 指定 Cue の dancers。無い／空なら null。配列は参照のみ。 */
+export function resolveCueDancersById(
+  cues: Cue[],
+  formations: Formation[],
+  cueId: string | null | undefined
+): DancerSpot[] | null {
+  if (!cueId) return null;
+  const cue = cues.find((c) => c.id === cueId);
+  if (!cue) return null;
+  const f = formations.find((x) => x.id === cue.formationId);
+  const dancers = f?.dancers;
+  return dancers && dancers.length > 0 ? dancers : null;
+}
+
+/**
+ * 最短距離並び替え／雛形割当の参照キュー候補。
+ * 現在キュー以外で立ち位置があるキューを、前→次→その他の順で返す。
+ */
+export type TravelMatchCueOption = {
+  cueId: string;
+  ordinal: number;
+  kind: "previous" | "next" | "other";
+  label: string;
+  dancers: readonly DancerSpot[];
+};
+
+export function listTravelMatchCueOptions(
+  cues: Cue[],
+  formations: Formation[],
+  currentCueId: string | null | undefined
+): TravelMatchCueOption[] {
+  const sorted = sortCuesByStart(cues);
+  const curIdx = currentCueId
+    ? sorted.findIndex((c) => c.id === currentCueId)
+    : -1;
+  const out: TravelMatchCueOption[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const cue = sorted[i]!;
+    if (curIdx >= 0 && i === curIdx) continue;
+    const dancers = resolveCueDancersById(cues, formations, cue.id);
+    if (!dancers?.length) continue;
+    const ordinal = i + 1;
+    const kind: TravelMatchCueOption["kind"] =
+      curIdx >= 0 && i === curIdx - 1
+        ? "previous"
+        : curIdx >= 0 && i === curIdx + 1
+          ? "next"
+          : "other";
+    const label =
+      kind === "previous"
+        ? `前のキュー（${ordinal}）`
+        : kind === "next"
+          ? `次のキュー（${ordinal}）`
+          : `キュー ${ordinal}`;
+    out.push({ cueId: cue.id, ordinal, kind, label, dancers });
+  }
+  /** 前・次を先頭に、残りは時刻順のまま */
+  return out.sort((a, b) => {
+    const rank = (k: TravelMatchCueOption["kind"]) =>
+      k === "previous" ? 0 : k === "next" ? 1 : 2;
+    const dr = rank(a.kind) - rank(b.kind);
+    if (dr !== 0) return dr;
+    return a.ordinal - b.ordinal;
+  });
+}
+
+/** 候補から既定の参照キュー（前 → 次 → 先頭）を選ぶ */
+export function defaultTravelMatchCueId(
+  options: readonly TravelMatchCueOption[]
+): string | null {
+  if (options.length === 0) return null;
+  return (
+    options.find((o) => o.kind === "previous")?.cueId ??
+    options.find((o) => o.kind === "next")?.cueId ??
+    options[0]!.cueId
+  );
+}
+
+/**
+ * 再生位置に新規キューを挿すとき用。
+ * 直前キューを「前」、直後キューを「次」として候補を返す。
+ */
+export function listTravelMatchCueOptionsForInsert(
+  cues: Cue[],
+  formations: Formation[],
+  playheadSec: number
+): TravelMatchCueOption[] {
+  const sorted = sortCuesByStart(cues);
+  let prevIdx = -1;
+  let nextIdx = -1;
+  for (let i = 0; i < sorted.length; i++) {
+    const c = sorted[i]!;
+    if (c.tEndSec <= playheadSec + 1e-6) prevIdx = i;
+    if (nextIdx < 0 && c.tStartSec >= playheadSec - 1e-6) nextIdx = i;
+  }
+  const out: TravelMatchCueOption[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const cue = sorted[i]!;
+    const dancers = resolveCueDancersById(cues, formations, cue.id);
+    if (!dancers?.length) continue;
+    const ordinal = i + 1;
+    const kind: TravelMatchCueOption["kind"] =
+      i === prevIdx ? "previous" : i === nextIdx ? "next" : "other";
+    const label =
+      kind === "previous"
+        ? `前のキュー（${ordinal}）`
+        : kind === "next"
+          ? `次のキュー（${ordinal}）`
+          : `キュー ${ordinal}`;
+    out.push({ cueId: cue.id, ordinal, kind, label, dancers });
+  }
+  return out.sort((a, b) => {
+    const rank = (k: TravelMatchCueOption["kind"]) =>
+      k === "previous" ? 0 : k === "next" ? 1 : 2;
+    const dr = rank(a.kind) - rank(b.kind);
+    if (dr !== 0) return dr;
+    return a.ordinal - b.ordinal;
+  });
+}
+
 /**
  * 前 Cue と現 Cue を dancer id で対応付ける。
  * dancers[] の順番は見ない。入力配列は変更しない。

@@ -28,6 +28,11 @@ import {
   applyLayoutPresetToTargetDancers,
   resolveChangeTargetIds,
 } from "../lib/applyLayoutPresetToSelection";
+import {
+  defaultTravelMatchCueId,
+  listTravelMatchCueOptions,
+  listTravelMatchCueOptionsForInsert,
+} from "../lib/stagePrevCueCompare";
 import { useStageBoardInteractionStore } from "../store/stage/stageBoardInteractionStore";
 import {
   countPresetsAboveTierFrom,
@@ -189,38 +194,51 @@ export function FormationPresetPickerSheet({
   );
 
   /**
-   * Change 適用時の「前の立ち位置」参照。
-   * 直前キューのフォーメーションがあればそちらを優先（複製キューへ雛形を載せる用途）。
-   * なければ編集中フォーメーション自体を使う。
+   * Change 適用時の最短距離参照キュー候補。
+   * 再生位置に新規キューを作るときは、その直前までを「現在」とみなす。
    */
-  const nearestMatchSource = useMemo((): DancerSpot[] => {
+  const travelMatchOptions = useMemo(() => {
     if (createCueAtPlayhead) {
-      const before = sortCuesByStart(project.cues).filter(
-        (c) => c.tEndSec <= playheadSec + 1e-6
+      return listTravelMatchCueOptionsForInsert(
+        project.cues,
+        project.formations,
+        playheadSec
       );
-      const prev = before[before.length - 1];
-      const prevF = prev
-        ? project.formations.find((f) => f.id === prev.formationId)
-        : null;
-      if (prevF && prevF.dancers.length > 0) return prevF.dancers;
-    } else if (selectedCueId) {
-      const sorted = sortCuesByStart(project.cues);
-      const idx = sorted.findIndex((c) => c.id === selectedCueId);
-      if (idx > 0) {
-        const prev = sorted[idx - 1]!;
-        const prevF = project.formations.find((f) => f.id === prev.formationId);
-        if (prevF && prevF.dancers.length > 0) return prevF.dancers;
-      }
     }
-    return targetFormation?.dancers ?? [];
+    return listTravelMatchCueOptions(
+      project.cues,
+      project.formations,
+      selectedCueId
+    );
   }, [
     project.cues,
     project.formations,
     selectedCueId,
-    targetFormation,
     createCueAtPlayhead,
     playheadSec,
   ]);
+
+  const [matchCueId, setMatchCueId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    if (
+      matchCueId &&
+      travelMatchOptions.some((o) => o.cueId === matchCueId)
+    ) {
+      return;
+    }
+    setMatchCueId(defaultTravelMatchCueId(travelMatchOptions));
+  }, [open, travelMatchOptions, matchCueId]);
+
+  /**
+   * 最短距離割当／一列目アンカーの参照立ち位置。
+   * 参照キューが無ければ編集中フォーメーション自体を使う。
+   */
+  const nearestMatchSource = useMemo((): DancerSpot[] => {
+    const picked = travelMatchOptions.find((o) => o.cueId === matchCueId);
+    if (picked && picked.dancers.length > 0) return [...picked.dancers];
+    return targetFormation?.dancers ?? [];
+  }, [travelMatchOptions, matchCueId, targetFormation]);
 
   const selectedDancerIds = useStageBoardInteractionStore(
     (s) => s.selectedDancerIds
@@ -587,6 +605,88 @@ export function FormationPresetPickerSheet({
     if (!selectedPresetId) return;
     apply({ presetId: selectedPresetId });
   };
+
+  const matchCueBar =
+    travelMatchOptions.length > 0 ? (
+      <div
+        style={{
+          flexShrink: 0,
+          padding: "8px 12px",
+          borderBottom: "1px solid rgba(51,65,85,0.85)",
+          background: "#0a0f18",
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#94a3b8",
+            whiteSpace: "nowrap",
+          }}
+        >
+          最短距離の参照
+        </span>
+        <div
+          role="radiogroup"
+          aria-label="最短距離の参照キュー（前後）"
+          style={{ display: "flex", gap: 4, flexWrap: "wrap" }}
+        >
+          {(["previous", "next"] as const).map((kind) => {
+            const opt = travelMatchOptions.find((o) => o.kind === kind);
+            if (!opt) return null;
+            const on = matchCueId === opt.cueId;
+            return (
+              <button
+                key={kind}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setMatchCueId(opt.cueId)}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  border: on
+                    ? "1px solid rgba(52,211,153,0.85)"
+                    : "1px solid #334155",
+                  background: on ? "rgba(16,185,129,0.16)" : "#020617",
+                  color: on ? "#d1fae5" : "#94a3b8",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {kind === "previous" ? "前のキュー" : "次のキュー"}
+              </button>
+            );
+          })}
+        </div>
+        <select
+          aria-label="最短距離の参照キューを指定"
+          value={matchCueId ?? ""}
+          onChange={(e) => setMatchCueId(e.target.value || null)}
+          style={{
+            flex: "1 1 140px",
+            minWidth: 120,
+            padding: "5px 8px",
+            borderRadius: 6,
+            border: "1px solid #334155",
+            background: "#020617",
+            color: "#e2e8f0",
+            fontSize: 11,
+          }}
+        >
+          {travelMatchOptions.map((o) => (
+            <option key={o.cueId} value={o.cueId}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    ) : null;
 
   /**
    * 順番: 雛形 → BASIC → ☆ → 保存 → 適用 → 閉じる
@@ -1055,6 +1155,7 @@ export function FormationPresetPickerSheet({
       >
         {sheetHeader}
         {actionBar}
+        {matchCueBar}
         {mobileToolbar}
         {pickerBody}
       </div>,
@@ -1073,6 +1174,7 @@ export function FormationPresetPickerSheet({
       >
         {sheetHeader}
         {actionBar}
+        {matchCueBar}
         {mobileToolbar}
         {pickerBody}
       </div>,
@@ -1144,6 +1246,7 @@ export function FormationPresetPickerSheet({
           </div>
         </div>
         {actionBar}
+        {matchCueBar}
         {pickerBody}
       </div>
     </EditorSideSheet>

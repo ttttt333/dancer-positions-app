@@ -141,8 +141,10 @@ export type StageDancerContextToolbarProps = {
   prevCueFromOrdinal?: number | null;
   prevCueToOrdinal?: number | null;
   onTogglePrevCueMotionView?: () => void;
-  /** 直前 Cue の立ち位置（並べ替えパネルの最短距離用） */
+  /** 直前 Cue の立ち位置（並べ替えパネルの最短距離用・後方互換） */
   prevCueDancers?: readonly DancerSpot[] | null;
+  /** 最短距離並び替えの参照キュー候補（前／次／指定） */
+  travelMatchOptions?: readonly import("../lib/stagePrevCueCompare").TravelMatchCueOption[];
   /** side: 右メニュー。floor: ステージ下（portal がないとき） */
   placement?: "floor" | "side";
   /**
@@ -285,6 +287,7 @@ export function StageDancerContextToolbar({
   prevCueToOrdinal = null,
   onTogglePrevCueMotionView,
   prevCueDancers = null,
+  travelMatchOptions,
   placement = "floor",
   dockSectionRequest = null,
   onDuplicateSelection,
@@ -889,6 +892,7 @@ export function StageDancerContextToolbar({
           >
             <StageSelectionArrangePanel
               selectedCount={selectedCount}
+              travelMatchOptions={travelMatchOptions}
               prevCueDancers={prevCueDancers}
               onPermute={onPermuteSelection}
               onArrange={onArrangeSelection}

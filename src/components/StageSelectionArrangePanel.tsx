@@ -1,4 +1,10 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import type { DancerSpot } from "../types/choreography";
 import {
   applyPositionSort,
@@ -11,6 +17,10 @@ import {
   type PositionSortDirection,
   type PositionSortScope,
 } from "../lib/stageSelectionArrange";
+import {
+  defaultTravelMatchCueId,
+  type TravelMatchCueOption,
+} from "../lib/stagePrevCueCompare";
 import type { SelectionFlipAxis } from "../lib/stageSelectionTransform";
 import type { PositionRotationDir } from "../lib/stagePositionRotation";
 import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
@@ -74,7 +84,12 @@ const actionBtn: CSSProperties = dockActionBtn;
 export type StageSelectionArrangePanelProps = {
   selectedCount: number;
   disabled?: boolean;
-  /** 直前 Cue の立ち位置（最短距離並び替え用）。無いとボタン無効 */
+  /**
+   * 最短距離並び替えの参照キュー候補（前／次／その他）。
+   * 空ならボタン無効。旧 prevCueDancers だけの呼び出しも可。
+   */
+  travelMatchOptions?: readonly TravelMatchCueOption[];
+  /** @deprecated travelMatchOptions を渡す。無いときだけ使う */
   prevCueDancers?: readonly DancerSpot[] | null;
   onPermute: (
     fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
@@ -91,6 +106,7 @@ export type StageSelectionArrangePanelProps = {
 export function StageSelectionArrangePanel({
   selectedCount,
   disabled,
+  travelMatchOptions,
   prevCueDancers = null,
   onPermute,
   onArrange,
@@ -101,6 +117,7 @@ export function StageSelectionArrangePanel({
   const [axis, setAxis] = useState<PositionSortAxis>("height");
   const [scope, setScope] = useState<PositionSortScope>("all");
   const [directionPick, setDirection] = useState<PositionSortDirection>("asc");
+  const [matchCueId, setMatchCueId] = useState<string | null>(null);
   const direction = normalizePositionSortDirection(axis, scope, directionPick);
   const preview = useMemo(
     () => formatPositionSortPreview({ axis, scope, direction }),
@@ -110,8 +127,45 @@ export function StageSelectionArrangePanel({
   const canSort = selectedCount >= 2 && !disabled;
   const canGather = selectedCount >= 1 && !disabled;
   const canSwapPair = selectedCount === 2 && !disabled;
-  const canMinimizePrev =
-    canSort && Boolean(prevCueDancers && prevCueDancers.length > 0);
+
+  const matchOptions = useMemo((): TravelMatchCueOption[] => {
+    if (travelMatchOptions && travelMatchOptions.length > 0) {
+      return [...travelMatchOptions];
+    }
+    if (prevCueDancers && prevCueDancers.length > 0) {
+      return [
+        {
+          cueId: "__prev__",
+          ordinal: 0,
+          kind: "previous",
+          label: "前のキュー",
+          dancers: prevCueDancers,
+        },
+      ];
+    }
+    return [];
+  }, [travelMatchOptions, prevCueDancers]);
+
+  useEffect(() => {
+    if (matchOptions.length === 0) {
+      setMatchCueId(null);
+      return;
+    }
+    if (matchCueId && matchOptions.some((o) => o.cueId === matchCueId)) {
+      return;
+    }
+    setMatchCueId(defaultTravelMatchCueId(matchOptions));
+  }, [matchOptions, matchCueId]);
+
+  const selectedMatch = useMemo(
+    () => matchOptions.find((o) => o.cueId === matchCueId) ?? null,
+    [matchOptions, matchCueId]
+  );
+  const matchDancers = selectedMatch?.dancers ?? null;
+  const canMinimizeTravel =
+    canSort && Boolean(matchDancers && matchDancers.length > 0);
+  const prevOpt = matchOptions.find((o) => o.kind === "previous");
+  const nextOpt = matchOptions.find((o) => o.kind === "next");
 
   return (
     <div data-selection-arrange-panel>
@@ -133,33 +187,112 @@ export function StageSelectionArrangePanel({
       </div>
 
       <div style={{ ...dockCard, marginBottom: 6 }}>
-        <div style={dockSectionTitle}>前の立ち位置から最短距離</div>
+        <div style={dockSectionTitle}>参照キューから最短距離</div>
         <p style={dockSectionHint}>
-          位置はそのまま、直前キューからの移動が最短になるよう入れ替え
+          位置はそのまま。選んだキューからの移動が最短になるよう入れ替え
         </p>
+        {matchOptions.length > 0 ? (
+          <>
+            <div style={{ marginBottom: 6 }}>
+              <Segment
+                ariaLabel="最短距離の参照キュー（前後）"
+                value={
+                  selectedMatch?.kind === "previous"
+                    ? "previous"
+                    : selectedMatch?.kind === "next"
+                      ? "next"
+                      : "pick"
+                }
+                onChange={(next) => {
+                  if (next === "previous" && prevOpt) {
+                    setMatchCueId(prevOpt.cueId);
+                    return;
+                  }
+                  if (next === "next" && nextOpt) {
+                    setMatchCueId(nextOpt.cueId);
+                    return;
+                  }
+                  if (next === "pick") {
+                    const other =
+                      matchOptions.find((o) => o.kind === "other") ??
+                      matchOptions[0];
+                    if (other) setMatchCueId(other.cueId);
+                  }
+                }}
+                options={[
+                  ...(prevOpt
+                    ? [{ id: "previous" as const, label: "前のキュー" }]
+                    : []),
+                  ...(nextOpt
+                    ? [{ id: "next" as const, label: "次のキュー" }]
+                    : []),
+                  ...(matchOptions.some((o) => o.kind === "other") ||
+                  (!prevOpt && !nextOpt)
+                    ? [{ id: "pick" as const, label: "指定" }]
+                    : []),
+                ]}
+              />
+            </div>
+            <label
+              style={{
+                display: "block",
+                marginBottom: 6,
+                fontSize: 10,
+                color: "#94a3b8",
+              }}
+            >
+              参照キュー
+              <select
+                value={matchCueId ?? ""}
+                onChange={(e) => setMatchCueId(e.target.value || null)}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  marginTop: 4,
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  border: "1px solid #334155",
+                  background: "#020617",
+                  color: "#e2e8f0",
+                  fontSize: 11,
+                }}
+              >
+                {matchOptions.map((o) => (
+                  <option key={o.cueId} value={o.cueId}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : (
+          <p style={{ ...dockSectionHint, marginBottom: 6 }}>
+            参照できる他のキューがありません
+          </p>
+        )}
         <button
           type="button"
-          disabled={!canMinimizePrev}
+          disabled={!canMinimizeTravel}
           title={
-            canMinimizePrev
-              ? "前の立ち位置からの移動距離が最短になるよう並び替え"
-              : !prevCueDancers || prevCueDancers.length === 0
-                ? "直前のキューがありません"
+            canMinimizeTravel && selectedMatch
+              ? `${selectedMatch.label} からの移動距離が最短になるよう並び替え`
+              : matchOptions.length === 0
+                ? "参照できるキューがありません"
                 : "2人以上を選択してください"
           }
           style={{
             ...actionBtn,
-            opacity: canMinimizePrev ? 1 : 0.55,
-            borderColor: canMinimizePrev
+            opacity: canMinimizeTravel ? 1 : 0.55,
+            borderColor: canMinimizeTravel
               ? "rgba(52,211,153,0.85)"
               : undefined,
-            background: canMinimizePrev ? "rgba(16,185,129,0.16)" : undefined,
-            color: canMinimizePrev ? "#d1fae5" : undefined,
+            background: canMinimizeTravel ? "rgba(16,185,129,0.16)" : undefined,
+            color: canMinimizeTravel ? "#d1fae5" : undefined,
             fontWeight: 700,
           }}
           onClick={() =>
             onPermute((dancers, ids) =>
-              permuteSlotsMinimizeTravelFromPrev(dancers, ids, prevCueDancers)
+              permuteSlotsMinimizeTravelFromPrev(dancers, ids, matchDancers)
             )
           }
         >
