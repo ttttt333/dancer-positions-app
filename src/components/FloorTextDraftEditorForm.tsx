@@ -173,7 +173,7 @@ export function FloorTextDraftEditorForm({
             <span style={{ fontSize: 9.5, lineHeight: 1.3, color: "#64748b" }}>
               {draft.scope === "global"
                 ? "全編共通はキュー間の移動中も常に表示されます"
-                : "キューとキューのあいだ（移動部分）でもこの文字を残します"}
+                : "移動部分でもこの文字を出します（直前キューの文字は移動中も自動で残ります）"}
             </span>
           </span>
         </label>

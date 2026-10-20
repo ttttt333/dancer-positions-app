@@ -371,7 +371,7 @@ export function FloorTextSideSheetContent({
                     移動中も表示
                   </span>
                   <span style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.35 }}>
-                    キューとキューのあいだ（移動部分）でもこの文字を残します
+                    移動部分でもこの文字を出します（直前キューの文字は移動中も自動で残ります）
                   </span>
                 </span>
               </label>
