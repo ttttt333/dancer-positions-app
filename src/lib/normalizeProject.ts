@@ -197,6 +197,7 @@ function normalizeFloorMarkupArray(raw: unknown): StageFloorMarkup[] {
       if (r.textAlign === "center" || r.textAlign === "right") {
         item.textAlign = r.textAlign;
       }
+      if (r.showDuringGaps === true) item.showDuringGaps = true;
       out.push(item);
       continue;
     }

@@ -132,6 +132,7 @@ export const EMPTY_FLOOR_TEXT_DRAFT = {
   bgColor: "",
   textAlign: "left" as "left" | "center" | "right",
   scope: "formation" as "formation" | "global",
+  showDuringGaps: false,
 };
 
 export function floorTextMarkupScale(m: StageFloorTextMarkup): number {

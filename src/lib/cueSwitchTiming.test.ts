@@ -74,6 +74,36 @@ describe("キュー間の移動で文字は消え、色は次のキューに変�
     expect(snapshot(cues, 12)).toEqual({ text: "次", color: 4, fill: "#0000ff", light: "L2" });
   });
 
+  it("showDuringGaps のテキストは移動中も残る", () => {
+    const withGapFlag: Formation[] = [
+      {
+        ...formations[0]!,
+        floorMarkup: [
+          { id: "t1", kind: "text", xPct: 50, yPct: 50, text: "前" },
+          {
+            id: "t1g",
+            kind: "text",
+            xPct: 40,
+            yPct: 40,
+            text: "移動注記",
+            showDuringGaps: true,
+          },
+        ],
+      },
+      formations[1]!,
+    ];
+    const cues: Cue[] = [
+      { id: "c1", tStartSec: 0, tEndSec: 10, formationId: "f1" },
+      { id: "c2", tStartSec: 12, tEndSec: 20, formationId: "f2" },
+    ];
+    clearDancersAtTimeCache();
+    const mid = floorMarkupAtTime(11, cues, withGapFlag, "f1")
+      .map((m) => (m.kind === "text" ? m.text : ""))
+      .filter(Boolean)
+      .sort();
+    expect(mid).toEqual(["移動注記"]);
+  });
+
   it("キューがくっついているとき: 境目で全部同時に切り替わる", () => {
     const cues: Cue[] = [
       { id: "c1", tStartSec: 0, tEndSec: 10, formationId: "f1" },

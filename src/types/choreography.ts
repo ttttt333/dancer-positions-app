@@ -142,6 +142,11 @@ export type StageFloorTextMarkup = {
   rotation?: number;
   /** 複数行の寄せ方。未指定は左寄せ */
   textAlign?: FloorTextAlign;
+  /**
+   * true のとき、キュー間の移動（明示ギャップ）中も表示する。
+   * 未指定／false は従来どおりギャップ中は非表示（全編共通テキストは常時表示のまま）。
+   */
+  showDuringGaps?: boolean;
 };
 
 export type FloorTextAlign = "left" | "center" | "right";
@@ -276,6 +281,8 @@ export type FloorTextPlaceSession = {
   editTargetId?: string;
   /** 複数行の寄せ方（未指定は左寄せ） */
   textAlign?: FloorTextAlign;
+  /** true のとき移動ギャップ中も表示（このキューのみスコープ向け） */
+  showDuringGaps?: boolean;
 };
 
 export type Formation = {

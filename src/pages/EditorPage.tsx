@@ -1785,6 +1785,11 @@ function EditorPageContent({
       xPct: round2Pct(floorTextPlaceSession.xPct),
       yPct: round2Pct(floorTextPlaceSession.yPct),
       textAlign: floorTextPlaceSession.textAlign ?? "left",
+      showDuringGaps:
+        floorTextPlaceSession.scope === "formation" &&
+        floorTextPlaceSession.showDuringGaps === true
+          ? true
+          : undefined,
     };
 
     if (editTargetId) {
