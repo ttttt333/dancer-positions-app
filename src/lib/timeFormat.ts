@@ -65,7 +65,10 @@ export function waveRulerTicks(
     return [];
   }
   const rawStep = span / Math.max(2, maxLabels);
-  const steps = [0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1200];
+  /** 拡大時は 0.05 秒刻みまで出せる */
+  const steps = [
+    0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1200,
+  ];
   const step = steps.find((s) => s >= rawStep) ?? steps[steps.length - 1];
   const ticks: number[] = [];
   let x = Math.ceil(viewStart / step) * step;

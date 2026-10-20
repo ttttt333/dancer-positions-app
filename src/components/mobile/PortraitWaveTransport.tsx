@@ -50,7 +50,8 @@ import {
 } from "../../lib/waveEdgeScrollDuringScrub";
 
 const MIN_ZOOM = 1;
-const MAX_ZOOM = 96;
+/** 0.05 秒単位の波形端調整用（長い曲でも十分に拡大できる） */
+const MAX_ZOOM = 1200;
 /** +/- ボタン: 1回あたり 10% ずつ拡大・縮小 */
 const ZOOM_BUTTON_STEP = 1.1;
 /** 選択キューがないときの「調整用」フォールバック（画面に約 10 秒分） */

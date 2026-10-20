@@ -24,8 +24,8 @@ export type CueEditZoomResult = {
 const MIN_CUE_EDIT_WIDTH_PX = 168;
 /** キューがビュー幅に占める目標割合（短すぎるキューは MIN 幅優先） */
 const TARGET_CUE_FILL = 0.42;
-/** 表示スパンの下限（極端に短いキューでも余白を確保） */
-const MIN_VIEW_SPAN_SEC = 0.85;
+/** 表示スパンの下限（0.05 秒キューでも端を掴めるよう短め） */
+const MIN_VIEW_SPAN_SEC = 0.12;
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
@@ -37,7 +37,8 @@ function clamp(n: number, lo: number, hi: number): number {
 export function computeZoomToSelectedCue(input: CueEditZoomInput): CueEditZoomResult {
   const duration = Math.max(0, input.durationSec);
   const minZoom = input.minZoom ?? 1;
-  const maxZoom = input.maxZoom ?? 48;
+  /** 0.05 秒キューの端調整に足りる拡大を許す */
+  const maxZoom = input.maxZoom ?? 2000;
   if (!(duration > 0)) {
     return { zoom: minZoom, viewStartSec: 0, anchorSec: 0 };
   }

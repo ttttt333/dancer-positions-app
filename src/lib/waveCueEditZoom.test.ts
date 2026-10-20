@@ -39,4 +39,16 @@ describe("computeZoomToSelectedCue", () => {
     expect(r.zoom).toBe(1);
     expect(r.viewStartSec).toBe(0);
   });
+
+  it("zooms enough that a 0.05s cue can be edge-edited", () => {
+    const r = computeZoomToSelectedCue({
+      durationSec: 180,
+      cueStartSec: 40,
+      cueEndSec: 40.05,
+      canvasCssWidthPx: 360,
+    });
+    const viewSpan = 180 / r.zoom;
+    expect(viewSpan).toBeLessThanOrEqual(0.2);
+    expect(r.zoom).toBeGreaterThan(500);
+  });
 });
