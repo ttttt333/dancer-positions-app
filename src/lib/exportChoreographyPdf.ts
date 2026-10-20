@@ -36,11 +36,38 @@ function safeFileBase(name: string): string {
   );
 }
 
-/** ZIP 内ファイル名用（ページ番号 + 短いタイトル） */
-export function cueImageFileName(pageIndex: number, pageTitle: string): string {
+/** キュー画像ダウンロードで選べる拡張子 */
+export type CueImageExportFormat = "png" | "jpg" | "webp";
+
+export const CUE_IMAGE_EXPORT_FORMATS: readonly CueImageExportFormat[] = [
+  "png",
+  "jpg",
+  "webp",
+] as const;
+
+export function parseCueImageExportFormat(
+  raw: unknown
+): CueImageExportFormat {
+  if (raw === "jpg" || raw === "jpeg") return "jpg";
+  if (raw === "webp") return "webp";
+  return "png";
+}
+
+function cueImageMimeType(format: CueImageExportFormat): string {
+  if (format === "jpg") return "image/jpeg";
+  if (format === "webp") return "image/webp";
+  return "image/png";
+}
+
+/** ZIP 内／単体ファイル名用（ページ番号 + 短いタイトル + 拡張子） */
+export function cueImageFileName(
+  pageIndex: number,
+  pageTitle: string,
+  format: CueImageExportFormat = "png"
+): string {
   const n = String(pageIndex + 1).padStart(2, "0");
   const slug = safeFileBase(pageTitle).slice(0, 40);
-  return `${n}-${slug || "cue"}.png`;
+  return `${n}-${slug || "cue"}.${format}`;
 }
 
 function downloadBlob(blob: Blob, filename: string): void {
@@ -59,11 +86,23 @@ function bytesToBlob(bytes: Uint8Array, type: string): Blob {
   return new Blob([copy], { type });
 }
 
-async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+async function canvasToImageBytes(
+  canvas: HTMLCanvasElement,
+  format: CueImageExportFormat
+): Promise<Uint8Array> {
+  const mime = cueImageMimeType(format);
+  const quality = format === "png" ? undefined : 0.92;
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("PNG の生成に失敗しました"))),
-      "image/png"
+      (b) => {
+        if (b) {
+          resolve(b);
+          return;
+        }
+        reject(new Error(`${format.toUpperCase()} の生成に失敗しました`));
+      },
+      mime,
+      quality
     );
   });
   return new Uint8Array(await blob.arrayBuffer());
@@ -345,9 +384,10 @@ export function resolveExportPageIndexes(
 }
 
 /**
- * PDF と同じレイアウトのキュー図を PNG で書き出す。
- * 1 枚なら単体 PNG、複数なら ZIP。
+ * PDF と同じレイアウトのキュー図を画像で書き出す。
+ * 1 枚なら単体ファイル、複数なら ZIP。
  * `pageIndexes` で 0 始まりのページ（キュー順）を選べる。
+ * `format` で png / jpg / webp を指定（既定 png）。
  */
 export async function exportChoreographyImages(params: {
   project: ChoreographyProjectJson;
@@ -355,6 +395,8 @@ export async function exportChoreographyImages(params: {
   labels?: Partial<ExportChoreographyPdfLabels>;
   /** 0 始まり・キュー開始時刻順。省略時は全キュー */
   pageIndexes?: readonly number[];
+  /** 画像拡張子。省略時 png */
+  format?: CueImageExportFormat;
 }): Promise<void> {
   const prepared = prepareChoreographyExport(params);
   const { pages, appearance, pieceTitle, fileBase, playbackTime } = prepared;
@@ -362,6 +404,8 @@ export async function exportChoreographyImages(params: {
   if (selected.length === 0) {
     throw new Error(params.labels?.emptyError ?? "書き出すフォーメーションがありません");
   }
+  const format = parseCueImageExportFormat(params.format);
+  const mime = cueImageMimeType(format);
 
   const pageCanvas = document.createElement("canvas");
   pageCanvas.width = PAGE_W * RENDER_SCALE;
@@ -382,10 +426,10 @@ export async function exportChoreographyImages(params: {
       appearance,
       playbackTime
     );
-    const bytes = await canvasToPngBytes(pageCanvas);
+    const bytes = await canvasToImageBytes(pageCanvas, format);
     downloadBlob(
-      bytesToBlob(bytes, "image/png"),
-      cueImageFileName(pageIndex, page.title)
+      bytesToBlob(bytes, mime),
+      cueImageFileName(pageIndex, page.title, format)
     );
     return;
   }
@@ -403,8 +447,8 @@ export async function exportChoreographyImages(params: {
       appearance,
       playbackTime
     );
-    files[cueImageFileName(pageIndex, page.title)] =
-      await canvasToPngBytes(pageCanvas);
+    files[cueImageFileName(pageIndex, page.title, format)] =
+      await canvasToImageBytes(pageCanvas, format);
   }
 
   const zipped = zipSync(files, { level: 6 });

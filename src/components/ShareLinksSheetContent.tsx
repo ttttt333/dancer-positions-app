@@ -19,8 +19,11 @@ import {
 } from "../lib/shareProjectLinks";
 import {
   buildChoreographyPdfPages,
+  CUE_IMAGE_EXPORT_FORMATS,
   exportChoreographyImages,
   exportChoreographyPdf,
+  parseCueImageExportFormat,
+  type CueImageExportFormat,
 } from "../lib/exportChoreographyPdf";
 import { downloadStagePngFile, getStageExportElement } from "../lib/captureStagePng";
 import { shell } from "../theme/choreoShell";
@@ -308,6 +311,8 @@ export function ShareLinksSheetContent({
   const [selectedImagePages, setSelectedImagePages] = useState<number[]>([]);
   const [imageRangeFrom, setImageRangeFrom] = useState(1);
   const [imageRangeTo, setImageRangeTo] = useState(1);
+  const [imageExportFormat, setImageExportFormat] =
+    useState<CueImageExportFormat>("png");
 
   const useJoinLink = isSupabaseBackend() && serverId != null;
   const [editToken, setEditToken] = useState<string | null>(null);
@@ -465,6 +470,7 @@ export function ShareLinksSheetContent({
         projectName: title,
         labels: choreographyExportLabels(),
         pageIndexes: selectedImagePages,
+        format: imageExportFormat,
       });
       pulseFlash("images");
     } catch (e) {
@@ -1011,6 +1017,50 @@ export function ShareLinksSheetContent({
                         );
                       })}
                     </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 8,
+                        alignItems: "center",
+                        fontSize: 11,
+                        color: shell.textMuted,
+                      }}
+                    >
+                      <label
+                        htmlFor="cue-image-export-format"
+                        style={{ fontWeight: 600 }}
+                      >
+                        {t("shareSheet.imagesFormatLabel")}
+                      </label>
+                      <select
+                        id="cue-image-export-format"
+                        value={imageExportFormat}
+                        disabled={imagesBusy || pngBusy}
+                        aria-label={t("shareSheet.imagesFormatAria")}
+                        onChange={(e) =>
+                          setImageExportFormat(
+                            parseCueImageExportFormat(e.target.value)
+                          )
+                        }
+                        style={{
+                          ...cueRangeInputStyle,
+                          width: "auto",
+                          minWidth: 88,
+                          paddingRight: 28,
+                          cursor:
+                            imagesBusy || pngBusy ? "not-allowed" : "pointer",
+                          opacity: imagesBusy || pngBusy ? 0.55 : 1,
+                        }}
+                      >
+                        {CUE_IMAGE_EXPORT_FORMATS.map((fmt) => (
+                          <option key={fmt} value={fmt}>
+                            .{fmt}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </>
                 ) : null}
 
@@ -1063,6 +1113,7 @@ export function ShareLinksSheetContent({
                       ? t("shareSheet.imagesDone")
                       : t("shareSheet.imagesDownloadSelected", {
                           count: selectedImagePages.length,
+                          format: imageExportFormat,
                         })}
                 </button>
               </div>
