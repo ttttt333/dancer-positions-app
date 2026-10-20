@@ -105,7 +105,7 @@ function errMsg(
     e?.message?.includes(USER_LIBRARY_TABLE) ||
     e?.message?.includes("schema cache")
   ) {
-    return `Supabase に ${USER_LIBRARY_TABLE} テーブルがありません。migrations/022_user_library.up.sql を実行してください。`;
+    return `Supabase に ${USER_LIBRARY_TABLE} テーブルがありません。migrations/024_user_library.up.sql を実行してください。`;
   }
   if (e && typeof e.message === "string" && e.message) return e.message;
   return fallback;
