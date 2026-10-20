@@ -1570,6 +1570,10 @@ export function StageBoardBody({
         ...(floorTextDraft.textAlign && floorTextDraft.textAlign !== "left"
           ? { textAlign: floorTextDraft.textAlign }
           : {}),
+        ...(floorTextDraft.scope === "formation" &&
+        floorTextDraft.showDuringGaps === true
+          ? { showDuringGaps: true as const }
+          : {}),
       };
       if (floorTextDraft.scope === "global" && onUpdateGlobalFloorMarkup) {
         onUpdateGlobalFloorMarkup((prev) => [...prev, newText]);
@@ -3028,6 +3032,10 @@ export function StageBoardBody({
           ...(floorTextDraft.bgColor ? { bgColor: floorTextDraft.bgColor } : {}),
           ...(floorTextDraft.textAlign && floorTextDraft.textAlign !== "left"
             ? { textAlign: floorTextDraft.textAlign }
+            : {}),
+          ...(floorTextDraft.scope === "formation" &&
+          floorTextDraft.showDuringGaps === true
+            ? { showDuringGaps: true as const }
             : {}),
         };
         if (root) {

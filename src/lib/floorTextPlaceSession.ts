@@ -12,6 +12,7 @@ export function createDefaultFloorTextPlaceSession(
     yPct: 50,
     color: "#fef08a",
     scope: "formation",
+    showDuringGaps: false,
     ...overrides,
   };
 }

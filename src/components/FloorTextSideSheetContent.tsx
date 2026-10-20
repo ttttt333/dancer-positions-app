@@ -336,6 +336,47 @@ export function FloorTextSideSheetContent({
               })}
             </div>
 
+            {(floorTextPlaceSession?.scope ?? "formation") === "formation" ? (
+              <label
+                className={styles.scopeRow}
+                style={{
+                  alignItems: "flex-start",
+                  gap: 8,
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border:
+                    floorTextPlaceSession?.showDuringGaps === true
+                      ? "1px solid rgba(52,211,153,0.65)"
+                      : "1px solid #334155",
+                  background:
+                    floorTextPlaceSession?.showDuringGaps === true
+                      ? "rgba(16,185,129,0.12)"
+                      : undefined,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={floorTextPlaceSession?.showDuringGaps === true}
+                  onChange={(e) =>
+                    updateSession((s) => ({
+                      ...s,
+                      showDuringGaps: e.target.checked,
+                    }))
+                  }
+                  style={{ marginTop: 2 }}
+                />
+                <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0" }}>
+                    移動中も表示
+                  </span>
+                  <span style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.35 }}>
+                    キューとキューのあいだ（移動部分）でもこの文字を残します
+                  </span>
+                </span>
+              </label>
+            ) : null}
+
             <div
               className={styles.scopeRow}
               role="group"

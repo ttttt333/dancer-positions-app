@@ -40,6 +40,7 @@ export type FloorTextDraftPayload = {
   fontFamily: string;
   textAlign?: import("../types/choreography").FloorTextAlign;
   bgColor?: string;
+  showDuringGaps?: boolean;
 };
 
 /** 複数テキスト一括ドラッグのセッション情報 */
@@ -181,6 +182,7 @@ export function FloorTextMarkupBlock({
     fontFamily: fontCss,
     textAlign: m.textAlign ?? "left",
     bgColor: m.bgColor ?? "",
+    showDuringGaps: m.showDuringGaps === true,
   });
 
   /* ── リサイズハンドルのドラッグ開始 ── */

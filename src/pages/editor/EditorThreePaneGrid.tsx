@@ -1144,6 +1144,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         scale: markup?.scale ?? 1,
                         textAlign: markup?.textAlign ?? "left",
                         scope: isGlobal ? "global" : "formation",
+                        showDuringGaps: markup?.showDuringGaps === true,
                       });
                       setFloorTextSideSheetOpen(true);
                     } : undefined}

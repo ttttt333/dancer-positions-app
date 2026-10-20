@@ -17,6 +17,8 @@ export type FloorTextDraftShape = {
   textAlign?: "left" | "center" | "right";
   /** "formation" = このキュー固有 / "global" = 全編共通 */
   scope: "formation" | "global";
+  /** キュー間の移動中も表示する（このキュー固有向け） */
+  showDuringGaps?: boolean;
 };
 
 export type FloorTextDraftEditorFormProps = {
@@ -126,6 +128,56 @@ export function FloorTextDraftEditorForm({
           );
         })}
       </div>
+
+      {draft.scope === "formation" || floorTextEditId ? (
+        <label
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 8,
+            marginBottom: 8,
+            padding: "7px 8px",
+            borderRadius: 7,
+            border: draft.showDuringGaps
+              ? "1px solid rgba(52,211,153,0.65)"
+              : "1px solid #334155",
+            background: draft.showDuringGaps
+              ? "rgba(16,185,129,0.12)"
+              : "#0a0f1e",
+            color: draft.showDuringGaps ? "#d1fae5" : "#94a3b8",
+            cursor: draft.scope === "global" ? "default" : "pointer",
+            opacity: draft.scope === "global" ? 0.72 : 1,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={
+              draft.scope === "global" ? true : Boolean(draft.showDuringGaps)
+            }
+            disabled={draft.scope === "global"}
+            onChange={(e) => {
+              const on = e.target.checked;
+              setDraft((d) => ({ ...d, showDuringGaps: on }));
+              if (floorTextEditId) {
+                updateMarkup(
+                  on ? { showDuringGaps: true } : { showDuringGaps: undefined }
+                );
+              }
+            }}
+            style={{ marginTop: 2 }}
+          />
+          <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.25 }}>
+              移動中も表示
+            </span>
+            <span style={{ fontSize: 9.5, lineHeight: 1.3, color: "#64748b" }}>
+              {draft.scope === "global"
+                ? "全編共通はキュー間の移動中も常に表示されます"
+                : "キューとキューのあいだ（移動部分）でもこの文字を残します"}
+            </span>
+          </span>
+        </label>
+      ) : null}
 
       {/* ── テンプレ一発配置 ── */}
       {onAddTemplateText && (

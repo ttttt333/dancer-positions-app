@@ -139,7 +139,8 @@ export function setPiecesAtTime(
 
 /**
  * 再生時刻 t における床マーク（コメント・線）。区間内はそのフォーメーションのデータ。
- * 移動（ギャップ）中はテキストを出さず、線などは次キューのものを表示する。
+ * 移動（ギャップ）中は、原則テキストを出さず線などは次キューのものを表示する。
+ * ただし `showDuringGaps: true` のテキストは前後キューのものをギャップ中も残す。
  */
 export function floorMarkupAtTime(
   t: number,
@@ -169,8 +170,15 @@ export function floorMarkupAtTime(
       return [...(f?.floorMarkup ?? [])];
     }
     if (next && t > cur.tEndSec && t < next.tStartSec) {
+      const f0 = formationById(formations, cur.formationId);
       const f1 = formationById(formations, next.formationId);
-      return (f1?.floorMarkup ?? []).filter((m) => m.kind !== "text");
+      const lines = (f1?.floorMarkup ?? []).filter((m) => m.kind !== "text");
+      const gapTexts = [...(f0?.floorMarkup ?? []), ...(f1?.floorMarkup ?? [])].filter(
+        (m) => m.kind === "text" && m.showDuringGaps === true
+      );
+      const byId = new Map<string, StageFloorMarkup>();
+      for (const m of [...lines, ...gapTexts]) byId.set(m.id, m);
+      return Array.from(byId.values());
     }
   }
 
