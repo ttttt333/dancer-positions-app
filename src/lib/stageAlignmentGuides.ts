@@ -1,9 +1,10 @@
 /**
  * ドラッグ中のセンター／他ダンサー揃えガイド。
- * 近い候補があればガイド座標だけ返し、位置自体は動かさない。
+ * しきい値内に入ったときだけガイドを出し、座標もその線へ軽く吸い付かせる。
  */
 
-const DEFAULT_THRESHOLD_PCT = 1.2;
+/** ガイド表示＋吸い付きの距離（%）。広いと「ズレていても出る」感じになる */
+export const ALIGNMENT_GUIDE_THRESHOLD_PCT = 0.4;
 
 function nearestGuide(
   value: number,
@@ -27,10 +28,41 @@ export function resolveAlignmentGuides(
   yPct: number,
   peerXPcts: readonly number[],
   peerYPcts: readonly number[],
-  thresholdPct: number = DEFAULT_THRESHOLD_PCT
+  thresholdPct: number = ALIGNMENT_GUIDE_THRESHOLD_PCT
 ): { guideX: number | null; guideY: number | null } {
   return {
     guideX: nearestGuide(xPct, [50, ...peerXPcts], thresholdPct),
     guideY: nearestGuide(yPct, [50, ...peerYPcts], thresholdPct),
+  };
+}
+
+/**
+ * ガイドが付いた軸はガイド座標へ吸い付かせる。
+ * しきい値が狭いので、ぴったりの近くでのみ吸着する。
+ */
+export function resolveAlignmentGuidesWithSnap(
+  xPct: number,
+  yPct: number,
+  peerXPcts: readonly number[],
+  peerYPcts: readonly number[],
+  thresholdPct: number = ALIGNMENT_GUIDE_THRESHOLD_PCT
+): {
+  xPct: number;
+  yPct: number;
+  guideX: number | null;
+  guideY: number | null;
+} {
+  const { guideX, guideY } = resolveAlignmentGuides(
+    xPct,
+    yPct,
+    peerXPcts,
+    peerYPcts,
+    thresholdPct
+  );
+  return {
+    xPct: guideX != null ? guideX : xPct,
+    yPct: guideY != null ? guideY : yPct,
+    guideX,
+    guideY,
   };
 }

@@ -45,7 +45,7 @@ import {
   resolveStageArrowNudgeKey,
   snapXPctToCenterDistanceMmGrid,
 } from "../lib/dancerSpacing";
-import { resolveAlignmentGuides } from "../lib/stageAlignmentGuides";
+import { resolveAlignmentGuidesWithSnap } from "../lib/stageAlignmentGuides";
 import {
   screenDeltaPctToStageDelta,
   screenPctToStagePct,
@@ -2295,8 +2295,8 @@ export function StageBoardBody({
   });
 
   /**
-   * ドラッグ中、センター線（x=50 / y=50）や他ダンサーの x/y に近づいたら
-   * 補助線（guideX/guideY）だけ出す。座標は動かさない（引っ張られない）。
+   * ドラッグ中、センター線（x=50 / y=50）や他ダンサーの x/y に
+   * ぴったり近いときだけ補助線を出し、その線へ軽く吸い付かせる。
    *
    * @param xPct       現在の x（％）
    * @param yPct       現在の y（％）
@@ -2325,17 +2325,17 @@ export function StageBoardBody({
         peerX.push(d.xPct);
         peerY.push(d.yPct);
       }
-      const { guideX, guideY } = resolveAlignmentGuides(
+      const aligned = resolveAlignmentGuidesWithSnap(
         xPct,
         yPct,
         peerX,
         peerY,
       );
       return {
-        xPct: round2(xPct),
-        yPct: round2(yPct),
-        guideX,
-        guideY,
+        xPct: round2(aligned.xPct),
+        yPct: round2(aligned.yPct),
+        guideX: aligned.guideX,
+        guideY: aligned.guideY,
       };
     },
     [],
