@@ -381,7 +381,9 @@ export type GapApproachRoute =
   | "shimote_half_via_upstage"
   | "front_half_via_kamite"
   | "front_half_via_shimote"
-  | "detour_bulge";
+  | "detour_bulge"
+  /** ペア入替など：上手側が客席側（前）、下手側が舞台裏側を通る */
+  | "pair_kamite_front";
 
 /** タイムライン上の区間キュー（区間内は立ち位置ホールド。ギャップ／隣接時は補間移動）。 */
 export type Cue = {

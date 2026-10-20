@@ -11,6 +11,16 @@ const spot = (id: string, xPct: number, yPct: number): DancerSpot => ({
 });
 
 describe("lerpDancersAcrossGap", () => {
+  it("ペア移動：上手側が前（客席側）・下手側が奥を通る", () => {
+    const from = [spot("shimote", 30, 50), spot("kamite", 70, 50)];
+    const to = [spot("shimote", 70, 50), spot("kamite", 30, 50)];
+    const mid = lerpDancersAcrossGap(from, to, 0.5, "pair_kamite_front");
+    const kamite = mid.find((d) => d.id === "kamite")!;
+    const shimote = mid.find((d) => d.id === "shimote")!;
+    expect(kamite.yPct).toBeGreaterThan(50);
+    expect(shimote.yPct).toBeLessThan(50);
+  });
+
   it("袖に待機したままの人はキュー間でも舞台に戻らない", () => {
     const from = [spot("a", -12, 30), spot("b", 50, 50)];
     const to = [spot("a", -12, 30), spot("b", 60, 50)];
