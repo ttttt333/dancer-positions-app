@@ -1060,9 +1060,17 @@ export function useWaveCanvasPointerDrag({
         if (st?.active && preview && Number.isFinite(preview.tStart) && Number.isFinite(preview.tEnd)) {
           let ts = Math.round(Math.min(preview.tStart, preview.tEnd) * 100) / 100;
           let te = Math.round(Math.max(preview.tStart, preview.tEnd) * 100) / 100;
-          if (te - ts < 0.1) {
-            te = Math.round(Math.min(st.trimHi, ts + 0.1) * 100) / 100;
-            if (te <= ts) ts = Math.round(Math.max(st.trimLo, te - 0.1) * 100) / 100;
+          if (te - ts < MIN_CUE_DURATION_SEC - 1e-9) {
+            te =
+              Math.round(
+                Math.min(st.trimHi, ts + MIN_CUE_DURATION_SEC) * 100
+              ) / 100;
+            if (te <= ts) {
+              ts =
+                Math.round(
+                  Math.max(st.trimLo, te - MIN_CUE_DURATION_SEC) * 100
+                ) / 100;
+            }
           }
           if (te > ts && ts >= st.trimLo && te <= st.trimHi) {
             if (cuesSorted.length >= 100 || formations.length === 0) {
