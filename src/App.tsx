@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, usePa
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { AppToastHost } from "./components/AppToastHost";
 import { AuthProvider } from "./context/AuthContext";
+import { useUserLibraryCloudSync } from "./hooks/useUserLibraryCloudSync";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -257,6 +258,11 @@ function MobileEditorRoute() {
   );
 }
 
+function UserLibraryCloudSyncBridge() {
+  useUserLibraryCloudSync();
+  return null;
+}
+
 function AppShell() {
   const location = useLocation();
   const hideFloatingLocale =
@@ -271,6 +277,7 @@ function AppShell() {
       <AppToastHost />
       <div className="app-shell">
         <AuthProvider>
+          <UserLibraryCloudSyncBridge />
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/login" element={<LoginPage />} />

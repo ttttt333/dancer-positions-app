@@ -11,6 +11,7 @@ import {
   listStagePresets,
   renameStagePreset,
   saveStagePreset,
+  STAGE_PRESETS_CHANGE_EVENT,
   stagePresetGuideSnapshot,
   stagePresetHasGuideFields,
   updateStagePreset,
@@ -436,6 +437,12 @@ export function StageDimensionFields({
   const reloadPresets = useCallback(() => setPresets(listStagePresets()), []);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const onChange = () => reloadPresets();
+    window.addEventListener(STAGE_PRESETS_CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(STAGE_PRESETS_CHANGE_EVENT, onChange);
+  }, [reloadPresets]);
+
   const applyPreset = useCallback(
     (p: StagePresetItem) => {
       setDraft({
@@ -480,6 +487,7 @@ export function StageDimensionFields({
       }),
     };
   }, [previewMm, project.stageHesoVisible, project.stageCenterMarks, project.stageSleeveCurtains]);
+
 
   const saveAsNewPreset = useCallback(() => {
     if (disabled) return;

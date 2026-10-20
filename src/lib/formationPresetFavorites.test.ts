@@ -3,6 +3,7 @@ import {
   FORMATION_PRESET_FAVORITES_STORAGE_KEY,
   filterPresetItemsByFavorites,
   loadFormationPresetFavoriteIds,
+  loadFormationPresetFavoritesState,
   saveFormationPresetFavoriteIds,
   toggleFormationPresetFavoriteId,
 } from "./formationPresetFavorites";
@@ -15,6 +16,7 @@ describe("formationPresetFavorites", () => {
   it("persists favorite ids", () => {
     saveFormationPresetFavoriteIds(["pyramid", "vee"]);
     expect(loadFormationPresetFavoriteIds()).toEqual(["pyramid", "vee"]);
+    expect(loadFormationPresetFavoritesState().updatedAt).toBeGreaterThan(0);
   });
 
   it("toggles ids", () => {

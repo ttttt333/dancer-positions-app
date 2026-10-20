@@ -2,7 +2,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { AppLegalFooter } from "../../components/AppLegalFooter";
 import { LanguageSwitcher } from "../../components/LanguageSwitcher";
+import { useUserLibrarySyncStatus } from "../../hooks/useUserLibraryCloudSync";
+import { useI18n } from "../../i18n/I18nContext";
 import { TOKUSHOHO_PATH } from "../../lib/commercialDisclosure";
+import { isSupabaseBackend } from "../../lib/supabaseClient";
 import { shell } from "../../theme/choreoShell";
 import {
   displayNameFromEmail,
@@ -136,6 +139,8 @@ export function HomeSettingsView({
   onManageSubscription,
   onLogout,
 }: Props) {
+  const { t } = useI18n();
+  const syncStatus = useUserLibrarySyncStatus();
   const fallbackName = displayNameFromEmail(email);
   const [displayName, setDisplayName] = useState(fallbackName);
 
@@ -297,6 +302,35 @@ export function HomeSettingsView({
       />
 
       <div style={homeDivider} />
+
+      {isSupabaseBackend() ? (
+        <p
+          style={{
+            margin: 0,
+            padding: "12px 18px",
+            fontSize: 12,
+            color: shell.textMuted,
+            lineHeight: 1.55,
+          }}
+        >
+          {t("home.settings.librarySyncLead")}
+          {syncStatus.state === "syncing"
+            ? ` ${t("home.settings.librarySyncSyncing")}`
+            : null}
+          {syncStatus.state === "synced"
+            ? ` ${
+                syncStatus.mergedFromRemote
+                  ? t("home.settings.librarySyncMerged")
+                  : t("home.settings.librarySyncOk")
+              }`
+            : null}
+          {syncStatus.state === "error" && syncStatus.message
+            ? ` ${t("home.settings.librarySyncError", {
+                message: syncStatus.message,
+              })}`
+            : null}
+        </p>
+      ) : null}
 
       <SettingsRow icon="★" label={labels.appeal} to="/appeal" />
       <SettingsRow icon="?" label={labels.faq} to="/update-log" />

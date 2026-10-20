@@ -1,5 +1,11 @@
 import { openDB } from "idb";
-import { FORMATION_BOX_CHANGE_EVENT } from "./formationBox";
+import {
+  FORMATION_BOX_CHANGE_EVENT,
+  FORMATION_BOX_STORAGE_KEY,
+} from "./formationBox";
+import {
+  FORMATION_PRESET_FAVORITES_STORAGE_KEY,
+} from "./formationPresetFavorites";
 import {
   FLOW_LIBRARY_CHANGE_EVENT,
   FLOW_LIBRARY_STORAGE_KEY,
@@ -10,6 +16,8 @@ import {
   exportFlowLibraryAudioBackupMap,
   importFlowLibraryAudioBackupMap,
 } from "./flowLibraryLocalAudio";
+import { LIGHTING_PRESETS_STORAGE_KEY } from "./lightingPresets";
+import { STAGE_PRESETS_STORAGE_KEY } from "./stagePresets";
 import { exportAllWavePeaksCache, importAllWavePeaksCache } from "./wavePeaksCache";
 import { projectApi, getToken, isDemoSessionToken } from "../api/client";
 
@@ -21,10 +29,10 @@ export const PORTABLE_ARCHIVE_FORMAT = "choreocore-portable-archive-v1" as const
 
 const LOCALSTORAGE_EXACT_KEYS = [
   FLOW_LIBRARY_STORAGE_KEY,
-  "choreogrid_formation_box_v1",
-  "choreogrid_stage_presets_v1",
-  "choreogrid_lighting_presets_v1",
-  "choreogrid_formation_preset_favorites_v1",
+  FORMATION_BOX_STORAGE_KEY,
+  STAGE_PRESETS_STORAGE_KEY,
+  LIGHTING_PRESETS_STORAGE_KEY,
+  FORMATION_PRESET_FAVORITES_STORAGE_KEY,
   "choreogrid_locale",
   "dancer-positions.editorLayout.v2",
   "dancer-positions.editorLayout.v1",
