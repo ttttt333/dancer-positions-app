@@ -82,4 +82,41 @@ describe("buildChoreographyPdfPages", () => {
     expect(pages[0]?.timeLabel).toBe("—");
     expect(pages[0]?.title).toBe("フォーメーション 1");
   });
+
+  it("filters by cueIds and keeps original cue numbers", () => {
+    const base = createEmptyProject();
+    const f = base.formations[0]!;
+    const project: ChoreographyProjectJson = {
+      ...base,
+      formations: [f],
+      cues: [
+        {
+          id: "c1",
+          formationId: f.id,
+          tStartSec: 0,
+          tEndSec: 10,
+        },
+        {
+          id: "c2",
+          formationId: f.id,
+          tStartSec: 10,
+          tEndSec: 20,
+        },
+        {
+          id: "c3",
+          formationId: f.id,
+          tStartSec: 20,
+          tEndSec: 30,
+        },
+      ],
+    };
+    const pages = buildChoreographyPdfPages(project, undefined, {
+      cueIds: ["c3", "c1"],
+    });
+    expect(pages).toHaveLength(2);
+    expect(pages[0]?.title).toBe("キュー 1");
+    expect(pages[1]?.title).toBe("キュー 3");
+    expect(pages[0]?.timeLabel).toBe("0:00〜0:10");
+    expect(pages[1]?.timeLabel).toBe("0:20〜0:30");
+  });
 });

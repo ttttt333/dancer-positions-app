@@ -1,6 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { EditorSideSheet } from "./EditorSideSheet";
+import { VideoExportRangeFields } from "./VideoExportRangeFields";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
+import { formatSecToClock } from "../lib/buildRangeExcerptProject";
+import {
+  parseVideoExportRangeInput,
+  type VideoExportTimeRange,
+} from "../lib/stageExportRange";
 import {
   formatVideoExportQualitySpec,
   VIDEO_EXPORT_QUALITY_PRESETS,
@@ -13,21 +19,55 @@ import { useVideoExportRunStore } from "../store/videoExportRunStore";
 type Props = {
   open: boolean;
   onClose: () => void;
-  onSelect: (quality: VideoExportQualityPreset) => void;
+  onSelect: (
+    quality: VideoExportQualityPreset,
+    range: VideoExportTimeRange
+  ) => void;
+  /** 曲の長さ（秒）。範囲入力の上限・初期値に使う */
+  durationSec: number;
+  /** 初期開始（秒）。省略時は 0 */
+  defaultStartSec?: number;
+  /** 初期終了（秒）。null/省略で曲末尾（空欄） */
+  defaultEndSec?: number | null;
   /** 閲覧画面向けの簡潔な説明 */
   viewerMode?: boolean;
 };
 
 /**
- * 書き出し開始前の画質選択シート（低・中・高・最高）。
+ * 書き出し開始前の画質選択シート（低・中・高・最高）＋範囲指定。
  */
 export function VideoExportQualitySheet({
   open,
   onClose,
   onSelect,
+  durationSec,
+  defaultStartSec = 0,
+  defaultEndSec = null,
   viewerMode = false,
 }: Props) {
   const isExporting = useVideoExportRunStore((s) => s.isExporting);
+  const [startStr, setStartStr] = useState(() =>
+    formatSecToClock(defaultStartSec)
+  );
+  const [endStr, setEndStr] = useState(() =>
+    defaultEndSec != null && Number.isFinite(defaultEndSec) && defaultEndSec > 0
+      ? formatSecToClock(defaultEndSec)
+      : ""
+  );
+  const [rangeError, setRangeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setStartStr(formatSecToClock(defaultStartSec));
+    setEndStr(
+      defaultEndSec != null &&
+        Number.isFinite(defaultEndSec) &&
+        defaultEndSec > 0
+        ? formatSecToClock(defaultEndSec)
+        : ""
+    );
+    setRangeError(null);
+  }, [open, defaultStartSec, defaultEndSec]);
 
   // M: 画質選択中に FFmpeg コアを先読み。
   // 音声結合は常に FFmpeg で行う（WebCodecs 映像 + FFmpeg 音声結合）ため、
@@ -40,6 +80,16 @@ export function VideoExportQualitySheet({
     }
     void preloadFFmpegWasm();
   }, [open]);
+
+  const pick = (preset: VideoExportQualityPreset) => {
+    const parsed = parseVideoExportRangeInput(startStr, endStr, durationSec);
+    if (!parsed.ok) {
+      setRangeError(parsed.error);
+      return;
+    }
+    setRangeError(null);
+    onSelect(preset, parsed.range);
+  };
 
   return (
     <EditorSideSheet
@@ -100,6 +150,25 @@ export function VideoExportQualitySheet({
             ? "書き出し完了後、共有シートが自動で開きます。iOS では「ビデオを保存」をタップしてカメラロールへ保存してください。"
             : "画質が高いほどきれいですが、書き出しに時間がかかります。"}
         </p>
+
+        <div style={{ marginBottom: 16 }}>
+          <VideoExportRangeFields
+            startStr={startStr}
+            endStr={endStr}
+            onStartChange={(v) => {
+              setStartStr(v);
+              setRangeError(null);
+            }}
+            onEndChange={(v) => {
+              setEndStr(v);
+              setRangeError(null);
+            }}
+            trackDurationSec={durationSec}
+            disabled={isExporting}
+            error={rangeError}
+          />
+        </div>
+
         <div
           style={{
             display: "flex",
@@ -112,7 +181,7 @@ export function VideoExportQualitySheet({
               key={preset.id}
               type="button"
               disabled={isExporting}
-              onClick={() => onSelect(preset)}
+              onClick={() => pick(preset)}
               style={{
                 ...btnAccent,
                 display: "flex",

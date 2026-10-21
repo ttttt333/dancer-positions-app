@@ -239,8 +239,10 @@ function prepareChoreographyExport(params: {
   project: ChoreographyProjectJson;
   projectName: string;
   labels?: Partial<ExportChoreographyPdfLabels>;
+  /** 画像／PDF に含めるキュー id（未指定ならすべて） */
+  cueIds?: readonly string[];
 }): PreparedExport {
-  const { project, projectName, labels = {} } = params;
+  const { project, projectName, labels = {}, cueIds } = params;
   const pdfLabels: ChoreographyPdfLabels = {
     cueN: labels.cueN ?? ((n) => `キュー ${n}`),
     formationN: labels.formationN ?? ((n) => `フォーメーション ${n}`),
@@ -251,7 +253,11 @@ function prepareChoreographyExport(params: {
   const emptyError =
     labels.emptyError ?? "書き出すフォーメーションがありません";
 
-  const pages = buildChoreographyPdfPages(project, pdfLabels);
+  const pages = buildChoreographyPdfPages(
+    project,
+    pdfLabels,
+    cueIds != null ? { cueIds } : undefined
+  );
   if (pages.length === 0) {
     throw new Error(emptyError);
   }
@@ -328,6 +334,8 @@ export async function exportChoreographyImages(params: {
   project: ChoreographyProjectJson;
   projectName: string;
   labels?: Partial<ExportChoreographyPdfLabels>;
+  /** 含めるキュー id。未指定ならすべて */
+  cueIds?: readonly string[];
 }): Promise<void> {
   const prepared = prepareChoreographyExport(params);
   const { pages, appearance, pieceTitle, fileBase, playbackTime } = prepared;

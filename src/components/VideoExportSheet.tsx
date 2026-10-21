@@ -31,7 +31,7 @@ export function VideoExportSheet({
       onClose={onClose}
       blockDismiss={isExporting}
       zIndex={76}
-      width="min(320px, 92vw)"
+      width="min(360px, 92vw)"
       sheetId="video-export"
       ariaLabelledBy="video-export-sheet-title"
       panelStyle={{
@@ -87,7 +87,7 @@ export function VideoExportSheet({
             color: shell.textMuted,
           }}
         >
-          サイズを選んで書き出します。共有できる端末では保存のあと共有シートが開きます。
+          書き出す時間の範囲とサイズを選んでください。共有できる端末では保存のあと共有シートが開きます。
         </p>
         <VideoExportButton
           project={project}

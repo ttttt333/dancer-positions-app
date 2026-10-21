@@ -7,7 +7,10 @@ import {
   modDancerColorIndex,
 } from "./dancerColorPalette";
 import { genderLabelForColor, resolveDancerDisplayHex } from "./dancerGender";
-import { resolveStageExportRange } from "./stageExportRange";
+import {
+  resolveStageExportRange,
+  type VideoExportTimeRange,
+} from "./stageExportRange";
 import { buildStageExportAppearance } from "./stageExportAppearance";
 import { resolvePlaybackAudioUrlForExport } from "./resolvePlaybackAudioUrlForExport";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
@@ -18,6 +21,8 @@ import {
   DEFAULT_VIDEO_EXPORT_QUALITY,
   type VideoExportQualityPreset,
 } from "./videoExportQualityPresets";
+
+export type { VideoExportTimeRange };
 
 function dancerColorHex(d: DancerSpot): string {
   return resolveDancerDisplayHex(
@@ -66,20 +71,22 @@ function resolveExportTrackDuration(fallbackSec: number): number {
 /**
  * `useVideoExport` 向けにプロジェクト JSON から ExportOptions を組み立てる。
  * キュー境界に加え、30fps 相当で補間サンプルを入れてギャップ中も動く。
+ * `range` があればプロジェクトのトリムより優先する（書き出し専用の範囲指定）。
  */
 export function buildVideoExportOptions(
   project: ChoreographyProjectJson,
   durationSec: number,
   fileName: string,
   canvasRef: RefObject<HTMLCanvasElement | null>,
-  quality: VideoExportQualityPreset = DEFAULT_VIDEO_EXPORT_QUALITY
+  quality: VideoExportQualityPreset = DEFAULT_VIDEO_EXPORT_QUALITY,
+  range?: VideoExportTimeRange | null
 ): ExportOptions {
   const sampleFps = quality.captureFps;
   const trackDurationSec = resolveExportTrackDuration(durationSec);
   const { startSec, durationSec: span } = resolveStageExportRange(
     trackDurationSec,
-    project.trimStartSec ?? 0,
-    project.trimEndSec
+    range?.startSec ?? project.trimStartSec ?? 0,
+    range != null ? range.endSec : project.trimEndSec
   );
 
   const formations: ExportOptions["formations"] = [];
