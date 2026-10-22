@@ -2,8 +2,8 @@ import OpenAI from "openai";
 
 function buildSystemPrompt(memberNameHints) {
   const roster = Array.isArray(memberNameHints)
-    ? memberNameHints.map((n) => String(n).trim()).filter(Boolean).slice(0, 80)
-    : [];
+    ? memberNameHints.map((n) => String(n).trim()).filter(Boolean).slice(0, 200)
+      : [];
 
   const rosterBlock =
     roster.length > 0
@@ -24,6 +24,10 @@ ${rosterBlock}
    - みゆう（3文字）と みゆ（2文字）は別人が多い
 5. 名簿があるとき: rawRead に目で見た仮名を入れる。name は名簿から選んだ表記。名簿に無い読みは name を空文字。漢字は作らない。人数が足りないから未使用名を埋めない。確かな割り当て後、残りが少人数なら残った名簿だけで再照合し、空欄1人・名簿残り1人ならその名簿名を付ける
 6. 手書きでも positions を必ず返す。x,y は ○ の中心（0〜100%）
+7. ChoreoCore の印刷用キュー図（左にグレー帯・「再生時間」・\`0:00〜1:45\`、上に「キュー 1」など）のときは:
+   - pageTimeLabel に左帯の時間範囲をそのまま（例: "0:00〜1:45"）
+   - pageTitle に見出し（例: "キュー 1"）
+   - 左帯・フッター・「舞台裏」「客席」ラベルは人ではない
 
 ルール:
 - 手書きメモでは lines と positions の両方を返す
@@ -31,10 +35,13 @@ ${rosterBlock}
 - ノートの罫線・影・汚れ・右端の人数・①は人ではない
 - 画像を同じXの縦列に積まない。人数が多い行は隣の行の隙間に互い違い
 - 絶対に「読み取れない」と返さず、必ず JSON を返す
+- 人数が多い（80人超）ときも全員の positions を省略せず返す
 
 必ず JSON のみ:
 {
   "imageFrontDirection": "bottom",
+  "pageTimeLabel": "0:00〜1:45",
+  "pageTitle": "キュー 1",
   "lines": [
     { "rowIndex": 1, "count": 7, "names": ["名前1", "名前2"] }
   ],
@@ -47,10 +54,10 @@ ${rosterBlock}
 function buildUserPrompt(memberNameHints) {
   const roster =
     Array.isArray(memberNameHints) && memberNameHints.length > 0
-      ? memberNameHints
+        ? memberNameHints
           .map((n) => String(n).trim())
           .filter(Boolean)
-          .slice(0, 80)
+          .slice(0, 200)
       : [];
 
   let text =
@@ -59,7 +66,8 @@ function buildUserPrompt(memberNameHints) {
     "2) 行は画像の上（舞台奥）から下（客席）。右端の人数を count にする。隣の行は隙間に互い違い\n" +
     "3) 各名前は丸の直下（または縦書き）だけ。隣と繋げない。詰まった3文字は全部読む\n" +
     "4) rawRead に目で見た仮名。名簿があるとき name は名簿の表記。は≠ほ。あ/か・め/あ・う/ゆの癖は名簿の近い名前へ\n" +
-    "5) 漢字の推測禁止。名簿に無い名前は出さない";
+    "5) 漢字の推測禁止。名簿に無い名前は出さない\n" +
+    "6) ChoreoCore キュー図なら pageTimeLabel（左の 0:00〜1:45）と pageTitle も返す。人数が多くても全員分";
 
   if (roster.length > 0) {
     text +=
@@ -535,15 +543,15 @@ function emptyResponseError(choice) {
 
 function buildFallbackSystemPrompt(memberNameHints) {
   const roster = Array.isArray(memberNameHints)
-    ? memberNameHints.map((n) => String(n).trim()).filter(Boolean).slice(0, 80)
+    ? memberNameHints.map((n) => String(n).trim()).filter(Boolean).slice(0, 200)
     : [];
   const rosterLine =
     roster.length > 0
       ? `\nCandidate member names: ${roster.join(", ")}`
       : "";
   return `You transcribe a dance stage formation diagram for choreography software.
-Never invent names. If a roster is given, copy those strings into name. Put the literal kana you see in rawRead. Distinguish は vs ほ (はなか≠ほなか). Recover handwriting quirks (ほのあ→ほのか). Never guess kanji from hiragana. Return JSON only.${rosterLine}
-Format: { "imageFrontDirection": "bottom", "lines": [{ "count": 4, "names": ["A","B"] }], "positions": [{ "name": "A", "rawRead": "A", "x": 50, "y": 30, "labelX": 50, "labelY": 36 }] }`;
+Never invent names. If a roster is given, copy those strings into name. Put the literal kana you see in rawRead. Distinguish は vs ほ (はなか≠ほなか). Recover handwriting quirks (ほのあ→ほのか). Never guess kanji from hiragana. For ChoreoCore cue sheets, also return pageTimeLabel (e.g. "0:00〜1:45") and pageTitle. Include every dancer even when 80+. Return JSON only.${rosterLine}
+Format: { "imageFrontDirection": "bottom", "pageTimeLabel": "0:00〜1:45", "pageTitle": "Cue 1", "lines": [{ "count": 4, "names": ["A","B"] }], "positions": [{ "name": "A", "rawRead": "A", "x": 50, "y": 30, "labelX": 50, "labelY": 36 }] }`;
 }
 
 function buildFallbackUserPrompt() {
@@ -579,7 +587,8 @@ async function callVisionModel(openai, { imageUrl, memberNameHints, attempt }) {
       },
     ],
     response_format: { type: "json_object" },
-    max_tokens: 4096,
+    // 80人超のキュー図でも positions が切れないよう余裕を取る
+    max_tokens: 16384,
   });
 }
 
@@ -712,11 +721,26 @@ export function normalizeParsePositionResponse(raw, opts = {}) {
       ? frontRaw
       : undefined;
 
+  const pageTimeLabelRaw =
+    raw && typeof raw === "object" ? raw.pageTimeLabel : null;
+  const pageTimeLabel =
+    typeof pageTimeLabelRaw === "string" && pageTimeLabelRaw.trim()
+      ? pageTimeLabelRaw.trim().slice(0, 64)
+      : undefined;
+  const pageTitleRaw =
+    raw && typeof raw === "object" ? raw.pageTitle : null;
+  const pageTitle =
+    typeof pageTitleRaw === "string" && pageTitleRaw.trim()
+      ? pageTitleRaw.trim().slice(0, 80)
+      : undefined;
+
   return {
     positions,
     ...(lines.length ? { lines } : {}),
     ...(countMismatches.length ? { countMismatches } : {}),
     ...(imageFrontDirection ? { imageFrontDirection } : {}),
+    ...(pageTimeLabel ? { pageTimeLabel } : {}),
+    ...(pageTitle ? { pageTitle } : {}),
   };
 }
 

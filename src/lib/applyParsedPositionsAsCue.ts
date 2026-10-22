@@ -24,6 +24,8 @@ export type ApplyParsedPositionsOptions = {
   positions: ParsedPosition[];
   /** キュー開始秒（省略時は 0） */
   tStartSec?: number;
+  /** キュー終了秒。指定時は開始より後であること（復元用） */
+  tEndSec?: number;
   /** フォーメーション名（省略時は「写真から取込」） */
   formationName?: string;
   durationSec?: number | null;
@@ -159,10 +161,20 @@ export function applyParsedPositionsAsCue(
   const lo = project.trimStartSec ?? 0;
   let t0 = Math.round(tStartSec * 100) / 100;
   t0 = Math.max(lo, Math.min(hi - 0.02, t0));
-  let t1 = Math.min(
-    hi,
-    Math.round((t0 + DEFAULT_CUE_SPAN_WITH_AUDIO_SEC) * 100) / 100
-  );
+  let t1: number;
+  if (
+    typeof opts.tEndSec === "number" &&
+    Number.isFinite(opts.tEndSec) &&
+    opts.tEndSec > tStartSec
+  ) {
+    t1 = Math.round(opts.tEndSec * 100) / 100;
+    t1 = Math.max(t0 + MIN_CUE_DURATION_SEC, Math.min(hi, t1));
+  } else {
+    t1 = Math.min(
+      hi,
+      Math.round((t0 + DEFAULT_CUE_SPAN_WITH_AUDIO_SEC) * 100) / 100
+    );
+  }
   if (t1 <= t0) t1 = Math.round((t0 + 0.5) * 100) / 100;
 
   const resolved = resolveCueIntervalNonOverlap(
