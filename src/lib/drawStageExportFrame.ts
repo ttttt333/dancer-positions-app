@@ -1,6 +1,16 @@
-import type { DancerSpot } from "../types/choreography";
+import type {
+  DancerSpot,
+  StageCenterMark,
+  StageFloorLineMarkup,
+  StageFloorMarkup,
+  StageFloorTextMarkup,
+} from "../types/choreography";
 import {
   dancerCircleInnerBelowLabel,
+  floorTextColorHex,
+  floorTextFontCss,
+  floorTextLayer,
+  floorTextMarkupScale,
   markerCircleLabelFontPx,
 } from "./stageBoardModelHelpers";
 import {
@@ -21,6 +31,8 @@ import {
   traceDancerMarkerShapePath,
   type DancerMarkerShape,
 } from "./dancerMarkerShape";
+import { resolveCenterMarkAxes } from "./stageCenterMarks";
+import { buildSleeveCurtainMarksFromCurtains } from "./stageSleeveCurtains";
 
 export type ExportDancerFrame = {
   name: string;
@@ -41,6 +53,8 @@ export type ExportDancerFrame = {
 export type ExportFormationFrame = {
   startSec: number;
   dancers: ExportDancerFrame[];
+  /** この時刻のフォーメーション床マーク（テキスト・線） */
+  floorMarkup?: StageFloorMarkup[];
 };
 
 type FloorRect = { x: number; y: number; w: number; h: number };
@@ -448,6 +462,230 @@ function drawDancers(
   });
 }
 
+/** エディタと同じルールで書き出し用ヘソ一覧を決める */
+export function resolveExportCenterMarks(
+  appearance: StageExportAppearance
+): StageCenterMark[] {
+  if (appearance.stageHesoVisible !== true) return [];
+  if (appearance.stageCenterMarks && appearance.stageCenterMarks.length > 0) {
+    return appearance.stageCenterMarks;
+  }
+  return [
+    {
+      id: "legacy-heso",
+      xPct: 50,
+      yPct: 50,
+      shape: "circle",
+      rxPct: 2.5,
+    },
+  ];
+}
+
+function drawCenterMarks(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  main: FloorRect,
+  appearance: StageExportAppearance
+) {
+  const marks = resolveExportCenterMarks(appearance);
+  if (marks.length === 0) return;
+  const floorAspect = main.h > 0 ? main.w / main.h : 1;
+
+  for (const mark of marks) {
+    const { rx, ry } = resolveCenterMarkAxes(mark, floorAspect);
+    const cx = main.x + (mark.xPct / 100) * main.w;
+    const cy = main.y + (mark.yPct / 100) * main.h;
+    const rxPx = (rx / 100) * main.w;
+    const ryPx = (ry / 100) * main.h;
+    const armX = Math.max(rxPx * 1.35, 4);
+    const armY = Math.max(ryPx * 1.35, 4);
+
+    ctx.strokeStyle = "rgba(248, 250, 252, 0.9)";
+    ctx.lineWidth = Math.max(1.25, Math.min(2.5, main.w * 0.0035));
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rxPx, ryPx, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(248, 250, 252, 0.85)";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - armY);
+    ctx.lineTo(cx, cy + armY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - armX, cy);
+    ctx.lineTo(cx + armX, cy);
+    ctx.stroke();
+  }
+}
+
+function drawSleeveCurtains(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  main: FloorRect,
+  appearance: StageExportAppearance
+) {
+  const marks = buildSleeveCurtainMarksFromCurtains(
+    appearance.stageSleeveCurtains,
+    appearance.Dmm,
+    appearance.Wmm,
+    appearance.Smm
+  );
+  if (marks.length === 0) return;
+
+  const thicknessPx = Math.max(6, (1.1 / 100) * main.h);
+
+  for (const m of marks) {
+    const showLeft = m.side === "both" || m.side === "left";
+    const showRight = m.side === "both" || m.side === "right";
+    const visualWidthPct = Math.max(m.wingPct + m.insetPct, 0.8);
+    const w = (visualWidthPct / 100) * main.w;
+    const y = main.y + (m.yPct / 100) * main.h - thicknessPx / 2;
+
+    const paint = (side: "left" | "right") => {
+      const x =
+        side === "left"
+          ? main.x - (m.wingPct / 100) * main.w
+          : main.x + main.w + (m.wingPct / 100) * main.w - w;
+      ctx.fillStyle = "rgba(251, 113, 133, 0.38)";
+      ctx.strokeStyle = "rgba(251, 113, 133, 0.9)";
+      ctx.lineWidth = 1.25;
+      const r = 5;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(
+          x,
+          y,
+          w,
+          thicknessPx,
+          side === "left" ? [0, r, r, 0] : [r, 0, 0, r]
+        );
+      } else {
+        ctx.rect(x, y, w, thicknessPx);
+      }
+      ctx.fill();
+      ctx.stroke();
+    };
+
+    if (showLeft) paint("left");
+    if (showRight) paint("right");
+  }
+}
+
+function drawFloorLineMarkup(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  main: FloorRect,
+  line: StageFloorLineMarkup
+) {
+  if (line.pointsPct.length < 2) return;
+  const color =
+    typeof line.color === "string" && line.color.trim()
+      ? line.color.trim()
+      : "rgba(253, 224, 71, 0.92)";
+  const widthPx =
+    typeof line.widthPx === "number" && Number.isFinite(line.widthPx)
+      ? Math.max(1, Math.min(24, line.widthPx))
+      : 3;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = widthPx;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  line.pointsPct.forEach(([xp, yp], i) => {
+    const x = main.x + (xp / 100) * main.w;
+    const y = main.y + (yp / 100) * main.h;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+
+function drawFloorTextMarkup(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  main: FloorRect,
+  m: StageFloorTextMarkup
+) {
+  if (floorTextLayer(m) === "screen") return;
+  const body = m.text;
+  if (!body.trim()) return;
+
+  const sc = floorTextMarkupScale(m);
+  const fs = Math.max(8, Math.min(56, m.fontSizePx ?? 18));
+  const fw =
+    Math.round(Math.min(900, Math.max(300, m.fontWeight ?? 600)) / 50) * 50;
+  const rotation =
+    typeof m.rotation === "number" && Number.isFinite(m.rotation)
+      ? m.rotation
+      : 0;
+  const align = m.textAlign ?? "left";
+  const color = floorTextColorHex(m);
+  const fontFamily = floorTextFontCss(m);
+  const x = main.x + (m.xPct / 100) * main.w;
+  const y = main.y + (m.yPct / 100) * main.h;
+  const lines = body.split("\n");
+  const lineH = fs * 1.25;
+  const padX = 6;
+  const padY = 2;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate((rotation * Math.PI) / 180);
+  ctx.scale(sc, sc);
+  ctx.font = `${fw} ${fs}px ${fontFamily}`;
+  ctx.textAlign = align;
+  ctx.textBaseline = "top";
+
+  let maxW = 0;
+  for (const line of lines) {
+    maxW = Math.max(maxW, ctx.measureText(line).width);
+  }
+  const boxH = lines.length * lineH + padY * 2;
+  const boxW = maxW + padX * 2;
+  // CSS の translate(-50%, -50%) 相当：ボックス中心を座標に置く
+  const boxX = -boxW / 2;
+  const boxY = -boxH / 2;
+
+  if (m.bgColor && m.bgColor.trim()) {
+    ctx.fillStyle = m.bgColor.trim();
+    if (typeof ctx.roundRect === "function") {
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+      ctx.fill();
+    } else {
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+    }
+  }
+
+  ctx.fillStyle = color;
+  if (!m.bgColor?.trim()) {
+    ctx.shadowColor = "rgba(0,0,0,0.85)";
+    ctx.shadowBlur = 2;
+    ctx.shadowOffsetY = 1;
+  }
+  const textX =
+    align === "left"
+      ? boxX + padX
+      : align === "right"
+        ? boxX + boxW - padX
+        : 0;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, textX, boxY + padY + i * lineH);
+  });
+  ctx.restore();
+}
+
+function drawFloorMarkupList(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  main: FloorRect,
+  items: readonly StageFloorMarkup[] | null | undefined
+) {
+  if (!items?.length) return;
+  for (const m of items) {
+    if (m.kind === "line") drawFloorLineMarkup(ctx, main, m);
+  }
+  for (const m of items) {
+    if (m.kind === "text") drawFloorTextMarkup(ctx, main, m);
+  }
+}
+
 /** 舞台枠・グリッド・番号付きマーカーを canvas に描画（高速パス） */
 export function drawStageExportFrame(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
@@ -479,7 +717,11 @@ export function drawStageExportFrame(
   drawShellChrome(ctx, width, height, appearance, outer, main);
   drawGrid(ctx, appearance, main);
   drawAudienceGuideLabels(ctx, main, appearance);
+  drawCenterMarks(ctx, main, appearance);
+  drawSleeveCurtains(ctx, main, appearance);
+  drawFloorMarkupList(ctx, main, appearance.globalFloorMarkup);
   if (formation) {
+    drawFloorMarkupList(ctx, main, formation.floorMarkup);
     drawDancers(ctx, formation, main, appearance);
   }
 

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
+import { formatSecToClock } from "../lib/buildRangeExcerptProject";
+import { parseVideoExportRangeInput } from "../lib/stageExportRange";
 import { resolveVideoExportFileName } from "../lib/videoExportFileName";
 import { getVideoExportCanvasRef } from "../lib/videoExportCanvasRef";
 import {
@@ -23,6 +25,7 @@ import { useVideoExportGate } from "../hooks/useVideoExportGate";
 import { useExportToast } from "../hooks/useExportToast";
 import { btnAccent } from "./stageButtonStyles";
 import { ExportToast } from "./ExportToast";
+import { VideoExportRangeFields } from "./VideoExportRangeFields";
 import { shell } from "../theme/choreoShell";
 
 export type VideoExportButtonProps = {
@@ -42,6 +45,17 @@ export function VideoExportButton({
   const [qualityId, setQualityId] = useState<VideoExportQualityId>(
     DEFAULT_VIDEO_EXPORT_QUALITY.id
   );
+  const [startStr, setStartStr] = useState(() =>
+    formatSecToClock(project.trimStartSec ?? 0)
+  );
+  const [endStr, setEndStr] = useState(() => {
+    const end = project.trimEndSec;
+    return end != null && Number.isFinite(end) && end > 0
+      ? formatSecToClock(end)
+      : "";
+  });
+  const [rangeError, setRangeError] = useState<string | null>(null);
+  const [rangeHint, setRangeHint] = useState<string | null>(null);
   const { toast, showToast, dismiss } = useExportToast();
   const { isExporting, progress, progressMessage, startExport } = useVideoExport();
   const {
@@ -75,13 +89,26 @@ export function VideoExportButton({
 
   const run = useCallback(
     async (quality: VideoExportQualityPreset) => {
+      const parsed = parseVideoExportRangeInput(startStr, endStr, durationSec);
+      if (!parsed.ok) {
+        setRangeError(parsed.error);
+        setRangeHint(null);
+        return;
+      }
+      setRangeError(null);
+      setRangeHint(
+        parsed.capped
+          ? `指定範囲が長いため、先頭から最大尺だけ書き出します（${formatSecToClock(parsed.range.startSec)}〜${formatSecToClock(parsed.range.endSec)}）。`
+          : null
+      );
       try {
         const options = buildVideoExportOptions(
           project,
           durationSec,
           fileName,
           getVideoExportCanvasRef(),
-          quality
+          quality,
+          parsed.range
         );
         const result = await startExport({
           ...options,
@@ -137,7 +164,7 @@ export function VideoExportButton({
         console.error("Export failed:", e);
       }
     },
-    [project, durationSec, fileName, startExport, showToast]
+    [project, durationSec, fileName, startStr, endStr, startExport, showToast]
   );
 
   const onExport = useCallback(async () => {
@@ -167,6 +194,23 @@ export function VideoExportButton({
           gap: compact ? 10 : 14,
         }}
       >
+        <VideoExportRangeFields
+          startStr={startStr}
+          endStr={endStr}
+          onStartChange={(v) => {
+            setStartStr(v);
+            setRangeError(null);
+          }}
+          onEndChange={(v) => {
+            setEndStr(v);
+            setRangeError(null);
+          }}
+          trackDurationSec={durationSec}
+          disabled={isExporting}
+          error={rangeError}
+          hint={rangeHint}
+        />
+
         <div>
           <div
             style={{

@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
+import type { VideoExportTimeRange } from "../lib/stageExportRange";
 import { resolveVideoExportFileName } from "../lib/videoExportFileName";
 import { getVideoExportCanvasRef } from "../lib/videoExportCanvasRef";
 import { checkVideoExportCapabilities } from "../lib/videoExportCapabilities";
@@ -41,14 +42,15 @@ export function ChoreoViewerVideoSaveButton({
     isExporting || durationSec <= 0 || !capabilities.supported;
 
   const runExport = useCallback(
-    async (quality: VideoExportQualityPreset) => {
+    async (quality: VideoExportQualityPreset, range: VideoExportTimeRange) => {
       try {
         const options = buildVideoExportOptions(
           project,
           durationSec,
           fileName,
           getVideoExportCanvasRef(),
-          quality
+          quality,
+          range
         );
         const result = await startExport({
           ...options,
@@ -102,9 +104,9 @@ export function ChoreoViewerVideoSaveButton({
   );
 
   const onQualitySelect = useCallback(
-    (quality: VideoExportQualityPreset) => {
+    (quality: VideoExportQualityPreset, range: VideoExportTimeRange) => {
       setQualitySheetOpen(false);
-      void runExport(quality);
+      void runExport(quality, range);
     },
     [runExport]
   );
@@ -130,6 +132,9 @@ export function ChoreoViewerVideoSaveButton({
         open={qualitySheetOpen}
         onClose={() => setQualitySheetOpen(false)}
         onSelect={onQualitySelect}
+        durationSec={durationSec}
+        defaultStartSec={project.trimStartSec ?? 0}
+        defaultEndSec={project.trimEndSec}
         viewerMode
       />
       <button

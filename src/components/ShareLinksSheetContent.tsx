@@ -1,5 +1,13 @@
-import { useState, useCallback, useEffect, type CSSProperties, type ReactNode } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
+import { sortCuesByStart } from "../core/timelineController";
 import { useI18n } from "../i18n/I18nContext";
 import {
   buildCueSheetCsv,
@@ -14,6 +22,7 @@ import {
   exportChoreographyImages,
   exportChoreographyPdf,
 } from "../lib/exportChoreographyPdf";
+import { formatPdfTimeRange } from "../lib/choreographyPdfPages";
 import { downloadStagePngFile, getStageExportElement } from "../lib/captureStagePng";
 import { shell } from "../theme/choreoShell";
 import { isSupabaseBackend } from "../lib/supabaseClient";
@@ -296,6 +305,10 @@ export function ShareLinksSheetContent({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [imagesError, setImagesError] = useState<string | null>(null);
   const [pngError, setPngError] = useState<string | null>(null);
+  /** 画像書き出し対象のキュー id。null は「まだ同期していない」 */
+  const [selectedImageCueIds, setSelectedImageCueIds] = useState<string[] | null>(
+    null
+  );
 
   const useJoinLink = isSupabaseBackend() && serverId != null;
   const [editToken, setEditToken] = useState<string | null>(null);
@@ -356,6 +369,16 @@ export function ShareLinksSheetContent({
   const title = pieceTitle.trim() || projectName.trim() || untitled;
   const fileBase = shareLinksSafeFilenameBase(title);
   const cueCount = project?.cues?.length ?? 0;
+  const sortedCues = useMemo(
+    () => (project ? sortCuesByStart(project.cues) : []),
+    [project]
+  );
+  const imageCueIds = selectedImageCueIds ?? sortedCues.map((c) => c.id);
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedImageCueIds(sortedCues.map((c) => c.id));
+  }, [open, sortedCues]);
 
   const pulseFlash = useCallback((key: FlashKey) => {
     setFlash(key);
@@ -400,7 +423,7 @@ export function ShareLinksSheetContent({
   });
 
   const onExportPdf = async () => {
-    if (!project || pdfBusy) return;
+    if (!project || pdfBusy || imagesBusy) return;
     setPdfError(null);
     setPdfBusy(true);
     try {
@@ -417,8 +440,13 @@ export function ShareLinksSheetContent({
     }
   };
 
-  const onExportImages = async () => {
-    if (!project || imagesBusy) return;
+  const onExportImages = async (opts?: { allCues?: boolean }) => {
+    if (!project || pdfBusy || imagesBusy) return;
+    const useAll = opts?.allCues === true;
+    if (!useAll && sortedCues.length > 0 && imageCueIds.length === 0) {
+      setImagesError(t("shareSheet.imagesNeedCues"));
+      return;
+    }
     setImagesError(null);
     setImagesBusy(true);
     try {
@@ -426,6 +454,10 @@ export function ShareLinksSheetContent({
         project,
         projectName: title,
         labels: choreographyExportLabels(),
+        cueIds:
+          useAll || sortedCues.length === 0
+            ? undefined
+            : imageCueIds,
       });
       pulseFlash("images");
     } catch (e) {
@@ -435,6 +467,22 @@ export function ShareLinksSheetContent({
     } finally {
       setImagesBusy(false);
     }
+  };
+
+  const toggleImageCue = (cueId: string) => {
+    setSelectedImageCueIds((prev) => {
+      const base = prev ?? sortedCues.map((c) => c.id);
+      if (base.includes(cueId)) return base.filter((id) => id !== cueId);
+      return sortedCues.map((c) => c.id).filter((id) => base.includes(id) || id === cueId);
+    });
+  };
+
+  const selectAllImageCues = () => {
+    setSelectedImageCueIds(sortedCues.map((c) => c.id));
+  };
+
+  const clearImageCues = () => {
+    setSelectedImageCueIds([]);
   };
 
   const onExportCsv = () => {
@@ -707,21 +755,161 @@ export function ShareLinksSheetContent({
           title={t("shareSheet.pdfTitle")}
           desc={t("shareSheet.pdfDesc")}
         >
-          <ActionBtn
-            variant="gold"
-            fill
-            onClick={() => void onExportPdf()}
-            disabled={!project || pdfBusy}
+          {sortedCues.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                marginBottom: 10,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  flexWrap: "wrap",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    color: shell.accent,
+                  }}
+                >
+                  {t("shareSheet.imagesPickTitle")}
+                </span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <ActionBtn
+                    variant="ghost"
+                    onClick={selectAllImageCues}
+                    disabled={pdfBusy || imagesBusy}
+                  >
+                    {t("shareSheet.imagesPickAll")}
+                  </ActionBtn>
+                  <ActionBtn
+                    variant="ghost"
+                    onClick={clearImageCues}
+                    disabled={pdfBusy || imagesBusy}
+                  >
+                    {t("shareSheet.imagesPickNone")}
+                  </ActionBtn>
+                </div>
+              </div>
+              <div
+                role="group"
+                aria-label={t("shareSheet.imagesPickTitle")}
+                style={{
+                  maxHeight: 180,
+                  overflowY: "auto",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                  padding: "8px 10px",
+                  borderRadius: 12,
+                  border: `1px solid ${shell.borderStrong}`,
+                  background: "rgba(0,0,0,0.28)",
+                }}
+              >
+                {sortedCues.map((cue, i) => {
+                  const checked = imageCueIds.includes(cue.id);
+                  const label =
+                    cue.name?.trim() || t("pdf.cueN", { n: i + 1 });
+                  return (
+                    <label
+                      key={cue.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "6px 4px",
+                        cursor: pdfBusy || imagesBusy ? "default" : "pointer",
+                        opacity: pdfBusy || imagesBusy ? 0.65 : 1,
+                        fontSize: 12,
+                        color: shell.text,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={pdfBusy || imagesBusy}
+                        onChange={() => toggleImageCue(cue.id)}
+                      />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontWeight: 700 }}>{label}</span>
+                        <span
+                          style={{
+                            marginLeft: 8,
+                            color: shell.textMuted,
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          {formatPdfTimeRange(cue.tStartSec, cue.tEndSec)}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  color: shell.textSubtle,
+                  lineHeight: 1.45,
+                }}
+              >
+                {t("shareSheet.imagesPickHint", {
+                  selected: imageCueIds.length,
+                  total: sortedCues.length,
+                })}
+              </p>
+            </div>
+          ) : null}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 8,
+            }}
           >
-            {pdfBusy
-              ? t("shareSheet.pdfBusy")
-              : flash === "pdf"
-                ? t("shareSheet.pdfDone")
-                : t("shareSheet.pdfButton")}
-          </ActionBtn>
-          {pdfError ? (
+            <ActionBtn
+              variant="gold"
+              fill
+              onClick={() => void onExportPdf()}
+              disabled={!project || pdfBusy || imagesBusy}
+            >
+              {pdfBusy
+                ? t("shareSheet.pdfBusy")
+                : flash === "pdf"
+                  ? t("shareSheet.pdfDone")
+                  : t("shareSheet.pdfButton")}
+            </ActionBtn>
+            <ActionBtn
+              variant="ghost"
+              fill
+              onClick={() => void onExportImages()}
+              disabled={
+                !project ||
+                pdfBusy ||
+                imagesBusy ||
+                (sortedCues.length > 0 && imageCueIds.length === 0)
+              }
+            >
+              {imagesBusy
+                ? t("shareSheet.imagesBusy")
+                : flash === "images"
+                  ? t("shareSheet.imagesDone")
+                  : t("shareSheet.imagesButton")}
+            </ActionBtn>
+          </div>
+          {pdfError || imagesError ? (
             <p style={{ margin: "10px 0 0", fontSize: 12, color: "#f0a8a8", lineHeight: 1.45 }}>
-              {pdfError}
+              {pdfError || imagesError}
             </p>
           ) : null}
         </ShareCard>
@@ -768,7 +956,7 @@ export function ShareLinksSheetContent({
                 }
                 hint={t("shareSheet.allPngDesc")}
                 disabled={!project || cueCount === 0 || imagesBusy || pngBusy}
-                onClick={() => void onExportImages()}
+                onClick={() => void onExportImages({ allCues: true })}
               />
             </div>
           </div>

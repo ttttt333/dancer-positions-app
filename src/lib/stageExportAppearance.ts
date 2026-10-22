@@ -1,6 +1,11 @@
 import { clampStageGridAxisMm } from "./projectDefaults";
 import { computeStageShellLayout } from "./stageShellLayout";
-import type { ChoreographyProjectJson } from "../types/choreography";
+import type {
+  ChoreographyProjectJson,
+  StageCenterMark,
+  StageFloorMarkup,
+  StageSleeveCurtain,
+} from "../types/choreography";
 
 export type StageExportAppearance = {
   rotDeg: number;
@@ -27,6 +32,13 @@ export type StageExportAppearance = {
     side?: string;
     audience?: string;
   };
+  /** ヘソ／センターマーク表示 */
+  stageHesoVisible?: boolean;
+  stageCenterMarks?: StageCenterMark[];
+  /** そで幕 */
+  stageSleeveCurtains?: StageSleeveCurtain[];
+  /** 全編共通の床テキスト・線（stage レイヤーのみ描画） */
+  globalFloorMarkup?: StageFloorMarkup[];
 };
 
 export function buildStageExportAppearance(
@@ -89,5 +101,9 @@ export function buildStageExportAppearance(
     stepXPct,
     stepYPct,
     centerFieldGuideIntervalMm: project.centerFieldGuideIntervalMm ?? null,
+    stageHesoVisible: project.stageHesoVisible === true,
+    stageCenterMarks: project.stageCenterMarks ?? [],
+    stageSleeveCurtains: project.stageSleeveCurtains ?? [],
+    globalFloorMarkup: project.globalFloorMarkup ?? [],
   };
 }

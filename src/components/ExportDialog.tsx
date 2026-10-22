@@ -7,6 +7,7 @@ import { playCompletionWoof } from "../lib/playCompletionWoof";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
 import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
+import type { VideoExportTimeRange } from "../lib/stageExportRange";
 import { getVideoExportCanvasRef } from "../lib/videoExportCanvasRef";
 import { formatVideoExportError } from "../lib/videoExportErrors";
 import type { VideoExportQualityPreset } from "../lib/videoExportQualityPresets";
@@ -235,7 +236,7 @@ export function ExportDialog({
   }, [durationSec, gateBeforeExport, openUpgradeIfNeeded, showToast]);
 
   const runVideoExport = useCallback(
-    async (quality: VideoExportQualityPreset) => {
+    async (quality: VideoExportQualityPreset, range: VideoExportTimeRange) => {
       const videoFileName =
         (typeof projectName === "string" && projectName.trim()) || "formation";
       try {
@@ -244,7 +245,8 @@ export function ExportDialog({
           durationSec,
           videoFileName,
           getVideoExportCanvasRef(),
-          quality
+          quality,
+          range
         );
         const result = await startExport({
           ...options,
@@ -297,9 +299,9 @@ export function ExportDialog({
   );
 
   const onVideoQualitySelect = useCallback(
-    (quality: VideoExportQualityPreset) => {
+    (quality: VideoExportQualityPreset, range: VideoExportTimeRange) => {
       setVideoQualityOpen(false);
-      void runVideoExport(quality);
+      void runVideoExport(quality, range);
     },
     [runVideoExport]
   );
@@ -343,6 +345,9 @@ export function ExportDialog({
         open={videoQualityOpen}
         onClose={() => setVideoQualityOpen(false)}
         onSelect={onVideoQualitySelect}
+        durationSec={durationSec}
+        defaultStartSec={project.trimStartSec ?? 0}
+        defaultEndSec={project.trimEndSec}
       />
       <EditorSideSheet
         open

@@ -26,6 +26,7 @@ import {
 import { resolvePlaybackAudioUrlForExport } from "../lib/resolvePlaybackAudioUrlForExport";
 import { drawStageExportFrame } from "../lib/drawStageExportFrame";
 import type { StageExportAppearance } from "../lib/stageExportAppearance";
+import type { StageFloorMarkup } from "../types/choreography";
 import {
   DEFAULT_VIDEO_EXPORT_QUALITY,
   formatVideoExportQualitySpec,
@@ -78,6 +79,8 @@ export type ExportOptions = {
       x: number;
       y: number;
     }>;
+    /** その時刻の床テキスト・線（そで幕・ヘソは stageAppearance 側） */
+    floorMarkup?: StageFloorMarkup[];
   }>;
   stageAppearance: StageExportAppearance;
   audioStartSec?: number;

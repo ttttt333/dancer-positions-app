@@ -71,23 +71,37 @@ function mapDancers(dancers: DancerSpot[]) {
   }));
 }
 
+export type BuildChoreographyPdfPagesOptions = {
+  /** 指定時はこれらのキュー id だけ（タイムライン順）。空配列はページなし。 */
+  cueIds?: readonly string[];
+};
+
 /** キューがあればキュー単位、なければフォーメーション単位でページを作る */
 export function buildChoreographyPdfPages(
   project: ChoreographyProjectJson,
-  labels: ChoreographyPdfLabels = DEFAULT_PDF_LABELS
+  labels: ChoreographyPdfLabels = DEFAULT_PDF_LABELS,
+  options?: BuildChoreographyPdfPagesOptions
 ): ChoreographyPdfPage[] {
   const cues = sortCuesByStart(project.cues);
   if (cues.length > 0) {
-    return cues.map((cue, i) => {
+    const selected =
+      options?.cueIds != null ? new Set(options.cueIds) : null;
+    const list =
+      selected != null ? cues.filter((c) => selected.has(c.id)) : cues;
+    return list.map((cue) => {
+      const originalIndex = cues.findIndex((c) => c.id === cue.id);
       const formation =
         project.formations.find((f) => f.id === cue.formationId) ??
         project.formations[0];
       return {
-        title: labels.cueN(i + 1),
+        title: labels.cueN(originalIndex >= 0 ? originalIndex + 1 : 1),
         timeLabel: formatPdfTimeRange(cue.tStartSec, cue.tEndSec),
         formation: {
           startSec: cue.tStartSec,
           dancers: mapDancers(formation?.dancers ?? []),
+          floorMarkup: formation?.floorMarkup
+            ? [...formation.floorMarkup]
+            : [],
         },
       };
     });
@@ -110,6 +124,7 @@ export function buildChoreographyPdfPages(
     formation: {
       startSec: i,
       dancers: mapDancers(f.dancers ?? []),
+      floorMarkup: f.floorMarkup ? [...f.floorMarkup] : [],
     },
   }));
 }
