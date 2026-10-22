@@ -7,6 +7,7 @@ import {
   modDancerColorIndex,
 } from "./dancerColorPalette";
 import { genderLabelForColor, resolveDancerDisplayHex } from "./dancerGender";
+import { floorMarkupAtTime } from "./interpolateSetPieces";
 import {
   resolveStageExportRange,
   type VideoExportTimeRange,
@@ -102,6 +103,12 @@ export function buildVideoExportOptions(
       project.formations,
       project.activeFormationId
     );
+    const floorMarkup = floorMarkupAtTime(
+      tAbs,
+      project.cues,
+      project.formations,
+      project.activeFormationId
+    );
 
     const activeCue =
       [...sorted].reverse().find((c) => c.tStartSec <= tAbs) ?? sorted[0];
@@ -114,6 +121,7 @@ export function buildVideoExportOptions(
       name: label,
       startSec: tRel,
       dancers: mapDancers(dancers),
+      floorMarkup,
     });
   }
 
@@ -124,6 +132,7 @@ export function buildVideoExportOptions(
       name: f?.name ?? "ステージ",
       startSec: 0,
       dancers: mapDancers(f?.dancers ?? []),
+      floorMarkup: f?.floorMarkup ? [...f.floorMarkup] : [],
     });
   }
 

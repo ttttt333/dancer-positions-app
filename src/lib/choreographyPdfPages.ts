@@ -99,6 +99,9 @@ export function buildChoreographyPdfPages(
         formation: {
           startSec: cue.tStartSec,
           dancers: mapDancers(formation?.dancers ?? []),
+          floorMarkup: formation?.floorMarkup
+            ? [...formation.floorMarkup]
+            : [],
         },
       };
     });
@@ -121,6 +124,7 @@ export function buildChoreographyPdfPages(
     formation: {
       startSec: i,
       dancers: mapDancers(f.dancers ?? []),
+      floorMarkup: f.floorMarkup ? [...f.floorMarkup] : [],
     },
   }));
 }
