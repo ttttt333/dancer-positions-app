@@ -31,6 +31,9 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   const openAudioImport = props.openAudioImport as () => void;
   const setFlowLibraryOpen = props.setFlowLibraryOpen as (open: boolean) => void;
   const setPhotoParseOpen = props.setPhotoParseOpen as (open: boolean) => void;
+  const setCueImageRestoreOpen = props.setCueImageRestoreOpen as
+    | ((open: boolean) => void)
+    | undefined;
   const importCrewCsvFromStageToolbar = props.importCrewCsvFromStageToolbar as () => void;
   const addDancerFromStageToolbar = props.addDancerFromStageToolbar as () => void;
   const setMemberRosterSheetOpen = props.setMemberRosterSheetOpen as (open: boolean) => void;
@@ -96,6 +99,11 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
       onOpenAudioImport={openAudioImport}
       onOpenLibrary={() => setFlowLibraryOpen(true)}
       onOpenPhotoParse={() => setPhotoParseOpen(true)}
+      onOpenCueImageRestore={
+        setCueImageRestoreOpen
+          ? () => setCueImageRestoreOpen(true)
+          : undefined
+      }
       onOpenRosterImport={importCrewCsvFromStageToolbar}
       onAddDancer={addDancerFromStageToolbar}
       onOpenRoster={() => setMemberRosterSheetOpen(true)}
