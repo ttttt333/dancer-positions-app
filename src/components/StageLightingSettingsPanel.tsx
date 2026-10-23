@@ -25,6 +25,7 @@ import {
 import { useStageLightsViewStore } from "../store/stageLightsViewStore";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { playbackEngine } from "../core/playbackEngine";
+import { useLightingPlanUiStore } from "../store/lightingPlanUiStore";
 
 export type StageLightingSettingsPanelProps = {
   disabled?: boolean;
@@ -211,6 +212,27 @@ export function StageLightingSettingsPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <button
+        type="button"
+        onClick={() => useLightingPlanUiStore.getState().openSheet()}
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          borderRadius: 8,
+          border: "1px solid #b45309",
+          background: "#fbbf24",
+          color: "#1c1917",
+          fontSize: 13,
+          fontWeight: 800,
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        照明プランを開く
+        <span style={{ display: "block", fontSize: 11, fontWeight: 600, marginTop: 2 }}>
+          発表会に渡す表。各キューの説明と照明要望を書いて PDF にします
+        </span>
+      </button>
       <button
         type="button"
         disabled={disabled || lights.length === 0}

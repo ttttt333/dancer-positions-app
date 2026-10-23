@@ -12,6 +12,7 @@ import { StageShapePicker } from "../../components/StageShapePicker";
 import { SetPiecePickerModal } from "../../components/SetPiecePickerModal";
 import { EditorSideSheet } from "../../components/EditorSideSheet";
 import { FloorTextSideSheetContent } from "../../components/FloorTextSideSheetContent";
+import { LightingPlanMode } from "../../components/LightingPlanMode";
 import { ShareLinksSheetContent } from "../../components/ShareLinksSheetContent";
 import { ViewerModeSheetContent } from "../../components/ViewerModeSheetContent";
 import { ChoreoViewerBottomBar } from "../../components/ChoreoViewerBottomBar";
@@ -82,6 +83,7 @@ import {
   TOP_DOCK_ROW_MIN_PX,
 } from "./editorConstants";
 import type { EditorLayoutProps } from "./editorLayoutProps";
+import type { ChoreographyProjectJson } from "../../types/choreography";
 
 const Stage3DView = lazy(() =>
   import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -2749,6 +2751,16 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             setFloorLineScope={setFloorLineScope}
           />
         </EditorSideSheet>
+      ) : null}
+
+      {project ? (
+        <LightingPlanMode
+          project={project as ChoreographyProjectJson}
+          setProject={
+            setProjectSafe as Dispatch<SetStateAction<ChoreographyProjectJson>>
+          }
+          readOnly={(project as ChoreographyProjectJson).viewMode === "view"}
+        />
       ) : null}
 
       {choreoPublicView && choreoStudentPick ? (

@@ -30,6 +30,7 @@ import {
 import {
   normalizeStageLights,
 } from "./stageLighting";
+import { parseLightingPlan } from "./lightingPlan";
 import {
   normalizeStageSleeveCurtains,
   sleeveCurtainsToDepthsMm,
@@ -626,6 +627,9 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
     formations: splitProject.formations,
     activeFormationId,
     cues: splitProject.cues,
+    lightingPlan: parseLightingPlan(
+      (o as Partial<ChoreographyProjectJson>).lightingPlan
+    ),
     pieceTitle: typeof o.pieceTitle === "string" ? o.pieceTitle : "",
     pieceDancerCount: (() => {
       const v = (o as Partial<ChoreographyProjectJson>).pieceDancerCount;

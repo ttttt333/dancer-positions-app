@@ -343,6 +343,37 @@ export type StageShape = {
   params?: Record<string, number>;
 };
 
+/** 照明プラン見出しのピンスポ欄 */
+export type LightingPlanPinSpot = "あり" | "なし";
+
+/**
+ * 発表会に渡す照明プランの見出し。
+ * 未設定の作品には付けない。各キューの説明は `Cue.note`、照明要望は `Cue.lightingRequest`。
+ */
+export type LightingPlan = {
+  /** 「第19回 S.O.P発表会」など。空なら見出しは「照明プラン」 */
+  eventTitle?: string;
+  /** 演目順 */
+  programOrder?: string;
+  /** 演目順の枝番（用紙の「1 － 1」の右側） */
+  programSub?: string;
+  /** 板付 */
+  presetMark?: string;
+  pinSpot?: LightingPlanPinSpot;
+  /** クラス名 */
+  className?: string;
+  /** 使用曲。空なら作品タイトル */
+  songTitle?: string;
+  /** 衣装（下） */
+  costumeBottom?: string;
+  /** 衣装（上） */
+  costumeTop?: string;
+  /** 全体の雰囲気 */
+  atmosphere?: string;
+  /** ポイント */
+  points?: string;
+};
+
 export type CrewMember = {
   id: string;
   label: string;
@@ -395,7 +426,14 @@ export type Cue = {
   formationId: string;
   /** 一覧・識別用の短い名前（任意） */
   name?: string;
+  /**
+   * キューの説明。照明プランでは隊形欄のメモとして出す。
+   */
   note?: string;
+  /**
+   * 照明プランの「照明 要望等」。色・サス・ピンスポなど、照明さんへの依頼。
+   */
+  lightingRequest?: string;
   /**
    * このキューに入る直前のギャップ（前キュー tEnd 〜 この tStart）での移動経路。
    * 先頭キューでは無視される。未指定は線形補間。
@@ -508,6 +546,8 @@ export type ChoreographyProjectJson = {
   globalFloorMarkup?: StageFloorMarkup[];
   activeFormationId: string;
   cues: Cue[];
+  /** 発表会の照明プラン見出し。キュー本文は各 `Cue` 側 */
+  lightingPlan?: LightingPlan;
   playbackRate: number;
   trimStartSec: number;
   trimEndSec: number | null;

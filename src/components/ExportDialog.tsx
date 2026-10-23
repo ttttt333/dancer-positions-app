@@ -17,6 +17,7 @@ import { useExportToast } from "../hooks/useExportToast";
 import { ExportToast } from "./ExportToast";
 import { VideoExportQualitySheet } from "./VideoExportQualitySheet";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { useLightingPlanUiStore } from "../store/lightingPlanUiStore";
 
 const STAGE_ROOT_ID = "stage-export-root";
 
@@ -382,6 +383,22 @@ export function ExportDialog({
             ×
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            useLightingPlanUiStore.getState().openSheet();
+          }}
+          style={{
+            ...btnAccent,
+            width: "100%",
+            marginBottom: 14,
+            padding: "10px 12px",
+            fontWeight: 800,
+          }}
+        >
+          照明プラン（キュー表 PDF）
+        </button>
         <p style={{ margin: "0 0 14px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
           形式を選んで実行します。PNG・PDF は現在の 2D ステージ（
           <code style={{ color: "#cbd5e1" }}>#{STAGE_ROOT_ID}</code>

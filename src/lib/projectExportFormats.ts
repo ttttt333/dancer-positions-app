@@ -139,6 +139,7 @@ export function downloadProjectCsvForExcel(project: ChoreographyProjectJson) {
       "終了",
       "フォーメーション",
       "キューメモ",
+      "照明要望",
     ])
   );
   const sorted = sortCuesByStart(project.cues);
@@ -154,6 +155,7 @@ export function downloadProjectCsvForExcel(project: ChoreographyProjectJson) {
         formatMmSs(c.tEndSec),
         fname,
         (c.note ?? "").replace(/\r\n/g, "\n").replace(/\n/g, " "),
+        (c.lightingRequest ?? "").replace(/\r\n/g, "\n").replace(/\n/g, " "),
       ])
     );
   }
@@ -442,6 +444,7 @@ export function importProjectFromChoreogridCsv(
         const tEnd = parseMmSsFlexible(row[4] ?? "");
         const formName = row[5]?.trim() ?? "";
         const note = (row[6] ?? "").trim();
+        const lightingRequest = (row[7] ?? "").trim();
         if (tStart == null || tEnd == null || tEnd <= tStart) continue;
         const cue = next.cues.find((c) => c.id === idCell);
         const fid = next.formations.find((f) => f.name === formName)?.id;
@@ -451,6 +454,7 @@ export function importProjectFromChoreogridCsv(
           cue.tEndSec = tEnd;
           cue.formationId = fid;
           cue.note = note || undefined;
+          if (row.length >= 8) cue.lightingRequest = lightingRequest || undefined;
         }
       } else if (row.length >= 6) {
         const cname = row[1] ?? "";

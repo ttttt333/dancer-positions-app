@@ -3,6 +3,7 @@ import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import type { FloorTextPlaceSession } from "../components/StageBoard";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { ChoreoCoreToolbar } from "./ChoreoCoreToolbar";
+import { useLightingPlanUiStore } from "../store/lightingPlanUiStore";
 import { useI18n } from "../i18n/I18nContext";
 
 export type EditorWorkbenchChoreoToolbarProps = Omit<
@@ -663,6 +664,17 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               <span>書出</span>
             </button>
           ) : null}
+          <button
+            type="button"
+            className="editor-right-tool-sq"
+            style={btnSecondary}
+            title="発表会の照明プラン。キューごとの説明と照明要望を書いて PDF にします"
+            aria-label="照明プラン"
+            onClick={() => useLightingPlanUiStore.getState().openSheet()}
+          >
+            <span>照明</span>
+            <span>プラン</span>
+          </button>
           {choreo ? (
             <ChoreoCoreToolbar
               embedInPanel
@@ -998,6 +1010,26 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         flexShrink: 0,
       }}
     >{t("editor.comp.k101")}</button>
+    <button
+      type="button"
+      title="発表会の照明プラン。キューごとの説明と照明要望を書いて PDF にします"
+      aria-label="照明プラン"
+      onClick={() => useLightingPlanUiStore.getState().openSheet()}
+      style={{
+        fontSize: "11px",
+        lineHeight: 1.2,
+        padding: "4px 10px",
+        borderRadius: "6px",
+        border: "1px solid #b45309",
+        background: "#fbbf24",
+        color: "#1c1917",
+        cursor: "pointer",
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      照明プラン
+    </button>
         </div>
         <div
           style={clusterEndStyle}

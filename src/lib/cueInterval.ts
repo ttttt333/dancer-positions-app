@@ -42,6 +42,7 @@ type RawCue = Record<string, unknown> & {
   tEndSec?: unknown;
   name?: unknown;
   note?: unknown;
+  lightingRequest?: unknown;
   gapApproachFromPrev?: unknown;
   dancerCustomPaths?: unknown;
 };
@@ -63,6 +64,7 @@ export function migrateCuesFromRaw(
     tEnd: number | null;
     name?: string;
     note?: string;
+    lightingRequest?: string;
     gapFromPrev?: GapApproachRoute;
     dancerCustomPaths?: Record<string, { cpX: number; cpY: number }>;
   }[] = [];
@@ -80,6 +82,10 @@ export function migrateCuesFromRaw(
     const name =
       typeof c.name === "string" ? c.name.trim().slice(0, 80) || undefined : undefined;
     const note = typeof c.note === "string" ? c.note : undefined;
+    const lightingRequest =
+      typeof c.lightingRequest === "string" && c.lightingRequest.trim()
+        ? c.lightingRequest.trim().slice(0, 2000)
+        : undefined;
 
     const tsKnown =
       typeof c.tStartSec === "number" && Number.isFinite(c.tStartSec)
@@ -102,6 +108,7 @@ export function migrateCuesFromRaw(
           : null,
       name,
       note,
+      lightingRequest,
       gapFromPrev: parseGapApproachRoute(c.gapApproachFromPrev),
       dancerCustomPaths: parseDancerCustomPaths(c.dancerCustomPaths),
     });
@@ -129,6 +136,7 @@ export function migrateCuesFromRaw(
       formationId: row.formationId,
       name: row.name,
       note: row.note,
+      ...(row.lightingRequest ? { lightingRequest: row.lightingRequest } : {}),
       ...(i > 0 && row.gapFromPrev
         ? { gapApproachFromPrev: row.gapFromPrev }
         : {}),
