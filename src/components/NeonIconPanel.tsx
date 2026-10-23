@@ -34,8 +34,6 @@ type NeonIconPanelProps = ChoreoCoreToolbarCoreProps & {
   onOpenLibrary?: () => void;
   /** 写真から立ち位置を読み取りキュー追加 */
   onOpenPhotoParse?: () => void;
-  /** キュー図 PNG/ZIP から一括復元 */
-  onOpenCueImageRestore?: () => void;
   onOpenRosterImport?: () => void;
   onOpenStageTransform?: () => void;
   onOpenVideoExport?: () => void;
@@ -436,7 +434,6 @@ export function NeonIconPanel({
   onOpenAudioImport,
   onOpenLibrary,
   onOpenPhotoParse,
-  onOpenCueImageRestore,
   onOpenRosterImport,
   onOpenStageTransform,
   collapsed = false,
@@ -674,17 +671,6 @@ export function NeonIconPanel({
         <NeonBtn icon={<IconAISuggest />} label={t("editor.comp.k006")} onClick={onOpenAISuggest} disabled={disabled} />
         <NeonBtn icon={<IconSetPiece />} label={t("editor.comp.k075")} onClick={onOpenSetPiecePicker} disabled={disabled} />
         <NeonBtn icon={<IconHelp />} label={t("editor.comp.k035")} onClick={onOpenShortcutsHelp} disabled={disabled} />
-        {onOpenCueImageRestore ? (
-          <NeonBtn
-            icon={<IconPhotoCue />}
-            label={t("editor.comp.k131")}
-            title={t("editor.comp.k132")}
-            onClick={onOpenCueImageRestore}
-            disabled={disabled}
-          />
-        ) : (
-          <div />
-        )}
       </div>
 
       {/* Spacer */}

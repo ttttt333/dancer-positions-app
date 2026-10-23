@@ -110,7 +110,6 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const activeFormationId = props.activeFormationId as never;
   const addCueDialogEl = props.addCueDialogEl as never;
   const photoParseDialogEl = props.photoParseDialogEl as never;
-  const cueImageRestoreDialogEl = props.cueImageRestoreDialogEl as never;
   const addDancerFromStageToolbar = props.addDancerFromStageToolbar as never;
   const aiSuggestOpen = props.aiSuggestOpen as never;
   const applyStageAreaSettingsDraft = props.applyStageAreaSettingsDraft as never;
@@ -2574,7 +2573,6 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
       {flowLibraryDialogEl}
       {addCueDialogEl}
       {photoParseDialogEl}
-      {cueImageRestoreDialogEl}
       {formationBoxManagerDialogEl}
       {formationPresetPickerSheetEl}
 

@@ -145,7 +145,6 @@ import { ExportDialog } from "../components/ExportDialog";
 import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
 import { ParsePositionFromPhotoDialog } from "../components/ParsePositionFromPhotoDialog";
-import { RestoreFromCueImagesDialog } from "../components/RestoreFromCueImagesDialog";
 import { FormationPresetPickerSheet } from "../components/FormationPresetPickerSheet";
 import { ProUpgradeProvider, useProUpgrade } from "../components/ProUpgradeProvider";
 import { isSupabaseBackend } from "../lib/supabaseClient";
@@ -322,7 +321,6 @@ function EditorPageContent({
   /** キュー追加 ＋ 形選択 ＋ 形の箱保存を 1 画面に統合したダイアログ */
   const [addCueDialogOpen, _setAddCueDialogOpen] = useState(false);
   const [photoParseOpen, setPhotoParseOpen] = useState(false);
-  const [cueImageRestoreOpen, setCueImageRestoreOpen] = useState(false);
   /** ステージ左上 Change から開く立ち位置雛形ピッカー */
   const [formationPresetPickerOpen, setFormationPresetPickerOpen] = useState(false);
   const setAddCueDialogOpen = (v: boolean | ((prev: boolean) => boolean)) => {
@@ -2251,35 +2249,6 @@ function EditorPageContent({
     ]
   );
 
-  const cueImageRestoreDialogEl = useMemo(
-    () =>
-      project ? (
-        <RestoreFromCueImagesDialog
-          open={cueImageRestoreOpen}
-          onClose={() => setCueImageRestoreOpen(false)}
-          project={project}
-          setProject={(action) => {
-            abortStageBoardPointerGestures();
-            cancelGestureHistory();
-            setProjectSafe(action);
-          }}
-          durationSec={duration}
-          onRestored={({ cueCount, dancerPeak }) => {
-            window.alert(
-              `キュー図から復元しました（${cueCount} キュー・最大 ${dancerPeak} 人）。\n音源は動画から別途読み込んでください。`
-            );
-          }}
-        />
-      ) : null,
-    [
-      project,
-      cueImageRestoreOpen,
-      setProjectSafe,
-      duration,
-      cancelGestureHistory,
-    ]
-  );
-
   const rosterImportSheetEl = useMemo(
     () =>
       project && rosterImportDraft ? (
@@ -3148,7 +3117,6 @@ function EditorPageContent({
     activeFormationId,
     addCueDialogEl,
     photoParseDialogEl,
-    cueImageRestoreDialogEl,
     addDancerFromStageToolbar,
     aiSuggestOpen,
     applyStageAreaSettingsDraft,
@@ -3261,7 +3229,6 @@ function EditorPageContent({
     serverId,
     setAddCueDialogOpen,
     setPhotoParseOpen: setPhotoParseOpenWrapped,
-    setCueImageRestoreOpen,
     setAiSuggestOpen,
     setChoreoMemberSheetOpen,
     applyChoreoStudentPick,

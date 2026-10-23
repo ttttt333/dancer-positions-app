@@ -189,63 +189,6 @@ export function usePositionParser() {
     [parseOneImage]
   );
 
-  /**
-   * キュー図復元用: 画像ごとに結果を分けて返す（マージしない）。
-   */
-  const parseImageFilesSeparately = useCallback(
-    async (
-      files: File[],
-      options?: {
-        memberNameHints?: string[];
-        onProgress?: (progress: ParseImageProgress) => void;
-      }
-    ): Promise<Array<{ file: File; result: ParsePositionResponse }> | null> => {
-      const valid = files.filter(isParseableImageFile);
-      if (!valid.length) {
-        setError("画像ファイル（JPEG / PNG / HEIC など）を選んでください");
-        return null;
-      }
-
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      setLoading(true);
-      setError(null);
-
-      try {
-        const out: Array<{ file: File; result: ParsePositionResponse }> = [];
-        for (let i = 0; i < valid.length; i++) {
-          if (controller.signal.aborted) return null;
-          const file = valid[i]!;
-          options?.onProgress?.({
-            current: i + 1,
-            total: valid.length,
-            fileName: file.name,
-          });
-          const result = await parseOneImage(file, {
-            memberNameHints: options?.memberNameHints,
-            signal: controller.signal,
-          });
-          if (result.positions.length) out.push({ file, result });
-        }
-        if (!out.length) {
-          throw new Error("画像から立ち位置を読み取れませんでした");
-        }
-        return out;
-      } catch (e) {
-        if (isAbortError(e)) return null;
-        const raw =
-          e instanceof Error ? e.message : "画像の解析に失敗しました";
-        setError(formatParsePositionError(raw));
-        return null;
-      } finally {
-        if (abortRef.current === controller) abortRef.current = null;
-        setLoading(false);
-      }
-    },
-    [parseOneImage]
-  );
-
   return {
     loading,
     error,
@@ -253,6 +196,5 @@ export function usePositionParser() {
     reset,
     parseImageFile,
     parseImageFiles,
-    parseImageFilesSeparately,
   };
 }
