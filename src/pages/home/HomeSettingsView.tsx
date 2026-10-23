@@ -6,6 +6,7 @@ import { useUserLibrarySyncStatus } from "../../hooks/useUserLibraryCloudSync";
 import { useI18n } from "../../i18n/I18nContext";
 import { TOKUSHOHO_PATH } from "../../lib/commercialDisclosure";
 import { isSupabaseBackend } from "../../lib/supabaseClient";
+import { deleteUnreferencedSupabaseAudio } from "../../lib/supabaseAudioOrphans";
 import { shell } from "../../theme/choreoShell";
 import {
   displayNameFromEmail,
@@ -141,6 +142,7 @@ export function HomeSettingsView({
 }: Props) {
   const { t } = useI18n();
   const syncStatus = useUserLibrarySyncStatus();
+  const [purgingAudio, setPurgingAudio] = useState(false);
   const fallbackName = displayNameFromEmail(email);
   const [displayName, setDisplayName] = useState(fallbackName);
 
@@ -174,6 +176,28 @@ export function HomeSettingsView({
     )}&body=${encodeURIComponent(
       `Current email: ${email}\nRequested new email:\n`
     )}`;
+  };
+
+  const onPurgeUnusedAudio = () => {
+    if (purgingAudio) return;
+    if (!window.confirm(t("home.settings.purgeAudioConfirm"))) return;
+    setPurgingAudio(true);
+    void deleteUnreferencedSupabaseAudio()
+      .then((result) => {
+        window.alert(
+          result.deletedCount === 0
+            ? t("home.settings.purgeAudioNone")
+            : t("home.settings.purgeAudioDone", {
+                count: result.deletedCount,
+                mb: (result.deletedBytes / (1024 * 1024)).toFixed(1),
+              })
+        );
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        window.alert(t("home.settings.purgeAudioFail", { message }));
+      })
+      .finally(() => setPurgingAudio(false));
   };
 
   const onDeleteAccount = () => {
@@ -330,6 +354,18 @@ export function HomeSettingsView({
               })}`
             : null}
         </p>
+      ) : null}
+
+      {isSupabaseBackend() ? (
+        <SettingsRow
+          icon="♪"
+          label={
+            purgingAudio
+              ? t("home.settings.purgeAudioBusy")
+              : t("home.settings.purgeAudio")
+          }
+          onClick={onPurgeUnusedAudio}
+        />
       ) : null}
 
       <SettingsRow icon="★" label={labels.appeal} to="/appeal" />
