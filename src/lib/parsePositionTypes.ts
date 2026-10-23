@@ -45,11 +45,4 @@ export type ParsePositionResponse = {
   importWarnings?: ParseImportWarning[];
   placement?: "raw" | "suggested";
   imageFrontDirection?: "top" | "bottom" | "left" | "right";
-  /**
-   * ChoreoCore キュー図書き出しの左サイドバー再生時間（例: `0:00〜1:45`）。
-   * 無い画像では未定義。
-   */
-  pageTimeLabel?: string;
-  /** キュー図の見出し（例: `キュー 1`） */
-  pageTitle?: string;
 };

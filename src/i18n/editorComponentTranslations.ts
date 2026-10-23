@@ -133,8 +133,6 @@ const JA: MessageBundle = {
   "editor.comp.k128": "動画書き出し",
   "editor.comp.k129": "画像キュー",
   "editor.comp.k130": "画像からキューを設定",
-  "editor.comp.k131": "図から復元",
-  "editor.comp.k132": "キュー図 PNG / ZIP から立ち位置をまとめて復元",
 };
 
 const EN: MessageBundle = {
@@ -268,8 +266,6 @@ const EN: MessageBundle = {
   "editor.comp.k128": "Video export",
   "editor.comp.k129": "Photo cue",
   "editor.comp.k130": "Set cue from photo",
-  "editor.comp.k131": "Restore cues",
-  "editor.comp.k132": "Restore formations from cue sheet PNG / ZIP",
 };
 
 const KO: MessageBundle = {
@@ -404,8 +400,6 @@ const KO: MessageBundle = {
   "editor.comp.k128": "동영상 내보내기",
   "editor.comp.k129": "사진 큐",
   "editor.comp.k130": "사진에서 큐 설정",
-  "editor.comp.k131": "도에서 복원",
-  "editor.comp.k132": "큐 시트 PNG / ZIP에서 자리를 일괄 복원",
 };
 
 const ZH: MessageBundle = {
@@ -540,8 +534,6 @@ const ZH: MessageBundle = {
   "editor.comp.k128": "导出视频",
   "editor.comp.k129": "图片提示点",
   "editor.comp.k130": "从图片设置提示点",
-  "editor.comp.k131": "从图恢复",
-  "editor.comp.k132": "从提示点图 PNG / ZIP 批量恢复站位",
 };
 
 export const EDITOR_COMPONENT_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
