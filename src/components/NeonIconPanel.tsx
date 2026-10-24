@@ -61,16 +61,6 @@ function IconStage() {
     </svg>
   );
 }
-function IconLightingPlan() {
-  const c = "#fbbf24";
-  return (
-    <svg viewBox="0 0 32 32" style={{ filter: glow(c) }}>
-      <circle cx="16" cy="7" r="2.4" fill={c} />
-      <path d="M12.5 10.5 L8 24 H24 L19.5 10.5" fill="none" stroke={c} strokeWidth="1.5" strokeLinejoin="round" />
-      <line x1="16" y1="10" x2="16" y2="24" stroke={c} strokeWidth="1" opacity="0.7" />
-    </svg>
-  );
-}
 function IconCueFlag() {
   const c = "#c084fc";
   return (
@@ -620,6 +610,28 @@ export function NeonIconPanel({
           overflowY: "auto",
         }}
       >
+      <button
+        type="button"
+        aria-label="照明プラン"
+        title="発表会の照明プラン。キューごとの説明と照明要望を書いて PDF にします"
+        onClick={() => useLightingPlanUiStore.getState().openSheet()}
+        style={{
+          width: "100%",
+          marginBottom: 6,
+          padding: "9px 10px",
+          borderRadius: 8,
+          border: "1px solid rgba(251,191,36,0.55)",
+          background: "rgba(251,191,36,0.14)",
+          color: "#fbbf24",
+          fontSize: 13,
+          fontWeight: 800,
+          letterSpacing: "0.06em",
+          cursor: "pointer",
+          flexShrink: 0,
+        }}
+      >
+        照明プラン
+      </button>
       {/* Block 1: 舞台・編集 (3×2)
           1段目: 雛形 / 舞台設定 / キュー設定
           2段目: テキスト / 立ち位置保存 / 閲覧モード */}
@@ -655,13 +667,6 @@ export function NeonIconPanel({
         ) : (
           <div />
         )}
-        <NeonBtn
-          icon={<IconLightingPlan />}
-          label="照明"
-          ariaLabel="照明プラン"
-          title="発表会の照明プラン。キューごとの説明と照明要望を書いて PDF にします"
-          onClick={() => useLightingPlanUiStore.getState().openSheet()}
-        />
       </div>
 
       <Divider />
