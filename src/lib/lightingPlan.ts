@@ -63,6 +63,39 @@ function clean(value: unknown, max: number): string | undefined {
   return text || undefined;
 }
 
+/**
+ * 入力途中の末尾空白・改行は残す。
+ * trim すると「第19回 」の次の文字や説明の改行が消える。
+ * 空白だけなら未設定として落とす。
+ */
+function clipEditable(value: unknown, max: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const text = value.slice(0, max);
+  return text.trim() ? text : undefined;
+}
+
+function editableLightingPlan(
+  plan: Partial<LightingPlan> | null | undefined
+): LightingPlan | undefined {
+  if (!plan) return undefined;
+  const next: LightingPlan = {
+    eventTitle: clipEditable(plan.eventTitle, SHORT_MAX),
+    programOrder: clipEditable(plan.programOrder, 16),
+    programSub: clipEditable(plan.programSub, 16),
+    presetMark: clipEditable(plan.presetMark, 16),
+    pinSpot: pinSpot(plan.pinSpot),
+    className: clipEditable(plan.className, SHORT_MAX),
+    songTitle: clipEditable(plan.songTitle, SHORT_MAX),
+    costumeBottom: clipEditable(plan.costumeBottom, 40),
+    costumeTop: clipEditable(plan.costumeTop, 40),
+    atmosphere: clipEditable(plan.atmosphere, LONG_MAX),
+    points: clipEditable(plan.points, LONG_MAX),
+  };
+  return Object.values(next).some((v) => v != null && String(v).trim() !== "")
+    ? next
+    : undefined;
+}
+
 function pinSpot(value: unknown): LightingPlanPinSpot | undefined {
   return value === "あり" || value === "なし" ? value : undefined;
 }
@@ -171,7 +204,7 @@ export function withLightingPlan(
 ): ChoreographyProjectJson {
   return {
     ...project,
-    lightingPlan: compactLightingPlan({ ...project.lightingPlan, ...patch }),
+    lightingPlan: editableLightingPlan({ ...project.lightingPlan, ...patch }),
   };
 }
 
@@ -186,17 +219,17 @@ export function withCuePlanText(
       if (cue.id !== cueId) return cue;
       const next: Cue = { ...cue };
       if ("name" in patch) {
-        const name = clean(patch.name, SHORT_MAX);
+        const name = clipEditable(patch.name, SHORT_MAX);
         if (name) next.name = name;
         else delete next.name;
       }
       if ("note" in patch) {
-        const note = clean(patch.note, CUE_TEXT_MAX);
+        const note = clipEditable(patch.note, CUE_TEXT_MAX);
         if (note) next.note = note;
         else delete next.note;
       }
       if ("lightingRequest" in patch) {
-        const lightingRequest = clean(patch.lightingRequest, CUE_TEXT_MAX);
+        const lightingRequest = clipEditable(patch.lightingRequest, CUE_TEXT_MAX);
         if (lightingRequest) next.lightingRequest = lightingRequest;
         else delete next.lightingRequest;
       }

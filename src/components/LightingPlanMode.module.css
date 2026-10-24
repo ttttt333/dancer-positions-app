@@ -1,7 +1,8 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 220;
+  /* 波形ドックの中に描くとリサイズ帯が見出しのクリックを奪う。body 直下で全面に出す */
+  z-index: 4000;
   background: rgba(2, 6, 23, 0.72);
   display: flex;
   flex-direction: column;

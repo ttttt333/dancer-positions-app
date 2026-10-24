@@ -13,7 +13,8 @@ const PAGE_H = 842;
 const SCALE = 2;
 const MARGIN = 22;
 
-const FONT = '"Noto Sans JP", "Hiragino Sans", sans-serif';
+const FONT =
+  '"Noto Sans JP", "Hiragino Sans", "WenQuanYi Micro Hei", "Droid Sans Fallback", sans-serif';
 
 function safeFileBase(name: string): string {
   return (
@@ -271,6 +272,9 @@ function drawRow(
   ctx.strokeStyle = "#111111";
   ctx.lineWidth = 0.6;
   ctx.strokeRect(x, y, cols.formation, h);
+  ctx.beginPath();
+  ctx.rect(x, y, cols.formation, h);
+  ctx.clip();
   if (row) {
     const sketchW = SKETCH_W;
     const sketchH = Math.max(28, h - 8);
@@ -280,8 +284,8 @@ function drawRow(
       formationSketchDancers(project, row.formationId)
     );
     const text = [row.name, row.note].filter(Boolean).join("\n");
-    const lines = wrapLines(ctx, text, cols.formation - sketchW - 14, 6);
     ctx.font = `400 8px ${FONT}`;
+    const lines = wrapLines(ctx, text, cols.formation - sketchW - 14, 6);
     ctx.fillStyle = "#111111";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
@@ -293,7 +297,12 @@ function drawRow(
   x += cols.formation;
 
   ctx.save();
+  ctx.strokeStyle = "#111111";
+  ctx.lineWidth = 0.6;
   ctx.strokeRect(x, y, cols.light, h);
+  ctx.beginPath();
+  ctx.rect(x, y, cols.light, h);
+  ctx.clip();
   if (row?.lightingRequest) {
     ctx.font = `400 8px ${FONT}`;
     const lines = wrapLines(ctx, row.lightingRequest, cols.light - 8, 6);
@@ -344,7 +353,8 @@ function paintPages(
 export async function downloadLightingPlanPdf(
   project: ChoreographyProjectJson
 ): Promise<void> {
-  if (typeof document !== "undefined" && document.fonts?.load) {
+  if (typeof document !== "undefined" && document.fonts?.ready) {
+    await document.fonts.ready;
     await document.fonts.load('400 12px "Noto Sans JP"');
     await document.fonts.load('700 14px "Noto Sans JP"');
   }

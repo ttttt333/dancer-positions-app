@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson, Formation } from "../types/choreography";
 import {
   buildLightingPlanDocument,
@@ -98,7 +99,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
     }
   };
 
-  return (
+  return createPortal(
     <div className={styles.backdrop} role="dialog" aria-modal="true" aria-labelledby="lighting-plan-title">
       <div className={styles.bar}>
         <h2 id="lighting-plan-title" className={styles.title}>
@@ -124,6 +125,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
               演目順
               <input
                 className={styles.box}
+                aria-label="演目順"
                 value={plan?.programOrder ?? ""}
                 disabled={lock}
                 onChange={(e) => patchPlan({ programOrder: e.target.value })}
@@ -141,6 +143,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
               板付
               <input
                 className={styles.box}
+                aria-label="板付"
                 value={plan?.presetMark ?? ""}
                 disabled={lock}
                 onChange={(e) => patchPlan({ presetMark: e.target.value })}
@@ -186,6 +189,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                 <th>クラス名</th>
                 <td>
                   <input
+                    aria-label="クラス名"
                     value={plan?.className ?? ""}
                     disabled={lock}
                     placeholder="オープニング"
@@ -220,6 +224,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                 <th>使用曲</th>
                 <td>
                   <input
+                    aria-label="使用曲"
                     value={plan?.songTitle ?? ""}
                     disabled={lock}
                     placeholder={project.pieceTitle || "曲名"}
@@ -231,6 +236,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                   <label className={styles.inlineLabel}>
                     下－
                     <input
+                      aria-label="衣装の下"
                       value={plan?.costumeBottom ?? ""}
                       disabled={lock}
                       placeholder="ブルー"
@@ -240,6 +246,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                   <label className={styles.inlineLabel} style={{ marginLeft: 12 }}>
                     上－
                     <input
+                      aria-label="衣装の上"
                       value={plan?.costumeTop ?? ""}
                       disabled={lock}
                       placeholder="白シャツ"
@@ -252,6 +259,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                 <th>全体の雰囲気</th>
                 <td colSpan={5}>
                   <input
+                    aria-label="全体の雰囲気"
                     value={plan?.atmosphere ?? ""}
                     disabled={lock}
                     placeholder="かっこよくサビは明るく賑やかに"
@@ -263,6 +271,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                 <th>ポイント</th>
                 <td colSpan={5}>
                   <input
+                    aria-label="ポイント"
                     value={plan?.points ?? ""}
                     disabled={lock}
                     placeholder="初めのSS、サス、ピンスポ"
@@ -354,6 +363,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
           </table>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

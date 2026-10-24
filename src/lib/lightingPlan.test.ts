@@ -97,6 +97,35 @@ describe("lighting plan document", () => {
     });
   });
 
+  it("keeps a trailing space or newline while the sheet is being typed", () => {
+    const base = createEmptyProject();
+    const cueId = "c1";
+    const project = withCuePlanText(
+      {
+        ...base,
+        cues: [
+          {
+            id: cueId,
+            formationId: base.activeFormationId,
+            tStartSec: 0,
+            tEndSec: 4,
+          },
+        ],
+      },
+      cueId,
+      { note: "センター\n", lightingRequest: "赤系 ", name: "サビ " }
+    );
+    expect(project.cues[0]?.note).toBe("センター\n");
+    expect(project.cues[0]?.lightingRequest).toBe("赤系 ");
+    expect(project.cues[0]?.name).toBe("サビ ");
+    const titled = withLightingPlan(project, { eventTitle: "第19回 " });
+    expect(titled.lightingPlan?.eventTitle).toBe("第19回 ");
+    const doc = buildLightingPlanDocument(titled);
+    expect(doc.rows[0]?.note).toBe("センター");
+    expect(doc.rows[0]?.lightingRequest).toBe("赤系");
+    expect(doc.heading).toBe("第19回 照明プラン");
+  });
+
   it("uses the piece title when the plan has no song title", () => {
     const base = createEmptyProject();
     const doc = buildLightingPlanDocument({ ...base, pieceTitle: "BLOOM" });

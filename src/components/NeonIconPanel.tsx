@@ -3,6 +3,7 @@ import { shell } from "../theme/choreoShell";
 import type { ChoreoCoreToolbarCoreProps } from "./ChoreoCoreToolbar";
 import { useI18n } from "../i18n/I18nContext";
 import { registerStageEditDockHost } from "../lib/stageEditDockHost";
+import { useLightingPlanUiStore } from "../store/lightingPlanUiStore";
 
 /* ═══════════════════════════════════════════════════════════
    NeonIconPanel — matches ChoreoCore v2 RightPanel exactly
@@ -57,6 +58,16 @@ function IconStage() {
       <path d="M6 10 L26 10 L30 26 L2 26 Z" fill="none" stroke={c} strokeWidth="1.5" strokeLinejoin="round" />
       <line x1="16" y1="6" x2="16" y2="10" stroke={c} strokeWidth="1.2" />
       <circle cx="16" cy="5" r="1.5" fill={c} />
+    </svg>
+  );
+}
+function IconLightingPlan() {
+  const c = "#fbbf24";
+  return (
+    <svg viewBox="0 0 32 32" style={{ filter: glow(c) }}>
+      <circle cx="16" cy="7" r="2.4" fill={c} />
+      <path d="M12.5 10.5 L8 24 H24 L19.5 10.5" fill="none" stroke={c} strokeWidth="1.5" strokeLinejoin="round" />
+      <line x1="16" y1="10" x2="16" y2="24" stroke={c} strokeWidth="1" opacity="0.7" />
     </svg>
   );
 }
@@ -362,10 +373,11 @@ const labelStyle: CSSProperties = {
   marginTop: 2,
 };
 
-function NeonBtn({ icon, label, title, onClick, active, disabled }: {
+function NeonBtn({ icon, label, title, ariaLabel, onClick, active, disabled }: {
   icon: ReactNode;
   label: string;
   title?: string;
+  ariaLabel?: string;
   onClick?: () => void;
   active?: boolean;
   disabled?: boolean;
@@ -391,8 +403,8 @@ function NeonBtn({ icon, label, title, onClick, active, disabled }: {
           (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.06)";
         }
       }}
-      title={title ?? label}
-      aria-label={title ?? label}
+      title={title ?? ariaLabel ?? label}
+      aria-label={ariaLabel ?? title ?? label}
     >
       <div style={iconSize}>{icon}</div>
       <span style={labelStyle}>{label}</span>
@@ -643,6 +655,13 @@ export function NeonIconPanel({
         ) : (
           <div />
         )}
+        <NeonBtn
+          icon={<IconLightingPlan />}
+          label="照明"
+          ariaLabel="照明プラン"
+          title="発表会の照明プラン。キューごとの説明と照明要望を書いて PDF にします"
+          onClick={() => useLightingPlanUiStore.getState().openSheet()}
+        />
       </div>
 
       <Divider />
