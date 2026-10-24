@@ -6,9 +6,14 @@ import {
   buildLightingPlanDocument,
   drawFormationSketch,
   formationSketchDancers,
+  omitCueFromLightingPlan,
+  parseLightingPlanClock,
+  restoreOmittedLightingPlanCues,
+  setLightingPlanCueTime,
   withCuePlanText,
   withLightingPlan,
 } from "../lib/lightingPlan";
+import { formatPdfClock } from "../lib/choreographyPdfPages";
 import { downloadLightingPlanPdf } from "../lib/lightingPlanPdf";
 import { useLightingPlanUiStore } from "../store/lightingPlanUiStore";
 import styles from "./LightingPlanMode.module.css";
@@ -18,6 +23,86 @@ type Props = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
   readOnly?: boolean;
 };
+
+function PlanTimeEditor({
+  number,
+  cueId,
+  startSec,
+  endSec,
+  disabled,
+  onCommit,
+  onRemove,
+}: {
+  number: number;
+  cueId: string;
+  startSec: number;
+  endSec: number;
+  disabled: boolean;
+  onCommit: (cueId: string, startSec: number, endSec: number) => void;
+  onRemove: (cueId: string) => void;
+}) {
+  const [startText, setStartText] = useState(formatPdfClock(startSec));
+  const [endText, setEndText] = useState(formatPdfClock(endSec));
+
+  useEffect(() => {
+    setStartText(formatPdfClock(startSec));
+    setEndText(formatPdfClock(endSec));
+  }, [cueId, startSec, endSec]);
+
+  const commit = () => {
+    const start = parseLightingPlanClock(startText);
+    const end = parseLightingPlanClock(endText);
+    if (start == null || end == null || end <= start) {
+      setStartText(formatPdfClock(startSec));
+      setEndText(formatPdfClock(endSec));
+      return;
+    }
+    onCommit(cueId, start, end);
+  };
+
+  return (
+    <div className={styles.timeFields}>
+      <div className={styles.timeRow}>
+        <input
+          className={styles.timeInput}
+          aria-label={`キュー ${number} の開始`}
+          value={startText}
+          disabled={disabled}
+          inputMode="decimal"
+          onChange={(event) => setStartText(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+          }}
+        />
+        <span>~</span>
+        <input
+          className={styles.timeInput}
+          aria-label={`キュー ${number} の終了`}
+          value={endText}
+          disabled={disabled}
+          inputMode="decimal"
+          onChange={(event) => setEndText(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+          }}
+        />
+      </div>
+      {disabled ? null : (
+        <button
+          type="button"
+          className={styles.removeRow}
+          aria-label={`キュー ${number} を照明プランから外す`}
+          title="照明プランから外します。立ち位置のキューは残ります"
+          onClick={() => onRemove(cueId)}
+        >
+          削除
+        </button>
+      )}
+    </div>
+  );
+}
 
 function FormationSketch({ formation }: { formation: Formation | undefined }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -106,7 +191,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
           照明プラン
         </h2>
         <p className={styles.lead}>
-          発表会の照明キュー表です。隊形は各キューの立ち位置から入り、説明と照明要望はキューに保存されます。
+          発表会の照明キュー表です。時間の変更と行の削除は、この表だけに残ります。立ち位置のキューは変わりません。
         </p>
         <div className={styles.barActions}>
           {error ? <p className={styles.error}>{error}</p> : null}
@@ -286,7 +371,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
             <thead>
               <tr>
                 <th style={{ width: 52 }}>番号</th>
-                <th style={{ width: 118 }}>時間</th>
+                <th style={{ width: 148 }}>時間</th>
                 <th>フォーメーション</th>
                 <th style={{ width: "34%" }}>照明 要望等</th>
               </tr>
@@ -307,7 +392,36 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                   return (
                     <tr key={row.cueId}>
                       <td className={styles.num}>{row.number}</td>
-                      <td className={styles.time}>{row.timeLabel}</td>
+                      <td className={styles.time}>
+                        <PlanTimeEditor
+                          number={row.number}
+                          cueId={row.cueId}
+                          startSec={row.tStartSec}
+                          endSec={row.tEndSec}
+                          disabled={lock}
+                          onCommit={(cueId, startSec, endSec) =>
+                            setProject((current) => {
+                              const cue = current.cues.find((item) => item.id === cueId);
+                              const next = setLightingPlanCueTime(
+                                current,
+                                cueId,
+                                startSec,
+                                endSec
+                              );
+                              if (cue && next.cues.some((item) => item === cue)) return next;
+                              return current;
+                            })
+                          }
+                          onRemove={(cueId) =>
+                            setProject((current) => {
+                              const before = current.cues;
+                              const next = omitCueFromLightingPlan(current, cueId);
+                              if (next.cues !== before) return current;
+                              return next;
+                            })
+                          }
+                        />
+                      </td>
                       <td>
                         <div className={styles.formationCell}>
                           <FormationSketch formation={formation} />
@@ -361,6 +475,21 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
               )}
             </tbody>
           </table>
+          {(plan?.omittedCueIds?.length ?? 0) > 0 ? (
+            <p className={styles.restoreRow}>
+              <button
+                type="button"
+                className={styles.restoreButton}
+                disabled={lock}
+                onClick={() =>
+                  setProject((current) => restoreOmittedLightingPlanCues(current))
+                }
+              >
+                外した行を戻す
+              </button>
+              <span>立ち位置のキューは消えていません。</span>
+            </p>
+          ) : null}
         </div>
       </div>
     </div>,

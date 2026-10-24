@@ -347,6 +347,15 @@ export type StageShape = {
 export type LightingPlanPinSpot = "あり" | "なし";
 
 /**
+ * 照明プラン用紙だけの時刻。
+ * 同じ id の立ち位置キュー `tStartSec` / `tEndSec` は変えない。
+ */
+export type LightingPlanCueTime = {
+  tStartSec: number;
+  tEndSec: number;
+};
+
+/**
  * 発表会に渡す照明プランの見出し。
  * 未設定の作品には付けない。各キューの説明は `Cue.note`、照明要望は `Cue.lightingRequest`。
  */
@@ -372,6 +381,16 @@ export type LightingPlan = {
   atmosphere?: string;
   /** ポイント */
   points?: string;
+  /**
+   * 照明表に出す時刻。キーは cue id。
+   * 未設定のキューは立ち位置キューの時刻を表示するだけ。
+   */
+  cueTimes?: Record<string, LightingPlanCueTime>;
+  /**
+   * 照明表から外した cue id。
+   * 立ち位置のキュー自体は残る。
+   */
+  omittedCueIds?: string[];
 };
 
 export type CrewMember = {

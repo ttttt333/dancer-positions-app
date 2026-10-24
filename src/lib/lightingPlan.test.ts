@@ -7,6 +7,10 @@ import {
   compactLightingPlan,
   formatLightingRange,
   lightingPlanHeading,
+  omitCueFromLightingPlan,
+  parseLightingPlanClock,
+  restoreOmittedLightingPlanCues,
+  setLightingPlanCueTime,
   withCuePlanText,
   withLightingPlan,
 } from "./lightingPlan";
@@ -163,6 +167,132 @@ describe("lighting plan persistence", () => {
     });
     expect(normalized.cues[0]?.note).toBe("センターへそ");
     expect(normalized.cues[0]?.lightingRequest).toBe("赤系でお願いします");
+  });
+
+  it("changes sheet times without moving the standing cue", () => {
+    const base = createEmptyProject();
+    const fid = base.activeFormationId;
+    const start = {
+      ...base,
+      cues: [
+        {
+          id: "c1",
+          formationId: fid,
+          tStartSec: 0,
+          tEndSec: 17,
+        },
+        {
+          id: "c2",
+          formationId: fid,
+          tStartSec: 22,
+          tEndSec: 40,
+          name: "サビ",
+        },
+      ],
+    };
+    const next = setLightingPlanCueTime(start, "c1", 90, 120);
+    expect(next.cues).toBe(start.cues);
+    expect(next.cues[0]).toMatchObject({ tStartSec: 0, tEndSec: 17 });
+    expect(next.lightingPlan?.cueTimes).toEqual({
+      c1: { tStartSec: 90, tEndSec: 120 },
+    });
+    const doc = buildLightingPlanDocument(next);
+    expect(doc.rows.map((row) => row.cueId)).toEqual(["c2", "c1"]);
+    expect(doc.rows[0]).toMatchObject({ number: 1, timeLabel: "0:22 ~ 0:40", name: "サビ" });
+    expect(doc.rows[1]).toMatchObject({ number: 2, timeLabel: "1:30 ~ 2:00" });
+    expect(doc.timeLabel).toBe("2:00");
+
+    const cleared = setLightingPlanCueTime(next, "c1", 0, 17);
+    expect(cleared.lightingPlan?.cueTimes).toBeUndefined();
+    expect(cleared.cues[0]).toMatchObject({ tStartSec: 0, tEndSec: 17 });
+  });
+
+  it("rejects a window that does not move forward", () => {
+    const base = createEmptyProject();
+    const start = {
+      ...base,
+      cues: [
+        {
+          id: "c1",
+          formationId: base.activeFormationId,
+          tStartSec: 0,
+          tEndSec: 9,
+        },
+      ],
+    };
+    expect(setLightingPlanCueTime(start, "c1", 10, 10)).toBe(start);
+    expect(parseLightingPlanClock("")).toBeNull();
+    expect(parseLightingPlanClock("-1")).toBeNull();
+    expect(parseLightingPlanClock("1:30")).toBe(90);
+    expect(parseLightingPlanClock("17")).toBe(17);
+  });
+
+  it("omits a sheet row and can put it back without deleting the cue", () => {
+    const base = createEmptyProject();
+    const fid = base.activeFormationId;
+    const start = withLightingPlan(
+      {
+        ...base,
+        cues: [
+          { id: "c1", formationId: fid, tStartSec: 0, tEndSec: 17 },
+          { id: "c2", formationId: fid, tStartSec: 22, tEndSec: 40 },
+        ],
+      },
+      { className: "オープニング" }
+    );
+    const timed = setLightingPlanCueTime(start, "c1", 5, 12);
+    const omitted = omitCueFromLightingPlan(timed, "c1");
+    expect(omitted.cues).toBe(start.cues);
+    expect(omitted.cues).toHaveLength(2);
+    expect(omitted.lightingPlan?.omittedCueIds).toEqual(["c1"]);
+    expect(omitted.lightingPlan?.cueTimes).toBeUndefined();
+    expect(omitted.lightingPlan?.className).toBe("オープニング");
+    const doc = buildLightingPlanDocument(omitted);
+    expect(doc.rows.map((row) => row.cueId)).toEqual(["c2"]);
+    expect(doc.rows[0]?.number).toBe(1);
+    expect(doc.timeLabel).toBe("0:40");
+
+    const again = omitCueFromLightingPlan(omitted, "c1");
+    expect(again.lightingPlan?.omittedCueIds).toEqual(["c1"]);
+
+    const restored = restoreOmittedLightingPlanCues(omitted);
+    expect(restored.cues).toBe(start.cues);
+    expect(restored.lightingPlan?.omittedCueIds).toBeUndefined();
+    expect(buildLightingPlanDocument(restored).rows).toHaveLength(2);
+    expect(buildLightingPlanDocument(restored).rows[0]?.timeLabel).toBe("0:00 ~ 0:17");
+  });
+
+  it("keeps sheet times and omitted rows when the header is edited or reloaded", () => {
+    const base = createEmptyProject();
+    const fid = base.activeFormationId;
+    const project = withLightingPlan(
+      {
+        ...base,
+        cues: [{ id: "c1", formationId: fid, tStartSec: 0, tEndSec: 17 }],
+        lightingPlan: {
+          className: "オープニング",
+          cueTimes: { c1: { tStartSec: 30, tEndSec: 45 } },
+          omittedCueIds: ["gone"],
+        },
+      },
+      { eventTitle: "第19回 " }
+    );
+    expect(project.lightingPlan?.cueTimes).toEqual({
+      c1: { tStartSec: 30, tEndSec: 45 },
+    });
+    expect(project.lightingPlan?.omittedCueIds).toEqual(["gone"]);
+    expect(project.cues[0]).toMatchObject({ tStartSec: 0, tEndSec: 17 });
+
+    const normalized = normalizeProject(project);
+    expect(normalized.lightingPlan?.cueTimes).toEqual({
+      c1: { tStartSec: 30, tEndSec: 45 },
+    });
+    expect(normalized.lightingPlan?.omittedCueIds).toEqual(["gone"]);
+    expect(normalized.cues[0]).toMatchObject({ tStartSec: 0, tEndSec: 17 });
+    const doc = buildLightingPlanDocument(normalized);
+    expect(doc.rows).toHaveLength(1);
+    expect(doc.rows[0]).toMatchObject({ timeLabel: "0:30 ~ 0:45" });
+    expect(doc.timeLabel).toBe("0:45");
   });
 
   it("keeps lightingRequest when migrating raw cues", () => {

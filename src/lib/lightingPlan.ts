@@ -1,14 +1,15 @@
-import { sortCuesByStart } from "../core/timelineController";
 import {
   DANCER_COLOR_PALETTE_HEX,
   modDancerColorIndex,
 } from "./dancerColorPalette";
 import { genderLabelForColor, resolveDancerDisplayHex } from "./dancerGender";
 import { formatPdfClock } from "./choreographyPdfPages";
+import { parseMmSsFlexible } from "./timeFormat";
 import type {
   ChoreographyProjectJson,
   Cue,
   LightingPlan,
+  LightingPlanCueTime,
   LightingPlanPinSpot,
 } from "../types/choreography";
 
@@ -19,6 +20,9 @@ const CUE_TEXT_MAX = 2000;
 export type LightingPlanCueRow = {
   cueId: string;
   number: number;
+  /** 照明表に出す開始秒。立ち位置キューの時刻とは別 */
+  tStartSec: number;
+  tEndSec: number;
   timeLabel: string;
   name: string;
   note: string;
@@ -74,6 +78,63 @@ function clipEditable(value: unknown, max: number): string | undefined {
   return text.trim() ? text : undefined;
 }
 
+const MAX_PLAN_SEC = 6 * 60 * 60;
+
+function roundPlanSec(value: number): number {
+  return Math.round(Math.min(MAX_PLAN_SEC, Math.max(0, value)) * 100) / 100;
+}
+
+function parseCueTimes(raw: unknown): Record<string, LightingPlanCueTime> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: Record<string, LightingPlanCueTime> = {};
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    const cueId = id.trim().slice(0, 80);
+    if (!cueId || !value || typeof value !== "object" || Array.isArray(value)) continue;
+    const row = value as Record<string, unknown>;
+    const start = typeof row.tStartSec === "number" ? row.tStartSec : null;
+    const end = typeof row.tEndSec === "number" ? row.tEndSec : null;
+    if (start == null || end == null || !Number.isFinite(start) || !Number.isFinite(end)) continue;
+    const tStartSec = roundPlanSec(start);
+    const tEndSec = roundPlanSec(end);
+    if (tEndSec <= tStartSec) continue;
+    out[cueId] = { tStartSec, tEndSec };
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function parseOmittedCueIds(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const ids: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const id = item.trim().slice(0, 80);
+    if (id && !ids.includes(id)) ids.push(id);
+    if (ids.length >= 200) break;
+  }
+  return ids.length > 0 ? ids : undefined;
+}
+
+function scheduleOf(plan: Partial<LightingPlan> | null | undefined): Pick<
+  LightingPlan,
+  "cueTimes" | "omittedCueIds"
+> {
+  const cueTimes = parseCueTimes(plan?.cueTimes);
+  const omittedCueIds = parseOmittedCueIds(plan?.omittedCueIds);
+  return {
+    ...(cueTimes ? { cueTimes } : {}),
+    ...(omittedCueIds ? { omittedCueIds } : {}),
+  };
+}
+
+function planHasContent(plan: LightingPlan): boolean {
+  return Object.values(plan).some((value) => {
+    if (value == null) return false;
+    if (typeof value === "string") return value.trim() !== "";
+    if (Array.isArray(value)) return value.length > 0;
+    return Object.keys(value).length > 0;
+  });
+}
+
 function editableLightingPlan(
   plan: Partial<LightingPlan> | null | undefined
 ): LightingPlan | undefined {
@@ -90,10 +151,9 @@ function editableLightingPlan(
     costumeTop: clipEditable(plan.costumeTop, 40),
     atmosphere: clipEditable(plan.atmosphere, LONG_MAX),
     points: clipEditable(plan.points, LONG_MAX),
+    ...scheduleOf(plan),
   };
-  return Object.values(next).some((v) => v != null && String(v).trim() !== "")
-    ? next
-    : undefined;
+  return planHasContent(next) ? next : undefined;
 }
 
 function pinSpot(value: unknown): LightingPlanPinSpot | undefined {
@@ -117,8 +177,9 @@ export function compactLightingPlan(
     costumeTop: clean(plan.costumeTop, 40),
     atmosphere: clean(plan.atmosphere, LONG_MAX),
     points: clean(plan.points, LONG_MAX),
+    ...scheduleOf(plan),
   };
-  return Object.values(next).some((v) => v != null && v !== "") ? next : undefined;
+  return planHasContent(next) ? next : undefined;
 }
 
 export function parseLightingPlan(raw: unknown): LightingPlan | undefined {
@@ -155,24 +216,50 @@ export function lightingPlanHeadcount(project: ChoreographyProjectJson): number 
   return max > 0 ? max : null;
 }
 
-export function lightingPlanDurationLabel(project: ChoreographyProjectJson): string {
-  const cues = sortCuesByStart(project.cues);
-  const last = cues[cues.length - 1];
-  if (!last) return "";
-  return formatPdfClock(last.tEndSec);
+/** 照明表に出す時刻。上書きが無ければ立ち位置キューの時刻を見せるだけ */
+export function lightingPlanCueWindow(
+  plan: LightingPlan | undefined,
+  cue: Cue
+): LightingPlanCueTime {
+  const override = plan?.cueTimes?.[cue.id];
+  if (
+    override &&
+    Number.isFinite(override.tStartSec) &&
+    Number.isFinite(override.tEndSec) &&
+    override.tEndSec > override.tStartSec
+  ) {
+    return override;
+  }
+  return { tStartSec: cue.tStartSec, tEndSec: cue.tEndSec };
 }
 
-export function buildLightingPlanDocument(
-  project: ChoreographyProjectJson
-): LightingPlanDocument {
+export function lightingPlanDurationLabel(project: ChoreographyProjectJson): string {
+  const rows = lightingPlanRows(project);
+  const last = rows[rows.length - 1];
+  if (!last) return "";
+  return formatPdfClock(Math.max(...rows.map((row) => row.tEndSec)));
+}
+
+function lightingPlanRows(project: ChoreographyProjectJson): LightingPlanCueRow[] {
   const plan = project.lightingPlan;
-  const headcount = lightingPlanHeadcount(project);
-  const rows: LightingPlanCueRow[] = sortCuesByStart(project.cues).map((cue, index) => {
-    const formation = project.formations.find((f) => f.id === cue.formationId);
+  const omitted = new Set(plan?.omittedCueIds ?? []);
+  const visible = project.cues.filter((cue) => !omitted.has(cue.id));
+  const ordered = visible
+    .map((cue) => ({ cue, window: lightingPlanCueWindow(plan, cue) }))
+    .sort(
+      (a, b) =>
+        a.window.tStartSec - b.window.tStartSec ||
+        a.window.tEndSec - b.window.tEndSec ||
+        a.cue.id.localeCompare(b.cue.id)
+    );
+  return ordered.map(({ cue, window }, index) => {
+    const formation = project.formations.find((item) => item.id === cue.formationId);
     return {
       cueId: cue.id,
       number: index + 1,
-      timeLabel: formatLightingRange(cue.tStartSec, cue.tEndSec),
+      tStartSec: window.tStartSec,
+      tEndSec: window.tEndSec,
+      timeLabel: formatLightingRange(window.tStartSec, window.tEndSec),
       name: cue.name?.trim() ?? "",
       note: cue.note?.trim() ?? "",
       lightingRequest: cue.lightingRequest?.trim() ?? "",
@@ -180,6 +267,14 @@ export function buildLightingPlanDocument(
       dancerCount: formation?.dancers.length ?? 0,
     };
   });
+}
+
+export function buildLightingPlanDocument(
+  project: ChoreographyProjectJson
+): LightingPlanDocument {
+  const plan = project.lightingPlan;
+  const headcount = lightingPlanHeadcount(project);
+  const rows = lightingPlanRows(project);
   return {
     heading: lightingPlanHeading(plan?.eventTitle),
     programOrder: plan?.programOrder?.trim() ?? "",
@@ -206,6 +301,83 @@ export function withLightingPlan(
     ...project,
     lightingPlan: editableLightingPlan({ ...project.lightingPlan, ...patch }),
   };
+}
+
+function writeLightingPlan(
+  project: ChoreographyProjectJson,
+  plan: LightingPlan | undefined
+): ChoreographyProjectJson {
+  return { ...project, lightingPlan: plan };
+}
+
+/**
+ * 照明表の時刻だけを変える。
+ * 立ち位置キューの `tStartSec` / `tEndSec` はコピーしたまま返す。
+ */
+export function setLightingPlanCueTime(
+  project: ChoreographyProjectJson,
+  cueId: string,
+  tStartSec: number,
+  tEndSec: number
+): ChoreographyProjectJson {
+  const cue = project.cues.find((item) => item.id === cueId);
+  if (!cue) return project;
+  const start = roundPlanSec(tStartSec);
+  const end = roundPlanSec(tEndSec);
+  if (!(end > start)) return project;
+  const cueTimes = { ...(project.lightingPlan?.cueTimes ?? {}) };
+  const sameAsCue =
+    Math.abs(start - cue.tStartSec) < 0.001 && Math.abs(end - cue.tEndSec) < 0.001;
+  if (sameAsCue) delete cueTimes[cueId];
+  else cueTimes[cueId] = { tStartSec: start, tEndSec: end };
+  return writeLightingPlan(
+    project,
+    editableLightingPlan({
+      ...project.lightingPlan,
+      cueTimes: Object.keys(cueTimes).length > 0 ? cueTimes : undefined,
+    })
+  );
+}
+
+/** 照明表からその行を外す。立ち位置のキュー配列は変えない */
+export function omitCueFromLightingPlan(
+  project: ChoreographyProjectJson,
+  cueId: string
+): ChoreographyProjectJson {
+  if (!project.cues.some((cue) => cue.id === cueId)) return project;
+  const omitted = [...(project.lightingPlan?.omittedCueIds ?? [])];
+  if (!omitted.includes(cueId)) omitted.push(cueId);
+  const cueTimes = { ...(project.lightingPlan?.cueTimes ?? {}) };
+  delete cueTimes[cueId];
+  return writeLightingPlan(
+    project,
+    editableLightingPlan({
+      ...project.lightingPlan,
+      omittedCueIds: omitted,
+      cueTimes: Object.keys(cueTimes).length > 0 ? cueTimes : undefined,
+    })
+  );
+}
+
+/** 照明表から外した行を、立ち位置キューの時刻のまま戻す */
+export function restoreOmittedLightingPlanCues(
+  project: ChoreographyProjectJson
+): ChoreographyProjectJson {
+  if (!project.lightingPlan?.omittedCueIds?.length) return project;
+  return writeLightingPlan(
+    project,
+    editableLightingPlan({
+      ...project.lightingPlan,
+      omittedCueIds: undefined,
+    })
+  );
+}
+
+/** `0:17` や `17` を照明表の秒にする。解釈できなければ null */
+export function parseLightingPlanClock(input: string): number | null {
+  const parsed = parseMmSsFlexible(input);
+  if (parsed == null || !Number.isFinite(parsed) || parsed < 0) return null;
+  return roundPlanSec(parsed);
 }
 
 export function withCuePlanText(
