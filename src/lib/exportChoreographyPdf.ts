@@ -15,6 +15,7 @@ import type { ChoreographyProjectJson } from "../types/choreography";
 export { buildChoreographyPdfPages } from "./choreographyPdfPages";
 
 export type ExportChoreographyPdfLabels = ChoreographyPdfLabels & {
+  /** @deprecated レイアウト変更後は未使用（呼び出し互換のため残す） */
   playbackTime: string;
   untitled: string;
   backstage: string;
@@ -26,8 +27,13 @@ export type ExportChoreographyPdfLabels = ChoreographyPdfLabels & {
 /** A4 landscape（pt）— 参考 PDF「無題の振付.pdf」と同じ向き */
 const PAGE_W = 842;
 const PAGE_H = 595;
-const SIDEBAR_W = 112;
 const RENDER_SCALE = 2;
+/** 書き出し画像／PDF 右上のブランド表記 */
+const EXPORT_BRAND = "CHOREO CORE";
+/** ヘッダー帯の高さ（pt）。立ち位置を最大化するため薄く保つ */
+const HEADER_H = 44;
+/** ステージ外周の余白（pt） */
+const STAGE_PAD = 10;
 
 function safeFileBase(name: string): string {
   return (
@@ -124,66 +130,86 @@ function wrapTextLines(
   return lines.slice(0, maxLines);
 }
 
+/**
+ * 1 ページ分を描画。
+ * ヘッダー1行（キュー＋時間｜ファイル名｜CHOREO CORE）＋最大化したステージ。
+ * 左サイドバー／下フッターは置かない。
+ */
 function drawPrintPage(
   ctx: CanvasRenderingContext2D,
   page: ChoreographyPdfPage,
-  pageIndex: number,
-  pageCount: number,
   pieceTitle: string,
-  appearance: StageExportAppearance,
-  playbackTimeLabel: string
+  appearance: StageExportAppearance
 ) {
   const W = PAGE_W * RENDER_SCALE;
   const H = PAGE_H * RENDER_SCALE;
-  const side = SIDEBAR_W * RENDER_SCALE;
   const s = RENDER_SCALE;
-  const contentLeft = side + 24 * s;
-  const contentRight = W - 24 * s;
-  const titleMaxW = contentRight - contentLeft;
+  const padX = 16 * s;
+  const headerH = HEADER_H * s;
+  const stagePad = STAGE_PAD * s;
 
-  ctx.fillStyle = "#eef1f5";
-  ctx.fillRect(0, 0, side, H);
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(side, 0, W - side, H);
+  ctx.fillRect(0, 0, W, H);
+
+  // --- ヘッダー: 左＝キュー＋時間（大）、隣＝ファイル名、右＝ブランド ---
+  const brand = EXPORT_BRAND;
+  ctx.font = `700 ${11 * s}px "Noto Sans JP", system-ui, sans-serif`;
+  const brandW = ctx.measureText(brand).width;
+  const brandX = W - padX;
+  const headerMidY = headerH / 2;
 
   ctx.fillStyle = "#6b7280";
-  ctx.font = `600 ${11 * s}px "Noto Sans JP", system-ui, sans-serif`;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillText(brand, brandX, headerMidY);
+
+  const gap = 14 * s;
+  const leftMax = brandX - brandW - gap - padX;
+  let x = padX;
+
+  ctx.fillStyle = "#111827";
+  ctx.font = `700 ${20 * s}px "Noto Sans JP", system-ui, sans-serif`;
   ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.fillText(playbackTimeLabel, 16 * s, 28 * s);
+  ctx.textBaseline = "middle";
+  const cueText = page.title.trim() || "キュー";
+  const cueLines = wrapTextLines(ctx, cueText, Math.max(40 * s, leftMax * 0.45), 1);
+  const cueDrawn = cueLines[0] ?? cueText;
+  ctx.fillText(cueDrawn, x, headerMidY);
+  x += ctx.measureText(cueDrawn).width + gap;
 
-  ctx.fillStyle = "#111827";
-  ctx.font = `700 ${15 * s}px "Noto Sans JP", system-ui, sans-serif`;
-  const timeLines = wrapTextLines(ctx, page.timeLabel, side - 28 * s, 2);
-  timeLines.forEach((line, i) => {
-    ctx.fillText(line, 16 * s, (48 + i * 20) * s);
-  });
-
-  ctx.fillStyle = "#111827";
-  ctx.font = `700 ${18 * s}px "Noto Sans JP", system-ui, sans-serif`;
-  const titleLines = wrapTextLines(ctx, page.title, titleMaxW, 2);
-  titleLines.forEach((line, i) => {
-    ctx.fillText(line, contentLeft, (20 + i * 22) * s);
-  });
-
-  const titleBlockH = Math.max(1, titleLines.length) * 22 * s;
-  const subY = 20 * s + titleBlockH + 4 * s;
-  if (pieceTitle.trim()) {
-    ctx.fillStyle = "#6b7280";
-    ctx.font = `500 ${11 * s}px "Noto Sans JP", system-ui, sans-serif`;
-    const subLines = wrapTextLines(ctx, pieceTitle.trim(), titleMaxW, 1);
-    subLines.forEach((line) => {
-      ctx.fillText(line, contentLeft, subY);
-    });
+  const timeText = page.timeLabel.trim();
+  if (timeText && x < leftMax) {
+    ctx.font = `700 ${18 * s}px "Noto Sans JP", system-ui, sans-serif`;
+    const timeMaxW = Math.max(40 * s, leftMax - x - gap);
+    const timeLines = wrapTextLines(ctx, timeText, timeMaxW, 1);
+    const timeDrawn = timeLines[0] ?? timeText;
+    ctx.fillText(timeDrawn, x, headerMidY);
+    x += ctx.measureText(timeDrawn).width + gap;
   }
 
-  const headerBottom = subY + (pieceTitle.trim() ? 18 * s : 0);
-  const stageTop = Math.max(headerBottom + 12 * s, 72 * s);
-  const footerH = 36 * s;
-  const stageX = side + 16 * s;
-  const stageY = stageTop;
-  const stageW = W - side - 32 * s;
-  const stageH = H - stageY - footerH;
+  const fileName = pieceTitle.trim();
+  if (fileName && x < leftMax) {
+    ctx.fillStyle = "#4b5563";
+    ctx.font = `600 ${13 * s}px "Noto Sans JP", system-ui, sans-serif`;
+    const nameMaxW = Math.max(24 * s, leftMax - x);
+    const nameLines = wrapTextLines(ctx, fileName, nameMaxW, 1);
+    const nameDrawn = nameLines[0] ?? fileName;
+    ctx.fillText(nameDrawn, x, headerMidY);
+  }
+
+  // ヘッダー下の細い区切り線
+  ctx.strokeStyle = "#e5e7eb";
+  ctx.lineWidth = Math.max(1, s * 0.5);
+  ctx.beginPath();
+  ctx.moveTo(padX, headerH - 1);
+  ctx.lineTo(W - padX, headerH - 1);
+  ctx.stroke();
+
+  // --- ステージ（残り領域をほぼ全幅・全高で使用） ---
+  const stageX = stagePad;
+  const stageY = headerH + stagePad * 0.5;
+  const stageW = W - stagePad * 2;
+  const stageH = H - stageY - stagePad;
 
   const stageCanvas = document.createElement("canvas");
   stageCanvas.width = Math.max(2, Math.floor(stageW));
@@ -207,24 +233,6 @@ function drawPrintPage(
     0
   );
   ctx.drawImage(stageCanvas, stageX, stageY);
-
-  ctx.fillStyle = "#111827";
-  ctx.font = `700 ${12 * s}px "Noto Sans JP", system-ui, sans-serif`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "bottom";
-  ctx.fillText("ChoreoCore", contentLeft, H - 14 * s);
-
-  ctx.textAlign = "right";
-  ctx.fillText(
-    String(pageIndex + 1).padStart(2, "0"),
-    contentRight,
-    H - 14 * s
-  );
-
-  ctx.fillStyle = "#9ca3af";
-  ctx.font = `500 ${10 * s}px "Noto Sans JP", system-ui, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.fillText(`${pageIndex + 1} / ${pageCount}`, (side + W) / 2, H - 14 * s);
 }
 
 type PreparedExport = {
@@ -232,7 +240,6 @@ type PreparedExport = {
   appearance: StageExportAppearance;
   pieceTitle: string;
   fileBase: string;
-  playbackTime: string;
 };
 
 function prepareChoreographyExport(params: {
@@ -248,7 +255,6 @@ function prepareChoreographyExport(params: {
     formationN: labels.formationN ?? ((n) => `フォーメーション ${n}`),
     formationFallback: labels.formationFallback ?? "フォーメーション",
   };
-  const playbackTime = labels.playbackTime ?? "再生時間";
   const untitled = labels.untitled ?? "無題の作品";
   const emptyError =
     labels.emptyError ?? "書き出すフォーメーションがありません";
@@ -277,7 +283,6 @@ function prepareChoreographyExport(params: {
     appearance,
     pieceTitle,
     fileBase: safeFileBase(pieceTitle),
-    playbackTime,
   };
 }
 
@@ -291,7 +296,7 @@ export async function exportChoreographyPdf(params: {
   labels?: Partial<ExportChoreographyPdfLabels>;
 }): Promise<void> {
   const prepared = prepareChoreographyExport(params);
-  const { pages, appearance, pieceTitle, fileBase, playbackTime } = prepared;
+  const { pages, appearance, pieceTitle, fileBase } = prepared;
 
   const pageCanvas = document.createElement("canvas");
   pageCanvas.width = PAGE_W * RENDER_SCALE;
@@ -309,15 +314,7 @@ export async function exportChoreographyPdf(params: {
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]!;
     ctx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
-    drawPrintPage(
-      ctx,
-      page,
-      i,
-      pages.length,
-      pieceTitle,
-      appearance,
-      playbackTime
-    );
+    drawPrintPage(ctx, page, pieceTitle, appearance);
     const dataUrl = pageCanvas.toDataURL("image/jpeg", 0.92);
     if (i > 0) doc.addPage("a4", "landscape");
     doc.addImage(dataUrl, "JPEG", 0, 0, PAGE_W, PAGE_H, undefined, "FAST");
@@ -338,7 +335,7 @@ export async function exportChoreographyImages(params: {
   cueIds?: readonly string[];
 }): Promise<void> {
   const prepared = prepareChoreographyExport(params);
-  const { pages, appearance, pieceTitle, fileBase, playbackTime } = prepared;
+  const { pages, appearance, pieceTitle, fileBase } = prepared;
 
   const pageCanvas = document.createElement("canvas");
   pageCanvas.width = PAGE_W * RENDER_SCALE;
@@ -349,7 +346,7 @@ export async function exportChoreographyImages(params: {
   if (pages.length === 1) {
     const page = pages[0]!;
     ctx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
-    drawPrintPage(ctx, page, 0, 1, pieceTitle, appearance, playbackTime);
+    drawPrintPage(ctx, page, pieceTitle, appearance);
     const bytes = await canvasToPngBytes(pageCanvas);
     downloadBlob(bytesToBlob(bytes, "image/png"), cueImageFileName(0, page.title));
     return;
@@ -359,15 +356,7 @@ export async function exportChoreographyImages(params: {
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]!;
     ctx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
-    drawPrintPage(
-      ctx,
-      page,
-      i,
-      pages.length,
-      pieceTitle,
-      appearance,
-      playbackTime
-    );
+    drawPrintPage(ctx, page, pieceTitle, appearance);
     files[cueImageFileName(i, page.title)] = await canvasToPngBytes(pageCanvas);
   }
 
