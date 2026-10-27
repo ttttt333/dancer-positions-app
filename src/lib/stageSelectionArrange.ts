@@ -98,20 +98,14 @@ export function swapTwoDancerPositions(
 }
 
 /**
- * いまの立ち位置（スロット）はそのままに、誰がどこに立つかを入れ替える。
- * 各人の「前の立ち位置」から割当スロットまでの移動距離の総和が最小になるよう
- * 最小費用マッチングで割り当てる（前 Cue が無い人は現在位置を起点にする）。
+ * 参照キュー側の「前の立ち位置」を解決する。
+ * id → crewMemberId → 配列順 → 現在位置。
  */
-export function permuteSlotsMinimizeTravelFromPrev(
-  dancers: DancerSpot[],
-  targetIds: string[],
-  prevDancers: readonly DancerSpot[] | null | undefined
-): DancerSpot[] {
-  if (!prevDancers || prevDancers.length === 0) return dancers;
-  const idSet = new Set(targetIds);
-  const subset = dancers.filter((d) => idSet.has(d.id));
-  if (subset.length < 2) return dancers;
-
+function resolvePrevSpotForTravel(
+  person: DancerSpot,
+  prevDancers: readonly DancerSpot[],
+  dancers: readonly DancerSpot[]
+): DancerSpot {
   const prevById = new Map(prevDancers.map((d) => [d.id, d] as const));
   const prevByCrew = new Map(
     prevDancers
@@ -119,22 +113,20 @@ export function permuteSlotsMinimizeTravelFromPrev(
       .map((d) => [d.crewMemberId!, d] as const)
   );
   const indexById = new Map(dancers.map((d, i) => [d.id, i] as const));
-  /** キュー間の補間は配列順で対応するため、ID・名簿が一致しなければ同じ順番の人を前位置とみなす */
-  const prevFor = (person: DancerSpot): DancerSpot =>
+  return (
     prevById.get(person.id) ??
     (person.crewMemberId ? prevByCrew.get(person.crewMemberId) : undefined) ??
     prevDancers[indexById.get(person.id) ?? -1] ??
-    person;
-  const slots = subset.map((d) => ({ xPct: d.xPct, yPct: d.yPct }));
-  const cost: number[][] = subset.map((person) => {
-    const from = prevFor(person);
-    return slots.map((slot) => {
-      const dx = from.xPct - slot.xPct;
-      const dy = from.yPct - slot.yPct;
-      return dx * dx + dy * dy;
-    });
-  });
-  const assignment = minCostBipartiteAssignment(cost);
+    person
+  );
+}
+
+function applySlotAssignment(
+  dancers: DancerSpot[],
+  subset: DancerSpot[],
+  slots: readonly { xPct: number; yPct: number }[],
+  assignment: readonly number[]
+): DancerSpot[] {
   const newPos = new Map<string, { xPct: number; yPct: number }>();
   for (let i = 0; i < subset.length; i++) {
     const slotIndex = assignment[i]!;
@@ -150,6 +142,90 @@ export function permuteSlotsMinimizeTravelFromPrev(
     if (!np) return d;
     return { ...d, xPct: np.xPct, yPct: np.yPct };
   });
+}
+
+/**
+ * いまの立ち位置（スロット）はそのままに、誰がどこに立つかを入れ替える。
+ * 各人の「前の立ち位置」から割当スロットまでの移動距離の総和が最小になるよう
+ * 最小費用マッチングで割り当てる（前 Cue が無い人は現在位置を起点にする）。
+ */
+export function permuteSlotsMinimizeTravelFromPrev(
+  dancers: DancerSpot[],
+  targetIds: string[],
+  prevDancers: readonly DancerSpot[] | null | undefined
+): DancerSpot[] {
+  if (!prevDancers || prevDancers.length === 0) return dancers;
+  const idSet = new Set(targetIds);
+  const subset = dancers.filter((d) => idSet.has(d.id));
+  if (subset.length < 2) return dancers;
+
+  const slots = subset.map((d) => ({ xPct: d.xPct, yPct: d.yPct }));
+  const cost: number[][] = subset.map((person) => {
+    const from = resolvePrevSpotForTravel(person, prevDancers, dancers);
+    return slots.map((slot) => {
+      const dx = from.xPct - slot.xPct;
+      const dy = from.yPct - slot.yPct;
+      return dx * dx + dy * dy;
+    });
+  });
+  return applySlotAssignment(
+    dancers,
+    subset,
+    slots,
+    minCostBipartiteAssignment(cost)
+  );
+}
+
+/**
+ * スキル順位差 1 あたりの費用（差の二乗に掛ける）。
+ * 隣スキルの入替は、ステージ半幅を往復する程度の短縮があるときだけ許す。
+ * 順位が大きく離れた枠への割当は強く避ける。
+ */
+const SKILL_ORDER_MISMATCH_WEIGHT = 2_500;
+
+/**
+ * スキル順（一列目センター寄り）を優先しつつ、参照キューからの移動距離も抑える。
+ * 立ち位置の集合はそのまま。費用 = 移動距離² + W ×（スキル順位差）²。
+ */
+export function permuteSlotsBySkillMinimizeTravelFromPrev(
+  dancers: DancerSpot[],
+  targetIds: string[],
+  prevDancers: readonly DancerSpot[] | null | undefined,
+  direction: "asc" | "desc" = "asc"
+): DancerSpot[] {
+  if (!prevDancers || prevDancers.length === 0) return dancers;
+  const idSet = new Set(targetIds);
+  const subset = dancers.filter((d) => idSet.has(d.id));
+  if (subset.length < 2) return dancers;
+
+  const slotsOrdered = orderSlotsForSkill(subset);
+  const peopleOrdered = [...subset].sort((a, b) => {
+    const raw =
+      skillSortKey(a.skillRankLabel) - skillSortKey(b.skillRankLabel);
+    const signed = direction === "asc" ? raw : -raw;
+    return signed || a.label.localeCompare(b.label, "ja");
+  });
+  const skillIndexById = new Map(
+    peopleOrdered.map((p, i) => [p.id, i] as const)
+  );
+
+  const cost: number[][] = subset.map((person) => {
+    const from = resolvePrevSpotForTravel(person, prevDancers, dancers);
+    const skillI = skillIndexById.get(person.id) ?? 0;
+    return slotsOrdered.map((slot, j) => {
+      const dx = from.xPct - slot.xPct;
+      const dy = from.yPct - slot.yPct;
+      const travel = dx * dx + dy * dy;
+      const skillGap = skillI - j;
+      return travel + SKILL_ORDER_MISMATCH_WEIGHT * skillGap * skillGap;
+    });
+  });
+  return applySlotAssignment(
+    dancers,
+    subset,
+    slotsOrdered,
+    minCostBipartiteAssignment(cost)
+  );
 }
 
 /**

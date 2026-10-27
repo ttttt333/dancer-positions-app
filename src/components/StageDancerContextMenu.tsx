@@ -28,6 +28,7 @@ import {
   permuteSlotsByHeightDesc,
   permuteSlotsBySkillAsc,
   permuteSlotsBySkillDesc,
+  permuteSlotsBySkillMinimizeTravelFromPrev,
   permuteSlotsMinimizeTravelFromPrev,
   resolveArrangeTargetIds,
   rotateDancerRingOneStep,
@@ -685,6 +686,55 @@ menuInteractionDisabled
     }}
   >
     参照キューから最短距離に並び替え
+  </button>
+  <button
+    type="button"
+    style={{
+      ...btnSecondary,
+      width: "100%",
+      fontSize: sheet ? "13px" : "9px",
+      padding: sheet ? "10px 12px" : "5px 6px",
+      textAlign: "center",
+      marginBottom: "5px",
+      opacity:
+        arrangeTargetIds.length >= 2 &&
+        matchDancers &&
+        matchDancers.length > 0
+          ? 1
+          : 0.55,
+    }}
+    title={
+      selectedMatch
+        ? `${selectedMatch.label} からの移動を抑えつつ、スキル順（一列目センター寄り）で入れ替え`
+        : "参照キューからの移動を抑えつつ、スキル順で入れ替え"
+    }
+    disabled={
+      arrangeTargetIds.length < 2 ||
+      !matchDancers ||
+      matchDancers.length === 0
+    }
+    onClick={() => {
+      if (arrangeTargetIds.length < 2) {
+        window.alert("スキル順＋最短距離は、対象を 2 人以上選んでください。");
+        onCloseMenu();
+        return;
+      }
+      if (!matchDancers || matchDancers.length === 0) {
+        window.alert("参照できるキューがありません。");
+        onCloseMenu();
+        return;
+      }
+      applyPermuteArrange((dancers, t) =>
+        permuteSlotsBySkillMinimizeTravelFromPrev(
+          dancers,
+          t,
+          matchDancers,
+          "asc"
+        )
+      );
+    }}
+  >
+    スキル順＋最短距離に並び替え
   </button>
   <div
     style={{
