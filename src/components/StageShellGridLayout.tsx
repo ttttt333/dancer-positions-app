@@ -96,6 +96,8 @@ export function StageShellGridLayout({
             gridColumn: "1 / -1",
             gridRow: 1,
             borderBottom: `1px solid ${shell.border}`,
+            /** 床から溢れたダンサーより手前に来ないよう帯は背面に固定 */
+            zIndex: 0,
             ...stripExtraStyle,
           }}
         >
@@ -114,6 +116,7 @@ export function StageShellGridLayout({
             gridColumn: 1,
             gridRow: Bmm > 0 ? 2 : 1,
             borderRight: `1px solid ${shell.border}`,
+            zIndex: 0,
             ...stripExtraStyle,
           }}
         >
@@ -122,6 +125,11 @@ export function StageShellGridLayout({
           {formatMeterCmLabel(Smm)}
         </div>
       )}
+      {/*
+        客席を上（180°回転）にすると DOM 右側のサイドが画面左に来る。
+        右サイドは center より後の兄弟のため、z-index 無しだとサイド上のダンサーが隠れる。
+        center を前面にして、どちら向きでも印がサイド帯の上に見えるようにする。
+      */}
       {center}
       {showShell && Smm > 0 && (
         <div
@@ -133,6 +141,7 @@ export function StageShellGridLayout({
             gridColumn: 3,
             gridRow: Bmm > 0 ? 2 : 1,
             borderLeft: `1px solid ${shell.border}`,
+            zIndex: 0,
             ...stripExtraStyle,
           }}
         >
