@@ -9,6 +9,7 @@ import type { DancerSpot } from "../types/choreography";
 import {
   applyPositionSort,
   formatPositionSortPreview,
+  permuteSlotsBySkillMinimizeTravelFromPrev,
   permuteSlotsMinimizeTravelFromPrev,
   normalizePositionSortDirection,
   positionSortDirectionOptions,
@@ -189,7 +190,7 @@ export function StageSelectionArrangePanel({
       <div style={{ ...dockCard, marginBottom: 6 }}>
         <div style={dockSectionTitle}>参照キューから最短距離</div>
         <p style={dockSectionHint}>
-          位置はそのまま。選んだキューからの移動が最短になるよう入れ替え
+          位置はそのまま。最短距離だけ、またはスキル順を優先しつつ移動も抑えて入れ替え
         </p>
         {matchOptions.length > 0 ? (
           <>
@@ -297,6 +298,40 @@ export function StageSelectionArrangePanel({
           }
         >
           最短距離に並び替え
+        </button>
+        <button
+          type="button"
+          disabled={!canMinimizeTravel}
+          title={
+            canMinimizeTravel && selectedMatch
+              ? `${selectedMatch.label} からの移動を抑えつつ、スキル順（一列目センター寄り）で並び替え`
+              : matchOptions.length === 0
+                ? "参照できるキューがありません"
+                : "2人以上を選択してください"
+          }
+          style={{
+            ...actionBtn,
+            marginTop: 6,
+            opacity: canMinimizeTravel ? 1 : 0.55,
+            borderColor: canMinimizeTravel
+              ? "rgba(167,139,250,0.85)"
+              : undefined,
+            background: canMinimizeTravel ? "rgba(124,58,237,0.16)" : undefined,
+            color: canMinimizeTravel ? "#ede9fe" : undefined,
+            fontWeight: 700,
+          }}
+          onClick={() =>
+            onPermute((dancers, ids) =>
+              permuteSlotsBySkillMinimizeTravelFromPrev(
+                dancers,
+                ids,
+                matchDancers,
+                "asc"
+              )
+            )
+          }
+        >
+          スキル順＋最短距離
         </button>
       </div>
 

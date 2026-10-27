@@ -5,6 +5,8 @@ import {
   formatPositionSortPreview,
   normalizePositionSortDirection,
   permuteSlotsByHeightAsc,
+  permuteSlotsBySkillAsc,
+  permuteSlotsBySkillMinimizeTravelFromPrev,
   positionSortDirectionOptions,
   permuteSlotsMinimizeTravelFromPrev,
   swapTwoDancerPositions,
@@ -301,6 +303,89 @@ describe("permuteSlotsMinimizeTravelFromPrev", () => {
       permuteSlotsMinimizeTravelFromPrev(dancers, ["a"], [
         spot("a", 10, 10),
       ])
+    ).toEqual(dancers);
+  });
+});
+
+describe("permuteSlotsBySkillMinimizeTravelFromPrev", () => {
+  it("keeps skill order when travel cost of swapping is small", () => {
+    const dancers = [
+      spot("s5", 30, 70, { skillRankLabel: "5", label: "E" }),
+      spot("s1", 50, 70, { skillRankLabel: "1", label: "A" }),
+      spot("s2", 70, 70, { skillRankLabel: "2", label: "B" }),
+    ];
+    /** 前回もほぼ同じ位置 → スキル順（1がセンター）を保つ */
+    const prev = [
+      spot("s5", 32, 70),
+      spot("s1", 48, 70),
+      spot("s2", 72, 70),
+    ];
+    const ids = dancers.map((d) => d.id);
+    const next = permuteSlotsBySkillMinimizeTravelFromPrev(
+      dancers,
+      ids,
+      prev,
+      "asc"
+    );
+    const skillOnly = permuteSlotsBySkillAsc(dancers, ids);
+    expect(next.map((d) => [d.id, d.xPct])).toEqual(
+      skillOnly.map((d) => [d.id, d.xPct])
+    );
+  });
+
+  it("may swap adjacent skill slots when travel savings are large", () => {
+    const dancers = [
+      spot("a", 20, 50, { skillRankLabel: "1", label: "A" }),
+      spot("b", 80, 50, { skillRankLabel: "2", label: "B" }),
+    ];
+    /** 前回: 1 は右・2 は左。入替えた方が総移動が短く、隣接スキルなので許す */
+    const prev = [
+      spot("a", 80, 50),
+      spot("b", 20, 50),
+    ];
+    const next = permuteSlotsBySkillMinimizeTravelFromPrev(
+      dancers,
+      ["a", "b"],
+      prev,
+      "asc"
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    expect(byId.a).toMatchObject({ xPct: 80, yPct: 50 });
+    expect(byId.b).toMatchObject({ xPct: 20, yPct: 50 });
+  });
+
+  it("prefers skill order over pure travel when ranks are far apart", () => {
+    /** 前列3枠。スキル1は奥寄りスタートでも一列目センターへ寄せる */
+    const dancers = [
+      spot("back1", 50, 20, { skillRankLabel: "1", label: "A" }),
+      spot("frontL", 20, 80, { skillRankLabel: "3", label: "C" }),
+      spot("frontC", 50, 80, { skillRankLabel: "4", label: "D" }),
+      spot("frontR", 80, 80, { skillRankLabel: "2", label: "B" }),
+    ];
+    const prev = [
+      spot("back1", 50, 18),
+      spot("frontL", 22, 80),
+      spot("frontC", 50, 80),
+      spot("frontR", 78, 80),
+    ];
+    const next = permuteSlotsBySkillMinimizeTravelFromPrev(
+      dancers,
+      dancers.map((d) => d.id),
+      prev,
+      "asc"
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    /** スキル1は一列目センター（50,80）へ */
+    expect(byId.back1).toMatchObject({ xPct: 50, yPct: 80 });
+  });
+
+  it("no-ops without previous dancers", () => {
+    const dancers = [
+      spot("a", 20, 50, { skillRankLabel: "1" }),
+      spot("b", 80, 50, { skillRankLabel: "2" }),
+    ];
+    expect(
+      permuteSlotsBySkillMinimizeTravelFromPrev(dancers, ["a", "b"], null)
     ).toEqual(dancers);
   });
 });
