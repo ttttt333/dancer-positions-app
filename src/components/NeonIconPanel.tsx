@@ -17,10 +17,6 @@ type NeonIconPanelProps = ChoreoCoreToolbarCoreProps & {
   dense?: boolean;
   showBrand?: boolean;
   singleTile?: string;
-  onUndo?: () => void;
-  onRedo?: () => void;
-  undoDisabled?: boolean;
-  redoDisabled?: boolean;
   onSave?: () => void;
   onAddDancer?: () => void;
   onOpenRoster?: () => void;
@@ -304,25 +300,6 @@ function IconHelp() {
     </svg>
   );
 }
-function IconUndo() {
-  const c = "#94a3b8";
-  return (
-    <svg viewBox="0 0 32 32" style={{ filter: glow(c), width: 20, height: 20 }}>
-      <path d="M10 8 L4 14 L10 20" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M4 14 L20 14 C24 14 28 18 28 22 C28 26 24 28 20 28 L16 28" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconRedo() {
-  const c = "#94a3b8";
-  return (
-    <svg viewBox="0 0 32 32" style={{ filter: glow(c), width: 20, height: 20 }}>
-      <path d="M22 8 L28 14 L22 20" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M28 14 L12 14 C8 14 4 18 4 22 C4 26 8 28 12 28 L16 28" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 /* ─── NeonBtn ─── */
 const btnBase: CSSProperties = {
   display: "flex",
@@ -420,10 +397,6 @@ export function NeonIconPanel({
   onOpenExport,
   onOpenVideoExport,
   disabled,
-  onUndo,
-  onRedo,
-  undoDisabled,
-  redoDisabled,
   onSave,
   onAddDancer,
   onOpenRoster,
@@ -550,6 +523,11 @@ export function NeonIconPanel({
           min-width: 0;
           overflow-x: hidden;
           overflow-y: auto;
+          scrollbar-width: none;
+        }
+        [data-choreo-right-panel]:has([data-dock-fill]) [data-stage-edit-dock-host]::-webkit-scrollbar {
+          width: 0;
+          height: 0;
         }
       `}</style>
       {/* Header: 閉じる（右） */}
@@ -607,7 +585,7 @@ export function NeonIconPanel({
           minHeight: 0,
           minWidth: 0,
           overflowX: "hidden",
-          overflowY: "auto",
+          overflowY: "hidden",
         }}
       >
       <button
@@ -696,17 +674,6 @@ export function NeonIconPanel({
         <NeonBtn icon={<IconSetPiece />} label={t("editor.comp.k075")} onClick={onOpenSetPiecePicker} disabled={disabled} />
         <NeonBtn icon={<IconHelp />} label={t("editor.comp.k035")} onClick={onOpenShortcutsHelp} disabled={disabled} />
       </div>
-
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
-
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 4 }}>
-          <div style={grid3}>
-            <NeonBtn icon={<IconUndo />} label={t("editor.comp.k056")} onClick={onUndo} disabled={undoDisabled ?? disabled} />
-            <NeonBtn icon={<IconRedo />} label={t("editor.comp.k014")} onClick={onRedo} disabled={redoDisabled ?? disabled} />
-            <div />
-          </div>
-        </div>
       </div>
     </div>
   );

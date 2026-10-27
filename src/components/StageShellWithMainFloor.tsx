@@ -100,6 +100,8 @@ export function StageShellWithMainFloor({
             display: "flex",
             flexDirection: "column",
             position: "relative",
+            /** サイド／舞台裏帯より前面（客席上回転時も左サイド上のダンサーを隠さない） */
+            zIndex: 1,
             ...(showShell
               ? {
                   gridColumn: Smm > 0 ? 2 : 1,

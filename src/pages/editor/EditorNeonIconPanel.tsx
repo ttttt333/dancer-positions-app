@@ -10,10 +10,6 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   const choreoToolbarSharedProps = props.choreoToolbarSharedProps as Record<string, unknown>;
   const project = props.project as EditorLayoutProps["project"];
   const setProjectSafe = props.setProjectSafe as EditorLayoutProps["setProjectSafe"];
-  const undo = props.undo as () => void;
-  const redo = props.redo as () => void;
-  const stageUndoDisabled = props.stageUndoDisabled as boolean;
-  const stageRedoDisabled = props.stageRedoDisabled as boolean;
   const saveStageToFormationBox = props.saveStageToFormationBox as () => void;
   const setCueListModalOpen = props.setCueListModalOpen as (open: boolean) => void;
   const setAddCueDialogOpen = props.setAddCueDialogOpen as (open: boolean) => void;
@@ -67,10 +63,6 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
       <NeonIconPanel
       {...choreoToolbarSharedProps}
       onOpenStageShapePicker={() => setStageAreaSettingsOpen(true)}
-      onUndo={undo}
-      onRedo={redo}
-      undoDisabled={stageUndoDisabled}
-      redoDisabled={stageRedoDisabled}
       onSave={saveStageToFormationBox}
       onOpenCueList={() => setCueListModalOpen(true)}
       onOpenCueSettings={() => setAddCueDialogOpen(true)}
