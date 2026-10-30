@@ -2,6 +2,7 @@ import type { DancerSpot } from "../types/choreography";
 import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
+  FORMATION_REFERENCE_STEP_PCT,
 } from "./dancerSpacing";
 import { swapSelectionKamiteShimote } from "./stageColumnSwap";
 
@@ -15,6 +16,11 @@ export type SelectionAlignEdge =
 
 export type SelectionDistributeAxis = "x" | "y";
 export type SelectionFlipAxis = "x" | "y";
+/** row = 横一列（Y を揃える）。col = 縦一列（X を揃える）。 */
+export type SelectionLineAxis = "row" | "col";
+
+/** これ未満の幅は「重なっている」とみなし、均等時だけ基準間隔で開く */
+const COLLAPSED_LINE_SPAN = 1e-4;
 
 type SelectionBox = {
   minX: number;
@@ -158,5 +164,96 @@ export function flipSelectedDancers(
   return dancers.map((d) => {
     if (!idSet.has(d.id)) return d;
     return { ...d, yPct: clampStagePct(2 * box.cy - d.yPct) };
+  });
+}
+
+function compareAlongLine(
+  a: DancerSpot,
+  b: DancerSpot,
+  axis: SelectionLineAxis
+): number {
+  const primary = axis === "row" ? a.xPct - b.xPct : a.yPct - b.yPct;
+  if (Math.abs(primary) > 1e-9) return primary;
+  const secondary = axis === "row" ? a.yPct - b.yPct : a.xPct - b.xPct;
+  if (Math.abs(secondary) > 1e-9) return secondary;
+  return a.id.localeCompare(b.id);
+}
+
+/** 重なりを基準間隔で開いたとき、ステージ外にはみ出さない幅 */
+function expandedLineSpan(center: number, count: number): { lo: number; hi: number } {
+  if (count < 2) return { lo: center, hi: center };
+  const maxSpan = DANCER_STAGE_POSITION_PCT_HI - DANCER_STAGE_POSITION_PCT_LO;
+  const span = Math.min(FORMATION_REFERENCE_STEP_PCT * (count - 1), maxSpan);
+  let lo = center - span / 2;
+  let hi = center + span / 2;
+  if (lo < DANCER_STAGE_POSITION_PCT_LO) {
+    const shift = DANCER_STAGE_POSITION_PCT_LO - lo;
+    lo += shift;
+    hi += shift;
+  }
+  if (hi > DANCER_STAGE_POSITION_PCT_HI) {
+    const shift = hi - DANCER_STAGE_POSITION_PCT_HI;
+    lo -= shift;
+    hi -= shift;
+  }
+  return {
+    lo: Math.max(DANCER_STAGE_POSITION_PCT_LO, lo),
+    hi: Math.min(DANCER_STAGE_POSITION_PCT_HI, hi),
+  };
+}
+
+/**
+ * 選択した人を1本の直線にそろえる。人の順番と、線に沿った位置は変えない。
+ * 横一列は高さ（Y）を選択範囲の上下中央へ。縦一列は左右（X）を左右中央へ。
+ */
+export function straightenSelectionLine(
+  dancers: DancerSpot[],
+  targetIds: readonly string[],
+  axis: SelectionLineAxis
+): DancerSpot[] {
+  return alignSelectedDancers(
+    dancers,
+    targetIds,
+    axis === "row" ? "centerY" : "centerX"
+  );
+}
+
+/**
+ * 選択した人を1本の等間隔の直線にする。
+ * 横は左から、縦は奥（Y が小さい）からの順番を維持する。
+ * 線の両端は今の位置のまま。幅がほぼ 0 のときだけ基準間隔で開く。
+ */
+export function evenSelectionLine(
+  dancers: DancerSpot[],
+  targetIds: readonly string[],
+  axis: SelectionLineAxis
+): DancerSpot[] {
+  const { subset } = selectedSubset(dancers, targetIds);
+  if (subset.length < 2) return dancers;
+  const box = bboxOf(subset);
+  if (!box) return dancers;
+
+  const sorted = [...subset].sort((a, b) => compareAlongLine(a, b, axis));
+  const alongLo = axis === "row" ? box.minX : box.minY;
+  const alongHi = axis === "row" ? box.maxX : box.maxY;
+  const center = axis === "row" ? box.cx : box.cy;
+  const span =
+    Math.abs(alongHi - alongLo) < COLLAPSED_LINE_SPAN
+      ? expandedLineSpan(center, sorted.length)
+      : { lo: alongLo, hi: alongHi };
+  const cross = clampStagePct(axis === "row" ? box.cy : box.cx);
+  const n = sorted.length;
+  const nextAlong = new Map<string, number>();
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0 : i / (n - 1);
+    nextAlong.set(sorted[i]!.id, clampStagePct(span.lo + (span.hi - span.lo) * t));
+  }
+
+  return dancers.map((d) => {
+    const along = nextAlong.get(d.id);
+    if (along == null) return d;
+    return axis === "row"
+      ? { ...d, xPct: along, yPct: cross }
+      : { ...d, xPct: cross, yPct: along };
   });
 }

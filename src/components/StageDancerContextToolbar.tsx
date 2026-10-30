@@ -792,7 +792,7 @@ export function StageDancerContextToolbar({
                   borderColor:
                     open === "sort" ? "rgba(251,146,60,0.9)" : BTN_BORDER,
                 }}
-                title="並べ替え・列の前後交代・反転"
+                title="並べ替え・横一列と縦一列を整える・列の前後交代・反転"
                 aria-expanded={open === "sort"}
                 onClick={() => {
                   setDepthNoChangePair(null);

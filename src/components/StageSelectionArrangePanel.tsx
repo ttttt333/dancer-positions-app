@@ -22,7 +22,12 @@ import {
   defaultTravelMatchCueId,
   type TravelMatchCueOption,
 } from "../lib/stagePrevCueCompare";
-import type { SelectionFlipAxis } from "../lib/stageSelectionTransform";
+import {
+  evenSelectionLine,
+  straightenSelectionLine,
+  type SelectionFlipAxis,
+  type SelectionLineAxis,
+} from "../lib/stageSelectionTransform";
 import type { PositionRotationDir } from "../lib/stagePositionRotation";
 import { gatherSelectedDancersToEdge } from "../lib/gatherDancers";
 import {
@@ -168,9 +173,89 @@ export function StageSelectionArrangePanel({
   const prevOpt = matchOptions.find((o) => o.kind === "previous");
   const nextOpt = matchOptions.find((o) => o.kind === "next");
 
+  const applyLine = (
+    kind: "straighten" | "even",
+    axis: SelectionLineAxis
+  ) => {
+    onArrange((dancers, ids) =>
+      kind === "straighten"
+        ? straightenSelectionLine(dancers, ids, axis)
+        : evenSelectionLine(dancers, ids, axis)
+    );
+  };
+
   return (
     <div data-selection-arrange-panel>
       {ranksSlot}
+
+      <div style={{ ...dockCard, marginBottom: 6 }}>
+        <div style={dockSectionTitle}>一列にする</div>
+        <p style={dockSectionHint}>
+          選択した人を1本の横一列、または縦一列にします。整えるはでこぼこをまっすぐにし、均等は間隔も揃えます。左右や奥からの順番はそのままです。
+        </p>
+        <div style={{ ...dockSectionTitle, marginBottom: 4 }}>横一列</div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          <button
+            type="button"
+            data-line-action="row-straighten"
+            disabled={!canSort}
+            title={
+              canSort
+                ? "高さを揃えて横一列にします。左右の位置はそのままです"
+                : "2人以上を選択してください"
+            }
+            style={{ ...actionBtn, flex: 1, opacity: canSort ? 1 : 0.55 }}
+            onClick={() => applyLine("straighten", "row")}
+          >
+            整える
+          </button>
+          <button
+            type="button"
+            data-line-action="row-even"
+            disabled={!canSort}
+            title={
+              canSort
+                ? "横一列に揃えて、両端のあいだを等間隔にします。左右の順番はそのままです"
+                : "2人以上を選択してください"
+            }
+            style={{ ...actionBtn, flex: 1, opacity: canSort ? 1 : 0.55 }}
+            onClick={() => applyLine("even", "row")}
+          >
+            均等
+          </button>
+        </div>
+        <div style={{ ...dockSectionTitle, marginBottom: 4 }}>縦一列</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            type="button"
+            data-line-action="col-straighten"
+            disabled={!canSort}
+            title={
+              canSort
+                ? "左右の位置を揃えて縦一列にします。奥行きの位置はそのままです"
+                : "2人以上を選択してください"
+            }
+            style={{ ...actionBtn, flex: 1, opacity: canSort ? 1 : 0.55 }}
+            onClick={() => applyLine("straighten", "col")}
+          >
+            整える
+          </button>
+          <button
+            type="button"
+            data-line-action="col-even"
+            disabled={!canSort}
+            title={
+              canSort
+                ? "縦一列に揃えて、奥と手前のあいだを等間隔にします。奥からの順番はそのままです"
+                : "2人以上を選択してください"
+            }
+            style={{ ...actionBtn, flex: 1, opacity: canSort ? 1 : 0.55 }}
+            onClick={() => applyLine("even", "col")}
+          >
+            均等
+          </button>
+        </div>
+      </div>
 
       <div style={{ ...dockCard, marginBottom: 6 }}>
         <div style={dockSectionTitle}>辺に寄せる</div>

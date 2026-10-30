@@ -4,7 +4,9 @@ import { swapSelectionKamiteShimote } from "./stageColumnSwap";
 import {
   alignSelectedDancers,
   distributeSelectedDancers,
+  evenSelectionLine,
   flipSelectedDancers,
+  straightenSelectionLine,
 } from "./stageSelectionTransform";
 
 function spot(
@@ -129,5 +131,104 @@ describe("flipSelectedDancers", () => {
     expect(next.b!.yPct).toBe(20);
     expect(next.m!.yPct).toBe(70);
     expect(next.t!.xPct).toBe(10);
+  });
+});
+
+describe("straightenSelectionLine", () => {
+  const dancers = [
+    spot("a", 10, 20),
+    spot("b", 40, 80),
+    spot("c", 70, 30),
+    spot("other", 5, 5),
+  ];
+  const ids = ["a", "b", "c"];
+
+  it("puts a horizontal line on the selection's vertical center and keeps x", () => {
+    const next = byId(straightenSelectionLine(dancers, ids, "row"));
+    expect(next.a!.yPct).toBe(50);
+    expect(next.b!.yPct).toBe(50);
+    expect(next.c!.yPct).toBe(50);
+    expect(next.a!.xPct).toBe(10);
+    expect(next.b!.xPct).toBe(40);
+    expect(next.c!.xPct).toBe(70);
+    expect(next.other).toEqual(dancers[3]);
+  });
+
+  it("puts a vertical line on the selection's horizontal center and keeps y", () => {
+    const next = byId(straightenSelectionLine(dancers, ids, "col"));
+    expect(next.a!.xPct).toBe(40);
+    expect(next.b!.xPct).toBe(40);
+    expect(next.c!.xPct).toBe(40);
+    expect(next.a!.yPct).toBe(20);
+    expect(next.b!.yPct).toBe(80);
+    expect(next.c!.yPct).toBe(30);
+    expect(next.other!.xPct).toBe(5);
+  });
+
+  it("leaves a single dancer unchanged", () => {
+    expect(straightenSelectionLine(dancers, ["a"], "row")).toBe(dancers);
+  });
+});
+
+describe("evenSelectionLine", () => {
+  it("aligns a row and spaces x between the current ends, keeping left-to-right order", () => {
+    const dancers = [
+      spot("l", 10, 20),
+      spot("m", 16, 80),
+      spot("r", 70, 30),
+      spot("other", 90, 10),
+    ];
+    const next = byId(evenSelectionLine(dancers, ["l", "m", "r"], "row"));
+    expect(next.l!.xPct).toBe(10);
+    expect(next.m!.xPct).toBe(40);
+    expect(next.r!.xPct).toBe(70);
+    expect(next.l!.yPct).toBe(50);
+    expect(next.m!.yPct).toBe(50);
+    expect(next.r!.yPct).toBe(50);
+    expect(next.other).toEqual(dancers[3]);
+  });
+
+  it("aligns a column and spaces y between the current ends, back to front", () => {
+    const dancers = [
+      spot("back", 10, 10),
+      spot("mid", 80, 22),
+      spot("front", 40, 70),
+    ];
+    const next = byId(evenSelectionLine(dancers, ["back", "mid", "front"], "col"));
+    expect(next.back!.yPct).toBe(10);
+    expect(next.mid!.yPct).toBe(40);
+    expect(next.front!.yPct).toBe(70);
+    expect(next.back!.xPct).toBe(45);
+    expect(next.mid!.xPct).toBe(45);
+    expect(next.front!.xPct).toBe(45);
+  });
+
+  it("opens a stacked row by the reference step when everyone shares an x", () => {
+    const dancers = [
+      spot("a", 50, 30),
+      spot("b", 50, 40),
+      spot("c", 50, 50),
+    ];
+    const next = byId(evenSelectionLine(dancers, ["a", "b", "c"], "row"));
+    expect(next.a!.xPct).toBe(42);
+    expect(next.b!.xPct).toBe(50);
+    expect(next.c!.xPct).toBe(58);
+    expect(next.a!.yPct).toBe(40);
+    expect(next.b!.yPct).toBe(40);
+    expect(next.c!.yPct).toBe(40);
+  });
+
+  it("keeps dancer ids and does not swap who is on the left", () => {
+    const dancers = [
+      spot("right", 80, 10, { label: "右" }),
+      spot("left", 20, 90, { label: "左" }),
+    ];
+    const next = byId(evenSelectionLine(dancers, ["right", "left"], "row"));
+    expect(next.left!.xPct).toBe(20);
+    expect(next.right!.xPct).toBe(80);
+    expect(next.left!.label).toBe("左");
+    expect(next.right!.label).toBe("右");
+    expect(next.left!.yPct).toBe(50);
+    expect(next.right!.yPct).toBe(50);
   });
 });
