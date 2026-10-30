@@ -57,6 +57,7 @@ export const VALID_GAP_APPROACH_ROUTES: readonly GapApproachRoute[] = [
   "front_half_via_kamite",
   "front_half_via_shimote",
   "detour_bulge",
+  "pair_kamite_front",
 ] as const;
 
 export function parseGapApproachRoute(raw: unknown): GapApproachRoute | undefined {
@@ -123,6 +124,10 @@ export const GAP_APPROACH_OPTIONS: {
   {
     id: "detour_bulge",
     label: "全員やや遠回り（客席側へ膨らむ）",
+  },
+  {
+    id: "pair_kamite_front",
+    label: "ペア移動：上手側が前を通る",
   },
 ];
 
@@ -250,6 +255,19 @@ function pairXY(
       return clampIn(p.x, p.y);
     }
     return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+  }
+
+  /**
+   * ペア入替向け：上手側（開始 x が中央以上）は客席側へ、
+   * 下手側は舞台裏側へ迂回し、上手が前を通るようにする。
+   */
+  if (route === "pair_kamite_front") {
+    if (ax >= medX) {
+      const p = piecewise2(ax, ay, bx, by, mx, my + sepPct, alpha);
+      return clampIn(p.x, p.y);
+    }
+    const p = piecewise2(ax, ay, bx, by, mx, my - sepPct, alpha);
+    return clampIn(p.x, p.y);
   }
 
   return clampIn(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
