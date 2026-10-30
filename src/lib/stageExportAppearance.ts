@@ -39,6 +39,11 @@ export type StageExportAppearance = {
   stageSleeveCurtains?: StageSleeveCurtain[];
   /** 全編共通の床テキスト・線（stage レイヤーのみ描画） */
   globalFloorMarkup?: StageFloorMarkup[];
+  /**
+   * 動画書き出し。本編の床を枠いっぱいに置き、丸と名前を画面比で大きくする。
+   * PDF など印刷経路では付けない。
+   */
+  videoFill?: boolean;
 };
 
 export function buildStageExportAppearance(

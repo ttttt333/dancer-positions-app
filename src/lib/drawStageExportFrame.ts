@@ -57,28 +57,73 @@ export type ExportFormationFrame = {
   floorMarkup?: StageFloorMarkup[];
 };
 
-type FloorRect = { x: number; y: number; w: number; h: number };
+export type FloorRect = { x: number; y: number; w: number; h: number };
+
+/** 編集画面の標準印。動画ではこの直径を舞台幅の基準にする */
+const EDITOR_MARKER_REF_PX = 18;
+/** 動画の本編幅に対する標準印の割合（スマホ再生でも名前が読める大きさ） */
+const VIDEO_MARKER_OF_STAGE = 0.072;
+/** 名下フォントの編集画面での標準（px）。個別指定はこの値との比で拡縮する */
+const EDITOR_NAME_FONT_REF_PX = 17;
 
 function defaultExportMarkerPx(main: FloorRect): number {
   return Math.max(20, Math.min(36, main.w * 0.056));
 }
 
 /** 書き出し1人分の印直径（ギャップ補間の sizePx を反映） */
-function exportDancerMarkerPx(main: FloorRect, dancer: ExportDancerFrame): number {
-  if (typeof dancer.sizePx === "number" && Number.isFinite(dancer.sizePx)) {
-    return Math.max(10, Math.min(140, Math.round(dancer.sizePx)));
+export function exportDancerMarkerPx(
+  main: FloorRect,
+  dancer: ExportDancerFrame,
+  videoFill = false
+): number {
+  if (!videoFill) {
+    if (typeof dancer.sizePx === "number" && Number.isFinite(dancer.sizePx)) {
+      return Math.max(10, Math.min(140, Math.round(dancer.sizePx)));
+    }
+    return defaultExportMarkerPx(main);
   }
-  return defaultExportMarkerPx(main);
+  const editorPx =
+    typeof dancer.sizePx === "number" && Number.isFinite(dancer.sizePx)
+      ? Math.max(10, Math.min(140, Math.round(dancer.sizePx)))
+      : EDITOR_MARKER_REF_PX;
+  const rel = editorPx / EDITOR_MARKER_REF_PX;
+  const raw = main.w * VIDEO_MARKER_OF_STAGE * rel;
+  const minPx = main.w * 0.046;
+  const maxPx = Math.min(main.w * 0.11, main.h * 0.155);
+  if (!(maxPx > minPx)) return Math.max(8, Math.round(raw));
+  return Math.round(Math.min(maxPx, Math.max(minPx, raw)));
 }
+
+/** 丸の下の名前。動画では編集画面の 48px 上限を使わず、印の大きさに合わせる */
+export function exportNameBelowFontPx(
+  markerPx: number,
+  nameBelowFontPx: number | undefined,
+  videoFill = false
+): number {
+  if (!videoFill) {
+    return effectiveNameBelowFontPx({ nameBelowFontPx }, markerPx);
+  }
+  const editorFont =
+    typeof nameBelowFontPx === "number" && Number.isFinite(nameBelowFontPx)
+      ? Math.max(8, Math.min(48, Math.round(nameBelowFontPx)))
+      : EDITOR_NAME_FONT_REF_PX;
+  const rel = editorFont / EDITOR_NAME_FONT_REF_PX;
+  const raw = markerPx * 0.44 * rel;
+  const minPx = markerPx * 0.34;
+  const maxPx = markerPx * 0.58;
+  return Math.round(Math.min(maxPx, Math.max(minPx, raw)));
+}
+
+export type StageExportFrameLayout = {
+  outer: FloorRect;
+  main: FloorRect;
+};
 
 function fitStageLayout(
   width: number,
   height: number,
   appearance: StageExportAppearance
-): {
-  outer: FloorRect;
-  main: FloorRect;
-} {
+): StageExportFrameLayout {
   const outerW = appearance.showShell
     ? appearance.Wmm + 2 * appearance.Smm
     : appearance.Wmm || 12;
@@ -118,6 +163,58 @@ function fitStageLayout(
   return { outer, main };
 }
 
+/**
+ * 動画用。袖・舞台裏では本編を縮めず、床の縦横比を保ったまま枠へ収める。
+ * 下端だけ名前がはみ出す分を空ける。
+ */
+function fitVideoFillLayout(
+  width: number,
+  height: number,
+  appearance: StageExportAppearance
+): StageExportFrameLayout {
+  const stageW = appearance.Wmm > 0 ? appearance.Wmm : 12;
+  const stageD = appearance.Dmm > 0 ? appearance.Dmm : 8;
+  const aspect = stageW / stageD;
+  const shortSide = Math.min(width, height);
+  const edge = Math.max(6, Math.round(shortSide * 0.012));
+  const nameBleed = Math.max(edge, Math.round(shortSide * 0.055));
+  const maxW = Math.max(2, width - edge * 2);
+  const maxH = Math.max(2, height - edge - nameBleed);
+  let mw = maxW;
+  let mh = mw / aspect;
+  if (mh > maxH) {
+    mh = maxH;
+    mw = mh * aspect;
+  }
+  const mx = (width - mw) / 2;
+  const my = edge + (maxH - mh) / 2;
+
+  const sideRatio =
+    appearance.showShell && appearance.Smm > 0 ? appearance.Smm / stageW : 0;
+  const backRatio =
+    appearance.showShell && appearance.Bmm > 0 ? appearance.Bmm / stageD : 0;
+  const sidePx = mw * sideRatio;
+  const backPx = mh * backRatio;
+  return {
+    outer: {
+      x: mx - sidePx,
+      y: my - backPx,
+      w: mw + sidePx * 2,
+      h: mh + backPx,
+    },
+    main: { x: mx, y: my, w: mw, h: mh },
+  };
+}
+
+export function layoutStageExportFrame(
+  width: number,
+  height: number,
+  appearance: StageExportAppearance
+): StageExportFrameLayout {
+  if (appearance.videoFill) return fitVideoFillLayout(width, height, appearance);
+  return fitStageLayout(width, height, appearance);
+}
+
 function drawShellChrome(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   width: number,
@@ -129,6 +226,10 @@ function drawShellChrome(
   ctx.fillStyle = "#0a0f18";
   ctx.fillRect(0, 0, width, height);
 
+  const chromeFont = appearance.videoFill
+    ? Math.max(13, Math.round(Math.min(main.w, main.h) * 0.028))
+    : 11;
+
   if (appearance.showShell && appearance.Bmm > 0) {
     const bh = main.y - outer.y;
     ctx.fillStyle = "#111827";
@@ -137,7 +238,7 @@ function drawShellChrome(
     ctx.lineWidth = 1;
     ctx.strokeRect(outer.x + 0.5, outer.y + 0.5, outer.w - 1, bh - 1);
     ctx.fillStyle = "rgba(148,163,184,0.75)";
-    ctx.font = "11px system-ui,sans-serif";
+    ctx.font = `${chromeFont}px system-ui,sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(
@@ -153,7 +254,7 @@ function drawShellChrome(
     ctx.fillRect(outer.x, main.y, sw, main.h);
     ctx.fillRect(main.x + main.w, main.y, sw, main.h);
     ctx.fillStyle = "rgba(148,163,184,0.65)";
-    ctx.font = "10px system-ui,sans-serif";
+    ctx.font = `${Math.max(10, chromeFont - 1)}px system-ui,sans-serif`;
     ctx.save();
     ctx.translate(outer.x + sw / 2, main.y + main.h / 2);
     ctx.fillText(appearance.stageLabels?.side ?? "サイド", 0, 0);
@@ -171,22 +272,37 @@ function drawShellChrome(
   ctx.fillStyle = grad;
   ctx.fillRect(main.x, main.y, main.w, main.h);
 
+  const frameStroke = appearance.videoFill
+    ? Math.max(3, Math.round(Math.min(width, height) * 0.0045))
+    : 2.5;
   ctx.strokeStyle = "#94a3b8";
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = frameStroke;
   ctx.strokeRect(main.x + 1, main.y + 1, main.w - 2, main.h - 2);
   ctx.strokeStyle = "#cbd5e1";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = Math.max(2, frameStroke - 1);
   ctx.strokeRect(outer.x + 1, outer.y + 1, outer.w - 2, outer.h - 2);
+
+  const audience = appearance.stageLabels?.audience ?? "客席";
+  ctx.fillStyle = "rgba(226,232,240,0.85)";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  if (appearance.videoFill) {
+    const labelPx = Math.max(12, Math.round(main.w * 0.02));
+    const roomBelow = height - (main.y + main.h);
+    if (roomBelow > labelPx + 4) {
+      ctx.font = `bold ${labelPx}px system-ui,sans-serif`;
+      ctx.fillText(audience, main.x + main.w / 2, main.y + main.h + roomBelow * 0.45);
+    }
+    return;
+  }
 
   const bandH = Math.min(22, main.h * 0.08);
   ctx.fillStyle = "rgba(15,23,42,0.92)";
   ctx.fillRect(main.x, main.y + main.h - bandH, main.w, bandH);
   ctx.fillStyle = "rgba(226,232,240,0.85)";
   ctx.font = "bold 12px system-ui,sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
   ctx.fillText(
-    appearance.stageLabels?.audience ?? "客席",
+    audience,
     main.x + main.w / 2,
     main.y + main.h - bandH / 2
   );
@@ -203,9 +319,13 @@ function drawAudienceGuideLabels(
   );
   if (marks.length === 0) return;
 
-  const bandH = Math.min(22, main.h * 0.08);
-  const labelY = main.y + main.h - bandH - 10;
-  const fontPx = Math.max(10, Math.min(14, Math.round(main.w * 0.016)));
+  const bandH = appearance.videoFill
+    ? Math.min(8, main.h * 0.015)
+    : Math.min(22, main.h * 0.08);
+  const labelY = main.y + main.h - bandH - (appearance.videoFill ? 16 : 10);
+  const fontPx = appearance.videoFill
+    ? Math.max(14, Math.min(28, Math.round(main.w * 0.022)))
+    : Math.max(10, Math.min(14, Math.round(main.w * 0.016)));
   const cx = main.x + main.w / 2;
 
   ctx.fillStyle = "#fbbf24";
@@ -383,7 +503,7 @@ function drawDancers(
   appearance: StageExportAppearance
 ) {
   formation.dancers.forEach((dancer, di) => {
-    const markerPx = exportDancerMarkerPx(main, dancer);
+    const markerPx = exportDancerMarkerPx(main, dancer, appearance.videoFill === true);
     const markerR = markerPx / 2;
     const x = main.x + dancer.x * main.w;
     const y = main.y + dancer.y * main.h;
@@ -402,8 +522,10 @@ function drawDancers(
     }
     ctx.fillStyle = dancer.color;
     ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.85)";
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(255,255,255,0.92)";
+    ctx.lineWidth = appearance.videoFill
+      ? Math.max(2.5, markerPx * 0.055)
+      : 1.5;
     ctx.lineJoin = "round";
     ctx.stroke();
 
@@ -425,12 +547,22 @@ function drawDancers(
       ctx.fillText(emoji, lx, ly);
     } else {
       const inner = resolveExportCircleLabel(dancer, di, appearance);
-      if (inner) {
+      const nameUnderMarker = dancer.name.trim();
+      const nameDrawnBelow =
+        appearance.videoFill === true &&
+        nameUnderMarker.length > 0 &&
+        inner === nameUnderMarker;
+      if (inner && !nameDrawnBelow) {
         ctx.fillStyle = "#0f172a";
-        const fontPx = Math.max(
-          6,
-          Math.round(markerCircleLabelFontPx(markerPx, inner) * labelScale)
+        const fitted = Math.round(
+          markerCircleLabelFontPx(markerPx, inner) * labelScale
         );
+        const readable = Math.round(markerPx * 0.4 * labelScale);
+        const fontPx = appearance.videoFill
+          ? inner.length <= 3
+            ? Math.max(fitted, Math.min(readable, Math.round(markerPx * 0.5)))
+            : Math.max(8, fitted)
+          : Math.max(6, fitted);
         ctx.font = `bold ${fontPx}px system-ui,sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -438,26 +570,34 @@ function drawDancers(
       }
     }
 
-    const showNameBelow = appearance.dancerLabelBelow || Boolean(stamp);
-    if (showNameBelow) {
-      const belowName = dancer.name.trim();
-      if (belowName) {
-        ctx.fillStyle = "rgba(255,255,255,0.8)";
-        const belowFontPx = effectiveNameBelowFontPx(
-          { nameBelowFontPx: dancer.nameBelowFontPx },
-          markerPx
-        );
-        ctx.font = `${belowFontPx}px system-ui,sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        const nameGapPx = Math.max(
-          6,
-          Math.round(
-            dancerNameBelowLabelOffsetPx(markerPx, 0) - Math.round(markerPx / 2)
-          )
-        );
-        ctx.fillText(belowName, x, y + markerR + nameGapPx);
+    const belowName = dancer.name.trim();
+    const showNameBelow =
+      Boolean(belowName) &&
+      (appearance.videoFill || appearance.dancerLabelBelow || Boolean(stamp));
+    if (showNameBelow && belowName) {
+      ctx.save();
+      ctx.fillStyle = appearance.videoFill ? "#f8fafc" : "rgba(255,255,255,0.8)";
+      if (appearance.videoFill) {
+        ctx.shadowColor = "rgba(0,0,0,0.92)";
+        ctx.shadowBlur = Math.max(3, markerPx * 0.08);
+        ctx.shadowOffsetY = 1;
       }
+      const belowFontPx = exportNameBelowFontPx(
+        markerPx,
+        dancer.nameBelowFontPx,
+        appearance.videoFill === true
+      );
+      ctx.font = `600 ${belowFontPx}px system-ui,sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      const nameGapPx = Math.max(
+        6,
+        Math.round(
+          dancerNameBelowLabelOffsetPx(markerPx, 0) - Math.round(markerPx / 2)
+        )
+      );
+      ctx.fillText(belowName, x, y + markerR + nameGapPx);
+      ctx.restore();
     }
   });
 }
@@ -703,7 +843,7 @@ export function drawStageExportFrame(
       : ([...formations].reverse().find((f) => f.startSec <= t) ??
         formations[0]);
 
-  const { outer, main } = fitStageLayout(width, height, appearance);
+  const { outer, main } = layoutStageExportFrame(width, height, appearance);
 
   ctx.save();
   if (appearance.rotDeg !== 0) {

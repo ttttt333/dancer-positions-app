@@ -149,7 +149,10 @@ export function buildVideoExportOptions(
     durationSec: span,
     fileName: safeName,
     formations,
-    stageAppearance: buildStageExportAppearance(project),
+    stageAppearance: {
+      ...buildStageExportAppearance(project),
+      videoFill: true,
+    },
     audioStartSec: startSec,
     quality,
   };
