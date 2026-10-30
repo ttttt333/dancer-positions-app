@@ -51,6 +51,7 @@ import {
 } from "../lib/playbackTransport";
 import { playbackEngine } from "../core/playbackEngine";
 import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
+import { resolveCueSelectionAfterListChange } from "../lib/cueSelectionAfterDelete";
 import type { ViewerChromeInsets } from "../components/ChoreoViewerControlBars";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { useStageLightsViewStore } from "../store/stageLightsViewStore";
@@ -1381,41 +1382,33 @@ function EditorPageContent({
     });
   }, []);
 
+  const cueSelectionSnapshotRef = useRef<{
+    cues: Cue[];
+    selectedIds: string[];
+  }>({ cues: [], selectedIds: [] });
   useEffect(() => {
     if (!project) return;
-    if (project.cues.length === 0) {
-      setSelectedCueIds((ids) => (ids.length === 0 ? ids : []));
-      return;
-    }
+    const prior = cueSelectionSnapshotRef.current;
     setSelectedCueIds((ids) => {
-      const valid = ids.filter((id) => cueById.has(id));
-      if (valid.length > 0) {
-        const seen = new Set<string>();
-        const deduped: string[] = [];
-        for (const id of valid) {
-          if (seen.has(id)) continue;
-          seen.add(id);
-          deduped.push(id);
-        }
-        if (
-          deduped.length === ids.length &&
-          deduped.every((id, i) => id === ids[i])
-        ) {
-          return ids;
-        }
-        return deduped;
-      }
-      const first = cuesSortedForStageJump[0]?.id;
-      const next = first ? [first] : [];
-      if (
-        next.length === ids.length &&
-        next.every((id, i) => id === ids[i])
-      ) {
+      const next = resolveCueSelectionAfterListChange({
+        previousCues: prior.cues,
+        previousSelectedIds: prior.selectedIds,
+        nextCues: project.cues,
+        nextSelectedIds: ids,
+      });
+      if (next.length === ids.length && next.every((id, i) => id === ids[i])) {
         return ids;
       }
       return next;
     });
   }, [project, cueIdsSig, cueById, cuesSortedForStageJump]);
+  useEffect(() => {
+    if (!project) return;
+    cueSelectionSnapshotRef.current = {
+      cues: project.cues,
+      selectedIds: selectedCueIds,
+    };
+  }, [project, selectedCueIds]);
 
   /** 複数キューが同一フォーメーションを共有している旧データを、編集時に自動分離 */
   const sharedFormationSplitSigRef = useRef<string | null>(null);

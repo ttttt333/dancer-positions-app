@@ -1,5 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import {
   canSplitCueAtTime,
   clampTimelineHeadForCueOps,
@@ -141,19 +141,21 @@ export function useTimelineCueActions({
     ]
   );
 
+  const cuesRef = useRef(project.cues);
+  cuesRef.current = project.cues;
+
   const removeCue = useCallback(
     (id: string) => {
-      let nextSelected: string[] = [];
-      let seekT: number | null = null;
+      const deleted = new Set([id]);
+      const pick = pickCueAfterDelete(cuesRef.current, deleted);
+      const nextSelected = pick ? [pick.id] : [];
+      const seekT = pick ? pick.tStartSec : null;
       setProject((p) => {
-        const deleted = new Set([id]);
-        const pick = pickCueAfterDelete(p.cues, deleted);
-        nextSelected = pick ? [pick.id] : [];
-        seekT = pick ? pick.tStartSec : null;
+        const livePick = pickCueAfterDelete(p.cues, deleted);
         return {
           ...p,
           cues: sortCuesByStart(p.cues.filter((c) => c.id !== id)),
-          ...(pick ? { activeFormationId: pick.formationId } : {}),
+          ...(livePick ? { activeFormationId: livePick.formationId } : {}),
         };
       });
       onSelectedCueIdsChange(nextSelected);

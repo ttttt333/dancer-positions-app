@@ -6,10 +6,13 @@ import {
   notifyFormationChosenWhenStopped,
   syncPlaybackHeadAfterCueEditWhenStopped,
 } from "../lib/playbackTransport";
-import type { ChoreographyProjectJson } from "../types/choreography";
+import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 
 type Params = {
   viewMode: ChoreographyProjectJson["viewMode"];
+  cues: readonly Cue[];
+  trimStartSec: number;
+  trimEndSec: number | null;
   selectedCueIdsRef: MutableRefObject<string[]>;
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
   onSelectedCueIdsChange: Dispatch<SetStateAction<string[]>>;
@@ -20,6 +23,9 @@ type Params = {
 /** Delete / Backspace で選択中キューを削除（入力フォーカス時は無視） */
 export function useTimelineDeleteSelectedCuesOnKey({
   viewMode,
+  cues,
+  trimStartSec,
+  trimEndSec,
   selectedCueIdsRef,
   setProject,
   onSelectedCueIdsChange,
@@ -37,20 +43,15 @@ export function useTimelineDeleteSelectedCuesOnKey({
       if (ids.length === 0) return;
       e.preventDefault();
       const idSet = new Set(ids);
-      let nextSelected: string[] = [];
-      let seekT: number | null = null;
-      let trimStartSec = 0;
-      let trimEndSec: number | null = null;
+      const pick = pickCueAfterDelete(cues, idSet);
+      const nextSelected = pick ? [pick.id] : [];
+      const seekT = pick ? pick.tStartSec : null;
       setProject((p) => {
-        const pick = pickCueAfterDelete(p.cues, idSet);
-        nextSelected = pick ? [pick.id] : [];
-        seekT = pick ? pick.tStartSec : null;
-        trimStartSec = p.trimStartSec;
-        trimEndSec = p.trimEndSec;
+        const livePick = pickCueAfterDelete(p.cues, idSet);
         return {
           ...p,
           cues: sortCuesByStart(p.cues.filter((c) => !idSet.has(c.id))),
-          ...(pick ? { activeFormationId: pick.formationId } : {}),
+          ...(livePick ? { activeFormationId: livePick.formationId } : {}),
         };
       });
       onSelectedCueIdsChange(nextSelected);
@@ -68,6 +69,9 @@ export function useTimelineDeleteSelectedCuesOnKey({
     return () => window.removeEventListener("keydown", onKey);
   }, [
     viewMode,
+    cues,
+    trimStartSec,
+    trimEndSec,
     setProject,
     onSelectedCueIdsChange,
     durationRef,

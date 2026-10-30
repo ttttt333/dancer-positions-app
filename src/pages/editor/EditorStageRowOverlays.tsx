@@ -45,6 +45,7 @@ import {
 } from "../../lib/removeMemberFromStage";
 import { MemberDeleteScopeDialog } from "../../components/MemberDeleteScopeDialog";
 import { sortCuesByStart, MIN_CUE_DURATION_SEC, DEFAULT_CUE_SPAN_WITH_AUDIO_SEC } from "../../core/timelineController";
+import { pickCueAfterDelete } from "../../lib/cueSelectionAfterDelete";
 import { dancersForLayoutPreset, transferDancerIdentitiesByOrder } from "../../lib/formationLayouts";
 import { formatMmSsFloor } from "../../lib/timeFormat";
 import { dancerMarkerDiameterAfterRosterImport } from "../../lib/projectDefaults";
@@ -478,12 +479,18 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                               title="削除"
                               disabled={!canEditCues}
                               onClick={() => {
-                                if (!canEditCues) return;
-                                setProjectSafe((prev) => ({
+                                if (!canEditCues || !project) return;
+                                const deleted = new Set([cue.id]);
+                                const pick = pickCueAfterDelete(project.cues, deleted);
+                                setProjectSafe((prev: { cues: typeof project.cues }) => ({
                                   ...prev,
                                   cues: sortCuesByStart(prev.cues.filter((c) => c.id !== cue.id)),
                                 }));
-                                setSelectedCueIds((prev) => prev.filter((id) => id !== cue.id));
+                                setSelectedCueIds((prev: string[]) => {
+                                  const list = Array.isArray(prev) ? prev : [];
+                                  if (!list.includes(cue.id)) return list;
+                                  return pick ? [pick.id] : [];
+                                });
                               }}
                               style={{
                                 flexShrink: 0,

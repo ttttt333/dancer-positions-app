@@ -205,6 +205,9 @@ export function useTimelinePanelSessionBundle(
 
   useTimelineDeleteSelectedCuesOnKey({
     viewMode: project.viewMode,
+    cues: project.cues,
+    trimStartSec: project.trimStartSec,
+    trimEndSec: project.trimEndSec,
     selectedCueIdsRef,
     setProject,
     onSelectedCueIdsChange,

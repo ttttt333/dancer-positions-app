@@ -423,10 +423,18 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
             : null;
         if (!id || !cues.some((c) => c.id === id)) return;
         const deleted = new Set([id]);
-        let nextSelected: string[] = [];
-        let seekT: number | null = null;
-        let trimStartSec = 0;
-        let trimEndSec: number | null = null;
+        const pick = pickCueAfterDelete(
+          cues as Parameters<typeof pickCueAfterDelete>[0],
+          deleted
+        );
+        const nextSelected = pick ? [pick.id] : [];
+        const seekT = pick ? pick.tStartSec : null;
+        const trimStartSec =
+          typeof (project as { trimStartSec?: number }).trimStartSec === "number"
+            ? (project as { trimStartSec: number }).trimStartSec
+            : 0;
+        const trimEndSec =
+          (project as { trimEndSec?: number | null }).trimEndSec ?? null;
         setProjectSafe(
           (
             prev: {
@@ -441,16 +449,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
               activeFormationId?: string;
             } & Record<string, unknown>
           ) => {
-            const pick = pickCueAfterDelete(prev.cues, deleted);
-            nextSelected = pick ? [pick.id] : [];
-            seekT = pick ? pick.tStartSec : null;
-            trimStartSec =
-              typeof prev.trimStartSec === "number" ? prev.trimStartSec : 0;
-            trimEndSec = prev.trimEndSec ?? null;
+            const livePick = pickCueAfterDelete(prev.cues, deleted);
             return {
               ...prev,
               cues: sortCuesByStart(prev.cues.filter((c) => c.id !== id)),
-              ...(pick ? { activeFormationId: pick.formationId } : {}),
+              ...(livePick ? { activeFormationId: livePick.formationId } : {}),
             };
           }
         );
