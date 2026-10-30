@@ -56,15 +56,18 @@ describe("video export framing", () => {
     const marker = exportDancerMarkerPx(main, dancer, true);
     const printMarker = exportDancerMarkerPx(main, dancer, false);
     expect(printMarker).toBe(18);
-    expect(marker).toBeGreaterThan(70);
-    expect(marker).toBeLessThan(main.w * 0.12);
+    expect(marker).toBeGreaterThan(printMarker);
+    expect(marker).toBeGreaterThan(40);
+    expect(marker).toBeLessThan(main.w * 0.05);
 
     const bigger = exportDancerMarkerPx(main, { ...dancer, sizePx: 36 }, true);
     expect(bigger).toBeGreaterThan(marker);
+    const huge = exportDancerMarkerPx(main, { ...dancer, sizePx: 80 }, true);
+    expect(huge).toBeLessThanOrEqual(Math.ceil(main.w * 0.05));
 
     const namePx = exportNameBelowFontPx(marker, undefined, true);
-    expect(namePx).toBeGreaterThan(28);
-    expect(namePx).toBeLessThan(marker);
+    expect(namePx).toBeGreaterThan(14);
+    expect(namePx).toBeLessThan(marker * 0.5);
 
     const custom = exportNameBelowFontPx(marker, 40, true);
     expect(custom).toBeGreaterThan(namePx);

@@ -61,8 +61,11 @@ export type FloorRect = { x: number; y: number; w: number; h: number };
 
 /** 編集画面の標準印。動画ではこの直径を舞台幅の基準にする */
 const EDITOR_MARKER_REF_PX = 18;
-/** 動画の本編幅に対する標準印の割合（スマホ再生でも名前が読める大きさ） */
-const VIDEO_MARKER_OF_STAGE = 0.072;
+/**
+ * 動画の本編幅に対する標準印の割合。
+ * 近い隊形でも隣と重なりすぎないよう、床のおよそ 1/28。
+ */
+const VIDEO_MARKER_OF_STAGE = 0.036;
 /** 名下フォントの編集画面での標準（px）。個別指定はこの値との比で拡縮する */
 const EDITOR_NAME_FONT_REF_PX = 17;
 
@@ -88,8 +91,8 @@ export function exportDancerMarkerPx(
       : EDITOR_MARKER_REF_PX;
   const rel = editorPx / EDITOR_MARKER_REF_PX;
   const raw = main.w * VIDEO_MARKER_OF_STAGE * rel;
-  const minPx = main.w * 0.046;
-  const maxPx = Math.min(main.w * 0.11, main.h * 0.155);
+  const minPx = main.w * 0.024;
+  const maxPx = Math.min(main.w * 0.05, main.h * 0.075);
   if (!(maxPx > minPx)) return Math.max(8, Math.round(raw));
   return Math.round(Math.min(maxPx, Math.max(minPx, raw)));
 }
@@ -108,9 +111,9 @@ export function exportNameBelowFontPx(
       ? Math.max(8, Math.min(48, Math.round(nameBelowFontPx)))
       : EDITOR_NAME_FONT_REF_PX;
   const rel = editorFont / EDITOR_NAME_FONT_REF_PX;
-  const raw = markerPx * 0.44 * rel;
-  const minPx = markerPx * 0.34;
-  const maxPx = markerPx * 0.58;
+  const raw = markerPx * 0.36 * rel;
+  const minPx = markerPx * 0.28;
+  const maxPx = markerPx * 0.46;
   return Math.round(Math.min(maxPx, Math.max(minPx, raw)));
 }
 
@@ -524,7 +527,7 @@ function drawDancers(
     ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,0.92)";
     ctx.lineWidth = appearance.videoFill
-      ? Math.max(2.5, markerPx * 0.055)
+      ? Math.max(1.75, markerPx * 0.04)
       : 1.5;
     ctx.lineJoin = "round";
     ctx.stroke();
@@ -557,10 +560,10 @@ function drawDancers(
         const fitted = Math.round(
           markerCircleLabelFontPx(markerPx, inner) * labelScale
         );
-        const readable = Math.round(markerPx * 0.4 * labelScale);
+        const readable = Math.round(markerPx * 0.32 * labelScale);
         const fontPx = appearance.videoFill
           ? inner.length <= 3
-            ? Math.max(fitted, Math.min(readable, Math.round(markerPx * 0.5)))
+            ? Math.max(fitted, Math.min(readable, Math.round(markerPx * 0.38)))
             : Math.max(8, fitted)
           : Math.max(6, fitted);
         ctx.font = `bold ${fontPx}px system-ui,sans-serif`;
@@ -579,7 +582,7 @@ function drawDancers(
       ctx.fillStyle = appearance.videoFill ? "#f8fafc" : "rgba(255,255,255,0.8)";
       if (appearance.videoFill) {
         ctx.shadowColor = "rgba(0,0,0,0.92)";
-        ctx.shadowBlur = Math.max(3, markerPx * 0.08);
+        ctx.shadowBlur = Math.max(2, markerPx * 0.05);
         ctx.shadowOffsetY = 1;
       }
       const belowFontPx = exportNameBelowFontPx(
