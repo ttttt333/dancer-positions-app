@@ -1,4 +1,5 @@
 import { getSupabase } from "./supabaseClient";
+import { releaseUnreferencedSupabaseAudio } from "./supabaseAudioOrphans";
 import { summarizeProjectJson, type ProjectListSummary } from "./projectListSummary";
 import { assertCanCreateSupabaseProject, isFreeLimitError } from "./supabaseBilling";
 
@@ -260,13 +261,19 @@ export async function supabaseUpdateProject(
   };
 }
 
+function audioPathFromProjectJson(json: unknown): string {
+  if (!json || typeof json !== "object") return "";
+  const raw = (json as { audioSupabasePath?: unknown }).audioSupabasePath;
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
 /** 作成者なら作品を削除、共同編集者なら自分を共同編集から外す */
 export async function supabaseDeleteProject(id: number): Promise<void> {
   const sb = getSupabase();
   const uid = await currentUserId();
   const { data: row } = await sb
     .from("choreocore_projects")
-    .select("user_id")
+    .select("user_id, json")
     .eq("id", id)
     .maybeSingle();
   if (row && uid && String(row.user_id) !== uid) {
@@ -278,6 +285,10 @@ export async function supabaseDeleteProject(id: number): Promise<void> {
     if (error) throw new Error(errMsg(error, "共同編集から外れられませんでした"));
     return;
   }
+  const audioPath = audioPathFromProjectJson(row?.json);
   const { error } = await sb.from("choreocore_projects").delete().eq("id", id);
   if (error) throw new Error(errMsg(error, "削除に失敗しました"));
+  if (audioPath) {
+    await releaseUnreferencedSupabaseAudio(audioPath).catch(() => {});
+  }
 }
