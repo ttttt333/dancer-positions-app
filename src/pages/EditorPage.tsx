@@ -381,6 +381,15 @@ function EditorPageContent({
   const [stageAreaPresetList, setStageAreaPresetList] = useState<StagePresetItem[]>([]);
   const [stageAreaPresetSelectNonce, setStageAreaPresetSelectNonce] = useState(0);
   const prevStageAreaOpenRef = useRef(false);
+  /** パネルを開いた瞬間のヘソ。取消でここへ戻す */
+  const hesoOpenSnapshotRef = useRef<{
+    stageHesoVisible: boolean;
+    stageCenterMarks: StageCenterMark[];
+  } | null>(null);
+  /** 開いた直後の古いドラフトを作品へ書き戻さないための世代 */
+  const hesoDraftEpochRef = useRef(0);
+  const hesoCommitEpochRef = useRef(0);
+  const seenHesoHistoryEpochRef = useRef(0);
   const [shareLinkCopiedFlash, setShareLinkCopiedFlash] = useState(false);
   const shareCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 生徒向け /view ルート: メンバー選択後の閲覧 */
@@ -1606,12 +1615,68 @@ function EditorPageContent({
       return;
     }
     if (stageAreaSettingsOpen && !prevStageAreaOpenRef.current) {
+      hesoDraftEpochRef.current += 1;
+      hesoOpenSnapshotRef.current = {
+        stageHesoVisible: project.stageHesoVisible === true,
+        stageCenterMarks: (project.stageCenterMarks ?? []).map((m) => ({
+          ...m,
+        })),
+      };
       setStageAreaSettingsDraft(projectToStageAreaDraft(project));
       setStageAreaPresetList(listStagePresets());
       setStageAreaPresetSelectNonce((n) => n + 1);
     }
     prevStageAreaOpenRef.current = stageAreaSettingsOpen;
   }, [stageAreaSettingsOpen, project]);
+
+  /**
+   * 調整中のヘソを作品へ書き、戻る／やり直しでドラフト側の印も追従させる。
+   * ドラッグはジェスチャ 1 手。パネル内の変更は 1 操作ずつ履歴に積む。
+   */
+  useEffect(() => {
+    if (!stageAreaSettingsOpen || !project || project.viewMode === "view") {
+      seenHesoHistoryEpochRef.current = historyOverlayEpoch;
+      return;
+    }
+    if (hesoCommitEpochRef.current !== hesoDraftEpochRef.current) {
+      hesoCommitEpochRef.current = hesoDraftEpochRef.current;
+      seenHesoHistoryEpochRef.current = historyOverlayEpoch;
+      return;
+    }
+    if (seenHesoHistoryEpochRef.current !== historyOverlayEpoch) {
+      seenHesoHistoryEpochRef.current = historyOverlayEpoch;
+      const visible = project.stageHesoVisible === true;
+      const marks = (project.stageCenterMarks ?? []).map((m) => ({ ...m }));
+      setStageAreaSettingsDraft((d) => ({
+        ...d,
+        stageHesoVisible: visible,
+        stageCenterMarks: marks,
+      }));
+      return;
+    }
+    const visible = stageAreaSettingsDraft.stageHesoVisible;
+    const marks = stageAreaSettingsDraft.stageCenterMarks;
+    const projectVisible = project.stageHesoVisible === true;
+    const projectMarks = project.stageCenterMarks ?? [];
+    if (
+      projectVisible === visible &&
+      JSON.stringify(projectMarks) === JSON.stringify(marks)
+    ) {
+      return;
+    }
+    setProjectSafe((p) => ({
+      ...p,
+      stageHesoVisible: visible,
+      stageCenterMarks: marks,
+    }));
+  }, [
+    stageAreaSettingsOpen,
+    project,
+    historyOverlayEpoch,
+    stageAreaSettingsDraft.stageHesoVisible,
+    stageAreaSettingsDraft.stageCenterMarks,
+    setProjectSafe,
+  ]);
 
   /**
    * 舞台設定表示中はドラフト（寸法・グリッド等）を StageBoard に反映し、
@@ -1683,6 +1748,11 @@ function EditorPageContent({
       if (stageAreaSettingsOpen) {
         setStageAreaSettingsDraft((d) => ({
           ...d,
+          stageCenterMarks: marks,
+          stageHesoVisible: true,
+        }));
+        setProjectSafe((p) => ({
+          ...p,
           stageCenterMarks: marks,
           stageHesoVisible: true,
         }));
@@ -2493,6 +2563,7 @@ function EditorPageContent({
    */
   const closeStageAreaSettings = useCallback(
     (mode?: "apply" | "discard" | "cancel") => {
+      endGestureHistory();
       if (!project) {
         setStageAreaSettingsOpen(false);
         return;
@@ -2503,11 +2574,41 @@ function EditorPageContent({
           applyStageAreaSettingsDraft();
         }
       } else {
-        setStageAreaSettingsDraft(projectToStageAreaDraft(project));
+        const snap = hesoOpenSnapshotRef.current;
+        const base = projectToStageAreaDraft(project);
+        setStageAreaSettingsDraft(
+          snap
+            ? {
+                ...base,
+                stageHesoVisible: snap.stageHesoVisible,
+                stageCenterMarks: snap.stageCenterMarks,
+              }
+            : base
+        );
+        if (snap && project.viewMode !== "view") {
+          const same =
+            (project.stageHesoVisible === true) === snap.stageHesoVisible &&
+            JSON.stringify(project.stageCenterMarks ?? []) ===
+              JSON.stringify(snap.stageCenterMarks);
+          if (!same) {
+            markHistorySkipNextPush();
+            setProjectSafe((p) => ({
+              ...p,
+              stageHesoVisible: snap.stageHesoVisible,
+              stageCenterMarks: snap.stageCenterMarks,
+            }));
+          }
+        }
       }
       setStageAreaSettingsOpen(false);
     },
-    [project, applyStageAreaSettingsDraft]
+    [
+      project,
+      applyStageAreaSettingsDraft,
+      endGestureHistory,
+      markHistorySkipNextPush,
+      setProjectSafe,
+    ]
   );
 
   const handleKeyboardCloudSave = useCallback(() => {
