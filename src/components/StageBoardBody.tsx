@@ -6258,11 +6258,11 @@ export function StageBoardBody({
             />
           ) : null;
         const centerMarksEdit =
-          centerMarksEditable && stageCenterMarks.length > 0 ? (
+          stageHesoVisible && stageCenterMarks.length > 0 ? (
             <StageCenterMarkOverlay
               marks={stageCenterMarks}
               floorRef={stageMainFloorRef}
-              editable
+              editable={centerMarksEditable}
               onChangeMarks={(next) => onCenterMarksChange?.(next)}
             />
           ) : null;

@@ -2486,14 +2486,18 @@ function EditorPageContent({
     !wideEditorLayout &&
     !stageZenLayout;
 
-  /** 舞台設定シートを閉じる。モバイルは ✕/背景タップでも保存、取消のみ破棄。 */
+  /**
+   * 舞台設定シートを閉じる。
+   * ✕ と決定はドラフト（ヘソ位置を含む）を作品へ書き込む。取消だけ破棄。
+   * デスクトップの ✕ が破棄だと、動かしたヘソが次に開いたとき消える。
+   */
   const closeStageAreaSettings = useCallback(
     (mode?: "apply" | "discard" | "cancel") => {
       if (!project) {
         setStageAreaSettingsOpen(false);
         return;
       }
-      const resolved = mode ?? (mobileStackEditor ? "apply" : "discard");
+      const resolved = mode ?? "apply";
       if (resolved === "apply") {
         if (project.viewMode !== "view") {
           applyStageAreaSettingsDraft();
@@ -2503,7 +2507,7 @@ function EditorPageContent({
       }
       setStageAreaSettingsOpen(false);
     },
-    [project, mobileStackEditor, applyStageAreaSettingsDraft]
+    [project, applyStageAreaSettingsDraft]
   );
 
   const handleKeyboardCloudSave = useCallback(() => {

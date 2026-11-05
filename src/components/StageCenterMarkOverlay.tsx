@@ -20,6 +20,7 @@ type DragMode = "move" | "rx" | "ry";
 
 /**
  * ヘソ／センターマークの移動・サイズハンドル。
+ * 表示は舞台設定を閉じたあとも残す（保存位置を次に開いたとき見せる）。
  * editable=false のときは pointer-events なし（立ち位置変更を邪魔しない）。
  */
 export function StageCenterMarkOverlay({
@@ -171,7 +172,7 @@ export function StageCenterMarkOverlay({
       {marks.map((m) => {
         const { rx, ry } = resolveCenterMarkAxes(m, floorAspect);
         const active = activeId === m.id;
-        const selected = selectedId === m.id || active;
+        const selected = !editable || selectedId === m.id || active;
         const shape = resolveCenterMarkShape(m);
         return (
           <div key={m.id} style={{ pointerEvents: "none" }}>
@@ -211,10 +212,38 @@ export function StageCenterMarkOverlay({
                   : "none",
                 cursor: editable ? "grab" : "default",
                 pointerEvents: editable ? "auto" : "none",
+                opacity: 1,
                 padding: 0,
                 touchAction: "none",
               }}
-            />
+            >
+              <span
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "14%",
+                  height: "72%",
+                  width: 1.5,
+                  transform: "translateX(-50%)",
+                  background: "rgba(250, 204, 21, 0.95)",
+                  pointerEvents: "none",
+                }}
+              />
+              <span
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "14%",
+                  width: "72%",
+                  height: 1.5,
+                  transform: "translateY(-50%)",
+                  background: "rgba(250, 204, 21, 0.95)",
+                  pointerEvents: "none",
+                }}
+              />
+            </button>
             {editable && selected ? (
               <>
                 <button
