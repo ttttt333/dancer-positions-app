@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DancerSpot } from "../types/choreography";
+import { gradeSortKey } from "./rosterSortKeys";
 import {
   applyPositionSort,
   formatPositionSortPreview,
@@ -333,6 +334,35 @@ describe("applyPositionSort", () => {
     ).toBe(
       "全体で、最前列のセンターが一番低く、2列目、3列目と後ろほど高くなります。最後列が一番高くなります"
     );
+  });
+
+  it("all + grade keeps elementary, middle, and high school in separate rows front to back", () => {
+    const dancers = [
+      spot("hs3", 80, 20, { gradeLabel: "高校3年" }),
+      spot("ms2", 50, 20, { gradeLabel: "中学校" }),
+      spot("es6", 20, 20, { gradeLabel: "小学六年" }),
+      spot("hs1", 20, 50, { gradeLabel: "高1" }),
+      spot("ms1", 50, 50, { gradeLabel: "中学一年" }),
+      spot("es1", 80, 50, { gradeLabel: "小学校" }),
+      spot("hs2", 20, 80, { gradeLabel: "高等学校2年" }),
+      spot("ms3", 50, 80, { gradeLabel: "中３" }),
+      spot("es3", 80, 80, { gradeLabel: "小３" }),
+    ];
+    const next = applyPositionSort(
+      dancers,
+      dancers.map((d) => d.id),
+      { axis: "grade", scope: "all", direction: "asc" }
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    for (const id of ["es1", "es3", "es6"]) expect(byId[id]!.yPct).toBe(80);
+    for (const id of ["ms1", "ms2", "ms3"]) expect(byId[id]!.yPct).toBe(50);
+    for (const id of ["hs1", "hs2", "hs3"]) expect(byId[id]!.yPct).toBe(20);
+    expect(byId.es1!.xPct).toBeLessThan(byId.es3!.xPct);
+    expect(byId.es3!.xPct).toBeLessThan(byId.es6!.xPct);
+    expect(byId.hs3!.xPct).toBeGreaterThan(byId.hs1!.xPct);
+    expect(gradeSortKey("小学校")).toBeLessThan(gradeSortKey("中学校"));
+    expect(gradeSortKey("中学校")).toBeLessThan(gradeSortKey("高校"));
+    expect(gradeSortKey("小学六年")).toBeLessThan(gradeSortKey("中学一年"));
   });
 
   it("builds the preview sentence from axis, direction, and scope", () => {

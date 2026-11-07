@@ -41,9 +41,46 @@ export function formatGradeLabelForDisplay(
   );
 }
 
+const GRADE_KANJI_YEAR: Record<string, number> = {
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9,
+};
+
+/** 学年らしい 1〜12 だけを拾う。西暦などの大きな数字では学校の段階を飛び越えない */
+function parseGradeYear(label: string): number {
+  const ascii = label.replace(/[０-９]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0xfee0)
+  );
+  const patterns = [
+    /(?:小|中|高|専|大)\s*([0-9]{1,2})(?!\d)/u,
+    /([0-9]{1,2})\s*年/u,
+  ];
+  for (const re of patterns) {
+    const m = ascii.match(re);
+    if (!m?.[1]) continue;
+    const n = parseInt(m[1], 10);
+    if (n >= 1 && n <= 12) return n;
+  }
+  const kanji =
+    label.match(/([一二三四五六七八九])\s*年/u) ??
+    label.match(/(?:小|中|高|学)\s*([一二三四五六七八九])/u);
+  if (kanji?.[1] && GRADE_KANJI_YEAR[kanji[1]] != null) {
+    return GRADE_KANJI_YEAR[kanji[1]]!;
+  }
+  return 0;
+}
+
 /**
  * 学年表示の並び（名簿ストリップ・再配置で共通）。
- * 段階が若い順（小→中→高→大学→大人）、同段内は年次などの数字が小さい順。
+ * 小学校 → 中学校 → 高校 → 大学 → 大人。同段内は年次が小さい順。
+ * 「小学校」「中学校」「高校」「小学三年」のように学校名だけの書き方でも段階が分かれます。
  */
 export function gradeSortKey(label: string | undefined): number {
   if (!label?.trim()) return 1e12;
@@ -51,24 +88,23 @@ export function gradeSortKey(label: string | undefined): number {
 
   let tier = 9000;
   if (
-    /小学校/u.test(t) ||
-    /^小[0-9０-９]/u.test(t) ||
-    /小[0-9０-９]年/u.test(t) ||
+    /小学校|小学生/u.test(t) ||
+    /^小[0-9０-９一二三四五六]/u.test(t) ||
+    /小[0-9０-９一二三四五六]年/u.test(t) ||
     (/小学/u.test(t) && !/中学校/u.test(t))
   ) {
     tier = 1000;
   } else if (
-    /中学校/u.test(t) ||
-    /^中[0-9０-９]/u.test(t) ||
-    /中学[0-9０-９]/u.test(t) ||
-    /中[0-9０-９]年/u.test(t) ||
+    /中学校|中学生/u.test(t) ||
+    /^中[0-9０-９一二三四五六]/u.test(t) ||
+    /中[0-9０-９一二三四五六]年/u.test(t) ||
     (/中学/u.test(t) && !/高校|高等学校/u.test(t))
   ) {
     tier = 2000;
   } else if (
-    /高等学校|高校/u.test(t) ||
-    /^高[0-9０-９]/u.test(t) ||
-    /高[0-9０-９]年/u.test(t)
+    /高等学校|高校生|高校/u.test(t) ||
+    /^高[0-9０-９一二三四五六]/u.test(t) ||
+    /高[0-9０-９一二三四五六]年/u.test(t)
   ) {
     tier = 3000;
   } else if (/専門/u.test(t) || /^専[0-9０-９]/u.test(t)) {
@@ -79,18 +115,7 @@ export function gradeSortKey(label: string | undefined): number {
     tier = 5000;
   }
 
-  const numMatch = t.match(/([0-9０-９]+)/);
-  let yr = 0;
-  if (numMatch) {
-    yr = parseInt(
-      numMatch[1]!.replace(/[０-９]/g, (ch) =>
-        String.fromCharCode(ch.charCodeAt(0) - 0xfee0)
-      ),
-      10
-    );
-    if (!Number.isFinite(yr)) yr = 0;
-  }
-
+  const yr = parseGradeYear(t);
   const tie = t.localeCompare("", "ja") / 1e9;
   return tier + yr * 5 + tie;
 }

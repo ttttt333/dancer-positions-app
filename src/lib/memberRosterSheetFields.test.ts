@@ -186,6 +186,24 @@ describe("enrichDancerSpotsFromCrew", () => {
     ];
     expect(enrichDancerSpotsFromCrew(dancers, crews)[0]!.heightCm).toBe(172);
   });
+
+  it("prefers roster grade over a stale spot grade", () => {
+    const dancers = [
+      spot({ id: "d1", crewMemberId: "m1", gradeLabel: "高校" }),
+    ];
+    const crews = [
+      {
+        id: "c1",
+        name: "名簿",
+        members: [
+          { id: "m1", label: "あこ", colorIndex: 0, gradeLabel: "小学校" },
+        ],
+      },
+    ];
+    expect(enrichDancerSpotsFromCrew(dancers, crews)[0]!.gradeLabel).toBe(
+      "小学校"
+    );
+  });
 });
 
 describe("resolveMemberRosterFields", () => {
@@ -247,6 +265,32 @@ describe("sortFormationDancersInProject", () => {
   it("sorts by height with blanks last, both directions", () => {
     expect(ids(sortFormationDancersInProject(project, "f1", "height", "asc"), "f1")).toEqual(["c", "a", "d", "b"]);
     expect(ids(sortFormationDancersInProject(project, "f1", "height", "desc"), "f1")).toEqual(["d", "a", "c", "b"]);
+  });
+
+  it("sorts school names into elementary, then middle, then high school", () => {
+    const school = {
+      crews: [],
+      formations: [
+        {
+          id: "f1",
+          name: "1",
+          dancers: [
+            spot({ id: "high", gradeLabel: "高校" }),
+            spot({ id: "elem", gradeLabel: "小学校" }),
+            spot({ id: "mid", gradeLabel: "中学校" }),
+            spot({ id: "elem6", gradeLabel: "小学六年" }),
+          ],
+          setPieces: [],
+        },
+      ],
+      cues: [],
+    } as unknown as ChoreographyProjectJson;
+    expect(ids(sortFormationDancersInProject(school, "f1", "grade", "asc"), "f1")).toEqual([
+      "elem",
+      "elem6",
+      "mid",
+      "high",
+    ]);
   });
 
   it("sorts by grade order and skill (numbers before S/A/B/C)", () => {

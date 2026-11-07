@@ -3,6 +3,7 @@ import type {
   DancerSpot,
 } from "../types/choreography";
 import { modDancerColorIndex } from "./dancerColorPalette";
+import { gradeSortKey } from "./rosterSortKeys";
 
 export const MEMBER_ROSTER_GRADE_OPTIONS = [
   "小1",
@@ -204,7 +205,7 @@ export function patchMemberRosterDancerInProject(
 
 /**
  * 名簿に紐づく印へ、名簿側の身長・学年・スキルを反映する。
- * 身長は名簿を優先する（メンバー表の表示と同じ）。学年・スキルは印側が空のときだけ埋める。
+ * 身長と学年は名簿を優先する（メンバー表の表示と同じ）。スキルは印側が空のときだけ埋める。
  * 並べ替え前に呼ぶと、名簿だけに入っている値でも順番が合う。
  */
 export function enrichDancerSpotsFromCrew(
@@ -229,9 +230,7 @@ export function enrichDancerSpotsFromCrew(
     return {
       ...d,
       heightCm: crewHeight ?? d.heightCm,
-      gradeLabel: d.gradeLabel?.trim()
-        ? d.gradeLabel
-        : m.gradeLabel?.trim() || d.gradeLabel,
+      gradeLabel: m.gradeLabel?.trim() || d.gradeLabel,
       skillRankLabel: d.skillRankLabel?.trim()
         ? d.skillRankLabel
         : m.skillRankLabel?.trim() || d.skillRankLabel,
@@ -272,8 +271,7 @@ export type MemberRosterSortKey = "height" | "grade" | "skill";
 function gradeRank(label: string | undefined): number | null {
   const g = label?.trim();
   if (!g) return null;
-  const i = (MEMBER_ROSTER_GRADE_OPTIONS as readonly string[]).indexOf(g);
-  return i >= 0 ? i : MEMBER_ROSTER_GRADE_OPTIONS.length;
+  return gradeSortKey(g);
 }
 
 /** 数字は小さいほど上手。文字は S > A > B > C の順で数字の後ろ */

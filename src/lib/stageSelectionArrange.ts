@@ -332,6 +332,23 @@ function orderSlotsFrontCenterThenBack(subset: DancerSpot[]): DancerSpot[] {
 }
 
 /**
+ * 手前の列から奥へ、各列は下手→上手。
+ * 学年の若い人から置くと、小学校が前列、高校が最後列側にまとまる。
+ */
+function orderSlotsFrontRowsLeftToRight(subset: DancerSpot[]): DancerSpot[] {
+  if (subset.length <= 1) return [...subset];
+  const rows = clusterSelectionByDepthRows(
+    subset,
+    subset.map((d) => d.id)
+  );
+  const ordered: DancerSpot[] = [];
+  for (const row of rows) {
+    ordered.push(...[...row].sort(slotOrderCmp));
+  }
+  return ordered;
+}
+
+/**
  * スキル用スロット順: 一列目（手前）から、各段はセンター寄り（割れは下手）。
  * 先頭スロットにスキル番号が小さい人が入る。
  */
@@ -797,6 +814,7 @@ function lineUpAlongAxis(
  * 選択メンバーを軸×範囲×方向で並べ替える。
  * - all: 位置の集合はそのまま人だけ割当。身長の低い順・高い順は段ごと。
  *   前列が低いときは最前列から埋め、各列のセンターにその列で一番低い人。
+ *   学年は手前の列から埋め、小学校・中学校・高校が前後に分かれる。
  * - row: Y で段を分け、各段を横一列として独立に並べる
  * - col: X で縦列を分け、各列を縦一列として独立に並べる
  *
@@ -834,6 +852,15 @@ export function applyPositionSort(
         );
       }
       return next;
+    }
+    if (request.axis === "grade") {
+      return permutePreservingSlotPositions(
+        dancers,
+        targetIds,
+        cmp,
+        slotOrderCmp,
+        orderSlotsFrontRowsLeftToRight
+      );
     }
     return permutePreservingSlotPositions(
       dancers,
@@ -938,6 +965,11 @@ export function formatPositionSortPreview(request: PositionSortRequest): string 
     case "kamiteDesc":
       return `${scope}で、上手から身長の高い順に並べ替えます`;
     default: {
+      if (request.axis === "grade" && request.scope === "all") {
+        return request.direction === "desc"
+          ? "全体で、高校が手前、中学校、小学校の順に後ろへ分かれるよう並べ替えます"
+          : "全体で、小学校が手前、中学校、高校の順に後ろへ分かれるよう並べ替えます";
+      }
       const axis = AXIS_LABEL[request.axis];
       const dir = DIRECTION_LABEL[request.axis][request.direction];
       return `${axis}が${dir}、${scope}で並べ替えます`;
