@@ -262,7 +262,36 @@ describe("applyPositionSort", () => {
     });
   });
 
-  it("offers four height directions only for row scope", () => {
+  it("all + height + centerAsc puts the shortest at the group center and the tallest outward", () => {
+    const dancers = [
+      spot("h180", 20, 20, { heightCm: 180 }),
+      spot("h160", 50, 20, { heightCm: 160 }),
+      spot("h175", 80, 20, { heightCm: 175 }),
+      spot("h170", 20, 50, { heightCm: 170 }),
+      spot("h150", 80, 80, { heightCm: 150 }),
+      spot("h165", 80, 50, { heightCm: 165 }),
+      spot("h172", 20, 80, { heightCm: 172 }),
+      spot("h158", 50, 80, { heightCm: 158 }),
+      spot("h168", 50, 50, { heightCm: 168 }),
+    ];
+    const next = applyPositionSort(
+      dancers,
+      dancers.map((d) => d.id),
+      { axis: "height", scope: "all", direction: "centerAsc" }
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    expect(byId.h150).toMatchObject({ xPct: 50, yPct: 50 });
+    const corners = [byId.h170, byId.h172, byId.h175, byId.h180].map((d) =>
+      `${d!.xPct},${d!.yPct}`
+    );
+    expect(corners.sort()).toEqual(["20,20", "20,80", "80,20", "80,80"]);
+    const ring = [byId.h158, byId.h160, byId.h165, byId.h168].map(
+      (d) => Math.abs(d!.xPct - 50) + Math.abs(d!.yPct - 50)
+    );
+    expect(ring.every((d) => d === 30)).toBe(true);
+  });
+
+  it("offers center-low for the whole selection, and four height directions for a row", () => {
     expect(positionSortDirectionOptions("height", "row").map((o) => o.id)).toEqual([
       "centerDesc",
       "centerAsc",
@@ -272,8 +301,19 @@ describe("applyPositionSort", () => {
     expect(positionSortDirectionOptions("height", "all").map((o) => o.id)).toEqual([
       "asc",
       "desc",
+      "centerAsc",
     ]);
+    expect(normalizePositionSortDirection("height", "col", "centerAsc")).toBe("asc");
     expect(normalizePositionSortDirection("height", "col", "centerDesc")).toBe("asc");
+    expect(
+      formatPositionSortPreview({
+        axis: "height",
+        scope: "all",
+        direction: "centerAsc",
+      })
+    ).toBe(
+      "全体で、一番低い人がセンターに立ち、周りほど高くなるよう並べ替えます"
+    );
   });
 
   it("builds the preview sentence from axis, direction, and scope", () => {

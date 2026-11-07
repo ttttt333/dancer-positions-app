@@ -74,6 +74,8 @@ function Segment<T extends string>({
               color: on ? "#fde68a" : "#94a3b8",
               fontSize: 10,
               fontWeight: 600,
+              lineHeight: 1.25,
+              whiteSpace: "normal",
               cursor: "pointer",
             }}
           >

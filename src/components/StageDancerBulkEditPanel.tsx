@@ -88,6 +88,8 @@ function Segment<T extends string>({
             style={{
               flex: options.length > 3 ? "1 1 calc(50% - 2px)" : "1 1 0",
               minWidth: 56,
+              whiteSpace: "normal",
+              lineHeight: 1.25,
               padding: "5px 4px",
               borderRadius: 6,
               border: on ? "1px solid rgba(99,102,241,0.9)" : "1px solid #334155",
