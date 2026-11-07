@@ -170,6 +170,22 @@ describe("enrichDancerSpotsFromCrew", () => {
       "2"
     );
   });
+
+  it("prefers roster height over a stale spot height", () => {
+    const dancers = [
+      spot({ id: "d1", crewMemberId: "m1", heightCm: 150 }),
+    ];
+    const crews = [
+      {
+        id: "c1",
+        name: "名簿",
+        members: [
+          { id: "m1", label: "あこ", colorIndex: 0, heightCm: 172 },
+        ],
+      },
+    ];
+    expect(enrichDancerSpotsFromCrew(dancers, crews)[0]!.heightCm).toBe(172);
+  });
 });
 
 describe("resolveMemberRosterFields", () => {

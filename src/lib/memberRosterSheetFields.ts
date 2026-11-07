@@ -203,8 +203,9 @@ export function patchMemberRosterDancerInProject(
 }
 
 /**
- * 名簿に紐づく印へ、名簿側の身長・学年・スキルを埋める（印側が空のとき）。
- * 並べ替え前に呼ぶと、名簿だけに入っているスキルでも前列へ正しく寄る。
+ * 名簿に紐づく印へ、名簿側の身長・学年・スキルを反映する。
+ * 身長は名簿を優先する（メンバー表の表示と同じ）。学年・スキルは印側が空のときだけ埋める。
+ * 並べ替え前に呼ぶと、名簿だけに入っている値でも順番が合う。
  */
 export function enrichDancerSpotsFromCrew(
   dancers: DancerSpot[],
@@ -219,9 +220,15 @@ export function enrichDancerSpotsFromCrew(
     if (!d.crewMemberId) return d;
     const m = byId.get(d.crewMemberId);
     if (!m) return d;
+    const crewHeight =
+      typeof m.heightCm === "number" &&
+      Number.isFinite(m.heightCm) &&
+      m.heightCm > 0
+        ? m.heightCm
+        : undefined;
     return {
       ...d,
-      heightCm: d.heightCm ?? m.heightCm,
+      heightCm: crewHeight ?? d.heightCm,
       gradeLabel: d.gradeLabel?.trim()
         ? d.gradeLabel
         : m.gradeLabel?.trim() || d.gradeLabel,

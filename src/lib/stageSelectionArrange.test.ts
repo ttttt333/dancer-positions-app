@@ -68,6 +68,42 @@ describe("applyPositionSort", () => {
     expect(next.map((d) => [d.id, d.xPct])).toEqual(legacy.map((d) => [d.id, d.xPct]));
   });
 
+  it("all + height keeps each depth row and orders that row short to tall toward kamite", () => {
+    const dancers = [
+      spot("backTall", 20, 22, { heightCm: 180 }),
+      spot("backShort", 80, 24, { heightCm: 150 }),
+      spot("frontMid", 25, 78, { heightCm: 165 }),
+      spot("frontTall", 75, 80, { heightCm: 175 }),
+    ];
+    const next = applyPositionSort(
+      dancers,
+      dancers.map((d) => d.id),
+      { axis: "height", scope: "all", direction: "asc" }
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    expect(byId.backShort).toMatchObject({ xPct: 20, yPct: 22 });
+    expect(byId.backTall).toMatchObject({ xPct: 80, yPct: 24 });
+    expect(byId.frontMid).toMatchObject({ xPct: 25, yPct: 78 });
+    expect(byId.frontTall).toMatchObject({ xPct: 75, yPct: 80 });
+  });
+
+  it("row sorts a slightly uneven line instead of leaving it unchanged", () => {
+    const dancers = [
+      spot("tall", 20, 48, { heightCm: 180 }),
+      spot("mid", 50, 51, { heightCm: 165 }),
+      spot("short", 80, 49.5, { heightCm: 150 }),
+    ];
+    const next = applyPositionSort(
+      dancers,
+      dancers.map((d) => d.id),
+      { axis: "height", scope: "row", direction: "asc" }
+    );
+    const byId = Object.fromEntries(next.map((d) => [d.id, d]));
+    expect(byId.short!.xPct).toBeLessThan(byId.mid!.xPct);
+    expect(byId.mid!.xPct).toBeLessThan(byId.tall!.xPct);
+    expect(byId.short!.yPct).toBeCloseTo(byId.tall!.yPct, 5);
+  });
+
   it("row sorts each depth row independently without mixing rows", () => {
     const dancers = [
       spot("backTall", 20, 20, { heightCm: 180 }),

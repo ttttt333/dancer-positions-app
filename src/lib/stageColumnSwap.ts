@@ -168,22 +168,42 @@ function consecutivePositiveGaps(values: number[]): number[] {
 }
 
 /**
+ * 同じ段とみなす前後ブレの上限（%）。
+ * これより小さい間隔は段の境ではなく、手で置いたときのずれ。
+ */
+const SAME_ROW_JITTER_PCT = 6;
+
+/**
  * 段の許容差。同じ段のわずかな前後ブレはまとめ、隣の段はまたがない。
- * ピラミッドのように段間隔が揃っているときは、間隔の半分未満に抑える。
+ * ピラミッドのように段間隔が揃って大きいときは、間隔の半分未満に抑える。
  */
 function depthRowTolerance(subset: DancerSpot[]): number {
   const gaps = consecutivePositiveGaps(subset.map((d) => d.yPct));
   if (!gaps.length) return 1.2;
-  const minGap = Math.min(...gaps);
-  const maxGap = Math.max(...gaps);
   const sortedGaps = [...gaps].sort((a, b) => a - b);
-  const p30 = sortedGaps[Math.floor(sortedGaps.length * 0.3)] ?? minGap;
-  const uniform = maxGap / Math.max(minGap, 0.2) < 2.4;
-  if (uniform) {
-    return Math.max(0.35, Math.min(minGap * 0.45, 3.2));
+  const minGap = sortedGaps[0]!;
+  const maxGap = sortedGaps[sortedGaps.length - 1]!;
+
+  let bestRatio = 1;
+  let splitAt = -1;
+  for (let i = 0; i < sortedGaps.length - 1; i++) {
+    const ratio = sortedGaps[i + 1]! / Math.max(sortedGaps[i]!, 0.2);
+    if (ratio > bestRatio) {
+      bestRatio = ratio;
+      splitAt = i;
+    }
   }
-  const cap = Math.min(maxGap * 0.4, 8);
-  return Math.max(0.8, Math.min(p30 * 1.35 + 0.3, cap));
+  if (bestRatio >= 2.2 && splitAt >= 0) {
+    const within = sortedGaps[splitAt]!;
+    const between = sortedGaps[splitAt + 1]!;
+    if (between >= SAME_ROW_JITTER_PCT) {
+      return (within + between) / 2;
+    }
+  }
+  if (maxGap < SAME_ROW_JITTER_PCT) {
+    return Math.max(maxGap, 1.2);
+  }
+  return Math.max(0.35, Math.min(minGap * 0.45, 3.2));
 }
 
 /** 前後の段（Y）を手前→奥の順に並べる。1列目 = 手前 */

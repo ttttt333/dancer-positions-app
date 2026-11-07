@@ -307,6 +307,14 @@ function orderSlotsCenterOutInRow(row: DancerSpot[]): DancerSpot[] {
 }
 
 /**
+ * 身長の全体並べ替えは段をまたがない。
+ * 各段のスロットを下手（x 小）→上手（x 大）に並べ、低い人をその段の下手へ置く。
+ */
+function orderSlotsLeftToRightInRow(row: DancerSpot[]): DancerSpot[] {
+  return [...row].sort(slotOrderCmp);
+}
+
+/**
  * スキル用スロット順: 一列目（手前）から、各段はセンター寄り（割れは下手）。
  * 先頭スロットにスキル番号が小さい人が入る。
  */
@@ -770,7 +778,7 @@ function lineUpAlongAxis(
 
 /**
  * 選択メンバーを軸×範囲×方向で並べ替える。
- * - all: 位置の集合はそのまま人だけ割当（旧「位置のまま入替」）
+ * - all: 位置の集合はそのまま人だけ割当。身長は段ごとに下手→上手
  * - row: Y で段を分け、各段を横一列として独立に並べる
  * - col: X で縦列を分け、各列を縦一列として独立に並べる
  *
@@ -785,6 +793,21 @@ export function applyPositionSort(
   const cmp = peopleSortCmp(request.axis, request.direction);
   const skillCenter = request.axis === "skill";
   if (request.scope === "all") {
+    if (request.axis === "height") {
+      const rows = clusterSelectionByDepthRows(dancers, targetIds);
+      let next = dancers;
+      for (const row of rows) {
+        if (row.length < 2) continue;
+        next = permutePreservingSlotPositions(
+          next,
+          row.map((d) => d.id),
+          cmp,
+          slotOrderCmp,
+          orderSlotsLeftToRightInRow
+        );
+      }
+      return next;
+    }
     return permutePreservingSlotPositions(
       dancers,
       targetIds,
