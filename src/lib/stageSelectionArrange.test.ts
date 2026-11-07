@@ -262,7 +262,7 @@ describe("applyPositionSort", () => {
     });
   });
 
-  it("all + height + centerAsc puts the shortest at the group center and the tallest outward", () => {
+  it("all + height + centerAsc puts the shortest at front center and taller rows behind", () => {
     const dancers = [
       spot("h180", 20, 20, { heightCm: 180 }),
       spot("h160", 50, 20, { heightCm: 160 }),
@@ -280,15 +280,34 @@ describe("applyPositionSort", () => {
       { axis: "height", scope: "all", direction: "centerAsc" }
     );
     const byId = Object.fromEntries(next.map((d) => [d.id, d]));
-    expect(byId.h150).toMatchObject({ xPct: 50, yPct: 50 });
-    const corners = [byId.h170, byId.h172, byId.h175, byId.h180].map((d) =>
-      `${d!.xPct},${d!.yPct}`
+    expect(byId.h150).toMatchObject({ xPct: 50, yPct: 80 });
+    expect(byId.h158).toMatchObject({ xPct: 20, yPct: 80 });
+    expect(byId.h160).toMatchObject({ xPct: 80, yPct: 80 });
+    expect(byId.h165).toMatchObject({ xPct: 50, yPct: 50 });
+    expect(byId.h172).toMatchObject({ xPct: 50, yPct: 20 });
+    expect(byId.h180).toMatchObject({ xPct: 80, yPct: 20 });
+    const frontMax = Math.max(byId.h150!.heightCm!, byId.h158!.heightCm!, byId.h160!.heightCm!);
+    const midMin = Math.min(byId.h165!.heightCm!, byId.h168!.heightCm!, byId.h170!.heightCm!);
+    const midMax = Math.max(byId.h165!.heightCm!, byId.h168!.heightCm!, byId.h170!.heightCm!);
+    const backMin = Math.min(byId.h172!.heightCm!, byId.h175!.heightCm!, byId.h180!.heightCm!);
+    expect(frontMax).toBeLessThan(midMin);
+    expect(midMax).toBeLessThan(backMin);
+  });
+
+  it("the last of seven rows gets the tallest members", () => {
+    const dancers = Array.from({ length: 7 }, (_, i) =>
+      spot(`r${i}`, 50, 10 + i * 12, { heightCm: 190 - i * 5 })
     );
-    expect(corners.sort()).toEqual(["20,20", "20,80", "80,20", "80,80"]);
-    const ring = [byId.h158, byId.h160, byId.h165, byId.h168].map(
-      (d) => Math.abs(d!.xPct - 50) + Math.abs(d!.yPct - 50)
+    const next = applyPositionSort(
+      dancers,
+      dancers.map((d) => d.id),
+      { axis: "height", scope: "all", direction: "centerAsc" }
     );
-    expect(ring.every((d) => d === 30)).toBe(true);
+    const frontToBack = [...next].sort((a, b) => b.yPct - a.yPct);
+    expect(frontToBack.map((d) => d.heightCm)).toEqual([
+      160, 165, 170, 175, 180, 185, 190,
+    ]);
+    expect(frontToBack[0]!.heightCm).toBeLessThan(frontToBack[6]!.heightCm!);
   });
 
   it("offers center-low for the whole selection, and four height directions for a row", () => {
@@ -312,7 +331,7 @@ describe("applyPositionSort", () => {
         direction: "centerAsc",
       })
     ).toBe(
-      "全体で、一番低い人がセンターに立ち、周りほど高くなるよう並べ替えます"
+      "全体で、最前列のセンターが一番低く、2列目、3列目と後ろほど高くなります。最後列が一番高くなります"
     );
   });
 

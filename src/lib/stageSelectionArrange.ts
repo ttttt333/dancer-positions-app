@@ -315,23 +315,20 @@ function orderSlotsLeftToRightInRow(row: DancerSpot[]): DancerSpot[] {
 }
 
 /**
- * 選択範囲の重心に近い順。同じ距離は下手、その次は奥。
- * 先頭へ一番低い人を置くと、周りほど高くなる（記念撮影向け）。
+ * 手前の列から奥へ。各列はセンターが先、割れは下手。
+ * 低い人から置くと、最前列のセンターが一番低く、最後列が一番高い。
  */
-function orderSlotsByDistanceFromCenter(subset: DancerSpot[]): DancerSpot[] {
+function orderSlotsFrontCenterThenBack(subset: DancerSpot[]): DancerSpot[] {
   if (subset.length <= 1) return [...subset];
-  const cx = subset.reduce((sum, d) => sum + d.xPct, 0) / subset.length;
-  const cy = subset.reduce((sum, d) => sum + d.yPct, 0) / subset.length;
-  return [...subset].sort((a, b) => {
-    const da = (a.xPct - cx) ** 2 + (a.yPct - cy) ** 2;
-    const db = (b.xPct - cx) ** 2 + (b.yPct - cy) ** 2;
-    if (Math.abs(da - db) > 1e-4) return da - db;
-    const dx = a.xPct - b.xPct;
-    if (Math.abs(dx) > 1e-6) return dx;
-    const dy = a.yPct - b.yPct;
-    if (Math.abs(dy) > 1e-6) return dy;
-    return a.id.localeCompare(b.id);
-  });
+  const rows = clusterSelectionByDepthRows(
+    subset,
+    subset.map((d) => d.id)
+  );
+  const ordered: DancerSpot[] = [];
+  for (const row of rows) {
+    ordered.push(...orderSlotsCenterOutInRow(row));
+  }
+  return ordered;
 }
 
 /**
@@ -799,7 +796,7 @@ function lineUpAlongAxis(
 /**
  * 選択メンバーを軸×範囲×方向で並べ替える。
  * - all: 位置の集合はそのまま人だけ割当。身長の低い順・高い順は段ごと。
- *   中心が低いときは選択範囲の重心に一番低い人、周りほど高い人。
+ *   前列が低いときは最前列から埋め、各列のセンターにその列で一番低い人。
  * - row: Y で段を分け、各段を横一列として独立に並べる
  * - col: X で縦列を分け、各列を縦一列として独立に並べる
  *
@@ -821,7 +818,7 @@ export function applyPositionSort(
           targetIds,
           cmp,
           slotOrderCmp,
-          orderSlotsByDistanceFromCenter
+          orderSlotsFrontCenterThenBack
         );
       }
       const rows = clusterSelectionByDepthRows(dancers, targetIds);
@@ -869,7 +866,7 @@ export type PositionSortDirectionOption = {
   label: string;
 };
 
-/** 身長×横一列は上手／センターの 4 択。全体には記念撮影用の中心が低いを足す */
+/** 身長×横一列は上手／センターの 4 択。全体には前列が低く奥ほど高いを足す */
 export function positionSortDirectionOptions(
   axis: PositionSortAxis,
   scope: PositionSortScope
@@ -886,7 +883,7 @@ export function positionSortDirectionOptions(
     return [
       { id: "asc", label: "低い順" },
       { id: "desc", label: "高い順" },
-      { id: "centerAsc", label: "中心が低く周りが高い" },
+      { id: "centerAsc", label: "前列が低く奥ほど高い" },
     ];
   }
   const labels = DIRECTION_LABEL[axis];
@@ -934,7 +931,7 @@ export function formatPositionSortPreview(request: PositionSortRequest): string 
       return `${scope}で、センターほど身長が高くなるよう並べ替えます`;
     case "centerAsc":
       return request.scope === "all"
-        ? "全体で、一番低い人がセンターに立ち、周りほど高くなるよう並べ替えます"
+        ? "全体で、最前列のセンターが一番低く、2列目、3列目と後ろほど高くなります。最後列が一番高くなります"
         : `${scope}で、センターほど身長が低く、端ほど高くなるよう並べ替えます`;
     case "kamiteAsc":
       return `${scope}で、上手から身長の低い順に並べ替えます`;
