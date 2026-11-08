@@ -45,6 +45,29 @@ function createPage(): PageCtx {
   return { ctx, canvas };
 }
 
+function wrapToWidth(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): string[] {
+  if (!text) return [""];
+  const lines: string[] = [];
+  for (const part of text.split("\n")) {
+    let line = "";
+    for (const char of part) {
+      const next = line + char;
+      if (line && ctx.measureText(next).width > maxWidth) {
+        lines.push(line);
+        line = char;
+      } else {
+        line = next;
+      }
+    }
+    lines.push(line);
+  }
+  return lines.slice(0, 3);
+}
+
 function drawCell(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -52,7 +75,7 @@ function drawCell(
   w: number,
   h: number,
   text: string,
-  options?: { fill?: string; bold?: boolean; size?: number; align?: CanvasTextAlign }
+  options?: { fill?: string; bold?: boolean; size?: number; align?: CanvasTextAlign; wrap?: boolean }
 ) {
   ctx.save();
   if (options?.fill) {
@@ -66,12 +89,20 @@ function drawCell(
   ctx.rect(x + 3, y + 1, Math.max(0, w - 6), Math.max(0, h - 2));
   ctx.clip();
   ctx.fillStyle = "#111111";
-  ctx.font = `${options?.bold ? 700 : 400} ${options?.size ?? 8}px ${FONT}`;
+  const size = options?.size ?? 10;
+  ctx.font = `${options?.bold ? 700 : 400} ${size}px ${FONT}`;
   ctx.textAlign = options?.align ?? "left";
-  ctx.textBaseline = "middle";
-  const tx =
-    options?.align === "center" ? x + w / 2 : options?.align === "right" ? x + w - 4 : x + 4;
-  ctx.fillText(text, tx, y + h / 2);
+  const align = options?.align ?? "left";
+  const tx = align === "center" ? x + w / 2 : align === "right" ? x + w - 4 : x + 4;
+  const lines = options?.wrap ? wrapToWidth(ctx, text, Math.max(8, w - 8)) : [text];
+  const lineH = Math.ceil(size * 1.15);
+  const blockH = lines.length * lineH;
+  let ty = y + (h - blockH) / 2;
+  ctx.textBaseline = "top";
+  for (const line of lines) {
+    ctx.fillText(line, tx, ty);
+    ty += lineH;
+  }
   ctx.restore();
 }
 
@@ -97,81 +128,108 @@ function drawHeader(page: PageCtx, doc: LightingPlanDocument, continued: boolean
     return y + 22;
   }
 
-  const boxH = 16;
+  const boxH = 22;
   const smallW = 36;
-  drawCell(ctx, left, y, 42, boxH, "演目順", { fill: "#f3f4f6", bold: true, align: "center" });
-  drawCell(ctx, left + 42, y, smallW, boxH, doc.programOrder, { align: "center" });
-  drawCell(ctx, left + 78, y, 16, boxH, "－", { align: "center" });
-  drawCell(ctx, left + 94, y, smallW, boxH, doc.programSub, { align: "center" });
-  drawCell(ctx, left + 146, y, 36, boxH, "板付", { fill: "#f3f4f6", bold: true, align: "center" });
-  drawCell(ctx, left + 182, y, smallW, boxH, doc.presetMark, { align: "center" });
-  drawCell(ctx, left + 234, y, 48, boxH, "ピンスポ", { fill: "#f3f4f6", bold: true, align: "center" });
-  drawCell(ctx, left + 282, y, 42, boxH, doc.pinSpotLabel, { align: "center" });
+  drawCell(ctx, left, y, 46, boxH, "演目順", { fill: "#f3f4f6", bold: true, align: "center", size: 10 });
+  drawCell(ctx, left + 46, y, smallW, boxH, doc.programOrder, { align: "center", size: 16, bold: true });
+  drawCell(ctx, left + 82, y, 16, boxH, "－", { align: "center", size: 14 });
+  drawCell(ctx, left + 98, y, smallW, boxH, doc.programSub, { align: "center", size: 16, bold: true });
+  drawCell(ctx, left + 150, y, 40, boxH, "板付", { fill: "#f3f4f6", bold: true, align: "center", size: 11 });
+  drawCell(ctx, left + 190, y, smallW, boxH, doc.presetMark, { align: "center", size: 16, bold: true });
+  drawCell(ctx, left + width - 96, y, 52, boxH, "ピンスポ", { fill: "#f3f4f6", bold: true, align: "center", size: 11 });
+  drawCell(ctx, left + width - 44, y, 44, boxH, doc.pinSpotLabel, { align: "center", size: 12 });
 
-  y += 28;
+  y += 30;
   ctx.save();
-  ctx.font = `700 14px ${FONT}`;
+  ctx.font = `700 20px ${FONT}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#111111";
-  ctx.fillText(doc.heading, PAGE_W / 2, y + 12);
+  ctx.fillText(doc.heading, PAGE_W / 2, y + 16);
   ctx.restore();
-  y += 22;
+  y += 26;
 
-  const c1 = 62;
-  const c2 = 150;
+  const c1 = 64;
+  const c2 = Math.round(width * 0.34);
   const c3 = 42;
-  const c4 = 52;
-  const c5 = 36;
+  const c4 = 64;
+  const c5 = 40;
   const c6 = width - (c1 + c2 + c3 + c4 + c5);
-  const rowH = 16;
-  const cells: { w: number; text: string; label?: boolean }[] = [
-    { w: c1, text: "クラス名", label: true },
-    { w: c2, text: doc.className },
-    { w: c3, text: "TIME", label: true },
-    { w: c4, text: doc.timeLabel, },
-    { w: c5, text: "人数", label: true },
-    { w: c6, text: doc.headcountLabel ? `${doc.headcountLabel} 人` : "" },
+  const rowH = 26;
+  const cells: { w: number; text: string; label?: boolean; size?: number }[] = [
+    { w: c1, text: "クラス名", label: true, size: 11 },
+    { w: c2, text: doc.className, size: 11 },
+    { w: c3, text: "TIME", label: true, size: 11 },
+    { w: c4, text: doc.timeLabel, size: 14 },
+    { w: c5, text: "人数", label: true, size: 11 },
+    { w: c6, text: doc.headcountLabel ? `${doc.headcountLabel} 人` : "", size: 14 },
   ];
   let x = left;
   for (const cell of cells) {
     drawCell(ctx, x, y, cell.w, rowH, cell.text, {
       fill: cell.label ? "#f3f4f6" : undefined,
-      bold: cell.label,
-      align: cell.label ? "center" : "left",
+      bold: Boolean(cell.label || cell.size === 14),
+      align: cell.label || cell.size === 14 ? "center" : "left",
+      size: cell.size,
+      wrap: cell.label,
     });
     x += cell.w;
   }
   y += rowH;
 
-  const songW = 210;
-  drawCell(ctx, left, y, c1, rowH, "使用曲", { fill: "#f3f4f6", bold: true, align: "center" });
-  drawCell(ctx, left + c1, y, songW - c1, rowH, doc.songTitle);
-  drawCell(ctx, left + songW, y, 42, rowH, "衣装", { fill: "#f3f4f6", bold: true, align: "center" });
+  const songW = c1 + c2;
+  drawCell(ctx, left, y, c1, rowH, "使用曲", {
+    fill: "#f3f4f6",
+    bold: true,
+    align: "center",
+    size: 11,
+    wrap: true,
+  });
+  drawCell(ctx, left + c1, y, songW - c1, rowH, doc.songTitle, { size: 11 });
+  drawCell(ctx, left + songW, y, c3, rowH, "衣装", {
+    fill: "#f3f4f6",
+    bold: true,
+    align: "center",
+    size: 11,
+  });
   const costume = [
     doc.costumeBottom ? `下－${doc.costumeBottom}` : "",
     doc.costumeTop ? `上－${doc.costumeTop}` : "",
   ]
     .filter(Boolean)
     .join("   ");
-  drawCell(ctx, left + songW + 42, y, width - songW - 42, rowH, costume);
+  drawCell(ctx, left + songW + c3, y, width - songW - c3, rowH, costume, { size: 11 });
   y += rowH;
 
-  drawCell(ctx, left, y, c1, rowH, "全体の雰囲気", { fill: "#f3f4f6", bold: true, align: "center", size: 7 });
-  drawCell(ctx, left + c1, y, width - c1, rowH, doc.atmosphere);
+  drawCell(ctx, left, y, c1, rowH, "全体の\n雰囲気", {
+    fill: "#f3f4f6",
+    bold: true,
+    align: "center",
+    size: 10,
+    wrap: true,
+  });
+  drawCell(ctx, left + c1, y, width - c1, rowH, doc.atmosphere, { size: 11 });
   y += rowH;
-  drawCell(ctx, left, y, c1, rowH, "ポイント", { fill: "#f3f4f6", bold: true, align: "center" });
-  drawCell(ctx, left + c1, y, width - c1, rowH, doc.points);
+  drawCell(ctx, left, y, c1, rowH, "ポイント", {
+    fill: "#f3f4f6",
+    bold: true,
+    align: "center",
+    size: 11,
+    wrap: true,
+  });
+  drawCell(ctx, left + c1, y, width - c1, rowH, doc.points, { size: 11 });
   y += rowH + 8;
   return y;
 }
 
-const COL_NUM = 28;
-/** 袖で開始・終了を読める大きさ。数字2段が入る幅 */
-const COL_TIME = 72;
+/** 参照シートの列比。番号は細く、照明要望が行の大半 */
+const COL_NUM = 43;
+/** 袖で開始・終了を上下に読める幅。画面の時刻欄とは別 */
+const COL_TIME = 82;
 /** 説明文は置かず、隊形の絵だけ */
-const COL_FORMATION = 96;
-const LIGHT_FONT = 16;
+const COL_FORMATION = 105;
+/** 参照の照明文は本文。指定した大きさは印の size が優先する */
+const LIGHT_FONT = 12;
 const TIME_FONT = 18;
 
 function columnWidths() {
@@ -246,7 +304,7 @@ function rowHeight(ctx: CanvasRenderingContext2D, row: LightingPlanCueRow | null
 
 function drawTableHead(ctx: CanvasRenderingContext2D, y: number): number {
   const cols = columnWidths();
-  const h = 16;
+  const h = 20;
   let x = MARGIN;
   const heads: { w: number; label: string }[] = [
     { w: cols.num, label: "番号" },
@@ -255,7 +313,13 @@ function drawTableHead(ctx: CanvasRenderingContext2D, y: number): number {
     { w: cols.light, label: "照明 要望等" },
   ];
   for (const head of heads) {
-    drawCell(ctx, x, y, head.w, h, head.label, { fill: "#f3f4f6", bold: true, align: "center" });
+    drawCell(ctx, x, y, head.w, h, head.label, {
+      fill: "#f3f4f6",
+      bold: true,
+      align: "center",
+      size: 9,
+      wrap: head.label.length > 4,
+    });
     x += head.w;
   }
   return y + h;
@@ -271,7 +335,11 @@ function drawRow(
   const { ctx } = page;
   const cols = columnWidths();
   let x = MARGIN;
-  drawCell(ctx, x, y, cols.num, h, row ? String(row.number) : "", { align: "center", bold: true });
+  drawCell(ctx, x, y, cols.num, h, row ? String(row.number) : "", {
+    align: "center",
+    bold: true,
+    size: 12,
+  });
   x += cols.num;
   drawTimeCell(ctx, x, y, cols.time, h, row);
   x += cols.time;
@@ -358,6 +426,12 @@ function drawTimeCell(
   ctx.restore();
 }
 
+export function renderLightingPlanCanvases(
+  project: ChoreographyProjectJson
+): HTMLCanvasElement[] {
+  return paintLightingPlanPages(project, buildLightingPlanDocument(project));
+}
+
 function paintLightingPlanPages(
   project: ChoreographyProjectJson,
   doc: LightingPlanDocument
@@ -398,14 +472,17 @@ export async function downloadLightingPlanPdf(
 ): Promise<void> {
   if (typeof document !== "undefined" && document.fonts?.ready) {
     await document.fonts.ready;
-    await document.fonts.load('400 16px "Noto Sans JP"');
-    await document.fonts.load('700 16px "Noto Sans JP"');
+    await document.fonts.load('400 11px "Noto Sans JP"');
+    await document.fonts.load('700 11px "Noto Sans JP"');
+    await document.fonts.load('400 12px "Noto Sans JP"');
+    await document.fonts.load('700 12px "Noto Sans JP"');
     await document.fonts.load('700 18px "Noto Sans JP"');
+    await document.fonts.load('700 20px "Noto Sans JP"');
     await document.fonts.load('700 40px "Noto Sans JP"');
     await document.fonts.load('700 72px "Noto Sans JP"');
   }
   const doc = buildLightingPlanDocument(project);
-  const canvases = paintLightingPlanPages(project, doc);
+  const canvases = renderLightingPlanCanvases(project);
   const pdf = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
   canvases.forEach((canvas, index) => {
     if (index > 0) pdf.addPage();

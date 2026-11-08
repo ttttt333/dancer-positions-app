@@ -200,13 +200,15 @@
 }
 
 .paper {
-  width: 100%;
+  /* 参照の照明プランは A4 縦。画面いっぱいに引き伸ばさない */
+  width: min(980px, 100%);
   margin: 0 auto;
   background: #fff;
   color: #111;
-  padding: 22px 22px 32px;
+  padding: 18px 20px 28px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
   font-family: "Noto Sans JP", "Hiragino Sans", sans-serif;
+  font-size: 15px;
 }
 
 .topRow {
@@ -214,26 +216,31 @@
   flex-wrap: wrap;
   gap: 8px 14px;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .inlineLabel {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
 }
 
+.topPin {
+  margin-left: auto;
+}
+
 .box {
-  width: 64px;
+  width: 48px;
   border: 1px solid #111;
   background: #fff;
   color: #111;
   font: inherit;
-  font-size: 13px;
+  font-size: 22px;
+  font-weight: 800;
   text-align: center;
-  padding: 4px 6px;
+  padding: 1px 4px;
 }
 
 .select {
@@ -241,8 +248,8 @@
   background: #fff;
   color: #111;
   font: inherit;
-  font-size: 13px;
-  padding: 4px 6px;
+  font-size: 16px;
+  padding: 2px 6px;
 }
 
 .heading {
@@ -250,21 +257,21 @@
   justify-content: center;
   align-items: baseline;
   gap: 8px;
-  margin: 4px 0 12px;
+  margin: 2px 0 8px;
   text-align: center;
-  font-size: 20px;
+  font-size: 28px;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
 
 .headingInput {
-  width: min(520px, 100%);
+  width: min(720px, 100%);
   border: none;
   border-bottom: 1px solid transparent;
   background: transparent;
   text-align: center;
   font: inherit;
-  font-size: 18px;
+  font-size: 28px;
   font-weight: 800;
   color: #111;
 }
@@ -281,14 +288,19 @@
   table-layout: fixed;
 }
 
+.cueTable {
+  /* 狭い画面でも照明欄が潰れない。用紙の中で横に送る */
+  min-width: 760px;
+}
+
 .meta th,
 .meta td,
 .cueTable th,
 .cueTable td {
   border: 1px solid #111;
-  padding: 4px 6px;
+  padding: 3px 6px;
   vertical-align: middle;
-  font-size: 12px;
+  font-size: 15px;
 }
 
 .meta th,
@@ -299,7 +311,22 @@
   white-space: nowrap;
 }
 
+.meta th {
+  white-space: normal;
+  line-height: 1.15;
+  font-size: 15px;
+  padding: 3px 4px;
+}
+
+.metaLabelCol { width: 7%; }
+.metaClassCol { width: 32%; }
+.metaTimeLabelCol { width: 10%; }
+.metaTimeValueCol { width: 14%; }
+.metaCountLabelCol { width: 10%; }
+.metaCountValueCol { width: 27%; }
+
 .meta input,
+.metaInput,
 .cellInput,
 .cellArea {
   width: 100%;
@@ -307,8 +334,21 @@
   background: transparent;
   color: #111;
   font: inherit;
-  font-size: 12px;
+  font-size: 15px;
   padding: 2px;
+}
+
+.meta .inlineLabel {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+td.metaDuration,
+.meta input.metaDuration {
+  font-size: 18px;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .cellArea {
@@ -332,33 +372,47 @@
   vertical-align: top;
 }
 
+.numCol {
+  width: 58px;
+}
+
 .num {
   text-align: center;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
 }
 
-.cueTable th.timeCol {
-  font-size: 48px;
+.cueTable th {
+  font-size: 13px;
 }
 
 .timeCol {
-  width: 460px;
+  width: 208px;
 }
 
 .time {
-  width: 460px;
-  max-width: 460px;
+  width: 208px;
+  max-width: 208px;
   text-align: center;
   font-variant-numeric: tabular-nums;
-  padding: 12px;
+  padding: 4px;
+}
+
+.timeRange {
+  margin: 0;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
 .timeFields {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 12px;
+  gap: 4px;
   width: 100%;
 }
 
@@ -367,20 +421,20 @@
   align-items: center;
   justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 2px;
 }
 
 .timeActions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 4px;
 }
 
 .timeBoundLabel {
-  width: 2em;
+  width: 2.2em;
   flex-shrink: 0;
-  font-size: 40px;
+  font-size: 12px;
   font-weight: 800;
   color: #475569;
   text-align: left;
@@ -391,29 +445,29 @@
   background: #fff;
   color: #111;
   font: inherit;
-  font-size: 44px;
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
-  padding: 4px 0 4px 8px;
-  border-radius: 8px;
+  padding: 1px 0 1px 2px;
+  border-radius: 4px;
 }
 
 .timeSelectMinute {
-  width: 108px;
+  width: 44px;
 }
 
 .timeSelectSecond {
-  width: 124px;
+  width: 50px;
 }
 
 .timeUnit {
-  font-size: 40px;
+  font-size: 12px;
   font-weight: 700;
   color: #64748b;
 }
 
 .timeWarn {
   margin: 0;
-  font-size: 40px;
+  font-size: 12px;
   font-weight: 700;
   color: #b91c1c;
   line-height: 1.3;
@@ -424,11 +478,11 @@
   background: #fff7ed;
   color: #9a3412;
   font: inherit;
-  font-size: 40px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1;
-  padding: 12px 16px;
-  border-radius: 8px;
+  padding: 3px 5px;
+  border-radius: 4px;
   cursor: pointer;
 }
 
@@ -438,15 +492,15 @@
 
 .cuePlay,
 .cueStop {
-  border-radius: 8px;
+  border-radius: 4px;
   border: 1px solid #cbd5e1;
   background: #fff;
   color: #1e293b;
   font: inherit;
-  font-size: 40px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1;
-  padding: 12px 16px;
+  padding: 3px 6px;
   cursor: pointer;
 }
 
@@ -475,10 +529,11 @@
   background: transparent;
   color: #b91c1c;
   font: inherit;
-  font-size: 44px;
+  font-size: 12px;
   cursor: pointer;
   text-decoration: underline;
   padding: 0;
+  align-self: flex-end;
 }
 
 .removeRow:hover {
@@ -510,14 +565,14 @@
 
 .formationCol,
 .formationCellTd {
-  width: 184px;
+  width: 156px;
 }
 
 .formationCell {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 96px;
+  min-height: 64px;
 }
 
 .lightCell {
@@ -529,8 +584,8 @@
 .lightStack {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-height: 120px;
+  gap: 4px;
+  min-height: 64px;
   height: 100%;
 }
 
@@ -576,10 +631,10 @@
 
 .rich {
   flex: 1;
-  min-height: 72px;
+  min-height: 40px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.45;
   outline: none;
 }
@@ -600,8 +655,8 @@
 }
 
 .sketch {
-  width: 168px;
-  height: 96px;
+  width: 120px;
+  height: 68px;
   flex-shrink: 0;
   display: block;
 }

@@ -7,6 +7,7 @@ import {
   buildLightingPlanDocument,
   drawFormationSketch,
   formatLightingPlanPlayhead,
+  formatLightingRange,
   formationSketchDancers,
   lightingPlanCueIdAtTime,
   omitCueFromLightingPlan,
@@ -185,6 +186,7 @@ function PlanTimeEditor({
 
   return (
     <div className={styles.timeFields}>
+      <p className={styles.timeRange}>{formatLightingRange(start, end)}</p>
       <div className={styles.timeBound}>
         <span className={styles.timeBoundLabel}>開始</span>
         <PlanClockSelects
@@ -303,8 +305,8 @@ function FormationSketch({ formation }: { formation: Formation | undefined }) {
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas || !formation) return;
-    const width = 168;
-    const height = 96;
+    const width = 120;
+    const height = 68;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
@@ -706,7 +708,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                 onChange={(e) => patchPlan({ presetMark: e.target.value })}
               />
             </label>
-            <label className={styles.inlineLabel}>
+            <label className={`${styles.inlineLabel} ${styles.topPin}`}>
               ピンスポ
               <select
                 className={styles.select}
@@ -741,11 +743,20 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
           </div>
 
           <table className={styles.meta}>
+            <colgroup>
+              <col className={styles.metaLabelCol} />
+              <col className={styles.metaClassCol} />
+              <col className={styles.metaTimeLabelCol} />
+              <col className={styles.metaTimeValueCol} />
+              <col className={styles.metaCountLabelCol} />
+              <col className={styles.metaCountValueCol} />
+            </colgroup>
             <tbody>
               <tr>
                 <th>クラス名</th>
                 <td>
                   <input
+                    className={styles.metaInput}
                     aria-label="クラス名"
                     value={plan?.className ?? ""}
                     disabled={lock}
@@ -754,10 +765,11 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                   />
                 </td>
                 <th>TIME</th>
-                <td>{doc.timeLabel || "—"}</td>
+                <td className={styles.metaDuration}>{doc.timeLabel || "—"}</td>
                 <th>人数</th>
                 <td>
                   <input
+                    className={styles.metaDuration}
                     inputMode="numeric"
                     aria-label="人数"
                     value={project.pieceDancerCount ?? ""}
@@ -781,6 +793,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                 <th>使用曲</th>
                 <td>
                   <input
+                    className={styles.metaInput}
                     aria-label="使用曲"
                     value={plan?.songTitle ?? ""}
                     disabled={lock}
@@ -793,6 +806,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                   <label className={styles.inlineLabel}>
                     下－
                     <input
+                      className={styles.metaInput}
                       aria-label="衣装の下"
                       value={plan?.costumeBottom ?? ""}
                       disabled={lock}
@@ -803,6 +817,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                   <label className={styles.inlineLabel} style={{ marginLeft: 12 }}>
                     上－
                     <input
+                      className={styles.metaInput}
                       aria-label="衣装の上"
                       value={plan?.costumeTop ?? ""}
                       disabled={lock}
@@ -816,6 +831,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                 <th>全体の雰囲気</th>
                 <td colSpan={5}>
                   <input
+                    className={styles.metaInput}
                     aria-label="全体の雰囲気"
                     value={plan?.atmosphere ?? ""}
                     disabled={lock}
@@ -828,6 +844,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                 <th>ポイント</th>
                 <td colSpan={5}>
                   <input
+                    className={styles.metaInput}
                     aria-label="ポイント"
                     value={plan?.points ?? ""}
                     disabled={lock}
@@ -842,7 +859,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
           <table className={styles.cueTable} style={{ marginTop: 10 }}>
             <thead>
               <tr>
-                <th style={{ width: 52 }}>番号</th>
+                <th className={styles.numCol}>番号</th>
                 <th className={styles.timeCol}>時間</th>
                 <th className={styles.formationCol}>フォーメーション</th>
                 <th>照明 要望等</th>
