@@ -679,8 +679,8 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
               <tr>
                 <th style={{ width: 52 }}>番号</th>
                 <th className={styles.timeCol}>時間</th>
-                <th>フォーメーション</th>
-                <th style={{ width: "34%" }}>照明 要望等</th>
+                <th className={styles.formationCol}>フォーメーション</th>
+                <th>照明 要望等</th>
               </tr>
             </thead>
             <tbody>
@@ -738,35 +738,9 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                           }
                         />
                       </td>
-                      <td>
+                      <td className={styles.formationCellTd}>
                         <div className={styles.formationCell}>
                           <FormationSketch formation={formation} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <input
-                              className={styles.cellInput}
-                              aria-label={`キュー ${row.number} の名前`}
-                              placeholder="キュー名（サビ、選抜など）"
-                              value={cue?.name ?? ""}
-                              disabled={lock}
-                              onChange={(e) =>
-                                setProject((current) =>
-                                  withCuePlanText(current, row.cueId, { name: e.target.value })
-                                )
-                              }
-                            />
-                            <textarea
-                              className={styles.cellArea}
-                              aria-label={`キュー ${row.number} の説明`}
-                              placeholder="説明（隊形や動きのメモ）"
-                              value={cue?.note ?? ""}
-                              disabled={lock}
-                              onChange={(e) =>
-                                setProject((current) =>
-                                  withCuePlanText(current, row.cueId, { note: e.target.value })
-                                )
-                              }
-                            />
-                          </div>
                         </div>
                       </td>
                       <td>

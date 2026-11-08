@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import type { ChoreographyProjectJson } from "../types/choreography";
+import { formatPdfClock } from "./choreographyPdfPages";
 import {
   buildLightingPlanDocument,
   drawFormationSketch,
@@ -202,38 +203,34 @@ function drawHeader(page: PageCtx, doc: LightingPlanDocument, continued: boolean
 }
 
 const COL_NUM = 28;
-const COL_TIME = 78;
+/** 袖で開始・終了を読める大きさ。数字2段が入る幅 */
+const COL_TIME = 72;
+/** 説明文は置かず、隊形の絵だけ */
+const COL_FORMATION = 96;
+const LIGHT_FONT = 11;
+const LIGHT_LINE = 15;
+const TIME_FONT = 18;
 
 function columnWidths() {
   const tableW = PAGE_W - MARGIN * 2;
-  const rest = tableW - COL_NUM - COL_TIME;
-  const formation = Math.round(rest * 0.46);
   return {
     num: COL_NUM,
     time: COL_TIME,
-    formation,
-    light: rest - formation,
+    formation: COL_FORMATION,
+    light: tableW - COL_NUM - COL_TIME - COL_FORMATION,
   };
 }
 
-const SKETCH_W = 70;
+const SKETCH_W = 84;
 
 function rowHeight(ctx: CanvasRenderingContext2D, row: LightingPlanCueRow | null): number {
   const cols = columnWidths();
-  ctx.font = `400 8px ${FONT}`;
-  const noteLines = row
-    ? wrapLines(
-        ctx,
-        [row.name, row.note].filter(Boolean).join("\n"),
-        cols.formation - SKETCH_W - 14,
-        6
-      )
-    : [];
+  ctx.font = `400 ${LIGHT_FONT}px ${FONT}`;
   const lightLines = row
-    ? wrapLines(ctx, row.lightingRequest, cols.light - 8, 6)
+    ? wrapLines(ctx, row.lightingRequest, cols.light - 10, 8)
     : [];
-  const textH = Math.max(noteLines.length, lightLines.length, 1) * 11 + 8;
-  return Math.max(48, textH);
+  const textH = Math.max(lightLines.length, 1) * LIGHT_LINE + 12;
+  return Math.max(68, textH);
 }
 
 function drawTableHead(ctx: CanvasRenderingContext2D, y: number): number {
@@ -265,7 +262,7 @@ function drawRow(
   let x = MARGIN;
   drawCell(ctx, x, y, cols.num, h, row ? String(row.number) : "", { align: "center", bold: true });
   x += cols.num;
-  drawCell(ctx, x, y, cols.time, h, row?.timeLabel ?? "", { align: "center", size: 8 });
+  drawTimeCell(ctx, x, y, cols.time, h, row);
   x += cols.time;
 
   ctx.save();
@@ -278,20 +275,12 @@ function drawRow(
   if (row) {
     const sketchW = SKETCH_W;
     const sketchH = Math.max(28, h - 8);
+    const sketchX = x + (cols.formation - sketchW) / 2;
     drawFormationSketch(
       ctx,
-      { x: x + 4, y: y + 4, w: sketchW, h: sketchH },
+      { x: sketchX, y: y + 4, w: sketchW, h: sketchH },
       formationSketchDancers(project, row.formationId)
     );
-    const text = [row.name, row.note].filter(Boolean).join("\n");
-    ctx.font = `400 8px ${FONT}`;
-    const lines = wrapLines(ctx, text, cols.formation - sketchW - 14, 6);
-    ctx.fillStyle = "#111111";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    lines.forEach((line, i) => {
-      ctx.fillText(line, x + sketchW + 8, y + 6 + i * 11);
-    });
   }
   ctx.restore();
   x += cols.formation;
@@ -304,19 +293,52 @@ function drawRow(
   ctx.rect(x, y, cols.light, h);
   ctx.clip();
   if (row?.lightingRequest) {
-    ctx.font = `400 8px ${FONT}`;
-    const lines = wrapLines(ctx, row.lightingRequest, cols.light - 8, 6);
+    ctx.font = `400 ${LIGHT_FONT}px ${FONT}`;
+    const lines = wrapLines(ctx, row.lightingRequest, cols.light - 10, 8);
     ctx.fillStyle = "#111111";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     lines.forEach((line, i) => {
-      ctx.fillText(line, x + 4, y + 6 + i * 11);
+      ctx.fillText(line, x + 5, y + 8 + i * LIGHT_LINE);
     });
   }
   ctx.restore();
 }
 
-function paintPages(
+/** 袖で読む開始・終了。1行に詰めず、数字を上下に大きく置く */
+function drawTimeCell(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  row: LightingPlanCueRow | null
+) {
+  ctx.save();
+  ctx.strokeStyle = "#111111";
+  ctx.lineWidth = 0.6;
+  ctx.strokeRect(x, y, w, h);
+  if (!row) {
+    ctx.restore();
+    return;
+  }
+  const start = formatPdfClock(row.tStartSec);
+  const end = formatPdfClock(row.tEndSec);
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  ctx.fillStyle = "#111111";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `700 ${TIME_FONT}px ${FONT}`;
+  ctx.fillText(start, cx, cy - 15);
+  ctx.font = `700 12px ${FONT}`;
+  ctx.fillText("~", cx, cy);
+  ctx.font = `700 ${TIME_FONT}px ${FONT}`;
+  ctx.fillText(end, cx, cy + 15);
+  ctx.restore();
+}
+
+function paintLightingPlanPages(
   project: ChoreographyProjectJson,
   doc: LightingPlanDocument
 ): HTMLCanvasElement[] {
@@ -357,9 +379,10 @@ export async function downloadLightingPlanPdf(
     await document.fonts.ready;
     await document.fonts.load('400 12px "Noto Sans JP"');
     await document.fonts.load('700 14px "Noto Sans JP"');
+    await document.fonts.load('700 18px "Noto Sans JP"');
   }
   const doc = buildLightingPlanDocument(project);
-  const canvases = paintPages(project, doc);
+  const canvases = paintLightingPlanPages(project, doc);
   const pdf = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
   canvases.forEach((canvas, index) => {
     if (index > 0) pdf.addPage();

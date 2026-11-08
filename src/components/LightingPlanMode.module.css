@@ -440,10 +440,14 @@
   cursor: not-allowed;
 }
 
+.formationCol,
+.formationCellTd {
+  width: 184px;
+}
+
 .formationCell {
   display: flex;
-  gap: 8px;
-  align-items: flex-start;
+  justify-content: center;
 }
 
 .sketch {
