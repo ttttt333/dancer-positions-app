@@ -273,27 +273,45 @@
   font-size: 14px;
 }
 
+.timeCol {
+  width: 159px;
+}
+
 .time {
+  width: 159px;
+  max-width: 159px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  padding-left: 3px;
+  padding-right: 3px;
 }
 
 .timeFields {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  align-items: stretch;
+  gap: 3px;
+  width: 100%;
 }
 
 .timeBound {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 3px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.timeActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
 }
 
 .timeBoundLabel {
-  width: 2.2em;
+  width: 2em;
+  flex-shrink: 0;
   font-size: 10px;
   font-weight: 800;
   color: #475569;
@@ -305,18 +323,18 @@
   background: #fff;
   color: #111;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
-  padding: 2px 2px 2px 4px;
+  padding: 1px 0 1px 2px;
   border-radius: 4px;
 }
 
 .timeSelectMinute {
-  width: 48px;
+  width: 36px;
 }
 
 .timeSelectSecond {
-  width: 52px;
+  width: 40px;
 }
 
 .timeUnit {

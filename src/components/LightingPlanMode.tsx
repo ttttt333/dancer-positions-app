@@ -182,6 +182,8 @@ function PlanTimeEditor({
           onMinutes={(minutes) => changePart("start", "minutes", minutes)}
           onSeconds={(seconds) => changePart("start", "seconds", seconds)}
         />
+      </div>
+      <div className={styles.timeActions}>
         {disabled ? null : (
           <button
             type="button"
@@ -676,7 +678,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
             <thead>
               <tr>
                 <th style={{ width: 52 }}>番号</th>
-                <th style={{ width: 318 }}>時間</th>
+                <th className={styles.timeCol}>時間</th>
                 <th>フォーメーション</th>
                 <th style={{ width: "34%" }}>照明 要望等</th>
               </tr>
