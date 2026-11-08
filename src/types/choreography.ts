@@ -356,6 +356,32 @@ export type LightingPlanCueTime = {
 };
 
 /**
+ * 照明表の隊形欄だけに重ねる白黒の印。
+ * 立ち位置の座標・dancer id は変えない。
+ * xPct 0 が下手（画面左）、100 が上手（画面右）。
+ * yPct 0 が奥、100 が手前（客席側）。
+ */
+export type LightingPlanEdgeId = "kamite" | "shimote" | "back" | "front";
+
+export type LightingPlanCircleMark = {
+  id: string;
+  kind: "circle";
+  xPct: number;
+  yPct: number;
+  /** 円の中の数字。空なら描かない */
+  number?: string;
+};
+
+export type LightingPlanEdgeMark = {
+  id: string;
+  kind: "edge";
+  /** 上手縁・下手縁・奥・前 */
+  edge: LightingPlanEdgeId;
+};
+
+export type LightingPlanMark = LightingPlanCircleMark | LightingPlanEdgeMark;
+
+/**
  * 発表会に渡す照明プランの見出し。
  * 未設定の作品には付けない。各キューの説明は `Cue.note`、照明要望は `Cue.lightingRequest`。
  */
@@ -396,6 +422,11 @@ export type LightingPlan = {
    * 未設定の行は中身の高さに従う。
    */
   rowHeights?: Record<string, number>;
+  /**
+   * 隊形欄の白黒の印。キーは cue id。
+   * 照明表の注釈であり、隊形そのものは変えない。
+   */
+  drawings?: Record<string, LightingPlanMark[]>;
 };
 
 export type CrewMember = {

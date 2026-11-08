@@ -193,6 +193,7 @@ export function applyLightingPlanFile(
     cueTimes: remapRecord(file.plan.cueTimes, savedToCurrent),
     omittedCueIds: omitted && omitted.length > 0 ? omitted : undefined,
     rowHeights: remapRecord(file.plan.rowHeights, savedToCurrent),
+    drawings: remapRecord(file.plan.drawings, savedToCurrent),
   });
 
   return {

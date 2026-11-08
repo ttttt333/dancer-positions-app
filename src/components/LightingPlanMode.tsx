@@ -1,23 +1,42 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { createPortal } from "react-dom";
-import type { ChoreographyProjectJson, Formation } from "../types/choreography";
+import type {
+  ChoreographyProjectJson,
+  Formation,
+  LightingPlanEdgeId,
+  LightingPlanMark,
+} from "../types/choreography";
 import { playbackEngine } from "../core/playbackEngine";
 import {
   buildLightingPlanDocument,
+  deleteLightingPlanMark,
   drawFormationSketch,
   formatLightingPlanPlayhead,
   formatLightingRange,
   formationSketchDancers,
+  formationSketchPlot,
+  formationSketchPointToPct,
+  hitLightingPlanMark,
   lightingPlanCueIdAtTime,
+  lightingPlanEdgeAt,
+  lightingPlanEdgeRect,
+  lightingPlanSpotPoint,
+  moveLightingPlanCircle,
+  nextLightingPlanMarkId,
   omitCueFromLightingPlan,
+  placeLightingPlanCircle,
   planClockFromParts,
   planClockParts,
   restoreOmittedLightingPlanCues,
+  setLightingPlanCircleNumber,
   setLightingPlanCueTime,
   setLightingPlanRowHeight,
+  toggleLightingPlanEdge,
   withCuePlanText,
   withLightingPlan,
+  type FormationSketchPlot,
+  type LightingPlanSpot,
 } from "../lib/lightingPlan";
 import { LightingRequestField } from "./LightingRequestField";
 import { formatPdfClock } from "../lib/choreographyPdfPages";
@@ -185,107 +204,181 @@ function PlanTimeEditor({
   const endParts = planClockParts(end);
 
   return (
-    <div className={styles.timeFields}>
-      <p className={styles.timeRange}>{formatLightingRange(start, end)}</p>
-      <div className={styles.timeBound}>
-        <span className={styles.timeBoundLabel}>開始</span>
-        <PlanClockSelects
-          number={number}
-          bound="開始"
-          minutes={startParts.minutes}
-          seconds={startParts.seconds}
-          minuteOptions={minuteOptions}
-          disabled={disabled}
-          onMinutes={(minutes) => changePart("start", "minutes", minutes)}
-          onSeconds={(seconds) => changePart("start", "seconds", seconds)}
-        />
-      </div>
-      <div className={styles.timeActions}>
-        {disabled ? null : (
+    <>
+      <td className={styles.num}>
+        <div className={styles.numStack}>
+          <span className={styles.numLabel}>{number}</span>
           <button
             type="button"
-            className={styles.stampNow}
-            aria-label={`キュー ${number} の開始を今の秒にする`}
-            title="再生位置を開始に入れる"
+            className={
+              playingHere ? `${styles.cuePlay} ${styles.cuePlayActive}` : styles.cuePlay
+            }
+            aria-label={`キュー ${number} の開始から再生`}
+            aria-pressed={playingHere}
+            title="この開始から再生します。上の再生バーと同じ音源です"
+            disabled={!canPlay}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => stamp("start")}
+            onClick={() => onPlayFrom(start)}
           >
-            今
+            再生
           </button>
-        )}
-        <button
-          type="button"
-          className={
-            playingHere
-              ? `${styles.cuePlay} ${styles.cuePlayActive}`
-              : styles.cuePlay
-          }
-          aria-label={`キュー ${number} の開始から再生`}
-          aria-pressed={playingHere}
-          title="この開始から再生します。上の再生バーと同じ音源です"
-          disabled={!canPlay}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => onPlayFrom(start)}
-        >
-          再生
-        </button>
-        <button
-          type="button"
-          className={styles.cueStop}
-          aria-label="再生を停止"
-          title="再生を止めます。上の再生バーも止まります"
-          disabled={!canPlay}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={onStop}
-        >
-          停止
-        </button>
-      </div>
-      <div className={styles.timeBound}>
-        <span className={styles.timeBoundLabel}>終了</span>
-        <PlanClockSelects
-          number={number}
-          bound="終了"
-          minutes={endParts.minutes}
-          seconds={endParts.seconds}
-          minuteOptions={minuteOptions}
-          disabled={disabled}
-          onMinutes={(minutes) => changePart("end", "minutes", minutes)}
-          onSeconds={(seconds) => changePart("end", "seconds", seconds)}
-        />
-        {disabled ? null : (
           <button
             type="button"
-            className={styles.stampNow}
-            aria-label={`キュー ${number} の終了を今の秒にする`}
-            title="再生位置を終了に入れる"
+            className={styles.cueStop}
+            aria-label="再生を停止"
+            title="再生を止めます。上の再生バーも止まります"
+            disabled={!canPlay}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => stamp("end")}
+            onClick={onStop}
           >
-            今
+            停止
           </button>
-        )}
-      </div>
-      {end <= start ? (
-        <p className={styles.timeWarn}>終了は開始より後にしてください</p>
-      ) : null}
-      {disabled ? null : (
-        <button
-          type="button"
-          className={styles.removeRow}
-          aria-label={`キュー ${number} を照明プランから外す`}
-          title="照明プランから外します。立ち位置のキューは残ります"
-          onClick={() => onRemove(cueId)}
-        >
-          削除
-        </button>
-      )}
-    </div>
+        </div>
+      </td>
+      <td className={styles.time}>
+        <div className={styles.timeFields}>
+          <p className={styles.timeRange}>{formatLightingRange(start, end)}</p>
+          <div className={styles.timeBound}>
+            <span className={styles.timeBoundLabel}>開始</span>
+            <PlanClockSelects
+              number={number}
+              bound="開始"
+              minutes={startParts.minutes}
+              seconds={startParts.seconds}
+              minuteOptions={minuteOptions}
+              disabled={disabled}
+              onMinutes={(minutes) => changePart("start", "minutes", minutes)}
+              onSeconds={(seconds) => changePart("start", "seconds", seconds)}
+            />
+            {disabled ? null : (
+              <button
+                type="button"
+                className={styles.stampNow}
+                aria-label={`キュー ${number} の開始を今の秒にする`}
+                title="再生位置を開始に入れる"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => stamp("start")}
+              >
+                今
+              </button>
+            )}
+          </div>
+          <div className={styles.timeBound}>
+            <span className={styles.timeBoundLabel}>終了</span>
+            <PlanClockSelects
+              number={number}
+              bound="終了"
+              minutes={endParts.minutes}
+              seconds={endParts.seconds}
+              minuteOptions={minuteOptions}
+              disabled={disabled}
+              onMinutes={(minutes) => changePart("end", "minutes", minutes)}
+              onSeconds={(seconds) => changePart("end", "seconds", seconds)}
+            />
+            {disabled ? null : (
+              <button
+                type="button"
+                className={styles.stampNow}
+                aria-label={`キュー ${number} の終了を今の秒にする`}
+                title="再生位置を終了に入れる"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => stamp("end")}
+              >
+                今
+              </button>
+            )}
+          </div>
+          {end <= start ? (
+            <p className={styles.timeWarn}>終了は開始より後にしてください</p>
+          ) : null}
+          {disabled ? null : (
+            <button
+              type="button"
+              className={styles.removeRow}
+              aria-label={`キュー ${number} を照明プランから外す`}
+              title="照明プランから外します。立ち位置のキューは残ります"
+              onClick={() => onRemove(cueId)}
+            >
+              削除
+            </button>
+          )}
+        </div>
+      </td>
+    </>
   );
 }
 
-function FormationSketch({ formation }: { formation: Formation | undefined }) {
+const SKETCH_W = 132;
+const SKETCH_H = 88;
+const SKETCH_BOX = { x: 0, y: 0, w: SKETCH_W, h: SKETCH_H };
+const EMPTY_MARKS: LightingPlanMark[] = [];
+
+const EDGE_TOOLS: { edge: LightingPlanEdgeId; label: string }[] = [
+  { edge: "kamite", label: "上手縁" },
+  { edge: "shimote", label: "下手縁" },
+  { edge: "back", label: "奥" },
+  { edge: "front", label: "前" },
+];
+
+const SPOT_TOOLS: { spot: LightingPlanSpot; label: string }[] = [
+  { spot: "center", label: "ヘソ" },
+  { spot: "kamite", label: "上手" },
+  { spot: "shimote", label: "下手" },
+];
+
+function drawMarkSelection(
+  ctx: CanvasRenderingContext2D,
+  plot: FormationSketchPlot,
+  mark: LightingPlanMark
+) {
+  if (mark.kind === "circle") {
+    const center = {
+      x: plot.x + (mark.xPct / 100) * plot.w,
+      y: plot.y + (mark.yPct / 100) * plot.h,
+    };
+    ctx.beginPath();
+    ctx.strokeStyle = "#111111";
+    ctx.lineWidth = 2;
+    ctx.arc(center.x, center.y, plot.circleR + 3, 0, Math.PI * 2);
+    ctx.stroke();
+    return;
+  }
+  const rect = lightingPlanEdgeRect(plot, mark.edge);
+  ctx.save();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 2]);
+  ctx.strokeRect(rect.x + 1.5, rect.y + 1.5, Math.max(0, rect.w - 3), Math.max(0, rect.h - 3));
+  ctx.restore();
+}
+
+function FormationMarkCell({
+  number,
+  formation,
+  marks,
+  disabled,
+  onPlace,
+  onMove,
+  onNumber,
+  onToggleEdge,
+  onDelete,
+}: {
+  number: number;
+  formation: Formation | undefined;
+  marks: readonly LightingPlanMark[];
+  disabled: boolean;
+  onPlace: (spot: LightingPlanSpot) => void;
+  onMove: (markId: string, xPct: number, yPct: number) => void;
+  onNumber: (markId: string, number: string) => void;
+  onToggleEdge: (edge: LightingPlanEdgeId) => void;
+  onDelete: (markId: string) => void;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const dragRef = useRef<{ id: string; pointerId: number } | null>(null);
+  const [dragPoint, setDragPoint] = useState<{ id: string; xPct: number; yPct: number } | null>(
+    null
+  );
   const dancers = useMemo(
     () =>
       (formation?.dancers ?? []).map((dancer) => ({
@@ -301,29 +394,188 @@ function FormationSketch({ formation }: { formation: Formation | undefined }) {
   const signature = dancers
     .map((d) => `${d.id}:${d.xPct}:${d.yPct}:${d.colorIndex}:${d.genderLabel ?? ""}`)
     .join("|");
+  const shown = useMemo(
+    () =>
+      marks.map((mark) =>
+        dragPoint && mark.kind === "circle" && mark.id === dragPoint.id
+          ? { ...mark, xPct: dragPoint.xPct, yPct: dragPoint.yPct }
+          : mark
+      ),
+    [marks, dragPoint]
+  );
+  const shownKey = shown
+    .map((mark) =>
+      mark.kind === "circle"
+        ? `c:${mark.id}:${mark.xPct}:${mark.yPct}:${mark.number ?? ""}`
+        : `e:${mark.id}:${mark.edge}`
+    )
+    .join("|");
+  const selected = shown.find((mark) => mark.id === selectedId) ?? null;
 
   useEffect(() => {
     const canvas = ref.current;
-    if (!canvas || !formation) return;
-    const width = 120;
-    const height = 68;
+    if (!canvas) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
+    canvas.width = Math.round(SKETCH_W * dpr);
+    canvas.height = Math.round(SKETCH_H * dpr);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const projectLike = {
-      formations: [formation],
-    } as ChoreographyProjectJson;
-    drawFormationSketch(
-      ctx,
-      { x: 0, y: 0, w: width, h: height },
-      formationSketchDancers(projectLike, formation.id)
-    );
-  }, [formation, signature]);
+    const dancers = formation
+      ? formationSketchDancers(
+          { formations: [formation] } as ChoreographyProjectJson,
+          formation.id
+        )
+      : [];
+    drawFormationSketch(ctx, SKETCH_BOX, dancers, shown);
+    const plot = formationSketchPlot(SKETCH_BOX);
+    if (plot && selected) drawMarkSelection(ctx, plot, selected);
+  }, [formation, signature, shown, shownKey, selected]);
 
-  return <canvas ref={ref} className={styles.sketch} aria-hidden />;
+  const localPoint = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = ref.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return null;
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * SKETCH_W,
+      y: ((event.clientY - rect.top) / rect.height) * SKETCH_H,
+    };
+  };
+
+  const selectedCircle = selected?.kind === "circle" ? selected : null;
+
+  return (
+    <div className={styles.formationCell}>
+      <canvas
+        ref={ref}
+        className={disabled ? styles.sketch : `${styles.sketch} ${styles.sketchEditable}`}
+        role="img"
+        aria-label={`キュー ${number} のフォーメーション。円はドラッグ、縁はクリックで塗れます`}
+        onPointerDown={(event) => {
+          if (disabled) return;
+          const point = localPoint(event);
+          if (!point) return;
+          const hit = hitLightingPlanMark(SKETCH_BOX, shown, point.x, point.y);
+          if (hit?.kind === "circle") {
+            setSelectedId(hit.id);
+            dragRef.current = { id: hit.id, pointerId: event.pointerId };
+            event.currentTarget.setPointerCapture(event.pointerId);
+            return;
+          }
+          if (hit?.kind === "edge") {
+            if (selectedId === hit.id) {
+              onToggleEdge(hit.edge);
+              setSelectedId(null);
+            } else {
+              setSelectedId(hit.id);
+            }
+            return;
+          }
+          const edge = lightingPlanEdgeAt(SKETCH_BOX, point.x, point.y);
+          if (edge) {
+            setSelectedId(nextLightingPlanMarkId(marks));
+            onToggleEdge(edge);
+            return;
+          }
+          setSelectedId(null);
+        }}
+        onPointerMove={(event) => {
+          const drag = dragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          const point = localPoint(event);
+          const plot = formationSketchPlot(SKETCH_BOX);
+          if (!point || !plot) return;
+          const next = formationSketchPointToPct(plot, point.x, point.y);
+          setDragPoint({ id: drag.id, xPct: next.xPct, yPct: next.yPct });
+        }}
+        onPointerUp={(event) => {
+          const drag = dragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          dragRef.current = null;
+          const point = localPoint(event);
+          const plot = formationSketchPlot(SKETCH_BOX);
+          if (point && plot) {
+            const next = formationSketchPointToPct(plot, point.x, point.y);
+            onMove(drag.id, next.xPct, next.yPct);
+          }
+          setDragPoint(null);
+        }}
+        onPointerCancel={() => {
+          dragRef.current = null;
+          setDragPoint(null);
+        }}
+      />
+      {disabled ? null : (
+        <div className={styles.markTools}>
+          {SPOT_TOOLS.map((tool) => (
+            <button
+              key={tool.spot}
+              type="button"
+              className={styles.markTool}
+              aria-label={`キュー ${number} の${tool.label}に円を置く`}
+              onClick={() => {
+                setSelectedId(nextLightingPlanMarkId(marks));
+                onPlace(tool.spot);
+              }}
+            >
+              {tool.label}
+            </button>
+          ))}
+          {EDGE_TOOLS.map((tool) => {
+            const existing = marks.find((mark) => mark.kind === "edge" && mark.edge === tool.edge);
+            const on = Boolean(existing);
+            return (
+              <button
+                key={tool.edge}
+                type="button"
+                className={on ? `${styles.markTool} ${styles.markToolOn}` : styles.markTool}
+                aria-label={`キュー ${number} の${tool.label}を黒く塗る`}
+                aria-pressed={on}
+                onClick={() => {
+                  if (existing) {
+                    onToggleEdge(tool.edge);
+                    if (selectedId === existing.id) setSelectedId(null);
+                    return;
+                  }
+                  setSelectedId(nextLightingPlanMarkId(marks));
+                  onToggleEdge(tool.edge);
+                }}
+              >
+                {tool.label}
+              </button>
+            );
+          })}
+          <input
+            className={styles.markNumber}
+            inputMode="numeric"
+            maxLength={3}
+            placeholder="数字"
+            aria-label={`キュー ${number} の円の中の数字`}
+            disabled={!selectedCircle}
+            value={selectedCircle?.number ?? ""}
+            onChange={(event) => {
+              if (!selectedCircle) return;
+              onNumber(selectedCircle.id, event.target.value);
+            }}
+          />
+          <button
+            type="button"
+            className={styles.markTool}
+            aria-label={`キュー ${number} の選択した図形を削除`}
+            disabled={!selected}
+            onClick={() => {
+              if (!selected) return;
+              onDelete(selected.id);
+              setSelectedId(null);
+            }}
+          >
+            削除
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function LightingPlanTransport({
@@ -390,6 +642,15 @@ function LightingPlanTransport({
       </span>
     </div>
   );
+}
+
+/** 照明表の印は隊形とキュー配列を差し替えない */
+function keepStandingPositions(
+  current: ChoreographyProjectJson,
+  next: ChoreographyProjectJson
+): ChoreographyProjectJson {
+  if (next.cues !== current.cues || next.formations !== current.formations) return current;
+  return next;
 }
 
 export function LightingPlanMode({ project, setProject, readOnly = false }: Props) {
@@ -601,7 +862,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
           照明プラン
         </h2>
         <p className={styles.lead}>
-          発表会の照明キュー表です。時間の変更と行の削除は、この表だけに残ります。立ち位置のキューは変わりません。
+          発表会の照明キュー表です。時間の変更、行の削除、隊形欄の円と縁は、この表だけに残ります。立ち位置のキューは変わりません。
         </p>
         <div className={styles.barActions}>
           {error ? <p className={styles.error}>{error}</p> : null}
@@ -888,47 +1149,91 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                           : undefined
                       }
                     >
-                      <td className={styles.num}>{row.number}</td>
-                      <td className={styles.time}>
-                        <PlanTimeEditor
+                      <PlanTimeEditor
+                        number={row.number}
+                        cueId={row.cueId}
+                        startSec={row.tStartSec}
+                        endSec={row.tEndSec}
+                        disabled={lock}
+                        readPlayhead={readPlayhead}
+                        maxMinute={maxMinute}
+                        onPlayFrom={playFromCue}
+                        onStop={stopPlayback}
+                        canPlay={hasAudio}
+                        playingHere={isPlaying && row.cueId === liveCueId}
+                        onCommit={(cueId, startSec, endSec) =>
+                          setProject((current) => {
+                            const cue = current.cues.find((item) => item.id === cueId);
+                            const next = setLightingPlanCueTime(
+                              current,
+                              cueId,
+                              startSec,
+                              endSec
+                            );
+                            if (cue && next.cues.some((item) => item === cue)) return next;
+                            return current;
+                          })
+                        }
+                        onRemove={(cueId) =>
+                          setProject((current) => {
+                            const before = current.cues;
+                            const next = omitCueFromLightingPlan(current, cueId);
+                            if (next.cues !== before) return current;
+                            return next;
+                          })
+                        }
+                      />
+                      <td className={styles.formationCellTd}>
+                        <FormationMarkCell
                           number={row.number}
-                          cueId={row.cueId}
-                          startSec={row.tStartSec}
-                          endSec={row.tEndSec}
+                          formation={formation}
+                          marks={plan?.drawings?.[row.cueId] ?? EMPTY_MARKS}
                           disabled={lock}
-                          readPlayhead={readPlayhead}
-                          maxMinute={maxMinute}
-                          onPlayFrom={playFromCue}
-                          onStop={stopPlayback}
-                          canPlay={hasAudio}
-                          playingHere={isPlaying && row.cueId === liveCueId}
-                          onCommit={(cueId, startSec, endSec) =>
-                            setProject((current) => {
-                              const cue = current.cues.find((item) => item.id === cueId);
-                              const next = setLightingPlanCueTime(
+                          onPlace={(spot) =>
+                            setProject((current) =>
+                              keepStandingPositions(
                                 current,
-                                cueId,
-                                startSec,
-                                endSec
-                              );
-                              if (cue && next.cues.some((item) => item === cue)) return next;
-                              return current;
-                            })
+                                placeLightingPlanCircle(
+                                  current,
+                                  row.cueId,
+                                  lightingPlanSpotPoint(spot)
+                                )
+                              )
+                            )
                           }
-                          onRemove={(cueId) =>
-                            setProject((current) => {
-                              const before = current.cues;
-                              const next = omitCueFromLightingPlan(current, cueId);
-                              if (next.cues !== before) return current;
-                              return next;
-                            })
+                          onMove={(markId, xPct, yPct) =>
+                            setProject((current) =>
+                              keepStandingPositions(
+                                current,
+                                moveLightingPlanCircle(current, row.cueId, markId, xPct, yPct)
+                              )
+                            )
+                          }
+                          onNumber={(markId, value) =>
+                            setProject((current) =>
+                              keepStandingPositions(
+                                current,
+                                setLightingPlanCircleNumber(current, row.cueId, markId, value)
+                              )
+                            )
+                          }
+                          onToggleEdge={(edge) =>
+                            setProject((current) =>
+                              keepStandingPositions(
+                                current,
+                                toggleLightingPlanEdge(current, row.cueId, edge)
+                              )
+                            )
+                          }
+                          onDelete={(markId) =>
+                            setProject((current) =>
+                              keepStandingPositions(
+                                current,
+                                deleteLightingPlanMark(current, row.cueId, markId)
+                              )
+                            )
                           }
                         />
-                      </td>
-                      <td className={styles.formationCellTd}>
-                        <div className={styles.formationCell}>
-                          <FormationSketch formation={formation} />
-                        </div>
                       </td>
                       <td className={styles.lightCell}>
                         <LightingRequestField

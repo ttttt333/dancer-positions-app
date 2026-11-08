@@ -359,7 +359,8 @@ function drawRow(
     drawFormationSketch(
       ctx,
       { x: sketchX, y: sketchY, w: sketchW, h: sketchH },
-      formationSketchDancers(project, row.formationId)
+      formationSketchDancers(project, row.formationId),
+      project.lightingPlan?.drawings?.[row.cueId]
     );
   }
   ctx.restore();

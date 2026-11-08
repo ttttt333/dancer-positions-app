@@ -373,13 +373,27 @@ td.metaDuration,
 }
 
 .numCol {
-  width: 58px;
+  width: 64px;
 }
 
 .num {
   text-align: center;
-  font-weight: 700;
-  font-size: 15px;
+  font-weight: 800;
+  padding: 4px 2px;
+  vertical-align: top;
+}
+
+.numStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.numLabel {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .cueTable th {
@@ -387,32 +401,33 @@ td.metaDuration,
 }
 
 .timeCol {
-  width: 208px;
+  width: 214px;
 }
 
 .time {
-  width: 208px;
-  max-width: 208px;
+  width: 214px;
+  max-width: 214px;
   text-align: center;
   font-variant-numeric: tabular-nums;
-  padding: 4px;
+  padding: 4px 2px;
 }
 
 .timeRange {
   margin: 0;
   text-align: center;
-  font-size: 20px;
+  font-size: 32px;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.05;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .timeFields {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 4px;
+  gap: 2px;
   width: 100%;
 }
 
@@ -424,17 +439,10 @@ td.metaDuration,
   gap: 2px;
 }
 
-.timeActions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-}
-
 .timeBoundLabel {
-  width: 2.2em;
+  width: 1.8em;
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
   color: #475569;
   text-align: left;
@@ -445,29 +453,30 @@ td.metaDuration,
   background: #fff;
   color: #111;
   font: inherit;
-  font-size: 15px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
-  padding: 1px 0 1px 2px;
-  border-radius: 4px;
+  padding: 0 0 0 1px;
+  height: 18px;
+  border-radius: 3px;
 }
 
 .timeSelectMinute {
-  width: 44px;
+  width: 32px;
 }
 
 .timeSelectSecond {
-  width: 50px;
+  width: 36px;
 }
 
 .timeUnit {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   color: #64748b;
 }
 
 .timeWarn {
   margin: 0;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   color: #b91c1c;
   line-height: 1.3;
@@ -478,11 +487,12 @@ td.metaDuration,
   background: #fff7ed;
   color: #9a3412;
   font: inherit;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
   line-height: 1;
-  padding: 3px 5px;
-  border-radius: 4px;
+  padding: 0 3px;
+  height: 16px;
+  border-radius: 3px;
   cursor: pointer;
 }
 
@@ -492,15 +502,15 @@ td.metaDuration,
 
 .cuePlay,
 .cueStop {
-  border-radius: 4px;
+  border-radius: 3px;
   border: 1px solid #cbd5e1;
   background: #fff;
   color: #1e293b;
   font: inherit;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
-  line-height: 1;
-  padding: 3px 6px;
+  line-height: 1.15;
+  padding: 1px 4px;
   cursor: pointer;
 }
 
@@ -565,14 +575,62 @@ td.metaDuration,
 
 .formationCol,
 .formationCellTd {
-  width: 156px;
+  width: 164px;
 }
 
 .formationCell {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  justify-content: flex-start;
   align-items: center;
+  gap: 2px;
   min-height: 64px;
+}
+
+.markTools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  max-width: 148px;
+}
+
+.markTool {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0 3px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.markToolOn {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.markTool:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.markNumber {
+  width: 34px;
+  height: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  padding: 0;
 }
 
 .lightCell {
@@ -655,10 +713,16 @@ td.metaDuration,
 }
 
 .sketch {
-  width: 120px;
-  height: 68px;
+  width: 132px;
+  height: 88px;
   flex-shrink: 0;
   display: block;
+  background: #fff;
+}
+
+.sketchEditable {
+  cursor: crosshair;
+  touch-action: none;
 }
 
 .empty {

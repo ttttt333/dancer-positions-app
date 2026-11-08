@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createEmptyProject } from "./projectDefaults";
 import { normalizeProject } from "./normalizeProject";
-import { setLightingPlanCueTime, setLightingPlanRowHeight, withCuePlanText } from "./lightingPlan";
+import {
+  lightingPlanSpotPoint,
+  placeLightingPlanCircle,
+  setLightingPlanCircleNumber,
+  setLightingPlanCueTime,
+  setLightingPlanRowHeight,
+  toggleLightingPlanEdge,
+  withCuePlanText,
+} from "./lightingPlan";
 import {
   applyLightingPlanFile,
   captureLightingPlanFile,
@@ -94,6 +102,67 @@ describe("lighting plan files", () => {
       tStartSec: 3,
       tEndSec: 6,
     });
+  });
+
+  it("keeps formation drawings through save, overwrite, and recall", () => {
+    const base = createEmptyProject();
+    const fid = base.activeFormationId;
+    let source = {
+      ...base,
+      cues: [
+        { id: "old-a", formationId: fid, tStartSec: 0, tEndSec: 4 },
+        { id: "old-b", formationId: fid, tStartSec: 4, tEndSec: 8 },
+      ],
+    };
+    source = placeLightingPlanCircle(source, "old-a", lightingPlanSpotPoint("center"));
+    source = setLightingPlanCircleNumber(source, "old-a", "d1", "3");
+    source = toggleLightingPlanEdge(source, "old-a", "kamite");
+    const file = captureLightingPlanFile(source, "図");
+    const parsed = parseLightingPlanFile(JSON.parse(JSON.stringify(file)));
+    expect(parsed?.plan.drawings?.["old-a"]).toEqual([
+      { id: "d1", kind: "circle", xPct: 50, yPct: 50, number: "3" },
+      { id: "d2", kind: "edge", edge: "kamite" },
+    ]);
+
+    const current = {
+      ...base,
+      cues: [
+        { id: "new-a", formationId: fid, tStartSec: 1, tEndSec: 5 },
+        { id: "new-b", formationId: fid, tStartSec: 5, tEndSec: 9 },
+      ],
+    };
+    const applied = applyLightingPlanFile(current, parsed!);
+    expect(applied.project.cues.find((cue) => cue.id === "new-a")).toMatchObject({
+      tStartSec: 1,
+      tEndSec: 5,
+    });
+    expect(applied.project.lightingPlan?.drawings?.["new-a"]).toEqual([
+      { id: "d1", kind: "circle", xPct: 50, yPct: 50, number: "3" },
+      { id: "d2", kind: "edge", edge: "kamite" },
+    ]);
+    expect(applied.project.formations).toBe(current.formations);
+
+    const normalized = normalizeProject(applied.project);
+    expect(normalized.lightingPlan?.drawings?.["new-a"]?.[0]).toMatchObject({
+      kind: "circle",
+      number: "3",
+    });
+
+    const saved = saveLightingPlanLibraryItem("図", captureLightingPlanFile(normalized, "図"));
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) return;
+    const overwritten = overwriteLightingPlanLibraryItem(
+      saved.item.id,
+      captureLightingPlanFile(
+        toggleLightingPlanEdge(normalized, "new-a", "front"),
+        "図"
+      )
+    );
+    expect(overwritten.ok).toBe(true);
+    const listed = listLightingPlanLibrary();
+    expect(listed[0]?.file.plan.drawings?.["new-a"]?.some((mark) => mark.kind === "edge" && mark.edge === "front")).toBe(
+      true
+    );
   });
 
   it("saves a named plan and overwrites that same name slot", () => {

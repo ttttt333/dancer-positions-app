@@ -5,16 +5,25 @@ import { normalizeProject } from "./normalizeProject";
 import {
   buildLightingPlanDocument,
   compactLightingPlan,
+  deleteLightingPlanMark,
   formatLightingRange,
+  formationSketchPlot,
+  hitLightingPlanMark,
+  lightingPlanEdgeAt,
   lightingPlanHeading,
+  lightingPlanSpotPoint,
+  moveLightingPlanCircle,
   omitCueFromLightingPlan,
   formatLightingPlanPlayhead,
+  placeLightingPlanCircle,
   planClockFromParts,
   planClockParts,
   lightingPlanCueIdAtTime,
   parseLightingPlanClock,
   restoreOmittedLightingPlanCues,
+  setLightingPlanCircleNumber,
   setLightingPlanCueTime,
+  toggleLightingPlanEdge,
   withCuePlanText,
   withLightingPlan,
 } from "./lightingPlan";
@@ -336,5 +345,88 @@ describe("lighting plan persistence", () => {
       base.formations
     );
     expect(cues[0]?.lightingRequest).toBe("ピンスポ");
+  });
+
+  it("places a circle, a number, and an edge, then round-trips normalize", () => {
+    const base = createEmptyProject();
+    const fid = base.activeFormationId;
+    const dancer = base.formations[0]?.dancers[0];
+    const start = {
+      ...base,
+      cues: [{ id: "c1", formationId: fid, tStartSec: 0, tEndSec: 9 }],
+    };
+    const center = lightingPlanSpotPoint("center");
+    const kamite = lightingPlanSpotPoint("kamite");
+    const shimote = lightingPlanSpotPoint("shimote");
+    expect(center).toEqual({ xPct: 50, yPct: 50 });
+    expect(kamite.xPct).toBeGreaterThan(70);
+    expect(shimote.xPct).toBeLessThan(30);
+
+    let project = placeLightingPlanCircle(start, "c1", center);
+    project = setLightingPlanCircleNumber(project, "c1", "d1", "１２a");
+    project = toggleLightingPlanEdge(project, "c1", "kamite");
+    project = toggleLightingPlanEdge(project, "c1", "kamite");
+    project = toggleLightingPlanEdge(project, "c1", "front");
+    project = moveLightingPlanCircle(project, "c1", "d1", 140, -8);
+    project = setLightingPlanCueTime(project, "c1", 2, 8);
+
+    expect(project.formations).toBe(start.formations);
+    expect(project.cues).toBe(start.cues);
+    expect(dancer && project.formations[0]?.dancers[0]).toBe(dancer);
+    expect(project.lightingPlan?.drawings?.c1).toEqual([
+      { id: "d1", kind: "circle", xPct: 100, yPct: 0, number: "12" },
+      { id: "d2", kind: "edge", edge: "front" },
+    ]);
+    expect(project.lightingPlan?.cueTimes?.c1).toEqual({ tStartSec: 2, tEndSec: 8 });
+
+    const normalized = normalizeProject({
+      ...project,
+      lightingPlan: {
+        ...project.lightingPlan,
+        drawings: {
+          c1: [
+            { id: "d1", kind: "circle", xPct: 100, yPct: 0, number: "12" },
+            { id: "d1", kind: "circle", xPct: 10, yPct: 10, number: "9" },
+            { id: "bad", kind: "edge", edge: "nope" },
+            { id: "e1", kind: "edge", edge: "back" },
+            { id: "e2", kind: "edge", edge: "back" },
+          ],
+          "  ": [{ id: "x", kind: "circle", xPct: 1, yPct: 1 }],
+        },
+      },
+    });
+    expect(normalized.lightingPlan?.drawings).toEqual({
+      c1: [
+        { id: "d1", kind: "circle", xPct: 100, yPct: 0, number: "12" },
+        { id: "e1", kind: "edge", edge: "back" },
+      ],
+    });
+    expect(normalized.cues[0]).toMatchObject({ tStartSec: 0, tEndSec: 9 });
+
+    const removed = deleteLightingPlanMark(normalized, "c1", "e1");
+    expect(removed.lightingPlan?.drawings?.c1).toEqual([
+      { id: "d1", kind: "circle", xPct: 100, yPct: 0, number: "12" },
+    ]);
+    const cleared = deleteLightingPlanMark(removed, "c1", "d1");
+    expect(cleared.lightingPlan?.drawings).toBeUndefined();
+  });
+
+  it("hits 上手 on the right edge and a circle at ヘソ", () => {
+    const box = { x: 0, y: 0, w: 140, h: 96 };
+    const plot = formationSketchPlot(box);
+    expect(plot).not.toBeNull();
+    if (!plot) return;
+    expect(lightingPlanEdgeAt(box, plot.x + plot.w - 1, plot.y + plot.h / 2)).toBe("kamite");
+    expect(lightingPlanEdgeAt(box, plot.x + 1, plot.y + plot.h / 2)).toBe("shimote");
+    expect(lightingPlanEdgeAt(box, plot.x + plot.w / 2, plot.y + 1)).toBe("back");
+    expect(lightingPlanEdgeAt(box, plot.x + plot.w / 2, plot.y + plot.h - 1)).toBe("front");
+    const center = lightingPlanSpotPoint("center");
+    const hit = hitLightingPlanMark(
+      box,
+      [{ id: "d1", kind: "circle", xPct: center.xPct, yPct: center.yPct }],
+      plot.x + plot.w / 2,
+      plot.y + plot.h / 2
+    );
+    expect(hit).toMatchObject({ id: "d1", kind: "circle" });
   });
 });

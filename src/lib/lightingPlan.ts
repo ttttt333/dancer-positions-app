@@ -9,7 +9,11 @@ import type {
   ChoreographyProjectJson,
   Cue,
   LightingPlan,
+  LightingPlanCircleMark,
   LightingPlanCueTime,
+  LightingPlanEdgeId,
+  LightingPlanEdgeMark,
+  LightingPlanMark,
   LightingPlanPinSpot,
   LightingTextMark,
 } from "../types/choreography";
@@ -122,6 +126,98 @@ function parseOmittedCueIds(raw: unknown): string[] | undefined {
 const ROW_HEIGHT_MIN = 96;
 const ROW_HEIGHT_MAX = 840;
 
+const DRAWING_CUES_MAX = 200;
+const DRAWING_MARKS_MAX = 24;
+const MARK_NUMBER_MAX = 3;
+const EDGE_IDS: readonly LightingPlanEdgeId[] = ["kamite", "shimote", "back", "front"];
+
+/** ヘソ・上手（画面右）・下手（画面左）。円が縁に隠れない位置 */
+export const LIGHTING_PLAN_SPOTS = {
+  center: { xPct: 50, yPct: 50 },
+  kamite: { xPct: 82, yPct: 50 },
+  shimote: { xPct: 18, yPct: 50 },
+} as const;
+
+export type LightingPlanSpot = keyof typeof LIGHTING_PLAN_SPOTS;
+
+export function lightingPlanSpotPoint(spot: LightingPlanSpot): { xPct: number; yPct: number } {
+  return { ...LIGHTING_PLAN_SPOTS[spot] };
+}
+
+function clampPct(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(Math.min(100, Math.max(0, value)) * 10) / 10;
+}
+
+function clipMarkNumber(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const digits = value
+    .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/\D/g, "")
+    .slice(0, MARK_NUMBER_MAX);
+  return digits || undefined;
+}
+
+function clipMarkId(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, 40).replace(/[^A-Za-z0-9_-]/g, "");
+}
+
+function isLightingPlanEdgeId(value: unknown): value is LightingPlanEdgeId {
+  return typeof value === "string" && (EDGE_IDS as readonly string[]).includes(value);
+}
+
+export function nextLightingPlanMarkId(marks: readonly { id: string }[]): string {
+  const used = new Set(marks.map((mark) => mark.id));
+  let n = 1;
+  while (used.has(`d${n}`)) n += 1;
+  return `d${n}`;
+}
+
+function parseDrawings(raw: unknown): Record<string, LightingPlanMark[]> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: Record<string, LightingPlanMark[]> = {};
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    const cueId = id.trim().slice(0, 80);
+    if (!cueId || !Array.isArray(value) || out[cueId]) continue;
+    const marks: LightingPlanMark[] = [];
+    const seenIds = new Set<string>();
+    const seenEdges = new Set<LightingPlanEdgeId>();
+    for (const item of value) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      const row = item as Record<string, unknown>;
+      const markId = clipMarkId(row.id);
+      if (!markId || seenIds.has(markId)) continue;
+      if (row.kind === "circle") {
+        if (typeof row.xPct !== "number" || typeof row.yPct !== "number") continue;
+        if (!Number.isFinite(row.xPct) || !Number.isFinite(row.yPct)) continue;
+        const xPct = clampPct(row.xPct);
+        const yPct = clampPct(row.yPct);
+        const number = clipMarkNumber(row.number);
+        const circle: LightingPlanCircleMark = {
+          id: markId,
+          kind: "circle",
+          xPct,
+          yPct,
+          ...(number ? { number } : {}),
+        };
+        marks.push(circle);
+        seenIds.add(markId);
+      } else if (row.kind === "edge" && isLightingPlanEdgeId(row.edge)) {
+        if (seenEdges.has(row.edge)) continue;
+        const edgeMark: LightingPlanEdgeMark = { id: markId, kind: "edge", edge: row.edge };
+        marks.push(edgeMark);
+        seenIds.add(markId);
+        seenEdges.add(row.edge);
+      }
+      if (marks.length >= DRAWING_MARKS_MAX) break;
+    }
+    if (marks.length > 0) out[cueId] = marks;
+    if (Object.keys(out).length >= DRAWING_CUES_MAX) break;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function parseRowHeights(raw: unknown): Record<string, number> | undefined {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const out: Record<string, number> = {};
@@ -138,15 +234,17 @@ function parseRowHeights(raw: unknown): Record<string, number> | undefined {
 
 function scheduleOf(plan: Partial<LightingPlan> | null | undefined): Pick<
   LightingPlan,
-  "cueTimes" | "omittedCueIds" | "rowHeights"
+  "cueTimes" | "omittedCueIds" | "rowHeights" | "drawings"
 > {
   const cueTimes = parseCueTimes(plan?.cueTimes);
   const omittedCueIds = parseOmittedCueIds(plan?.omittedCueIds);
   const rowHeights = parseRowHeights(plan?.rowHeights);
+  const drawings = parseDrawings(plan?.drawings);
   return {
     ...(cueTimes ? { cueTimes } : {}),
     ...(omittedCueIds ? { omittedCueIds } : {}),
     ...(rowHeights ? { rowHeights } : {}),
+    ...(drawings ? { drawings } : {}),
   };
 }
 
@@ -522,6 +620,125 @@ export function setLightingPlanRowHeight(
   );
 }
 
+function marksOf(project: ChoreographyProjectJson, cueId: string): LightingPlanMark[] {
+  return project.lightingPlan?.drawings?.[cueId] ?? [];
+}
+
+function writeDrawings(
+  project: ChoreographyProjectJson,
+  cueId: string,
+  marks: LightingPlanMark[]
+): ChoreographyProjectJson {
+  if (!project.cues.some((cue) => cue.id === cueId)) return project;
+  const drawings = { ...(project.lightingPlan?.drawings ?? {}) };
+  if (marks.length === 0) delete drawings[cueId];
+  else drawings[cueId] = marks;
+  return writeLightingPlan(
+    project,
+    editableLightingPlan({
+      ...project.lightingPlan,
+      drawings: Object.keys(drawings).length > 0 ? drawings : undefined,
+    })
+  );
+}
+
+/** 隊形欄に円を足す。立ち位置の formation はコピーしたまま */
+export function placeLightingPlanCircle(
+  project: ChoreographyProjectJson,
+  cueId: string,
+  at: { xPct: number; yPct: number }
+): ChoreographyProjectJson {
+  const current = marksOf(project, cueId);
+  if (!project.cues.some((cue) => cue.id === cueId) || current.length >= DRAWING_MARKS_MAX) {
+    return project;
+  }
+  const circle: LightingPlanCircleMark = {
+    id: nextLightingPlanMarkId(current),
+    kind: "circle",
+    xPct: clampPct(at.xPct),
+    yPct: clampPct(at.yPct),
+  };
+  return writeDrawings(project, cueId, [...current, circle]);
+}
+
+/** 置いた円をドラッグした位置へ動かす */
+export function moveLightingPlanCircle(
+  project: ChoreographyProjectJson,
+  cueId: string,
+  markId: string,
+  xPct: number,
+  yPct: number
+): ChoreographyProjectJson {
+  const current = marksOf(project, cueId);
+  let changed = false;
+  const next = current.map((mark) => {
+    if (mark.kind !== "circle" || mark.id !== markId) return mark;
+    const moved: LightingPlanCircleMark = {
+      ...mark,
+      xPct: clampPct(xPct),
+      yPct: clampPct(yPct),
+    };
+    if (moved.xPct === mark.xPct && moved.yPct === mark.yPct) return mark;
+    changed = true;
+    return moved;
+  });
+  if (!changed) return project;
+  return writeDrawings(project, cueId, next);
+}
+
+/** 円の中の数字。数字以外は捨て、空なら消す */
+export function setLightingPlanCircleNumber(
+  project: ChoreographyProjectJson,
+  cueId: string,
+  markId: string,
+  number: string
+): ChoreographyProjectJson {
+  const current = marksOf(project, cueId);
+  const digits = clipMarkNumber(number);
+  let changed = false;
+  const next = current.map((mark) => {
+    if (mark.kind !== "circle" || mark.id !== markId) return mark;
+    if ((mark.number ?? "") === (digits ?? "")) return mark;
+    changed = true;
+    const circle: LightingPlanCircleMark = { ...mark };
+    if (digits) circle.number = digits;
+    else delete circle.number;
+    return circle;
+  });
+  if (!changed) return project;
+  return writeDrawings(project, cueId, next);
+}
+
+/** 同じ縁が既にあれば外し、無ければ黒く塗る */
+export function toggleLightingPlanEdge(
+  project: ChoreographyProjectJson,
+  cueId: string,
+  edge: LightingPlanEdgeId
+): ChoreographyProjectJson {
+  if (!project.cues.some((cue) => cue.id === cueId)) return project;
+  const current = marksOf(project, cueId);
+  const existing = current.find((mark) => mark.kind === "edge" && mark.edge === edge);
+  if (existing) return writeDrawings(project, cueId, current.filter((mark) => mark.id !== existing.id));
+  if (current.length >= DRAWING_MARKS_MAX) return project;
+  const added: LightingPlanEdgeMark = {
+    id: nextLightingPlanMarkId(current),
+    kind: "edge",
+    edge,
+  };
+  return writeDrawings(project, cueId, [...current, added]);
+}
+
+export function deleteLightingPlanMark(
+  project: ChoreographyProjectJson,
+  cueId: string,
+  markId: string
+): ChoreographyProjectJson {
+  const current = marksOf(project, cueId);
+  const next = current.filter((mark) => mark.id !== markId);
+  if (next.length === current.length) return project;
+  return writeDrawings(project, cueId, next);
+}
+
 export function formationSketchDancers(
   project: ChoreographyProjectJson,
   formationId: string
@@ -537,45 +754,197 @@ export function formationSketchDancers(
   }));
 }
 
-/** 照明表の隊形欄。名前は描かず、立ち位置の塊だけを見せる */
+export type FormationSketchPlot = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  edge: number;
+  circleR: number;
+};
+
+/** 隊形欄の描画領域。客席ラベルの上を舞台にする */
+export function formationSketchPlot(box: SketchBox): FormationSketchPlot | null {
+  const { x, y, w, h } = box;
+  if (w < 8 || h < 8) return null;
+  const labelPx = Math.max(7, Math.min(11, Math.round(h * 0.16)));
+  const pad = Math.max(3, Math.min(6, w * 0.06));
+  const plotW = Math.max(4, w - pad * 2);
+  const plotH = Math.max(4, y + h - labelPx - 3 - (y + pad));
+  const short = Math.min(plotW, plotH);
+  return {
+    x: x + pad,
+    y: y + pad,
+    w: plotW,
+    h: plotH,
+    edge: Math.max(3, Math.min(10, short * 0.14)),
+    circleR: Math.max(5, Math.min(13, short * 0.13)),
+  };
+}
+
+export function formationSketchPctToPoint(
+  plot: FormationSketchPlot,
+  xPct: number,
+  yPct: number
+): { x: number; y: number } {
+  return {
+    x: plot.x + (clampPct(xPct) / 100) * plot.w,
+    y: plot.y + (clampPct(yPct) / 100) * plot.h,
+  };
+}
+
+export function formationSketchPointToPct(
+  plot: FormationSketchPlot,
+  px: number,
+  py: number
+): { xPct: number; yPct: number } {
+  return {
+    xPct: clampPct(((px - plot.x) / plot.w) * 100),
+    yPct: clampPct(((py - plot.y) / plot.h) * 100),
+  };
+}
+
+export function lightingPlanEdgeRect(
+  plot: FormationSketchPlot,
+  edge: LightingPlanEdgeId
+): { x: number; y: number; w: number; h: number } {
+  const band = plot.edge;
+  if (edge === "shimote") return { x: plot.x, y: plot.y, w: band, h: plot.h };
+  if (edge === "kamite") return { x: plot.x + plot.w - band, y: plot.y, w: band, h: plot.h };
+  if (edge === "back") return { x: plot.x, y: plot.y, w: plot.w, h: band };
+  return { x: plot.x, y: plot.y + plot.h - band, w: plot.w, h: band };
+}
+
+/** 舞台の縁の帯。角は近い辺を返す。上手は画面右 */
+export function lightingPlanEdgeAt(
+  box: SketchBox,
+  px: number,
+  py: number
+): LightingPlanEdgeId | null {
+  const plot = formationSketchPlot(box);
+  if (!plot) return null;
+  if (px < plot.x || py < plot.y || px > plot.x + plot.w || py > plot.y + plot.h) return null;
+  const hits: { edge: LightingPlanEdgeId; d: number }[] = [];
+  const left = px - plot.x;
+  const right = plot.x + plot.w - px;
+  const top = py - plot.y;
+  const bottom = plot.y + plot.h - py;
+  if (left <= plot.edge) hits.push({ edge: "shimote", d: left });
+  if (right <= plot.edge) hits.push({ edge: "kamite", d: right });
+  if (top <= plot.edge) hits.push({ edge: "back", d: top });
+  if (bottom <= plot.edge) hits.push({ edge: "front", d: bottom });
+  hits.sort((a, b) => a.d - b.d);
+  return hits[0]?.edge ?? null;
+}
+
+/** 円を先に、その次に塗った縁を拾う */
+export function hitLightingPlanMark(
+  box: SketchBox,
+  marks: readonly LightingPlanMark[],
+  px: number,
+  py: number
+): LightingPlanMark | null {
+  const plot = formationSketchPlot(box);
+  if (!plot) return null;
+  const reach = plot.circleR + 2;
+  for (let i = marks.length - 1; i >= 0; i--) {
+    const mark = marks[i];
+    if (!mark || mark.kind !== "circle") continue;
+    const center = formationSketchPctToPoint(plot, mark.xPct, mark.yPct);
+    const dx = px - center.x;
+    const dy = py - center.y;
+    if (dx * dx + dy * dy <= reach * reach) return mark;
+  }
+  for (let i = marks.length - 1; i >= 0; i--) {
+    const mark = marks[i];
+    if (!mark || mark.kind !== "edge") continue;
+    const rect = lightingPlanEdgeRect(plot, mark.edge);
+    if (px >= rect.x && px <= rect.x + rect.w && py >= rect.y && py <= rect.y + rect.h) return mark;
+  }
+  return null;
+}
+
+function drawMarkEdge(
+  ctx: CanvasRenderingContext2D,
+  plot: FormationSketchPlot,
+  edge: LightingPlanEdgeId
+) {
+  const rect = lightingPlanEdgeRect(plot, edge);
+  ctx.fillStyle = "#111111";
+  ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+}
+
+function drawMarkCircle(
+  ctx: CanvasRenderingContext2D,
+  plot: FormationSketchPlot,
+  mark: LightingPlanCircleMark
+) {
+  const center = formationSketchPctToPoint(plot, mark.xPct, mark.yPct);
+  ctx.beginPath();
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#111111";
+  ctx.lineWidth = Math.max(1.25, plot.circleR * 0.16);
+  ctx.arc(center.x, center.y, plot.circleR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  if (!mark.number) return;
+  const fontPx = Math.max(7, Math.round(plot.circleR * (mark.number.length > 2 ? 0.85 : 1.15)));
+  ctx.fillStyle = "#111111";
+  ctx.font = `700 ${fontPx}px "Noto Sans JP", sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(mark.number, center.x, center.y);
+}
+
+/**
+ * 照明表の隊形欄。白黒で、立ち位置の塊と表だけの印を描く。
+ * ダンサーの色は使わない。
+ */
 export function drawFormationSketch(
   ctx: CanvasRenderingContext2D,
   box: SketchBox,
-  dancers: readonly SketchDancer[]
+  dancers: readonly SketchDancer[],
+  marks: readonly LightingPlanMark[] = []
 ): void {
   const { x, y, w, h } = box;
-  if (w < 8 || h < 8) return;
+  const plot = formationSketchPlot(box);
+  if (!plot) return;
   ctx.save();
-  ctx.fillStyle = "#f8fafc";
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = "#64748b";
+  ctx.strokeStyle = "#111111";
   ctx.lineWidth = Math.max(1, Math.min(2, w * 0.015));
   ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
 
+  for (const mark of marks) {
+    if (mark.kind === "edge") drawMarkEdge(ctx, plot, mark.edge);
+  }
+
+  const radius = Math.max(
+    1.4,
+    Math.min(4.5, plot.w / Math.max(10, Math.sqrt(Math.max(1, dancers.length)) * 2.4))
+  );
+  for (const dancer of dancers) {
+    const point = formationSketchPctToPoint(
+      plot,
+      Number.isFinite(dancer.xPct) ? dancer.xPct : 50,
+      Number.isFinite(dancer.yPct) ? dancer.yPct : 50
+    );
+    ctx.beginPath();
+    ctx.fillStyle = "#111111";
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (const mark of marks) {
+    if (mark.kind === "circle") drawMarkCircle(ctx, plot, mark);
+  }
+
   const labelPx = Math.max(7, Math.min(11, Math.round(h * 0.16)));
-  ctx.fillStyle = "#64748b";
+  ctx.fillStyle = "#111111";
   ctx.font = `${labelPx}px "Noto Sans JP", sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillText("客席", x + w / 2, y + h - 2);
-
-  const pad = Math.max(3, Math.min(6, w * 0.06));
-  const plotBottom = y + h - labelPx - 3;
-  const plotH = Math.max(4, plotBottom - (y + pad));
-  const plotW = Math.max(4, w - pad * 2);
-  const radius = Math.max(
-    1.4,
-    Math.min(4.5, plotW / Math.max(10, Math.sqrt(Math.max(1, dancers.length)) * 2.4))
-  );
-  for (const dancer of dancers) {
-    const px = Number.isFinite(dancer.xPct) ? dancer.xPct : 50;
-    const py = Number.isFinite(dancer.yPct) ? dancer.yPct : 50;
-    const cx = x + pad + (Math.min(100, Math.max(0, px)) / 100) * plotW;
-    const cy = y + pad + (Math.min(100, Math.max(0, py)) / 100) * plotH;
-    ctx.beginPath();
-    ctx.fillStyle = dancer.color || "#334155";
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
   ctx.restore();
 }
