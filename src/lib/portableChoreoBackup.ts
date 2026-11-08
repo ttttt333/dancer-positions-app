@@ -16,6 +16,7 @@ import {
   exportFlowLibraryAudioBackupMap,
   importFlowLibraryAudioBackupMap,
 } from "./flowLibraryLocalAudio";
+import { LIGHTING_PLAN_FILES_STORAGE_KEY } from "./lightingPlanFiles";
 import { LIGHTING_PRESETS_STORAGE_KEY } from "./lightingPresets";
 import { STAGE_PRESETS_STORAGE_KEY } from "./stagePresets";
 import { exportAllWavePeaksCache, importAllWavePeaksCache } from "./wavePeaksCache";
@@ -32,6 +33,7 @@ const LOCALSTORAGE_EXACT_KEYS = [
   FORMATION_BOX_STORAGE_KEY,
   STAGE_PRESETS_STORAGE_KEY,
   LIGHTING_PRESETS_STORAGE_KEY,
+  LIGHTING_PLAN_FILES_STORAGE_KEY,
   FORMATION_PRESET_FAVORITES_STORAGE_KEY,
   "choreogrid_locale",
   "dancer-positions.editorLayout.v2",

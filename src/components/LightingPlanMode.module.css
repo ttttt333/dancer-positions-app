@@ -11,6 +11,7 @@
 .bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 10px 16px;
   background: #0f172a;
@@ -35,8 +36,72 @@
 
 .barActions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   flex-shrink: 0;
+  justify-content: flex-end;
+}
+
+.notice {
+  margin: 0;
+  color: #bbf7d0;
+  font-size: 12px;
+}
+
+.fileInput {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.library {
+  flex: 1 0 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 168px;
+  overflow: auto;
+}
+
+.libraryEmpty {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.libraryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.libraryOpenButton,
+.libraryDelete {
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.libraryOpenButton {
+  color: #e2e8f0;
+  text-decoration: underline;
+  text-align: left;
+}
+
+.libraryDelete {
+  color: #fecaca;
+}
+
+.libraryOpenButton:disabled,
+.libraryDelete:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .primary,
@@ -135,7 +200,7 @@
 }
 
 .paper {
-  width: min(980px, 100%);
+  width: 100%;
   margin: 0 auto;
   background: #fff;
   color: #111;
@@ -273,24 +338,27 @@
   font-size: 14px;
 }
 
+.cueTable th.timeCol {
+  font-size: 48px;
+}
+
 .timeCol {
-  width: 159px;
+  width: 460px;
 }
 
 .time {
-  width: 159px;
-  max-width: 159px;
+  width: 460px;
+  max-width: 460px;
   text-align: center;
   font-variant-numeric: tabular-nums;
-  padding-left: 3px;
-  padding-right: 3px;
+  padding: 12px;
 }
 
 .timeFields {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 3px;
+  gap: 12px;
   width: 100%;
 }
 
@@ -299,20 +367,20 @@
   align-items: center;
   justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: 8px;
 }
 
 .timeActions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px;
+  gap: 8px;
 }
 
 .timeBoundLabel {
   width: 2em;
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: 40px;
   font-weight: 800;
   color: #475569;
   text-align: left;
@@ -323,29 +391,29 @@
   background: #fff;
   color: #111;
   font: inherit;
-  font-size: 11px;
+  font-size: 44px;
   font-variant-numeric: tabular-nums;
-  padding: 1px 0 1px 2px;
-  border-radius: 4px;
+  padding: 4px 0 4px 8px;
+  border-radius: 8px;
 }
 
 .timeSelectMinute {
-  width: 36px;
+  width: 108px;
 }
 
 .timeSelectSecond {
-  width: 40px;
+  width: 124px;
 }
 
 .timeUnit {
-  font-size: 10px;
+  font-size: 40px;
   font-weight: 700;
   color: #64748b;
 }
 
 .timeWarn {
   margin: 0;
-  font-size: 10px;
+  font-size: 40px;
   font-weight: 700;
   color: #b91c1c;
   line-height: 1.3;
@@ -356,11 +424,11 @@
   background: #fff7ed;
   color: #9a3412;
   font: inherit;
-  font-size: 10px;
+  font-size: 40px;
   font-weight: 800;
   line-height: 1;
-  padding: 3px 4px;
-  border-radius: 4px;
+  padding: 12px 16px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
@@ -370,15 +438,15 @@
 
 .cuePlay,
 .cueStop {
-  border-radius: 4px;
+  border-radius: 8px;
   border: 1px solid #cbd5e1;
   background: #fff;
   color: #1e293b;
   font: inherit;
-  font-size: 10px;
+  font-size: 40px;
   font-weight: 800;
   line-height: 1;
-  padding: 3px 4px;
+  padding: 12px 16px;
   cursor: pointer;
 }
 
@@ -407,7 +475,7 @@
   background: transparent;
   color: #b91c1c;
   font: inherit;
-  font-size: 11px;
+  font-size: 44px;
   cursor: pointer;
   text-decoration: underline;
   padding: 0;
@@ -448,6 +516,87 @@
 .formationCell {
   display: flex;
   justify-content: center;
+  align-items: center;
+  min-height: 96px;
+}
+
+.lightCell {
+  position: relative;
+  height: 100%;
+  padding-bottom: 14px;
+}
+
+.lightStack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 120px;
+  height: 100%;
+}
+
+.lightTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolButton,
+.toolSelect {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.toolButton {
+  min-width: 42px;
+}
+
+.swatch {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.swatch:disabled,
+.toolButton:disabled,
+.toolSelect:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rich {
+  flex: 1;
+  min-height: 72px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  line-height: 1.45;
+  outline: none;
+}
+
+.rich:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+}
+
+.rowResize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 10px;
+  cursor: ns-resize;
+  background: linear-gradient(#fff, #e2e8f0);
 }
 
 .sketch {

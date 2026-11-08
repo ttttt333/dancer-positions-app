@@ -14,11 +14,26 @@ import {
   planClockParts,
   restoreOmittedLightingPlanCues,
   setLightingPlanCueTime,
+  setLightingPlanRowHeight,
   withCuePlanText,
   withLightingPlan,
 } from "../lib/lightingPlan";
+import { LightingRequestField } from "./LightingRequestField";
 import { formatPdfClock } from "../lib/choreographyPdfPages";
 import { downloadLightingPlanPdf } from "../lib/lightingPlanPdf";
+import {
+  applyLightingPlanFile,
+  captureLightingPlanFile,
+  deleteLightingPlanLibraryItem,
+  lightingPlanFileJson,
+  lightingPlanRecallMessage,
+  listLightingPlanLibrary,
+  overwriteLightingPlanLibraryItem,
+  parseLightingPlanFile,
+  safeLightingPlanFileName,
+  saveLightingPlanLibraryItem,
+  type LightingPlanLibraryItem,
+} from "../lib/lightingPlanFiles";
 import {
   seekPlaybackClampedAndSyncStore,
   togglePlaybackRespectingTrimStart,
@@ -380,6 +395,11 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
   const closeSheet = useLightingPlanUiStore((s) => s.closeSheet);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [libraryId, setLibraryId] = useState<string | null>(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [library, setLibrary] = useState<LightingPlanLibraryItem[]>(() => listLightingPlanLibrary());
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const doc = useMemo(() => buildLightingPlanDocument(project), [project]);
   const plan = project.lightingPlan;
 
@@ -478,6 +498,88 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
     setProject((current) => withLightingPlan(current, patch));
   };
 
+  const refreshLibrary = () => setLibrary(listLightingPlanLibrary());
+
+  const remember = (item: LightingPlanLibraryItem, text: string) => {
+    setLibraryId(item.id);
+    setNotice(text);
+    setError(null);
+    refreshLibrary();
+  };
+
+  const saveAsNamed = () => {
+    if (readOnly) return;
+    const fallback = plan?.className?.trim() || plan?.songTitle?.trim() || project.pieceTitle.trim() || "照明プラン";
+    const name = window.prompt("照明プランの名前", fallback);
+    if (name === null) return;
+    const file = captureLightingPlanFile(project, name);
+    const saved = saveLightingPlanLibraryItem(file.name, file);
+    if (!saved.ok) {
+      setError(saved.message);
+      return;
+    }
+    remember(saved.item, `「${saved.item.name}」を保存しました。`);
+    setLibraryOpen(false);
+  };
+
+  const overwriteNamed = () => {
+    if (readOnly || !libraryId) return;
+    const current = library.find((item) => item.id === libraryId);
+    if (!current) {
+      setError("上書きする照明プランが見つかりません。名前をつけて保存してください。");
+      return;
+    }
+    const file = captureLightingPlanFile(project, current.name);
+    const saved = overwriteLightingPlanLibraryItem(libraryId, file);
+    if (!saved.ok) {
+      setError(saved.message);
+      return;
+    }
+    remember(saved.item, `「${saved.item.name}」を上書きしました。`);
+  };
+
+  const recallItem = (item: LightingPlanLibraryItem) => {
+    if (readOnly) return;
+    const applied = applyLightingPlanFile(project, item.file);
+    setProject(applied.project);
+    setLibraryId(item.id);
+    setNotice(lightingPlanRecallMessage(item.name, applied));
+    setError(null);
+    setLibraryOpen(false);
+  };
+
+  const writeFile = () => {
+    const named = library.find((item) => item.id === libraryId);
+    const file = captureLightingPlanFile(project, named?.name || plan?.className || project.pieceTitle || "照明プラン");
+    const blob = new Blob([lightingPlanFileJson(file)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${safeLightingPlanFileName(file.name)}.lighting-plan.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice(`「${file.name}」をファイルに書き出しました。`);
+    setError(null);
+  };
+
+  const openFile = async (file: File | undefined) => {
+    if (!file || readOnly) return;
+    try {
+      const parsed = parseLightingPlanFile(JSON.parse(await file.text()));
+      if (!parsed) {
+        setError("照明プランのファイルとして読めませんでした。");
+        return;
+      }
+      const applied = applyLightingPlanFile(project, parsed);
+      setProject(applied.project);
+      setLibraryId(null);
+      setNotice(lightingPlanRecallMessage(parsed.name, applied));
+      setError(null);
+    } catch {
+      setError("照明プランのファイルとして読めませんでした。");
+    }
+  };
+
   const download = async () => {
     setBusy(true);
     setError(null);
@@ -501,6 +603,41 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
         </p>
         <div className={styles.barActions}>
           {error ? <p className={styles.error}>{error}</p> : null}
+          {notice ? <p className={styles.notice}>{notice}</p> : null}
+          <button type="button" className={styles.secondary} disabled={lock} onClick={saveAsNamed}>
+            名前をつけて保存
+          </button>
+          <button type="button" className={styles.secondary} disabled={lock || !libraryId} onClick={overwriteNamed}>
+            上書き
+          </button>
+          <button
+            type="button"
+            className={styles.secondary}
+            onClick={() => {
+              refreshLibrary();
+              setLibraryOpen((open) => !open);
+            }}
+          >
+            呼び出す
+          </button>
+          <button type="button" className={styles.secondary} onClick={writeFile}>
+            書き出す
+          </button>
+          <button type="button" className={styles.secondary} disabled={lock} onClick={() => fileInputRef.current?.click()}>
+            ファイルを開く
+          </button>
+          <input
+            ref={fileInputRef}
+            className={styles.fileInput}
+            type="file"
+            accept="application/json,.json"
+            aria-label="照明プランのファイルを開く"
+            onChange={(event) => {
+              const picked = event.target.files?.[0];
+              event.target.value = "";
+              void openFile(picked);
+            }}
+          />
           <button type="button" className={styles.primary} disabled={busy} onClick={() => void download()}>
             {busy ? "PDF を作成中…" : "PDF をダウンロード"}
           </button>
@@ -508,6 +645,34 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
             閉じる
           </button>
         </div>
+        {libraryOpen ? (
+          <div className={styles.library}>
+            {library.length === 0 ? (
+              <p className={styles.libraryEmpty}>保存した照明プランはまだありません。</p>
+            ) : (
+              library.map((item) => (
+                <div key={item.id} className={styles.libraryRow}>
+                  <button type="button" className={styles.libraryOpenButton} disabled={lock} onClick={() => recallItem(item)}>
+                    {item.name}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.libraryDelete}
+                    disabled={lock}
+                    aria-label={`${item.name} を削除`}
+                    onClick={() => {
+                      deleteLightingPlanLibraryItem(item.id);
+                      if (libraryId === item.id) setLibraryId(null);
+                      refreshLibrary();
+                    }}
+                  >
+                    削除
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        ) : null}
       </div>
       <LightingPlanTransport trimStartSec={trimStartSec} trimEndSec={trimEndSec} />
       <div className={styles.scroll}>
@@ -700,6 +865,11 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                     <tr
                       key={row.cueId}
                       className={row.cueId === liveCueId ? styles.rowLive : undefined}
+                      style={
+                        plan?.rowHeights?.[row.cueId]
+                          ? { height: plan.rowHeights[row.cueId] }
+                          : undefined
+                      }
                     >
                       <td className={styles.num}>{row.number}</td>
                       <td className={styles.time}>
@@ -743,21 +913,57 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                           <FormationSketch formation={formation} />
                         </div>
                       </td>
-                      <td>
-                        <textarea
-                          className={styles.cellArea}
-                          aria-label={`キュー ${row.number} の照明要望`}
-                          placeholder="赤系、サス、ピンスポ…"
-                          value={cue?.lightingRequest ?? ""}
+                      <td className={styles.lightCell}>
+                        <LightingRequestField
+                          number={row.number}
+                          text={cue?.lightingRequest ?? ""}
+                          marks={cue?.lightingRequestMarks}
                           disabled={lock}
-                          onChange={(e) =>
+                          onChange={({ text, marks }) =>
                             setProject((current) =>
                               withCuePlanText(current, row.cueId, {
-                                lightingRequest: e.target.value,
+                                lightingRequest: text,
+                                lightingRequestMarks: marks,
                               })
                             )
                           }
                         />
+                        {lock ? null : (
+                          <div
+                            className={styles.rowResize}
+                            role="separator"
+                            aria-orientation="horizontal"
+                            aria-label={`キュー ${row.number} の高さを変える`}
+                            title="下へ引くとこの行を高くします。ダブルクリックで自動に戻します"
+                            onPointerDown={(event) => {
+                              const tr = event.currentTarget.closest("tr");
+                              if (!tr) return;
+                              event.preventDefault();
+                              const startH = tr.getBoundingClientRect().height;
+                              const startY = event.clientY;
+                              const clamp = (value: number) =>
+                                Math.round(Math.min(840, Math.max(96, value)));
+                              const move = (ev: PointerEvent) => {
+                                tr.style.height = `${clamp(startH + ev.clientY - startY)}px`;
+                              };
+                              const up = (ev: PointerEvent) => {
+                                const next = clamp(startH + ev.clientY - startY);
+                                window.removeEventListener("pointermove", move);
+                                window.removeEventListener("pointerup", up);
+                                setProject((current) =>
+                                  setLightingPlanRowHeight(current, row.cueId, next)
+                                );
+                              };
+                              window.addEventListener("pointermove", move);
+                              window.addEventListener("pointerup", up);
+                            }}
+                            onDoubleClick={() =>
+                              setProject((current) =>
+                                setLightingPlanRowHeight(current, row.cueId, null)
+                              )
+                            }
+                          />
+                        )}
                       </td>
                     </tr>
                   );

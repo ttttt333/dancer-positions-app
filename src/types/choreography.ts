@@ -391,6 +391,11 @@ export type LightingPlan = {
    * 立ち位置のキュー自体は残る。
    */
   omittedCueIds?: string[];
+  /**
+   * 照明表の行の高さ（px）。キーは cue id。
+   * 未設定の行は中身の高さに従う。
+   */
+  rowHeights?: Record<string, number>;
 };
 
 export type CrewMember = {
@@ -435,6 +440,17 @@ export type GapApproachRoute =
   | "front_half_via_shimote"
   | "detour_bulge";
 
+/** 照明要望の一部だけに付ける見た目。位置は本文の UTF-16 オフセット */
+export type LightingTextMark = {
+  start: number;
+  end: number;
+  bold?: boolean;
+  /** px。許可した大きさだけ */
+  size?: number;
+  /** #rrggbb */
+  color?: string;
+};
+
 /** タイムライン上の区間キュー（区間内は立ち位置ホールド。ギャップ／隣接時は補間移動）。 */
 export type Cue = {
   id: string;
@@ -453,6 +469,11 @@ export type Cue = {
    * 照明プランの「照明 要望等」。色・サス・ピンスポなど、照明さんへの依頼。
    */
   lightingRequest?: string;
+  /**
+   * `lightingRequest` の一部に付ける太字・大きさ・色。
+   * 位置は本文の UTF-16 オフセット。
+   */
+  lightingRequestMarks?: LightingTextMark[];
   /**
    * このキューに入る直前のギャップ（前キュー tEnd 〜 この tStart）での移動経路。
    * 先頭キューでは無視される。未指定は線形補間。

@@ -8,6 +8,7 @@ import {
   type LightingPlanCueRow,
   type LightingPlanDocument,
 } from "./lightingPlan";
+import { lightingTextRuns, type LightingTextRun } from "./lightingText";
 
 const PAGE_W = 595;
 const PAGE_H = 842;
@@ -22,43 +23,6 @@ function safeFileBase(name: string): string {
     name.replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_").slice(0, 60) ||
     "lighting-plan"
   );
-}
-
-function wrapLines(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-  maxLines: number
-): string[] {
-  const raw = text.replace(/\r\n/g, "\n").trim();
-  if (!raw || maxWidth <= 0 || maxLines <= 0) return [];
-  const paragraphs = raw.split("\n");
-  const lines: string[] = [];
-  const pushFitted = (source: string) => {
-    const chars = [...source];
-    let current = "";
-    for (const ch of chars) {
-      const next = current + ch;
-      if (ctx.measureText(next).width <= maxWidth) {
-        current = next;
-        continue;
-      }
-      if (current) lines.push(current);
-      current = ch;
-      if (lines.length >= maxLines) return;
-    }
-    if (current) lines.push(current);
-  };
-  for (const paragraph of paragraphs) {
-    if (lines.length >= maxLines) break;
-    if (!paragraph) {
-      lines.push("");
-      continue;
-    }
-    pushFitted(paragraph);
-  }
-  if (lines.length > maxLines) return lines.slice(0, maxLines);
-  return lines;
 }
 
 type PageCtx = {
@@ -207,8 +171,7 @@ const COL_NUM = 28;
 const COL_TIME = 72;
 /** 説明文は置かず、隊形の絵だけ */
 const COL_FORMATION = 96;
-const LIGHT_FONT = 11;
-const LIGHT_LINE = 15;
+const LIGHT_FONT = 16;
 const TIME_FONT = 18;
 
 function columnWidths() {
@@ -223,14 +186,62 @@ function columnWidths() {
 
 const SKETCH_W = 84;
 
+function lightingLines(
+  ctx: CanvasRenderingContext2D,
+  row: LightingPlanCueRow,
+  maxWidth: number
+): LightingTextRun[][] {
+  const runs = lightingTextRuns(row.lightingRequest, row.lightingRequestMarks, {
+    size: LIGHT_FONT,
+    color: "#111111",
+  });
+  const lines: LightingTextRun[][] = [];
+  let line: LightingTextRun[] = [];
+  let lineW = 0;
+  const pushLine = () => {
+    if (line.length === 0) line.push({ text: "", bold: false, size: LIGHT_FONT, color: "#111111" });
+    lines.push(line);
+    line = [];
+    lineW = 0;
+  };
+  for (const run of runs) {
+    const parts = run.text.split("\n");
+    parts.forEach((part, index) => {
+      if (index > 0) pushLine();
+      let rest = part;
+      while (rest) {
+        ctx.font = `${run.bold ? 700 : 400} ${run.size}px ${FONT}`;
+        if (lineW >= maxWidth && line.length > 0) pushLine();
+        let fit = rest.length;
+        while (fit > 1 && lineW + ctx.measureText(rest.slice(0, fit)).width > maxWidth) {
+          fit -= 1;
+        }
+        const chunk = rest.slice(0, fit);
+        line.push({ ...run, text: chunk });
+        lineW += ctx.measureText(chunk).width;
+        rest = rest.slice(fit);
+        if (rest) pushLine();
+      }
+    });
+  }
+  if (line.length > 0) lines.push(line);
+  return lines.slice(0, 24);
+}
+
+function linesHeight(lines: LightingTextRun[][]): number {
+  return lines.reduce((sum, line) => {
+    const size = Math.max(LIGHT_FONT, ...line.map((run) => run.size));
+    return sum + Math.ceil(size * 1.35);
+  }, 0);
+}
+
 function rowHeight(ctx: CanvasRenderingContext2D, row: LightingPlanCueRow | null): number {
   const cols = columnWidths();
-  ctx.font = `400 ${LIGHT_FONT}px ${FONT}`;
-  const lightLines = row
-    ? wrapLines(ctx, row.lightingRequest, cols.light - 10, 8)
-    : [];
-  const textH = Math.max(lightLines.length, 1) * LIGHT_LINE + 12;
-  return Math.max(68, textH);
+  const lines = row ? lightingLines(ctx, row, cols.light - 10) : [];
+  const textH = (lines.length > 0 ? linesHeight(lines) : Math.ceil(LIGHT_FONT * 1.35)) + 16;
+  const asked =
+    row?.rowHeightPx != null ? Math.round(row.rowHeightPx * (72 / 96)) : 0;
+  return Math.max(68, textH, asked);
 }
 
 function drawTableHead(ctx: CanvasRenderingContext2D, y: number): number {
@@ -274,11 +285,12 @@ function drawRow(
   ctx.clip();
   if (row) {
     const sketchW = SKETCH_W;
-    const sketchH = Math.max(28, h - 8);
+    const sketchH = Math.min(Math.max(28, h - 8), Math.round(sketchW * 0.72));
     const sketchX = x + (cols.formation - sketchW) / 2;
+    const sketchY = y + (h - sketchH) / 2;
     drawFormationSketch(
       ctx,
-      { x: sketchX, y: y + 4, w: sketchW, h: sketchH },
+      { x: sketchX, y: sketchY, w: sketchW, h: sketchH },
       formationSketchDancers(project, row.formationId)
     );
   }
@@ -293,14 +305,22 @@ function drawRow(
   ctx.rect(x, y, cols.light, h);
   ctx.clip();
   if (row?.lightingRequest) {
-    ctx.font = `400 ${LIGHT_FONT}px ${FONT}`;
-    const lines = wrapLines(ctx, row.lightingRequest, cols.light - 10, 8);
-    ctx.fillStyle = "#111111";
+    const lines = lightingLines(ctx, row, cols.light - 10);
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    lines.forEach((line, i) => {
-      ctx.fillText(line, x + 5, y + 8 + i * LIGHT_LINE);
-    });
+    let cy = y + 8;
+    for (const line of lines) {
+      if (cy > y + h - 4) break;
+      let cx = x + 5;
+      const lineH = Math.ceil(Math.max(LIGHT_FONT, ...line.map((run) => run.size)) * 1.35);
+      for (const run of line) {
+        ctx.font = `${run.bold ? 700 : 400} ${run.size}px ${FONT}`;
+        ctx.fillStyle = run.color;
+        ctx.fillText(run.text, cx, cy);
+        cx += ctx.measureText(run.text).width;
+      }
+      cy += lineH;
+    }
   }
   ctx.restore();
 }
@@ -353,13 +373,14 @@ function paintLightingPlanPages(
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] ?? null;
-    const h = rowHeight(page.ctx, row);
+    let h = rowHeight(page.ctx, row);
     if (y + h > PAGE_H - MARGIN) {
       page = createPage();
       pages.push(page);
       y = drawHeader(page, doc, true);
       y = drawTableHead(page.ctx, y);
     }
+    h = Math.min(h, PAGE_H - MARGIN - y);
     drawRow(page, project, row, y, h);
     y += h;
   }
@@ -377,9 +398,11 @@ export async function downloadLightingPlanPdf(
 ): Promise<void> {
   if (typeof document !== "undefined" && document.fonts?.ready) {
     await document.fonts.ready;
-    await document.fonts.load('400 12px "Noto Sans JP"');
-    await document.fonts.load('700 14px "Noto Sans JP"');
+    await document.fonts.load('400 16px "Noto Sans JP"');
+    await document.fonts.load('700 16px "Noto Sans JP"');
     await document.fonts.load('700 18px "Noto Sans JP"');
+    await document.fonts.load('700 40px "Noto Sans JP"');
+    await document.fonts.load('700 72px "Noto Sans JP"');
   }
   const doc = buildLightingPlanDocument(project);
   const canvases = paintLightingPlanPages(project, doc);

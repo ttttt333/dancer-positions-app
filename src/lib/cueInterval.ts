@@ -10,6 +10,7 @@ import {
   parseDancerCustomPaths,
   parseGapApproachRoute,
 } from "./gapDancerInterpolation";
+import { presentLightingRequest } from "./lightingText";
 
 export function sortCuesByStart(cues: Cue[]): Cue[] {
   return [...cues].sort(
@@ -43,6 +44,7 @@ type RawCue = Record<string, unknown> & {
   name?: unknown;
   note?: unknown;
   lightingRequest?: unknown;
+  lightingRequestMarks?: unknown;
   gapApproachFromPrev?: unknown;
   dancerCustomPaths?: unknown;
 };
@@ -65,6 +67,7 @@ export function migrateCuesFromRaw(
     name?: string;
     note?: string;
     lightingRequest?: string;
+    lightingRequestMarks?: Cue["lightingRequestMarks"];
     gapFromPrev?: GapApproachRoute;
     dancerCustomPaths?: Record<string, { cpX: number; cpY: number }>;
   }[] = [];
@@ -82,10 +85,11 @@ export function migrateCuesFromRaw(
     const name =
       typeof c.name === "string" ? c.name.trim().slice(0, 80) || undefined : undefined;
     const note = typeof c.note === "string" ? c.note : undefined;
-    const lightingRequest =
-      typeof c.lightingRequest === "string" && c.lightingRequest.trim()
-        ? c.lightingRequest.trim().slice(0, 2000)
-        : undefined;
+    const lighting = presentLightingRequest(
+      typeof c.lightingRequest === "string" ? c.lightingRequest : undefined,
+      c.lightingRequestMarks
+    );
+    const lightingRequest = lighting.text || undefined;
 
     const tsKnown =
       typeof c.tStartSec === "number" && Number.isFinite(c.tStartSec)
@@ -109,6 +113,7 @@ export function migrateCuesFromRaw(
       name,
       note,
       lightingRequest,
+      lightingRequestMarks: lighting.marks,
       gapFromPrev: parseGapApproachRoute(c.gapApproachFromPrev),
       dancerCustomPaths: parseDancerCustomPaths(c.dancerCustomPaths),
     });
@@ -137,6 +142,7 @@ export function migrateCuesFromRaw(
       name: row.name,
       note: row.note,
       ...(row.lightingRequest ? { lightingRequest: row.lightingRequest } : {}),
+      ...(row.lightingRequestMarks ? { lightingRequestMarks: row.lightingRequestMarks } : {}),
       ...(i > 0 && row.gapFromPrev
         ? { gapApproachFromPrev: row.gapFromPrev }
         : {}),

@@ -11,7 +11,9 @@ import type {
   LightingPlan,
   LightingPlanCueTime,
   LightingPlanPinSpot,
+  LightingTextMark,
 } from "../types/choreography";
+import { normalizeLightingTextMarks, presentLightingRequest } from "./lightingText";
 
 const SHORT_MAX = 80;
 const LONG_MAX = 500;
@@ -27,6 +29,9 @@ export type LightingPlanCueRow = {
   name: string;
   note: string;
   lightingRequest: string;
+  lightingRequestMarks?: LightingTextMark[];
+  /** 画面で指定した行の高さ。未設定なら中身に合わせる */
+  rowHeightPx?: number;
   formationId: string;
   dancerCount: number;
 };
@@ -114,15 +119,34 @@ function parseOmittedCueIds(raw: unknown): string[] | undefined {
   return ids.length > 0 ? ids : undefined;
 }
 
+const ROW_HEIGHT_MIN = 96;
+const ROW_HEIGHT_MAX = 840;
+
+function parseRowHeights(raw: unknown): Record<string, number> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: Record<string, number> = {};
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    const cueId = id.trim().slice(0, 80);
+    const height = Math.round(Number(value));
+    if (!cueId || !Number.isFinite(height)) continue;
+    if (height < ROW_HEIGHT_MIN || height > ROW_HEIGHT_MAX) continue;
+    out[cueId] = height;
+    if (Object.keys(out).length >= 200) break;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function scheduleOf(plan: Partial<LightingPlan> | null | undefined): Pick<
   LightingPlan,
-  "cueTimes" | "omittedCueIds"
+  "cueTimes" | "omittedCueIds" | "rowHeights"
 > {
   const cueTimes = parseCueTimes(plan?.cueTimes);
   const omittedCueIds = parseOmittedCueIds(plan?.omittedCueIds);
+  const rowHeights = parseRowHeights(plan?.rowHeights);
   return {
     ...(cueTimes ? { cueTimes } : {}),
     ...(omittedCueIds ? { omittedCueIds } : {}),
+    ...(rowHeights ? { rowHeights } : {}),
   };
 }
 
@@ -262,7 +286,14 @@ function lightingPlanRows(project: ChoreographyProjectJson): LightingPlanCueRow[
       timeLabel: formatLightingRange(window.tStartSec, window.tEndSec),
       name: cue.name?.trim() ?? "",
       note: cue.note?.trim() ?? "",
-      lightingRequest: cue.lightingRequest?.trim() ?? "",
+      ...(() => {
+        const lighting = presentLightingRequest(cue.lightingRequest, cue.lightingRequestMarks);
+        return {
+          lightingRequest: lighting.text,
+          ...(lighting.marks ? { lightingRequestMarks: lighting.marks } : {}),
+        };
+      })(),
+      ...(plan?.rowHeights?.[cue.id] ? { rowHeightPx: plan.rowHeights[cue.id] } : {}),
       formationId: cue.formationId,
       dancerCount: formation?.dancers.length ?? 0,
     };
@@ -432,7 +463,7 @@ export function parseLightingPlanClock(input: string): number | null {
 export function withCuePlanText(
   project: ChoreographyProjectJson,
   cueId: string,
-  patch: Pick<Partial<Cue>, "name" | "note" | "lightingRequest">
+  patch: Pick<Partial<Cue>, "name" | "note" | "lightingRequest" | "lightingRequestMarks">
 ): ChoreographyProjectJson {
   return {
     ...project,
@@ -449,14 +480,46 @@ export function withCuePlanText(
         if (note) next.note = note;
         else delete next.note;
       }
-      if ("lightingRequest" in patch) {
-        const lightingRequest = clipEditable(patch.lightingRequest, CUE_TEXT_MAX);
+      if ("lightingRequest" in patch || "lightingRequestMarks" in patch) {
+        const lightingRequest =
+          "lightingRequest" in patch
+            ? clipEditable(patch.lightingRequest, CUE_TEXT_MAX)
+            : next.lightingRequest;
+        const marks = normalizeLightingTextMarks(
+          "lightingRequestMarks" in patch ? patch.lightingRequestMarks : next.lightingRequestMarks,
+          lightingRequest?.length ?? 0
+        );
         if (lightingRequest) next.lightingRequest = lightingRequest;
         else delete next.lightingRequest;
+        if (marks) next.lightingRequestMarks = marks;
+        else delete next.lightingRequestMarks;
       }
       return next;
     }),
   };
+}
+
+/** 照明表のその行の高さを px で残す。null で自動に戻す */
+export function setLightingPlanRowHeight(
+  project: ChoreographyProjectJson,
+  cueId: string,
+  heightPx: number | null
+): ChoreographyProjectJson {
+  if (!project.cues.some((cue) => cue.id === cueId)) return project;
+  const rowHeights = { ...(project.lightingPlan?.rowHeights ?? {}) };
+  if (heightPx == null || !Number.isFinite(heightPx)) delete rowHeights[cueId];
+  else {
+    rowHeights[cueId] = Math.round(
+      Math.min(ROW_HEIGHT_MAX, Math.max(ROW_HEIGHT_MIN, heightPx))
+    );
+  }
+  return writeLightingPlan(
+    project,
+    editableLightingPlan({
+      ...project.lightingPlan,
+      rowHeights: Object.keys(rowHeights).length > 0 ? rowHeights : undefined,
+    })
+  );
 }
 
 export function formationSketchDancers(
