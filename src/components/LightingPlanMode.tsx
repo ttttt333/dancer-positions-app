@@ -103,6 +103,10 @@ function PlanTimeEditor({
   onRemove,
   readPlayhead,
   maxMinute,
+  onPlayFrom,
+  onStop,
+  canPlay,
+  playingHere,
 }: {
   number: number;
   cueId: string;
@@ -115,6 +119,13 @@ function PlanTimeEditor({
   readPlayhead: () => number;
   /** 分プルダウンの最大。曲の長さと既存の時刻から決める */
   maxMinute: number;
+  /** このキューの開始から、上の再生バーと同じ音源を再生する */
+  onPlayFrom: (sec: number) => void;
+  /** 上の再生バーと同じ再生を、その場で止める */
+  onStop: () => void;
+  canPlay: boolean;
+  /** このキューの時間を再生中 */
+  playingHere: boolean;
 }) {
   const [start, setStart] = useState(() => wholePlanSec(startSec));
   const [end, setEnd] = useState(() => wholePlanSec(endSec));
@@ -183,6 +194,33 @@ function PlanTimeEditor({
             今
           </button>
         )}
+        <button
+          type="button"
+          className={
+            playingHere
+              ? `${styles.cuePlay} ${styles.cuePlayActive}`
+              : styles.cuePlay
+          }
+          aria-label={`キュー ${number} の開始から再生`}
+          aria-pressed={playingHere}
+          title="この開始から再生します。上の再生バーと同じ音源です"
+          disabled={!canPlay}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => onPlayFrom(start)}
+        >
+          再生
+        </button>
+        <button
+          type="button"
+          className={styles.cueStop}
+          aria-label="再生を停止"
+          title="再生を止めます。上の再生バーも止まります"
+          disabled={!canPlay}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={onStop}
+        >
+          停止
+        </button>
       </div>
       <div className={styles.timeBound}>
         <span className={styles.timeBoundLabel}>終了</span>
@@ -351,6 +389,34 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
     return usePlaybackUiStore.getState().currentTimeSec;
   }, []);
 
+  const playFromCue = useCallback(
+    (sec: number) => {
+      if (!playbackEngine.getMediaSourceUrl()) return;
+      const durationSec =
+        usePlaybackUiStore.getState().durationSec || playbackEngine.getDuration();
+      seekPlaybackClampedAndSyncStore({
+        t: sec,
+        durationSec,
+        trimStartSec,
+        trimEndSec,
+      });
+      if (playbackEngine.isPaused()) {
+        usePlaybackUiStore.getState().setIsPlaying(true);
+        void playbackEngine.play().catch(() => {
+          usePlaybackUiStore.getState().setIsPlaying(false);
+        });
+      }
+    },
+    [trimStartSec, trimEndSec]
+  );
+
+  const stopPlayback = useCallback(() => {
+    playbackEngine.pause();
+    const t = playbackEngine.getCurrentTime();
+    usePlaybackUiStore.getState().setIsPlaying(false);
+    if (Number.isFinite(t)) usePlaybackUiStore.getState().setCurrentTimeSec(t);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -380,6 +446,16 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
   const liveCueId = usePlaybackUiStore((s) =>
     lightingPlanCueIdAtTime(doc.rows, s.currentTimeSec)
   );
+  const isPlaying = usePlaybackUiStore((s) => s.isPlaying);
+  const [hasAudio, setHasAudio] = useState(
+    () => playbackEngine.getMediaSourceUrl().length > 0
+  );
+
+  useEffect(() => {
+    const sync = () => setHasAudio(playbackEngine.getMediaSourceUrl().length > 0);
+    sync();
+    return playbackEngine.onMetaChange(sync);
+  }, []);
   const trackMinute = usePlaybackUiStore((s) =>
     Math.floor(Math.max(0, s.durationSec) / 60)
   );
@@ -600,7 +676,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
             <thead>
               <tr>
                 <th style={{ width: 52 }}>番号</th>
-                <th style={{ width: 228 }}>時間</th>
+                <th style={{ width: 318 }}>時間</th>
                 <th>フォーメーション</th>
                 <th style={{ width: "34%" }}>照明 要望等</th>
               </tr>
@@ -633,6 +709,10 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                           disabled={lock}
                           readPlayhead={readPlayhead}
                           maxMinute={maxMinute}
+                          onPlayFrom={playFromCue}
+                          onStop={stopPlayback}
+                          canPlay={hasAudio}
+                          playingHere={isPlaying && row.cueId === liveCueId}
                           onCommit={(cueId, startSec, endSec) =>
                             setProject((current) => {
                               const cue = current.cues.find((item) => item.id === cueId);
