@@ -373,6 +373,40 @@ export function restoreOmittedLightingPlanCues(
   );
 }
 
+/**
+ * 再生位置の表示。`0:17.4` のように 0.1 秒単位で切り捨てる。
+ * 秒が変わる瞬間を、時間欄へ写す前に目で追えるようにする。
+ */
+export function formatLightingPlanPlayhead(sec: number): string {
+  if (!Number.isFinite(sec) || sec <= 0) return "0:00.0";
+  const tenths = Math.floor(Math.min(sec, 24 * 60 * 60) * 10 + 1e-6);
+  const minutes = Math.floor(tenths / 600);
+  const secondTenths = tenths % 600;
+  const seconds = Math.floor(secondTenths / 10);
+  const tenth = secondTenths % 10;
+  return `${minutes}:${String(seconds).padStart(2, "0")}.${tenth}`;
+}
+
+/** 再生位置がどの照明キューの時間に入っているか。点のキューは開始の前後 0.35 秒 */
+export function lightingPlanCueIdAtTime(
+  rows: readonly { cueId: string; tStartSec: number; tEndSec: number }[],
+  t: number
+): string {
+  if (!Number.isFinite(t)) return "";
+  for (const row of rows) {
+    if (t + 1e-6 >= row.tStartSec && t < row.tEndSec - 1e-6) return row.cueId;
+  }
+  for (const row of rows) {
+    if (
+      Math.abs(row.tEndSec - row.tStartSec) < 0.05 &&
+      Math.abs(t - row.tStartSec) < 0.35
+    ) {
+      return row.cueId;
+    }
+  }
+  return "";
+}
+
 /** `0:17` や `17` を照明表の秒にする。解釈できなければ null */
 export function parseLightingPlanClock(input: string): number | null {
   const parsed = parseMmSsFlexible(input);

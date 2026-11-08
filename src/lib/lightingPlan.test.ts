@@ -8,6 +8,8 @@ import {
   formatLightingRange,
   lightingPlanHeading,
   omitCueFromLightingPlan,
+  formatLightingPlanPlayhead,
+  lightingPlanCueIdAtTime,
   parseLightingPlanClock,
   restoreOmittedLightingPlanCues,
   setLightingPlanCueTime,
@@ -16,6 +18,21 @@ import {
 } from "./lightingPlan";
 
 describe("lighting plan document", () => {
+  it("shows the playhead in tenths and finds the cue under it", () => {
+    expect(formatLightingPlanPlayhead(0)).toBe("0:00.0");
+    expect(formatLightingPlanPlayhead(17.46)).toBe("0:17.4");
+    expect(formatLightingPlanPlayhead(65.09)).toBe("1:05.0");
+    const rows = [
+      { cueId: "a", tStartSec: 0, tEndSec: 17 },
+      { cueId: "b", tStartSec: 22, tEndSec: 24 },
+      { cueId: "c", tStartSec: 24, tEndSec: 24 },
+    ];
+    expect(lightingPlanCueIdAtTime(rows, 10)).toBe("a");
+    expect(lightingPlanCueIdAtTime(rows, 17)).toBe("");
+    expect(lightingPlanCueIdAtTime(rows, 23)).toBe("b");
+    expect(lightingPlanCueIdAtTime(rows, 24.1)).toBe("c");
+  });
+
   it("formats cue ranges like the recital sheet", () => {
     expect(formatLightingRange(0, 9)).toBe("0:00 ~ 0:09");
     expect(formatLightingRange(185, 205)).toBe("3:05 ~ 3:25");

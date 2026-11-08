@@ -72,6 +72,62 @@
   font-size: 12px;
 }
 
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: #111827;
+  color: #e2e8f0;
+  border-bottom: 1px solid #334155;
+  flex-shrink: 0;
+}
+
+.transportPlay {
+  width: 84px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid #b45309;
+  background: #fbbf24;
+  color: #1c1917;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.transportPlay:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.transportClock {
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  min-width: 6.4ch;
+}
+
+.transportMeta {
+  font-size: 13px;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.transportRange {
+  flex: 1;
+  min-width: 96px;
+  accent-color: #fbbf24;
+}
+
+.transportHint {
+  font-size: 12px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
 .scroll {
   flex: 1;
   overflow: auto;
@@ -235,6 +291,27 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
+}
+
+.stampNow {
+  border: 1px solid #cbd5e1;
+  background: #fff7ed;
+  color: #9a3412;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 3px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.stampNow:hover {
+  background: #ffedd5;
+}
+
+.rowLive {
+  background: #fff7ed;
 }
 
 .timeInput {

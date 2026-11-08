@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson, Formation } from "../types/choreography";
+import { playbackEngine } from "../core/playbackEngine";
 import {
   buildLightingPlanDocument,
   drawFormationSketch,
+  formatLightingPlanPlayhead,
   formationSketchDancers,
+  lightingPlanCueIdAtTime,
   omitCueFromLightingPlan,
   parseLightingPlanClock,
   restoreOmittedLightingPlanCues,
@@ -15,7 +18,12 @@ import {
 } from "../lib/lightingPlan";
 import { formatPdfClock } from "../lib/choreographyPdfPages";
 import { downloadLightingPlanPdf } from "../lib/lightingPlanPdf";
+import {
+  seekPlaybackClampedAndSyncStore,
+  togglePlaybackRespectingTrimStart,
+} from "../lib/playbackTransport";
 import { useLightingPlanUiStore } from "../store/lightingPlanUiStore";
+import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import styles from "./LightingPlanMode.module.css";
 
 type Props = {
@@ -32,6 +40,7 @@ function PlanTimeEditor({
   disabled,
   onCommit,
   onRemove,
+  readPlayhead,
 }: {
   number: number;
   cueId: string;
@@ -40,6 +49,8 @@ function PlanTimeEditor({
   disabled: boolean;
   onCommit: (cueId: string, startSec: number, endSec: number) => void;
   onRemove: (cueId: string) => void;
+  /** 再生中の秒。時間欄へ写す */
+  readPlayhead: () => number;
 }) {
   const [startText, setStartText] = useState(formatPdfClock(startSec));
   const [endText, setEndText] = useState(formatPdfClock(endSec));
@@ -60,9 +71,33 @@ function PlanTimeEditor({
     onCommit(cueId, start, end);
   };
 
+  const stamp = (which: "start" | "end") => {
+    const text = formatPdfClock(readPlayhead());
+    const nextStart = which === "start" ? text : startText;
+    const nextEnd = which === "end" ? text : endText;
+    if (which === "start") setStartText(text);
+    else setEndText(text);
+    const start = parseLightingPlanClock(nextStart);
+    const end = parseLightingPlanClock(nextEnd);
+    if (start == null || end == null || end <= start) return;
+    onCommit(cueId, start, end);
+  };
+
   return (
     <div className={styles.timeFields}>
       <div className={styles.timeRow}>
+        {disabled ? null : (
+          <button
+            type="button"
+            className={styles.stampNow}
+            aria-label={`キュー ${number} の開始を今の秒にする`}
+            title="再生位置を開始に入れる"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => stamp("start")}
+          >
+            今
+          </button>
+        )}
         <input
           className={styles.timeInput}
           aria-label={`キュー ${number} の開始`}
@@ -88,6 +123,18 @@ function PlanTimeEditor({
             if (event.key === "Enter") event.currentTarget.blur();
           }}
         />
+        {disabled ? null : (
+          <button
+            type="button"
+            className={styles.stampNow}
+            aria-label={`キュー ${number} の終了を今の秒にする`}
+            title="再生位置を終了に入れる"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => stamp("end")}
+          >
+            今
+          </button>
+        )}
       </div>
       {disabled ? null : (
         <button
@@ -146,6 +193,72 @@ function FormationSketch({ formation }: { formation: Formation | undefined }) {
   return <canvas ref={ref} className={styles.sketch} aria-hidden />;
 }
 
+function LightingPlanTransport({
+  trimStartSec,
+  trimEndSec,
+}: {
+  trimStartSec: number;
+  trimEndSec: number | null;
+}) {
+  const currentTime = usePlaybackUiStore((s) => s.currentTimeSec);
+  const isPlaying = usePlaybackUiStore((s) => s.isPlaying);
+  const duration = usePlaybackUiStore((s) => s.durationSec);
+  const [hasAudio, setHasAudio] = useState(
+    () => playbackEngine.getMediaSourceUrl().length > 0
+  );
+
+  useEffect(() => {
+    const sync = () => setHasAudio(playbackEngine.getMediaSourceUrl().length > 0);
+    sync();
+    return playbackEngine.onMetaChange(sync);
+  }, []);
+
+  const clock = formatLightingPlanPlayhead(currentTime);
+  const span = duration > 0 ? duration : playbackEngine.getDuration();
+
+  return (
+    <div className={styles.transport}>
+      <button
+        type="button"
+        className={styles.transportPlay}
+        disabled={!hasAudio}
+        aria-label={isPlaying ? "一時停止" : "再生"}
+        title={hasAudio ? "スペースキーでも再生・停止" : "音源を読み込んでから再生できます"}
+        onClick={() => togglePlaybackRespectingTrimStart(trimStartSec)}
+      >
+        {isPlaying ? "一時停止" : "再生"}
+      </button>
+      <span className={styles.transportClock} aria-label={`再生位置 ${clock}`}>
+        {clock}
+      </span>
+      <span className={styles.transportMeta}>/ {formatPdfClock(span)}</span>
+      <input
+        className={styles.transportRange}
+        type="range"
+        min={0}
+        max={span > 0 ? span : 0}
+        step={0.1}
+        value={span > 0 ? Math.min(currentTime, span) : 0}
+        disabled={!hasAudio || span <= 0}
+        aria-label="再生位置"
+        onChange={(event) => {
+          const t = Number(event.target.value);
+          if (!Number.isFinite(t)) return;
+          seekPlaybackClampedAndSyncStore({
+            t,
+            durationSec: span,
+            trimStartSec,
+            trimEndSec,
+          });
+        }}
+      />
+      <span className={styles.transportHint}>
+        {hasAudio ? "時間の「今」でこの秒を入れられます" : "音源がありません"}
+      </span>
+    </div>
+  );
+}
+
 export function LightingPlanMode({ project, setProject, readOnly = false }: Props) {
   const open = useLightingPlanUiStore((s) => s.open);
   const closeSheet = useLightingPlanUiStore((s) => s.closeSheet);
@@ -154,14 +267,43 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
   const doc = useMemo(() => buildLightingPlanDocument(project), [project]);
   const plan = project.lightingPlan;
 
+  const trimStartSec = project.trimStartSec ?? 0;
+  const trimEndSec = project.trimEndSec ?? null;
+
+  const readPlayhead = useCallback(() => {
+    if (playbackEngine.getMediaSourceUrl()) return playbackEngine.getCurrentTime();
+    return usePlaybackUiStore.getState().currentTimeSec;
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeSheet();
+      if (event.key === "Escape") {
+        closeSheet();
+        return;
+      }
+      if (event.key !== " " && event.code !== "Space") return;
+      const el = event.target instanceof HTMLElement ? event.target : null;
+      const tag = el?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        tag === "BUTTON" ||
+        el?.isContentEditable
+      ) {
+        return;
+      }
+      event.preventDefault();
+      togglePlaybackRespectingTrimStart(trimStartSec);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, closeSheet]);
+  }, [open, closeSheet, trimStartSec]);
+
+  const liveCueId = usePlaybackUiStore((s) =>
+    lightingPlanCueIdAtTime(doc.rows, s.currentTimeSec)
+  );
 
   if (!open) return null;
 
@@ -203,6 +345,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
           </button>
         </div>
       </div>
+      <LightingPlanTransport trimStartSec={trimStartSec} trimEndSec={trimEndSec} />
       <div className={styles.scroll}>
         <div className={styles.paper}>
           <div className={styles.topRow}>
@@ -371,7 +514,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
             <thead>
               <tr>
                 <th style={{ width: 52 }}>番号</th>
-                <th style={{ width: 148 }}>時間</th>
+                <th style={{ width: 196 }}>時間</th>
                 <th>フォーメーション</th>
                 <th style={{ width: "34%" }}>照明 要望等</th>
               </tr>
@@ -390,7 +533,10 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                   const cue = project.cues.find((item) => item.id === row.cueId);
                   const formation = project.formations.find((item) => item.id === row.formationId);
                   return (
-                    <tr key={row.cueId}>
+                    <tr
+                      key={row.cueId}
+                      className={row.cueId === liveCueId ? styles.rowLive : undefined}
+                    >
                       <td className={styles.num}>{row.number}</td>
                       <td className={styles.time}>
                         <PlanTimeEditor
@@ -399,6 +545,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                           startSec={row.tStartSec}
                           endSec={row.tEndSec}
                           disabled={lock}
+                          readPlayhead={readPlayhead}
                           onCommit={(cueId, startSec, endSec) =>
                             setProject((current) => {
                               const cue = current.cues.find((item) => item.id === cueId);
