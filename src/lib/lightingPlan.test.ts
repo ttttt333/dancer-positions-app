@@ -9,6 +9,8 @@ import {
   lightingPlanHeading,
   omitCueFromLightingPlan,
   formatLightingPlanPlayhead,
+  planClockFromParts,
+  planClockParts,
   lightingPlanCueIdAtTime,
   parseLightingPlanClock,
   restoreOmittedLightingPlanCues,
@@ -31,6 +33,13 @@ describe("lighting plan document", () => {
     expect(lightingPlanCueIdAtTime(rows, 17)).toBe("");
     expect(lightingPlanCueIdAtTime(rows, 23)).toBe("b");
     expect(lightingPlanCueIdAtTime(rows, 24.1)).toBe("c");
+  });
+
+  it("splits a clock into minute and second dropdowns", () => {
+    expect(planClockParts(17.4)).toEqual({ minutes: 0, seconds: 17 });
+    expect(planClockParts(65)).toEqual({ minutes: 1, seconds: 5 });
+    expect(planClockFromParts(1, 5)).toBe(65);
+    expect(planClockFromParts(2, 75)).toBe(2 * 60 + 59);
   });
 
   it("formats cue ranges like the recital sheet", () => {

@@ -258,7 +258,7 @@
 .box:focus,
 .select:focus,
 .headingInput:focus,
-.timeInput:focus {
+.timeSelect:focus {
   outline: 2px solid #818cf8;
   outline-offset: 1px;
 }
@@ -276,7 +276,6 @@
 .time {
   text-align: center;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 
 .timeFields {
@@ -286,11 +285,52 @@
   gap: 4px;
 }
 
-.timeRow {
+.timeBound {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
+}
+
+.timeBoundLabel {
+  width: 2.2em;
+  font-size: 10px;
+  font-weight: 800;
+  color: #475569;
+  text-align: left;
+}
+
+.timeSelect {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 2px 2px 4px;
+  border-radius: 4px;
+}
+
+.timeSelectMinute {
+  width: 48px;
+}
+
+.timeSelectSecond {
+  width: 52px;
+}
+
+.timeUnit {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.timeWarn {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: #b91c1c;
+  line-height: 1.3;
 }
 
 .stampNow {
@@ -312,18 +352,6 @@
 
 .rowLive {
   background: #fff7ed;
-}
-
-.timeInput {
-  width: 58px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  color: #111;
-  text-align: center;
-  font: inherit;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  padding: 2px 4px;
 }
 
 .removeRow {

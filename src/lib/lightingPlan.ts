@@ -387,6 +387,21 @@ export function formatLightingPlanPlayhead(sec: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}.${tenth}`;
 }
 
+/** 照明表のプルダウン用。秒は四捨五入して分と秒に分ける */
+export function planClockParts(sec: number): { minutes: number; seconds: number } {
+  const total = Math.max(0, Math.round(Number.isFinite(sec) ? sec : 0));
+  return { minutes: Math.floor(total / 60), seconds: total % 60 };
+}
+
+/** 分・秒のプルダウンから照明表の秒へ戻す。秒は 0〜59 */
+export function planClockFromParts(minutes: number, seconds: number): number {
+  const m = Number.isFinite(minutes) ? Math.max(0, Math.floor(minutes)) : 0;
+  const s = Number.isFinite(seconds)
+    ? Math.min(59, Math.max(0, Math.floor(seconds)))
+    : 0;
+  return m * 60 + s;
+}
+
 /** 再生位置がどの照明キューの時間に入っているか。点のキューは開始の前後 0.35 秒 */
 export function lightingPlanCueIdAtTime(
   rows: readonly { cueId: string; tStartSec: number; tEndSec: number }[],

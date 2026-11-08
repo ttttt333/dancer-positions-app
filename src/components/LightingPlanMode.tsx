@@ -10,7 +10,8 @@ import {
   formationSketchDancers,
   lightingPlanCueIdAtTime,
   omitCueFromLightingPlan,
-  parseLightingPlanClock,
+  planClockFromParts,
+  planClockParts,
   restoreOmittedLightingPlanCues,
   setLightingPlanCueTime,
   withCuePlanText,
@@ -32,6 +33,66 @@ type Props = {
   readOnly?: boolean;
 };
 
+const PLAN_CLOCK_SECONDS = Array.from({ length: 60 }, (_, index) => index);
+
+function wholePlanSec(sec: number): number {
+  const parts = planClockParts(sec);
+  return planClockFromParts(parts.minutes, parts.seconds);
+}
+
+function PlanClockSelects({
+  number,
+  bound,
+  minutes,
+  seconds,
+  minuteOptions,
+  disabled,
+  onMinutes,
+  onSeconds,
+}: {
+  number: number;
+  bound: "開始" | "終了";
+  minutes: number;
+  seconds: number;
+  minuteOptions: number[];
+  disabled: boolean;
+  onMinutes: (minutes: number) => void;
+  onSeconds: (seconds: number) => void;
+}) {
+  return (
+    <>
+      <select
+        className={`${styles.timeSelect} ${styles.timeSelectMinute}`}
+        aria-label={`キュー ${number} の${bound}の分`}
+        value={minutes}
+        disabled={disabled}
+        onChange={(event) => onMinutes(Number(event.target.value))}
+      >
+        {minuteOptions.map((minute) => (
+          <option key={minute} value={minute}>
+            {minute}
+          </option>
+        ))}
+      </select>
+      <span className={styles.timeUnit}>分</span>
+      <select
+        className={`${styles.timeSelect} ${styles.timeSelectSecond}`}
+        aria-label={`キュー ${number} の${bound}の秒`}
+        value={seconds}
+        disabled={disabled}
+        onChange={(event) => onSeconds(Number(event.target.value))}
+      >
+        {PLAN_CLOCK_SECONDS.map((second) => (
+          <option key={second} value={second}>
+            {String(second).padStart(2, "0")}
+          </option>
+        ))}
+      </select>
+      <span className={styles.timeUnit}>秒</span>
+    </>
+  );
+}
+
 function PlanTimeEditor({
   number,
   cueId,
@@ -41,6 +102,7 @@ function PlanTimeEditor({
   onCommit,
   onRemove,
   readPlayhead,
+  maxMinute,
 }: {
   number: number;
   cueId: string;
@@ -51,41 +113,64 @@ function PlanTimeEditor({
   onRemove: (cueId: string) => void;
   /** 再生中の秒。時間欄へ写す */
   readPlayhead: () => number;
+  /** 分プルダウンの最大。曲の長さと既存の時刻から決める */
+  maxMinute: number;
 }) {
-  const [startText, setStartText] = useState(formatPdfClock(startSec));
-  const [endText, setEndText] = useState(formatPdfClock(endSec));
+  const [start, setStart] = useState(() => wholePlanSec(startSec));
+  const [end, setEnd] = useState(() => wholePlanSec(endSec));
 
   useEffect(() => {
-    setStartText(formatPdfClock(startSec));
-    setEndText(formatPdfClock(endSec));
+    setStart(wholePlanSec(startSec));
+    setEnd(wholePlanSec(endSec));
   }, [cueId, startSec, endSec]);
 
-  const commit = () => {
-    const start = parseLightingPlanClock(startText);
-    const end = parseLightingPlanClock(endText);
-    if (start == null || end == null || end <= start) {
-      setStartText(formatPdfClock(startSec));
-      setEndText(formatPdfClock(endSec));
-      return;
-    }
-    onCommit(cueId, start, end);
+  const minuteOptions = useMemo(() => {
+    const cap = Math.max(maxMinute, Math.floor(start / 60), Math.floor(end / 60));
+    return Array.from({ length: cap + 1 }, (_, index) => index);
+  }, [maxMinute, start, end]);
+
+  const apply = (nextStart: number, nextEnd: number) => {
+    setStart(nextStart);
+    setEnd(nextEnd);
+    if (nextEnd > nextStart) onCommit(cueId, nextStart, nextEnd);
+  };
+
+  const changePart = (
+    which: "start" | "end",
+    part: "minutes" | "seconds",
+    value: number
+  ) => {
+    const current = which === "start" ? start : end;
+    const parts = planClockParts(current);
+    const next = planClockFromParts(
+      part === "minutes" ? value : parts.minutes,
+      part === "seconds" ? value : parts.seconds
+    );
+    apply(which === "start" ? next : start, which === "end" ? next : end);
   };
 
   const stamp = (which: "start" | "end") => {
-    const text = formatPdfClock(readPlayhead());
-    const nextStart = which === "start" ? text : startText;
-    const nextEnd = which === "end" ? text : endText;
-    if (which === "start") setStartText(text);
-    else setEndText(text);
-    const start = parseLightingPlanClock(nextStart);
-    const end = parseLightingPlanClock(nextEnd);
-    if (start == null || end == null || end <= start) return;
-    onCommit(cueId, start, end);
+    const next = wholePlanSec(readPlayhead());
+    apply(which === "start" ? next : start, which === "end" ? next : end);
   };
+
+  const startParts = planClockParts(start);
+  const endParts = planClockParts(end);
 
   return (
     <div className={styles.timeFields}>
-      <div className={styles.timeRow}>
+      <div className={styles.timeBound}>
+        <span className={styles.timeBoundLabel}>開始</span>
+        <PlanClockSelects
+          number={number}
+          bound="開始"
+          minutes={startParts.minutes}
+          seconds={startParts.seconds}
+          minuteOptions={minuteOptions}
+          disabled={disabled}
+          onMinutes={(minutes) => changePart("start", "minutes", minutes)}
+          onSeconds={(seconds) => changePart("start", "seconds", seconds)}
+        />
         {disabled ? null : (
           <button
             type="button"
@@ -98,30 +183,18 @@ function PlanTimeEditor({
             今
           </button>
         )}
-        <input
-          className={styles.timeInput}
-          aria-label={`キュー ${number} の開始`}
-          value={startText}
+      </div>
+      <div className={styles.timeBound}>
+        <span className={styles.timeBoundLabel}>終了</span>
+        <PlanClockSelects
+          number={number}
+          bound="終了"
+          minutes={endParts.minutes}
+          seconds={endParts.seconds}
+          minuteOptions={minuteOptions}
           disabled={disabled}
-          inputMode="decimal"
-          onChange={(event) => setStartText(event.target.value)}
-          onBlur={commit}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur();
-          }}
-        />
-        <span>~</span>
-        <input
-          className={styles.timeInput}
-          aria-label={`キュー ${number} の終了`}
-          value={endText}
-          disabled={disabled}
-          inputMode="decimal"
-          onChange={(event) => setEndText(event.target.value)}
-          onBlur={commit}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur();
-          }}
+          onMinutes={(minutes) => changePart("end", "minutes", minutes)}
+          onSeconds={(seconds) => changePart("end", "seconds", seconds)}
         />
         {disabled ? null : (
           <button
@@ -136,6 +209,9 @@ function PlanTimeEditor({
           </button>
         )}
       </div>
+      {end <= start ? (
+        <p className={styles.timeWarn}>終了は開始より後にしてください</p>
+      ) : null}
       {disabled ? null : (
         <button
           type="button"
@@ -304,6 +380,16 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
   const liveCueId = usePlaybackUiStore((s) =>
     lightingPlanCueIdAtTime(doc.rows, s.currentTimeSec)
   );
+  const trackMinute = usePlaybackUiStore((s) =>
+    Math.floor(Math.max(0, s.durationSec) / 60)
+  );
+  const maxMinute = useMemo(() => {
+    let peak = trackMinute;
+    for (const row of doc.rows) {
+      peak = Math.max(peak, Math.floor(row.tStartSec / 60), Math.floor(row.tEndSec / 60));
+    }
+    return Math.max(12, peak);
+  }, [doc.rows, trackMinute]);
 
   if (!open) return null;
 
@@ -514,7 +600,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
             <thead>
               <tr>
                 <th style={{ width: 52 }}>番号</th>
-                <th style={{ width: 196 }}>時間</th>
+                <th style={{ width: 228 }}>時間</th>
                 <th>フォーメーション</th>
                 <th style={{ width: "34%" }}>照明 要望等</th>
               </tr>
@@ -546,6 +632,7 @@ export function LightingPlanMode({ project, setProject, readOnly = false }: Prop
                           endSec={row.tEndSec}
                           disabled={lock}
                           readPlayhead={readPlayhead}
+                          maxMinute={maxMinute}
                           onCommit={(cueId, startSec, endSec) =>
                             setProject((current) => {
                               const cue = current.cues.find((item) => item.id === cueId);
