@@ -48,6 +48,7 @@ import {
 import { waitForAudioElementReady } from "../lib/audioElementReady";
 import { resyncEditorPlaybackMedia } from "../lib/resyncPlaybackMedia";
 import { putFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
+import { releaseUnreferencedSupabaseAudio } from "../lib/supabaseAudioOrphans";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
@@ -258,6 +259,12 @@ export function useTimelineAudioImport({
                   audioAssetId: null,
                   flowLocalAudioKey: null,
                 });
+                const previousPath = priorAudio?.audioSupabasePath?.trim() ?? "";
+                if (previousPath && previousPath !== up.path) {
+                  await releaseUnreferencedSupabaseAudio(previousPath).catch((err) => {
+                    console.warn("[audioImport] unused audio release:", err);
+                  });
+                }
               } catch (persistErr) {
                 console.warn(
                   "[audioImport] cloud project save after upload:",
