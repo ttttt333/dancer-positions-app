@@ -115,6 +115,17 @@ export async function setWavePeaksCache(
   }
 }
 
+/** 音源から再計算できる波形ピークキャッシュを空にする。フロー memento のピークは触らない。 */
+export async function clearAllWavePeaksCache(): Promise<void> {
+  memoryCache.clear();
+  try {
+    const db = await getDb();
+    await db.clear(STORE);
+  } catch {
+    /** ignore */
+  }
+}
+
 export async function deleteWavePeaksCache(key: string): Promise<void> {
   memoryCache.delete(key);
   try {

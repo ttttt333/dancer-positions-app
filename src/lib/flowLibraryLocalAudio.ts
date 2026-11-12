@@ -77,6 +77,24 @@ export async function deleteFlowLibraryAudio(key: string): Promise<void> {
   }
 }
 
+/** どのフローの `flowEmbeddedAudioKey` にも無い音源だけ消す。 */
+export async function deleteUnreferencedFlowLibraryAudio(
+  keep: ReadonlySet<string>
+): Promise<number> {
+  let removed = 0;
+  try {
+    const keys = await listFlowLibraryAudioKeys();
+    for (const key of keys) {
+      if (keep.has(key)) continue;
+      await deleteFlowLibraryAudio(key);
+      removed += 1;
+    }
+  } catch {
+    /** 無視 */
+  }
+  return removed;
+}
+
 /** バックアップ用: IndexedDB に入っている音源キー一覧 */
 export async function listFlowLibraryAudioKeys(): Promise<string[]> {
   try {

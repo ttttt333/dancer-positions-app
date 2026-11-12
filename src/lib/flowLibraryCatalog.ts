@@ -39,14 +39,10 @@ function getDb(): Promise<IDBPDatabase<CatalogDb>> {
 }
 
 export async function readFlowLibraryCatalogRaw(): Promise<unknown[] | null> {
-  try {
-    const db = await getDb();
-    const row = await db.get(STORE, ALL_KEY);
-    if (!row || !Array.isArray(row.items)) return null;
-    return row.items;
-  } catch {
-    return null;
-  }
+  const db = await getDb();
+  const row = await db.get(STORE, ALL_KEY);
+  if (!row || !Array.isArray(row.items)) return null;
+  return row.items;
 }
 
 export async function writeFlowLibraryCatalogRaw(items: unknown[]): Promise<void> {

@@ -113,6 +113,20 @@ export async function deleteCachedAudioBlob(cacheKey: string): Promise<void> {
   }
 }
 
+/**
+ * 再生のたびに取り直せる音源・波形の Cache API。
+ * フローライブラリの名前付きフロー本体はここには無い。
+ */
+export async function clearDisposableWaveMediaCaches(): Promise<void> {
+  if (typeof caches === "undefined" || typeof caches.delete !== "function") return;
+  try {
+    await caches.delete(AUDIO_CACHE);
+    await caches.delete(PEAKS_CACHE);
+  } catch {
+    /** ignore */
+  }
+}
+
 export async function deleteCachedPeaksPayload(cacheKey: string): Promise<void> {
   const cache = await openNamedCache(PEAKS_CACHE);
   if (!cache) return;
